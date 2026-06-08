@@ -12,7 +12,8 @@ const MODEL_MAP: [RegExp, string][] = [
   [/200[\s-]?series|lc200|land.?cruiser.?200/i,      '200-series'],
   [/100[\s-]?series|lc100|land.?cruiser.?100/i,      '100-series'],
   [/80[\s-]?series|lc80|land.?cruiser.?80/i,         '80-series'],
-  [/land.?cruiser.?fj|fj[\s-]?cruiser/i,              'fj-cruiser'],
+  [/land.?cruiser.?fj(?!\s*cruiser)/i,               'land-cruiser-fj'],
+  [/fj[\s-]?cruiser/i,                               'fj-cruiser'],
 ];
 
 export function normalizeModel(raw: string, year?: number): string {
