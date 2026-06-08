@@ -5,11 +5,9 @@ import { db } from '@/db/index';
 import { listings } from '@/db/schema';
 import { eq, and, sql } from 'drizzle-orm';
 
-function checkAdmin(request: Request): boolean {
-  const cookie = request.headers.get('cookie') ?? '';
-  const match = cookie.match(/lcsa_admin=([^;]+)/);
-  const token = match?.[1];
-  const secret = process.env.ADMIN_SECRET;
+function checkAdmin(cookies: { get(name: string): { value: string } | undefined }): boolean {
+  const token = cookies.get('lcsa_admin')?.value;
+  const secret = import.meta.env.ADMIN_SECRET ?? process.env.ADMIN_SECRET;
   return Boolean(token && secret && token === secret);
 }
 
@@ -37,8 +35,8 @@ function delay(ms: number) {
 
 // Streams progress as Server-Sent Events so the connection stays alive past
 // Fly's 15-second response-header timeout.
-export const GET: APIRoute = async ({ request }) => {
-  if (!checkAdmin(request)) {
+export const GET: APIRoute = async ({ cookies }) => {
+  if (!checkAdmin(cookies)) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
   }
 
