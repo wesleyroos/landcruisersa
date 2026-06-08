@@ -8,31 +8,121 @@ const SEARCH_PAGE = `${BASE}/cars-for-sale/toyota/land-cruiser`;
 
 const BROWSER_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
 
-function extractListingsFromHtml(html: string): Array<{ id: string; url: string }> {
-  // AutoTrader SSR embeds listing data as props to the SearchPageView component
-  const pairs: Array<{ id: string; url: string }> = [];
-  const seen = new Set<string>();
-  const matches = html.matchAll(/"listingId":(\d+),"canonicalUrl":"([^"]+)"/g);
-  for (const m of matches) {
-    const id = m[1];
-    if (!seen.has(id)) {
-      seen.add(id);
-      pairs.push({ id, url: m[2] });
-    }
-  }
-  return pairs;
+// City → province mapping for major SA cities (best-effort)
+const CITY_PROVINCE: Record<string, string> = {
+  'johannesburg': 'Gauteng', 'sandton': 'Gauteng', 'midrand': 'Gauteng', 'centurion': 'Gauteng',
+  'pretoria': 'Gauteng', 'tshwane': 'Gauteng', 'soweto': 'Gauteng', 'alberton': 'Gauteng',
+  'boksburg': 'Gauteng', 'benoni': 'Gauteng', 'germiston': 'Gauteng', 'roodepoort': 'Gauteng',
+  'fourways': 'Gauteng', 'randburg': 'Gauteng', 'krugersdorp': 'Gauteng',
+  'cape town': 'Western Cape', 'stellenbosch': 'Western Cape', 'george': 'Western Cape',
+  'paarl': 'Western Cape', 'bellville': 'Western Cape', 'brackenfell': 'Western Cape',
+  'durban': 'KwaZulu-Natal', 'pinetown': 'KwaZulu-Natal', 'pietermaritzburg': 'KwaZulu-Natal',
+  'port elizabeth': 'Eastern Cape', 'gqeberha': 'Eastern Cape', 'east london': 'Eastern Cape',
+  'polokwane': 'Limpopo', 'nelspruit': 'Mpumalanga', 'mbombela': 'Mpumalanga',
+  'rustenburg': 'North West', 'bloemfontein': 'Free State', 'kimberley': 'Northern Cape',
+};
+
+function cityToProvince(city: string): string {
+  const key = city.toLowerCase().trim();
+  return CITY_PROVINCE[key] ?? '';
 }
 
-function parseMileage(raw: string | number): number {
-  if (typeof raw === 'number') return raw;
-  // AutoTrader formats mileage with comma thousands: "105,000000"
-  return Number(String(raw).replace(/,/g, '').replace(/\s/g, '')) || 0;
+// ─── SSR tile types ───────────────────────────────────────────────────────────
+
+interface SummaryIcon {
+  text: string;
+  type: number;
 }
+
+interface AtTile {
+  listingId: number;
+  canonicalUrl: string;
+  imageUrl?: string;
+  standOutImageUrls?: string[];
+  registrationYear?: number;
+  price?: string;          // "R 1 299 900"
+  make?: string;
+  model?: string;
+  variant?: string;
+  newUsedDescription?: string;
+  dealerName?: string;
+  dealerCityName?: string;
+  summaryIcons?: SummaryIcon[];
+}
+
+function parsePrice(raw: string): number {
+  return Number(raw.replace(/[^0-9]/g, '')) || 0;
+}
+
+function parseMileageText(icons: SummaryIcon[]): number {
+  for (const icon of icons) {
+    // Look for "km" icon: "105 km", "15 000 km", "150 000 km"
+    if (/km/i.test(icon.text)) {
+      return Number(icon.text.replace(/[^0-9]/g, '')) || 0;
+    }
+  }
+  return 0;
+}
+
+function parseTransmission(icons: SummaryIcon[]): 'manual' | 'automatic' {
+  for (const icon of icons) {
+    if (/auto/i.test(icon.text)) return 'automatic';
+    if (/manual/i.test(icon.text)) return 'manual';
+  }
+  return 'manual';
+}
+
+function parseFuel(icons: SummaryIcon[]): string | undefined {
+  const fuels = ['diesel', 'petrol', 'electric', 'hybrid', 'petrol/electric'];
+  for (const icon of icons) {
+    const lower = icon.text.toLowerCase();
+    for (const f of fuels) {
+      if (lower.includes(f)) return icon.text;
+    }
+  }
+  return undefined;
+}
+
+function tileToListing(tile: AtTile): NormalizedListing {
+  const title = [tile.registrationYear, tile.make, tile.model, tile.variant].filter(Boolean).join(' ');
+  const photos: string[] = [];
+  if (tile.imageUrl) photos.push(tile.imageUrl);
+  for (const u of tile.standOutImageUrls ?? []) {
+    if (!photos.includes(u)) photos.push(u);
+  }
+  const icons = tile.summaryIcons ?? [];
+  const mileage = parseMileageText(icons);
+  const isUsed = /used/i.test(tile.newUsedDescription ?? '') || mileage > 0;
+  const url = tile.canonicalUrl.startsWith('http') ? tile.canonicalUrl : `${BASE}${tile.canonicalUrl}`;
+
+  return {
+    source: SOURCE,
+    source_id: String(tile.listingId),
+    source_url: url,
+    title,
+    model: normalizeModel(title),
+    year: tile.registrationYear ?? new Date().getFullYear(),
+    price: parsePrice(tile.price ?? ''),
+    mileage,
+    province: normalizeProvince(cityToProvince(tile.dealerCityName ?? '')),
+    new_or_used: isUsed ? 'Used' : 'New',
+    transmission: parseTransmission(icons),
+    colour: '',
+    description: '',
+    photos: photos.slice(0, 20),
+    seller_name: tile.dealerName ?? 'AutoTrader Dealer',
+    fuel_type: parseFuel(icons),
+  };
+}
+
+// Populated during discover(); fetchListing reads from here (no per-listing HTTP calls)
+const _cache = new Map<string, NormalizedListing>();
 
 export const AutoTraderAdapter: SourceAdapter = {
   source: SOURCE,
 
   async discover(): Promise<DiscoveredRef[]> {
+    _cache.clear();
     const refs: DiscoveredRef[] = [];
 
     const res = await politeFetch(SEARCH_PAGE, {
@@ -45,92 +135,55 @@ export const AutoTraderAdapter: SourceAdapter = {
     if (!res.ok) return refs;
 
     const html = await res.text();
-    const items = extractListingsFromHtml(html);
 
-    for (const item of items) {
-      refs.push({
-        source: SOURCE,
-        source_id: item.id,
-        source_url: item.url.startsWith('http') ? item.url : `${BASE}${item.url}`,
-      });
+    // AutoTrader SSR embeds tile data as props to the React component
+    // Pattern: {"resultType":N,"listingId":NNNN,...} in the inline script
+    const tileRe = /\{"resultType":\d+,"listingId":(\d+),[^{]*"canonicalUrl":"([^"]+)"[^}]*\}/g;
+    const seen = new Set<string>();
+
+    // We need to extract full tile objects. Use a broader capture.
+    const scriptRe = /<script[^>]*>([\s\S]*?)<\/script>/gi;
+    let scriptMatch: RegExpExecArray | null;
+    while ((scriptMatch = scriptRe.exec(html)) !== null) {
+      const s = scriptMatch[1];
+      if (!s.includes('canonicalUrl') || !s.includes('listingId')) continue;
+
+      // Extract each tile JSON blob
+      const tileMatches = s.matchAll(/"listingId":(\d+),"canonicalUrl":"([^"]+)"/g);
+      for (const m of tileMatches) {
+        const id = m[1];
+        if (seen.has(id)) continue;
+        seen.add(id);
+
+        // Try to extract the surrounding object for this listingId
+        const startIdx = s.lastIndexOf('{"resultType":', s.indexOf(`"listingId":${id}`));
+        if (startIdx === -1) continue;
+
+        // Find the matching closing brace
+        let depth = 0, endIdx = startIdx;
+        for (let i = startIdx; i < s.length; i++) {
+          if (s[i] === '{') depth++;
+          else if (s[i] === '}') { depth--; if (depth === 0) { endIdx = i; break; } }
+        }
+        if (endIdx === startIdx) continue;
+
+        try {
+          const tile = JSON.parse(s.slice(startIdx, endIdx + 1)) as AtTile;
+          const listing = tileToListing(tile);
+          _cache.set(id, listing);
+          const url = tile.canonicalUrl.startsWith('http') ? tile.canonicalUrl : `${BASE}${tile.canonicalUrl}`;
+          refs.push({ source: SOURCE, source_id: id, source_url: url });
+        } catch { /* malformed tile — skip */ }
+      }
+      break; // only one script tag has this data
     }
 
     return refs;
   },
 
   async fetchListing(ref: DiscoveredRef): Promise<NormalizedListing | null> {
-    const res = await politeFetch(ref.source_url, {
-      headers: { 'User-Agent': BROWSER_UA },
-    });
-    if (res.status === 404) return null;
-    if (!res.ok) return null;
-
-    const html = await res.text();
-
-    // Extract JSON-LD structured data
-    let vehicleData: Record<string, unknown> = {};
-    const ldMatches = html.matchAll(/<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi);
-    for (const m of ldMatches) {
-      try {
-        const parsed = JSON.parse(m[1]);
-        const types = ([] as string[]).concat(parsed['@type'] ?? []);
-        if (types.some(t => ['Vehicle', 'Car', 'Product'].includes(t))) {
-          vehicleData = parsed;
-          break;
-        }
-      } catch { /* ignore */ }
-    }
-
-    if (!vehicleData.name) return null;
-
-    const title = String(vehicleData.name ?? '');
-    const modelDate = String(vehicleData.modelDate ?? vehicleData.vehicleModelDate ?? '');
-    const year = modelDate ? new Date(modelDate).getFullYear() : new Date().getFullYear();
-    const offerData = vehicleData.offers as Record<string, unknown> | undefined;
-    const price = Number(offerData?.price ?? vehicleData.price ?? 0);
-    const mileageData = vehicleData.mileageFromOdometer as Record<string, unknown> | undefined;
-    const mileage = parseMileage(mileageData?.value ?? vehicleData.mileage ?? 0);
-    const province = normalizeProvince(
-      String((vehicleData.displayLocation as Record<string, unknown>)?.address ?? vehicleData.province ?? '')
-    );
-    const colour = String(vehicleData.color ?? vehicleData.colour ?? '');
-    const description = String(vehicleData.description ?? '');
-    const transmissionRaw = String(vehicleData.vehicleTransmission ?? vehicleData.transmission ?? '').toLowerCase();
-    const transmission: 'manual' | 'automatic' = transmissionRaw.includes('auto') ? 'automatic' : 'manual';
-    const seller = offerData?.seller as Record<string, unknown> | undefined;
-    const seller_name = String(seller?.name ?? vehicleData.seller ?? 'AutoTrader Dealer');
-    const fuelRaw = String(vehicleData.fuelType ?? '');
-    const fuel_type = fuelRaw || undefined;
-
-    // Collect all unique image URLs from the page
-    const imgSet = new Set<string>();
-    // JSON-LD image first
-    const ldImg = vehicleData.image;
-    if (typeof ldImg === 'string') imgSet.add(ldImg);
-    // All img.autotrader.co.za occurrences from HTML
-    for (const m of html.matchAll(/https:\/\/img\.autotrader\.co\.za\/\d+/g)) {
-      imgSet.add(m[0]);
-    }
-    const photos = Array.from(imgSet).slice(0, 20);
-
-    return {
-      source: SOURCE,
-      source_id: ref.source_id,
-      source_url: ref.source_url,
-      title,
-      model: normalizeModel(title),
-      year,
-      price,
-      mileage,
-      province,
-      new_or_used: mileage > 0 ? 'Used' : 'New',
-      transmission,
-      colour,
-      description,
-      photos,
-      seller_name,
-      fuel_type,
-    };
+    // Return from SSR cache — avoids per-listing HTTP requests entirely
+    return _cache.get(ref.source_id) ?? null;
   },
 
   async isStillLive(ref: DiscoveredRef): Promise<LivenessResult> {
