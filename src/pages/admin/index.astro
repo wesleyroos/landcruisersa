@@ -53,6 +53,20 @@ const grouped: { label: string; status: string; items: Listing[] }[] = [
     </div>
   </div>
 
+  <!-- TOOLS -->
+  <div class="tools-row">
+    <div class="tool-card">
+      <div class="tool-info">
+        <p class="tool-name">AT Image Backfill</p>
+        <p class="tool-desc">Fetch full image sets for AutoTrader listings with &lt;2 photos (up to 10 per run).</p>
+      </div>
+      <div class="tool-controls">
+        <button id="run-backfill-btn" class="btn btn-tool">Run Backfill</button>
+        <p id="backfill-status" class="tool-status"></p>
+      </div>
+    </div>
+  </div>
+
   <!-- GROUPS -->
   {grouped.map(({ label, status, items }) => (
     <div class="group">
@@ -133,6 +147,21 @@ const grouped: { label: string; status: string; items: Listing[] }[] = [
   .stat-pending .stat-val { color: #F5A623; }
   .stat-active  .stat-val { color: #111111; }
   .stat-sold    .stat-val { color: #9CA3AF; }
+
+  /* TOOLS */
+  .tools-row { margin-bottom: 2rem; }
+  .tool-card {
+    border: 1.5px solid #E5E7EB; border-radius: 0.75rem;
+    padding: 1rem 1.25rem; display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap;
+  }
+  .tool-info { flex: 1; min-width: 200px; }
+  .tool-name { font-size: 0.8rem; font-weight: 700; color: #111111; margin-bottom: 0.2rem; }
+  .tool-desc { font-size: 0.725rem; color: #9CA3AF; }
+  .tool-controls { display: flex; align-items: center; gap: 0.75rem; flex-shrink: 0; flex-wrap: wrap; }
+  .tool-status { font-size: 0.7rem; color: #6B7280; font-variant-numeric: tabular-nums; }
+  .btn-tool { background: #111111; color: white; border-color: #111111; }
+  .btn-tool:hover:not(:disabled) { background: #374151; border-color: #374151; }
+  .btn-tool:disabled { opacity: 0.5; }
 
   /* GROUPS */
   .group { margin-bottom: 2.5rem; }
@@ -246,6 +275,52 @@ const grouped: { label: string; status: string; items: Listing[] }[] = [
     card.style.transform = 'translateX(8px)';
     setTimeout(() => card.remove(), 260);
   }
+
+  // AT image backfill — streams SSE progress
+  document.getElementById('run-backfill-btn')?.addEventListener('click', async function () {
+    const btn = this as HTMLButtonElement;
+    const statusEl = document.getElementById('backfill-status')!;
+
+    btn.disabled = true;
+    btn.textContent = 'Running…';
+    statusEl.textContent = 'Starting…';
+
+    try {
+      const res = await fetch('/api/admin/run-backfill');
+      if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const parts = buf.split('\n\n');
+        buf = parts.pop() ?? '';
+        for (const part of parts) {
+          if (!part.startsWith('data: ')) continue;
+          let ev: Record<string, unknown>;
+          try { ev = JSON.parse(part.slice(6)); } catch { continue; }
+          if (ev.type === 'start') {
+            statusEl.textContent = ev.total === 0 ? 'Nothing to backfill.' : `Processing ${ev.total} listings…`;
+          } else if (ev.type === 'progress') {
+            statusEl.textContent = ev.ok
+              ? `${ev.source_id}: ${ev.photos} photos saved`
+              : `${ev.source_id}: ${ev.reason}`;
+          } else if (ev.type === 'done') {
+            statusEl.textContent = `Done — ${ev.updated} updated, ${ev.empty} empty, ${ev.failed} failed`;
+          }
+        }
+      }
+    } catch (err) {
+      statusEl.textContent = `Error: ${String(err)}`;
+    }
+
+    btn.disabled = false;
+    btn.textContent = 'Run Backfill';
+  });
 
   document.addEventListener('click', async (e) => {
     const btn = (e.target as Element).closest<HTMLButtonElement>('[data-action]');
