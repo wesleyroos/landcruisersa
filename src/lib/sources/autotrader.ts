@@ -4,18 +4,29 @@ import type { DiscoveredRef, NormalizedListing, LivenessResult, SourceAdapter } 
 
 const SOURCE = 'autotrader';
 const BASE = 'https://www.autotrader.co.za';
+const SEARCH_PAGE = `${BASE}/cars-for-sale/toyota/land-cruiser`;
 
-// AutoTrader's internal search API — returns JSON, much easier than HTML scraping
-const SEARCH_URL = `${BASE}/api/search?make=Toyota&model=Land+Cruiser&pageSize=96&sortBy=relevance`;
+const BROWSER_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
 
-interface ATSearchResult {
-  id: string;
-  url: string;
+function extractListingsFromHtml(html: string): Array<{ id: string; url: string }> {
+  // AutoTrader SSR embeds listing data as props to the SearchPageView component
+  const pairs: Array<{ id: string; url: string }> = [];
+  const seen = new Set<string>();
+  const matches = html.matchAll(/"listingId":(\d+),"canonicalUrl":"([^"]+)"/g);
+  for (const m of matches) {
+    const id = m[1];
+    if (!seen.has(id)) {
+      seen.add(id);
+      pairs.push({ id, url: m[2] });
+    }
+  }
+  return pairs;
 }
 
-interface ATSearchResponse {
-  data?: { items?: ATSearchResult[] };
-  listings?: { id: string; url: string }[];
+function parseMileage(raw: string | number): number {
+  if (typeof raw === 'number') return raw;
+  // AutoTrader formats mileage with comma thousands: "105,000000"
+  return Number(String(raw).replace(/,/g, '').replace(/\s/g, '')) || 0;
 }
 
 export const AutoTraderAdapter: SourceAdapter = {
@@ -23,117 +34,84 @@ export const AutoTraderAdapter: SourceAdapter = {
 
   async discover(): Promise<DiscoveredRef[]> {
     const refs: DiscoveredRef[] = [];
-    let page = 1;
-    const seenIds = new Set<string>();
 
-    while (true) {
-      const url = `${SEARCH_URL}&page=${page}`;
-      const res = await politeFetch(url, {
-        headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+    const res = await politeFetch(SEARCH_PAGE, {
+      headers: {
+        'Accept': 'text/html,application/xhtml+xml',
+        'User-Agent': BROWSER_UA,
+        'Accept-Language': 'en-ZA,en;q=0.9',
+      },
+    });
+    if (!res.ok) return refs;
+
+    const html = await res.text();
+    const items = extractListingsFromHtml(html);
+
+    for (const item of items) {
+      refs.push({
+        source: SOURCE,
+        source_id: item.id,
+        source_url: item.url.startsWith('http') ? item.url : `${BASE}${item.url}`,
       });
-
-      if (!res.ok) break;
-
-      const json: ATSearchResponse = await res.json().catch(() => ({}));
-
-      // AutoTrader has varied response shapes; try both
-      const items: ATSearchResult[] =
-        json?.data?.items ??
-        json?.listings ??
-        [];
-
-      if (items.length === 0) break;
-
-      for (const item of items) {
-        if (!item.id || seenIds.has(item.id)) continue;
-        seenIds.add(item.id);
-        const path = item.url ?? `/car-for-sale/toyota/land-cruiser/${item.id}`;
-        refs.push({
-          source: SOURCE,
-          source_id: String(item.id),
-          source_url: path.startsWith('http') ? path : `${BASE}${path}`,
-        });
-      }
-
-      // AutoTrader typically has 96 items per page; if fewer, we're on the last page
-      if (items.length < 96) break;
-      page++;
     }
 
     return refs;
   },
 
   async fetchListing(ref: DiscoveredRef): Promise<NormalizedListing | null> {
-    const res = await politeFetch(ref.source_url);
+    const res = await politeFetch(ref.source_url, {
+      headers: { 'User-Agent': BROWSER_UA },
+    });
     if (res.status === 404) return null;
     if (!res.ok) return null;
 
     const html = await res.text();
 
-    // AutoTrader embeds listing data as JSON-LD or in window.__INITIAL_STATE__
-    const ldMatch = html.match(/<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi);
+    // Extract JSON-LD structured data
     let vehicleData: Record<string, unknown> = {};
-    if (ldMatch) {
-      for (const block of ldMatch) {
-        try {
-          const inner = block.replace(/<\/?script[^>]*>/gi, '');
-          const parsed = JSON.parse(inner);
-          if (parsed['@type'] === 'Vehicle' || parsed['@type'] === 'Car') {
-            vehicleData = parsed;
-            break;
-          }
-        } catch { /* ignore */ }
-      }
+    const ldMatches = html.matchAll(/<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi);
+    for (const m of ldMatches) {
+      try {
+        const parsed = JSON.parse(m[1]);
+        const types = ([] as string[]).concat(parsed['@type'] ?? []);
+        if (types.some(t => ['Vehicle', 'Car', 'Product'].includes(t))) {
+          vehicleData = parsed;
+          break;
+        }
+      } catch { /* ignore */ }
     }
 
-    // Fallback: try window.__INITIAL_STATE__ (a large JSON blob)
-    if (!vehicleData.name) {
-      const stateMatch = html.match(/window\.__INITIAL_STATE__\s*=\s*(\{[\s\S]*?\});?\s*(?:window|<\/script)/);
-      if (stateMatch) {
-        try {
-          const state = JSON.parse(stateMatch[1]);
-          // Path varies; try common locations
-          const listing =
-            state?.listing?.data ??
-            state?.listingDetail?.listing ??
-            state?.advert ??
-            {};
-          if (listing.title || listing.heading) {
-            vehicleData = listing;
-          }
-        } catch { /* ignore */ }
-      }
-    }
+    if (!vehicleData.name) return null;
 
-    if (!vehicleData.name && !vehicleData.title && !vehicleData.heading) return null;
-
-    const title = String(vehicleData.name ?? vehicleData.title ?? vehicleData.heading ?? '');
-    const year = Number(vehicleData.vehicleModelDate ?? vehicleData.year ?? new Date().getFullYear());
-    const priceRaw = (vehicleData as Record<string, unknown>)?.offers as Record<string, unknown> | undefined;
-    const price = Number(priceRaw?.price ?? vehicleData.price ?? 0);
-    const mileage = Number(
-      (vehicleData.mileageFromOdometer as Record<string, unknown>)?.value ??
-      vehicleData.mileage ??
-      0
-    );
+    const title = String(vehicleData.name ?? '');
+    const modelDate = String(vehicleData.modelDate ?? vehicleData.vehicleModelDate ?? '');
+    const year = modelDate ? new Date(modelDate).getFullYear() : new Date().getFullYear();
+    const offerData = vehicleData.offers as Record<string, unknown> | undefined;
+    const price = Number(offerData?.price ?? vehicleData.price ?? 0);
+    const mileageData = vehicleData.mileageFromOdometer as Record<string, unknown> | undefined;
+    const mileage = parseMileage(mileageData?.value ?? vehicleData.mileage ?? 0);
     const province = normalizeProvince(
-      String(vehicleData.spatialCoverage ?? vehicleData.province ?? vehicleData.region ?? '')
+      String((vehicleData.displayLocation as Record<string, unknown>)?.address ?? vehicleData.province ?? '')
     );
     const colour = String(vehicleData.color ?? vehicleData.colour ?? '');
     const description = String(vehicleData.description ?? '');
-    const photos: string[] = [];
-    const rawImages = vehicleData.image ?? vehicleData.images ?? [];
-    if (Array.isArray(rawImages)) {
-      photos.push(...rawImages.slice(0, 20).map(String));
-    } else if (typeof rawImages === 'string') {
-      photos.push(rawImages);
-    }
     const transmissionRaw = String(vehicleData.vehicleTransmission ?? vehicleData.transmission ?? '').toLowerCase();
     const transmission: 'manual' | 'automatic' = transmissionRaw.includes('auto') ? 'automatic' : 'manual';
-    const seller = (vehicleData.offers as Record<string, unknown>)?.seller as Record<string, unknown> | undefined;
-    const seller_name = String(seller?.name ?? vehicleData.seller ?? vehicleData.dealerName ?? 'AutoTrader Dealer');
-    const fuelRaw = String(vehicleData.fuelType ?? vehicleData.fuel_type ?? '');
+    const seller = offerData?.seller as Record<string, unknown> | undefined;
+    const seller_name = String(seller?.name ?? vehicleData.seller ?? 'AutoTrader Dealer');
+    const fuelRaw = String(vehicleData.fuelType ?? '');
     const fuel_type = fuelRaw || undefined;
+
+    // Collect all unique image URLs from the page
+    const imgSet = new Set<string>();
+    // JSON-LD image first
+    const ldImg = vehicleData.image;
+    if (typeof ldImg === 'string') imgSet.add(ldImg);
+    // All img.autotrader.co.za occurrences from HTML
+    for (const m of html.matchAll(/https:\/\/img\.autotrader\.co\.za\/\d+/g)) {
+      imgSet.add(m[0]);
+    }
+    const photos = Array.from(imgSet).slice(0, 20);
 
     return {
       source: SOURCE,
@@ -156,7 +134,10 @@ export const AutoTraderAdapter: SourceAdapter = {
   },
 
   async isStillLive(ref: DiscoveredRef): Promise<LivenessResult> {
-    const res = await politeFetch(ref.source_url, { method: 'HEAD' });
+    const res = await politeFetch(ref.source_url, {
+      method: 'HEAD',
+      headers: { 'User-Agent': BROWSER_UA },
+    });
     if (res.status === 404) return 'removed';
     if (res.ok) return 'live';
     return 'unknown';
