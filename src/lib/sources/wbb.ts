@@ -91,7 +91,7 @@ function parseListing(html: string, sourceUrl: string): NormalizedListing | null
     source_id,
     source_url: sourceUrl,
     title: title.replace(/\s+/g, ' '),
-    model: normalizeModel(title),
+    model: normalizeModel(title, year),
     year,
     price,
     mileage,

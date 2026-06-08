@@ -4,7 +4,7 @@ export const prerender = false;
 import Base from '@/layouts/Base.astro';
 import { db } from '@/db/index';
 import { listings } from '@/db/schema';
-import { eq, ne } from 'drizzle-orm';
+import { and, eq, ne } from 'drizzle-orm';
 
 const { slug } = Astro.params;
 const [listing] = await db.select().from(listings).where(eq(listings.slug, slug!));
@@ -17,14 +17,20 @@ const isSold = listing.status === 'sold';
 const isExternal = Boolean(listing.source_url);
 const isShowOff = listing.listing_type === 'show_off';
 
-const adminToken = Astro.cookies.get('lcsa_admin')?.value;
-const adminSecret = process.env.ADMIN_SECRET;
-const isAdmin = Boolean(adminToken && adminSecret && adminToken === adminSecret);
+// Similar: same model first, then any active listing as fallback
+const sameModel = await db.select().from(listings)
+  .where(and(eq(listings.status, 'active'), eq(listings.model, listing.model)))
+  .limit(5);
+const sameModelFiltered = sameModel.filter(l => l.slug !== slug);
 
-const similar = await db.select().from(listings)
-  .where(eq(listings.status, 'active'))
-  .limit(6);
-const similarFiltered = similar.filter(l => l.slug !== slug).slice(0, 3);
+let similarFiltered = sameModelFiltered.slice(0, 3);
+if (similarFiltered.length < 3) {
+  const others = await db.select().from(listings)
+    .where(and(eq(listings.status, 'active'), ne(listings.model, listing.model)))
+    .limit(6);
+  const needed = 3 - similarFiltered.length;
+  similarFiltered = [...similarFiltered, ...others.filter(l => l.slug !== slug).slice(0, needed)];
+}
 
 const photos: string[] = (() => { try { return JSON.parse(listing.photos) ?? []; } catch { return []; } })();
 const mainPhoto = photos[0] ?? 'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/og-default.jpg';
@@ -43,11 +49,7 @@ function firstPhoto(p: string) {
   try { return JSON.parse(p)[0] ?? 'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/og-default.jpg'; } catch { return 'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/og-default.jpg'; }
 }
 
-// IG caption generated server-side for easy copy when posting
 const modelLabel = listing.model.replace('-', ' ').toUpperCase();
-const igCaption = isShowOff
-  ? `🏆 COMMUNITY BUILD | ${listing.year} Land Cruiser ${modelLabel} | ${listing.province}\n\n${listing.mods ? listing.mods.slice(0, 150) + (listing.mods.length > 150 ? '...' : '') + '\n\n' : ''}${listing.description.slice(0, 200)}${listing.description.length > 200 ? '...' : ''}\n\n📸 Member submission — want to be featured? Link in bio.\n\n#LandCruiserSA #LandCruiser #${modelLabel.replace(' ', '')} #LandCruiserBuild #4x4SouthAfrica #4x4 #OffRoad`
-  : `🚨 FOR SALE | ${listing.year} Land Cruiser ${modelLabel} | ${formatPrice(listing.price)} | ${listing.province}\n\n${listing.description.slice(0, 180)}${listing.description.length > 180 ? '...' : ''}\n\n📱 DM us or tap the link in bio to enquire.\n\n#LandCruiserSA #LandCruiser #${modelLabel.replace(' ', '')} #ForSale #4x4SouthAfrica #4x4 #OffRoad`;
 
 // Vehicle JSON-LD for AI agents and Google
 const vehicleSchema: Record<string, unknown> = {
@@ -268,17 +270,6 @@ const vehicleSchema: Record<string, unknown> = {
           </div>
         </div>
 
-        <!-- IG Caption (admin only) -->
-        {isAdmin && (
-          <div class="ig-card">
-            <div class="ig-card-header">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg>
-              <span>Instagram Caption</span>
-              <button id="copy-caption-btn" class="ig-copy-btn">Copy</button>
-            </div>
-            <pre id="ig-caption-text" class="ig-caption-body">{igCaption}</pre>
-          </div>
-        )}
 
         {!isShowOff && (
           <div class="safety-card">
@@ -781,31 +772,6 @@ const vehicleSchema: Record<string, unknown> = {
     padding: 0.35rem 0.75rem; border-radius: 9999px;
   }
 
-  /* IG CAPTION */
-  .ig-card { background: #111111; border-radius: 0.875rem; overflow: hidden; margin-bottom: 1.25rem; }
-  .ig-card-header {
-    display: flex; align-items: center; gap: 0.75rem; justify-content: space-between;
-    padding: 0.875rem 1.25rem; border-bottom: 1px solid rgba(255,255,255,0.07);
-  }
-  .ig-card-header span {
-    font-size: 0.65rem; font-weight: 700; text-transform: uppercase;
-    letter-spacing: 0.12em; color: #F5A623; flex: 1;
-  }
-  .ig-copy-btn {
-    background: rgba(245,166,35,0.15); color: #F5A623;
-    border: 1px solid rgba(245,166,35,0.3);
-    font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
-    letter-spacing: 0.08em; padding: 0.3rem 0.75rem; border-radius: 9999px;
-    cursor: pointer; transition: background 0.15s; font-family: var(--font-heading);
-    -webkit-tap-highlight-color: transparent; white-space: nowrap;
-  }
-  .ig-copy-btn:hover, .ig-copy-btn.copied { background: rgba(245,166,35,0.3); }
-  .ig-caption-body {
-    padding: 1rem 1.25rem; font-size: 0.8rem; line-height: 1.7;
-    color: rgba(255,255,255,0.7); white-space: pre-wrap; word-break: break-word;
-    margin: 0; font-family: inherit;
-  }
-
   /* LIGHTBOX */
   .lb {
     position: fixed; inset: 0; z-index: 1000;
@@ -879,20 +845,3 @@ const vehicleSchema: Record<string, unknown> = {
   });
 </script>
 
-<script>
-  const copyBtn = document.getElementById('copy-caption-btn');
-  if (copyBtn) {
-    const captionEl = document.getElementById('ig-caption-text');
-    copyBtn.addEventListener('click', () => {
-      const text = captionEl?.textContent ?? '';
-      navigator.clipboard.writeText(text).then(() => {
-        copyBtn.textContent = 'Copied!';
-        copyBtn.classList.add('copied');
-        setTimeout(() => {
-          copyBtn.textContent = 'Copy';
-          copyBtn.classList.remove('copied');
-        }, 2000);
-      });
-    });
-  }
-</script>

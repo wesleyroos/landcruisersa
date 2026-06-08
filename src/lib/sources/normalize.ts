@@ -13,9 +13,13 @@ const MODEL_MAP: [RegExp, string][] = [
   [/fj[\s-]?cruiser/i,                               'fj-cruiser'],
 ];
 
-export function normalizeModel(raw: string): string {
+export function normalizeModel(raw: string, year?: number): string {
   for (const [re, slug] of MODEL_MAP) {
-    if (re.test(raw)) return slug;
+    if (re.test(raw)) {
+      // Prado 250-series launched in 2024; catch-all 'prado' pattern defaults to 150
+      if (slug === 'prado-150' && year && year >= 2024) return 'prado-250';
+      return slug;
+    }
   }
   return 'other';
 }

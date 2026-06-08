@@ -88,7 +88,7 @@ function normalizeAdiosListing(item: VehicaListing): NormalizedListing | null {
     source_id: String(item.id),
     source_url: item.url,
     title: item.name,
-    model: normalizeModel(item.name),
+    model: normalizeModel(item.name, year),
     year,
     price,
     mileage,

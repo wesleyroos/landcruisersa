@@ -24,6 +24,22 @@ const thumb = firstPhoto(listing.photos);
 
 const MODELS = ['70-series','76-series','79-series','100-series','200-series','300-series','prado','fj-cruiser','other'];
 const PROVINCES = ['Gauteng','Western Cape','KwaZulu-Natal','Eastern Cape','Limpopo','Mpumalanga','North West','Free State','Northern Cape'];
+
+// IG caption generation
+const modelLabel = listing.model.replace(/-/g, ' ').toUpperCase();
+const priceStr = listing.price ? `R${listing.price.toLocaleString('en-ZA')}` : 'POA';
+const mileageStr = listing.mileage ? `${listing.mileage.toLocaleString('en-ZA')} km` : 'New';
+const transStr = listing.transmission ? (listing.transmission.charAt(0).toUpperCase() + listing.transmission.slice(1)) : '';
+const fuelStr = listing.fuel_type ? ` | ${listing.fuel_type}` : '';
+const igCaption = `${listing.year} Toyota ${modelLabel} — ${priceStr}
+
+📍 ${listing.province || 'South Africa'}
+🛣️ ${mileageStr}
+⚙️ ${transStr}${fuelStr}
+
+${listing.description ? listing.description.slice(0, 200).trim() + (listing.description.length > 200 ? '...' : '') + '\n\n' : ''}🔗 Link in bio to view full listing.
+
+#LandCruiser #Toyota #${listing.model.replace(/-/g, '')} #4x4 #Offroad #SouthAfrica #LandCruiserSA #4WD #TruckLife #Overlanding`;
 ---
 
 <AdminLayout title={listing.title} activePage="listings">
@@ -193,6 +209,16 @@ const PROVINCES = ['Gauteng','Western Cape','KwaZulu-Natal','Eastern Cape','Limp
           <button id="save-order-btn" class="btn-save-order hidden">Save Order</button>
         )}
       </div>
+
+      <!-- IG Caption -->
+      <div class="card ig-card">
+        <div class="ig-card-header">
+          <span>Instagram Caption</span>
+          <button id="copy-caption-btn" class="ig-copy-btn" type="button">Copy</button>
+        </div>
+        <pre id="ig-caption-text" class="ig-caption-body">{igCaption}</pre>
+      </div>
+
     </div>
 
   </div>
@@ -306,6 +332,30 @@ const PROVINCES = ['Gauteng','Western Cape','KwaZulu-Natal','Eastern Cape','Limp
   .btn-save-order:hover:not(:disabled) { background: #D4881A; }
   .btn-save-order:disabled { opacity: 0.5; cursor: not-allowed; }
   .no-photos { font-size: 0.875rem; color: #9CA3AF; }
+
+  /* IG CAPTION */
+  .ig-card { margin-top: 1rem; }
+  .ig-card-header {
+    display: flex; align-items: center; gap: 0.75rem; justify-content: space-between;
+    padding: 0.75rem 1rem; border-bottom: 1px solid #E5E7EB;
+  }
+  .ig-card-header span {
+    font-size: 0.65rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.12em; color: #F5A623;
+  }
+  .ig-copy-btn {
+    background: rgba(245,166,35,0.12); color: #F5A623;
+    border: 1px solid rgba(245,166,35,0.4);
+    font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.08em; padding: 0.3rem 0.75rem; border-radius: 9999px;
+    cursor: pointer; transition: background 0.15s;
+  }
+  .ig-copy-btn:hover, .ig-copy-btn.copied { background: rgba(245,166,35,0.3); }
+  .ig-caption-body {
+    padding: 0.875rem 1rem; font-size: 0.78rem; line-height: 1.7;
+    color: #374151; white-space: pre-wrap; word-break: break-word;
+    margin: 0; font-family: inherit;
+  }
 </style>
 
 <script define:vars={{ listingId: listing.id }}>
@@ -410,6 +460,23 @@ const PROVINCES = ['Gauteng','Western Cape','KwaZulu-Natal','Eastern Cape','Limp
         saveOrderBtn.textContent = 'Error — try again';
         saveOrderBtn.disabled = false;
       }
+    });
+  }
+
+  // IG Caption copy
+  const copyBtn = document.getElementById('copy-caption-btn');
+  if (copyBtn) {
+    const captionEl = document.getElementById('ig-caption-text');
+    copyBtn.addEventListener('click', () => {
+      const text = captionEl?.textContent ?? '';
+      navigator.clipboard.writeText(text).then(() => {
+        copyBtn.textContent = 'Copied!';
+        copyBtn.classList.add('copied');
+        setTimeout(() => {
+          copyBtn.textContent = 'Copy';
+          copyBtn.classList.remove('copied');
+        }, 2000);
+      });
     });
   }
 </script>
