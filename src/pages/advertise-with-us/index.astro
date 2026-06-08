@@ -165,12 +165,9 @@ import { SITE } from '@/data/site';
           </div>
         </div>
         <div class="form-card">
-          <form
-            class="advert-form"
-            action={`mailto:${SITE.advertiseEmail}`}
-            method="GET"
-            enctype="text/plain"
-          >
+          <div id="advert-success" class="hidden" style="background:#F0FDF4;border:1px solid #BBF7D0;color:#166534;border-radius:0.5rem;padding:0.875rem 1.125rem;font-size:0.875rem;font-weight:600;margin-bottom:1.25rem;">Enquiry sent — we'll be in touch within one business day.</div>
+          <div id="advert-error" class="hidden" style="background:#FEF2F2;border:1px solid #FECACA;color:#991B1B;border-radius:0.5rem;padding:0.875rem 1.125rem;font-size:0.875rem;margin-bottom:1.25rem;">Something went wrong. Please try again or email us directly.</div>
+          <form class="advert-form" id="advert-form" novalidate>
             <div class="field-row">
               <div class="field">
                 <label class="label" for="name">Your Name</label>
@@ -205,9 +202,9 @@ import { SITE } from '@/data/site';
             </div>
             <div class="field">
               <label class="label" for="message">Tell us about your brand & goals</label>
-              <textarea class="input textarea" id="message" name="body" rows="5" placeholder="What does your brand do, who's your target customer, and what are you hoping to achieve?"></textarea>
+              <textarea class="input textarea" id="message" name="message" rows="5" placeholder="What does your brand do, who's your target customer, and what are you hoping to achieve?"></textarea>
             </div>
-            <button type="submit" class="submit-btn">Send Enquiry →</button>
+            <button type="submit" class="submit-btn" id="advert-submit-btn">Send Enquiry →</button>
           </form>
         </div>
       </div>
@@ -215,6 +212,66 @@ import { SITE } from '@/data/site';
   </section>
 
 </Base>
+
+<script>
+  const form = document.getElementById('advert-form') as HTMLFormElement;
+  const submitBtn = document.getElementById('advert-submit-btn') as HTMLButtonElement;
+  const successEl = document.getElementById('advert-success')!;
+  const errorEl = document.getElementById('advert-error')!;
+
+  const INTEREST_LABELS: Record<string, string> = {
+    'sponsored-content': 'Sponsored Content / Guides',
+    'partner-listing': 'Partner Listing & Directory',
+    'banner-display': 'Banner & Display Advertising',
+    'classifieds': 'Classifieds Sponsorship',
+    'custom': 'Custom Package',
+    'unsure': 'Not Sure — Let\'s Chat',
+  };
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    successEl.classList.add('hidden');
+    errorEl.classList.add('hidden');
+
+    const fd = new FormData(form);
+    const name = (fd.get('name') as string ?? '').trim();
+    const company = (fd.get('company') as string ?? '').trim();
+    const email = (fd.get('email') as string ?? '').trim();
+    const phone = (fd.get('phone') as string ?? '').trim();
+    const interest = fd.get('interest') as string ?? '';
+    const message = (fd.get('message') as string ?? '').trim();
+
+    const fullMessage = [
+      `Company: ${company}`,
+      phone ? `Phone: ${phone}` : null,
+      `Interest: ${INTEREST_LABELS[interest] ?? interest}`,
+      message ? `\nMessage:\n${message}` : null,
+    ].filter(Boolean).join('\n');
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Sending…';
+
+    try {
+      const res = await fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, subject: 'partnership', message: fullMessage }),
+      });
+      if (res.ok) {
+        form.classList.add('hidden');
+        successEl.classList.remove('hidden');
+      } else {
+        errorEl.classList.remove('hidden');
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Send Enquiry →';
+      }
+    } catch {
+      errorEl.classList.remove('hidden');
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Send Enquiry →';
+    }
+  });
+</script>
 
 <style>
   /* ─ PAGE HEADER ─────────────────────────────── */

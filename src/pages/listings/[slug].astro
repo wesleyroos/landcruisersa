@@ -188,7 +188,9 @@ const vehicleSchema: Record<string, unknown> = {
       </span>
       {listing.fuel_type && (
         <span class="chip">
-          <img src={`/images/icons/${listing.fuel_type.toLowerCase()}.svg`} width="14" height="14" alt="" class="chip-icon" />
+          {['diesel', 'petrol'].includes(listing.fuel_type.toLowerCase()) && (
+            <img src={`/images/icons/${listing.fuel_type.toLowerCase()}.svg`} width="14" height="14" alt="" class="chip-icon" />
+          )}
           {listing.fuel_type}
         </span>
       )}
