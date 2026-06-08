@@ -49,9 +49,18 @@ if not changed:
     print("Nothing to push (no changes vs origin/main).")
     sys.exit(0)
 
-skip_ext = {".jpg",".jpeg",".png",".webp",".gif",".ico",".woff",".woff2",".ttf",".otf"}
+# Skip large content image directories (not in git); include all other files including UI images
+skip_prefixes = (
+    "public/images/wp-media/",
+    "public/images/posts/",
+    "public/images/training/",
+    "public/images/partners/",
+    "public/images/models/",
+    "public/images/og/",
+    "public/uploads/",
+)
 files = [f for f in changed if os.path.exists(f)
-         and os.path.splitext(f)[1].lower() not in skip_ext]
+         and not any(f.startswith(p) for p in skip_prefixes)]
 
 print(f"Uploading {len(files)} changed files...", flush=True)
 tree_items = []
