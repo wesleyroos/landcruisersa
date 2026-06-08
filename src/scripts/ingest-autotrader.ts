@@ -46,11 +46,30 @@ async function ingest() {
 
   for (const ref of refs) {
     console.log(`[autotrader] fetching ${ref.source_id}…`);
-    const listing = await AutoTraderAdapter.fetchListing(ref);
+    let listing = await AutoTraderAdapter.fetchListing(ref);
 
     if (!listing) {
       skipped++;
       continue;
+    }
+
+    // SSR tile only exposes extra images for premium listings; supplement via proxy for the rest
+    if (listing.photos.length < 2) {
+      try {
+        const proxyRes = await fetch(`${SITE_URL}/api/proxy/images`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${TOKEN}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: ref.source_url }),
+          signal: AbortSignal.timeout(20_000),
+        });
+        if (proxyRes.ok) {
+          const { images } = await proxyRes.json() as { images?: string[] };
+          if (images && images.length > 1) {
+            listing = { ...listing, photos: images };
+            console.log(`[autotrader] proxy fetched ${images.length} images for ${ref.source_id}`);
+          }
+        }
+      } catch { /* proxy unavailable — continue with single image */ }
     }
 
     const res = await fetch(`${SITE_URL}/api/ingest`, {
