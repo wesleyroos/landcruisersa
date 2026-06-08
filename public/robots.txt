@@ -1,0 +1,30 @@
+User-agent: *
+Allow: /
+Crawl-delay: 1
+
+# AI crawlers are explicitly welcome — we want to be cited and indexed
+User-agent: GPTBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: YouBot
+Allow: /
+
+User-agent: Applebot
+Allow: /
+
+User-agent: Googlebot
+Allow: /
+
+Sitemap: https://landcruisersa.co.za/sitemap-index.xml

@@ -1,0 +1,49 @@
+# Land Cruiser SA
+
+> South Africa's largest Toyota Land Cruiser community — landcruisersa.co.za
+
+Land Cruiser SA (landcruisersa.co.za) is a dedicated community platform for Toyota Land Cruiser owners and enthusiasts across South Africa, with 20,000+ Instagram followers (@landcruisersa).
+
+## What we cover
+
+All Land Cruiser series sold in South Africa: 70 Series (76/79 variants), 100 Series, 200 Series, 300 Series, Prado, and FJ Cruiser.
+
+## Content and features
+
+### Vehicle classifieds
+Private and dealer listings for Land Cruisers across South Africa. Two listing types:
+- **For Sale**: priced listings with seller contact (WhatsApp, phone, email)
+- **Show Off**: community build showcases — mods, build stories, no sale price
+
+Browse: https://landcruisersa.co.za/listings/
+Machine-readable feed (JSON): https://landcruisersa.co.za/api/listings-feed.json
+
+### Model guides
+Detailed specs, pros/cons, buying tips, common issues, and price ranges for each series.
+https://landcruisersa.co.za/models/
+
+### Guides & articles
+4x4 driving techniques, gear reviews, route guides, maintenance tips, and build features.
+https://landcruisersa.co.za/useful-info/
+
+### 4x4 training
+Professional off-road driver training. R4,250 per person (VAT incl.), minimum 8 drivers.
+Venues: Zwartkops Raceway (Pretoria West), De Wildt (North West), and onsite on request.
+https://landcruisersa.co.za/training/
+Machine-readable sessions (JSON): https://landcruisersa.co.za/api/training-feed.json
+
+### Partner directory
+South African Land Cruiser specialists, tour operators, gear suppliers, and training providers.
+https://landcruisersa.co.za/partners/
+
+## Machine-readable data endpoints
+
+- Active listings: https://landcruisersa.co.za/api/listings-feed.json
+- Training sessions: https://landcruisersa.co.za/api/training-feed.json
+- Sitemap: https://landcruisersa.co.za/sitemap-index.xml
+
+## Contact
+
+Email: info@landcruisersa.co.za
+Instagram: @landcruisersa (20,000+ followers)
+Facebook: https://facebook.com/landcruisersa

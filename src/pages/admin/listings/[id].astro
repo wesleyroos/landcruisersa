@@ -1,0 +1,333 @@
+---
+export const prerender = false;
+
+import AdminLayout from '@/layouts/AdminLayout.astro';
+import { db } from '@/db/index';
+import { listings } from '@/db/schema';
+import { eq } from 'drizzle-orm';
+
+const id = Number(Astro.params.id);
+if (isNaN(id)) return Astro.redirect('/admin');
+
+const [listing] = await db.select().from(listings).where(eq(listings.id, id));
+if (!listing) return Astro.redirect('/admin');
+
+function firstPhoto(photos: string) {
+  try { return JSON.parse(photos)[0] ?? null; } catch { return null; }
+}
+function allPhotos(photos: string) {
+  try { return JSON.parse(photos) as string[]; } catch { return []; }
+}
+
+const photos = allPhotos(listing.photos);
+const thumb = firstPhoto(listing.photos);
+
+const MODELS = ['70-series','76-series','79-series','100-series','200-series','300-series','prado','fj-cruiser','other'];
+const PROVINCES = ['Gauteng','Western Cape','KwaZulu-Natal','Eastern Cape','Limpopo','Mpumalanga','North West','Free State','Northern Cape'];
+---
+
+<AdminLayout title={listing.title} activePage="listings">
+
+  <div class="edit-header">
+    <a href="/admin" class="back-link">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+      All Listings
+    </a>
+    <div class="header-badges">
+      <span class={`status-badge status-${listing.status}`}>{listing.status}</span>
+      <span class={`type-badge type-${listing.listing_type}`}>{listing.listing_type === 'for_sale' ? 'For Sale' : '★ Show Off'}</span>
+    </div>
+  </div>
+
+  <div class="edit-grid">
+
+    <!-- LEFT: Form -->
+    <div class="edit-form-col">
+
+      <div id="save-banner" class="save-banner hidden">Changes saved.</div>
+      <div id="error-banner" class="error-banner hidden">Something went wrong — try again.</div>
+
+      <form id="edit-form">
+
+        <!-- Status & Type -->
+        <div class="card">
+          <h2 class="card-heading">Status & Type</h2>
+          <div class="field-row">
+            <div class="field">
+              <label>Status</label>
+              <select name="status">
+                <option value="pending"  selected={listing.status === 'pending'}>Pending</option>
+                <option value="active"   selected={listing.status === 'active'}>Active</option>
+                <option value="sold"     selected={listing.status === 'sold'}>Sold</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Listing Type</label>
+              <select name="listing_type" id="f-listing-type">
+                <option value="for_sale"  selected={listing.listing_type === 'for_sale'}>For Sale</option>
+                <option value="show_off"  selected={listing.listing_type === 'show_off'}>Show Off</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Vehicle Details -->
+        <div class="card">
+          <h2 class="card-heading">Vehicle Details</h2>
+
+          <div class="field">
+            <label>Title</label>
+            <input type="text" name="title" value={listing.title} required />
+          </div>
+
+          <div class="field-row">
+            <div class="field">
+              <label>Model</label>
+              <select name="model">
+                {MODELS.map(m => <option value={m} selected={listing.model === m}>{m.replace('-', ' ').toUpperCase()}</option>)}
+              </select>
+            </div>
+            <div class="field">
+              <label>Year</label>
+              <input type="number" name="year" value={listing.year} min="1950" max="2030" required />
+            </div>
+          </div>
+
+          <div class="field-row">
+            <div class="field">
+              <label>Transmission</label>
+              <select name="transmission">
+                <option value="manual"    selected={listing.transmission === 'manual'}>Manual</option>
+                <option value="automatic" selected={listing.transmission === 'automatic'}>Automatic</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Condition</label>
+              <select name="new_or_used">
+                <option value="Used" selected={listing.new_or_used === 'Used'}>Used</option>
+                <option value="New"  selected={listing.new_or_used === 'New'}>New</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="field-row">
+            <div class="field">
+              <label>Colour</label>
+              <input type="text" name="colour" value={listing.colour} />
+            </div>
+            <div class="field">
+              <label>Province</label>
+              <select name="province">
+                {PROVINCES.map(p => <option value={p} selected={listing.province === p}>{p}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div class="field-row" id="sale-fields" style={listing.listing_type === 'show_off' ? 'display:none' : ''}>
+            <div class="field">
+              <label>Price (R)</label>
+              <input type="number" name="price" value={listing.price} min="0" />
+            </div>
+            <div class="field">
+              <label>Mileage (km)</label>
+              <input type="number" name="mileage" value={listing.mileage} min="0" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Description & Mods -->
+        <div class="card">
+          <h2 class="card-heading">Description</h2>
+          <div class="field">
+            <label>Description</label>
+            <textarea name="description" rows="6">{listing.description}</textarea>
+          </div>
+          <div class="field" id="mods-field" style={listing.listing_type === 'for_sale' ? 'display:none' : ''}>
+            <label>Build Mods <span class="label-hint">(comma or line separated)</span></label>
+            <textarea name="mods" rows="4">{listing.mods ?? ''}</textarea>
+          </div>
+        </div>
+
+        <!-- Seller -->
+        <div class="card">
+          <h2 class="card-heading">Seller</h2>
+          <div class="field">
+            <label>Name</label>
+            <input type="text" name="seller_name" value={listing.seller_name} />
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label>Email</label>
+              <input type="email" name="seller_email" value={listing.seller_email} />
+            </div>
+            <div class="field">
+              <label>Phone</label>
+              <input type="tel" name="seller_phone" value={listing.seller_phone} />
+            </div>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="btn-save" id="save-btn">Save Changes</button>
+          <a href={`/listings/${listing.slug}/`} target="_blank" class="btn-view-live">View Live →</a>
+        </div>
+
+      </form>
+    </div>
+
+    <!-- RIGHT: Photos -->
+    <div class="edit-photos-col">
+      <div class="card">
+        <h2 class="card-heading">Photos</h2>
+        {photos.length === 0 && <p class="no-photos">No photos uploaded.</p>}
+        <div class="photo-grid">
+          {photos.map((src, i) => (
+            <div class="photo-wrap">
+              <img src={src} alt={`Photo ${i + 1}`} loading="lazy" />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</AdminLayout>
+
+<style>
+  .edit-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 1.5rem; flex-wrap: wrap; gap: 0.75rem;
+  }
+  .back-link {
+    display: inline-flex; align-items: center; gap: 0.375rem;
+    font-size: 0.8125rem; font-weight: 600; color: #6B7280;
+    text-decoration: none; transition: color 0.15s;
+  }
+  .back-link:hover { color: #111; }
+  .header-badges { display: flex; gap: 0.5rem; }
+  .status-badge, .type-badge {
+    font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
+    padding: 0.25rem 0.625rem; border-radius: 9999px;
+  }
+  .status-pending { background: rgba(245,166,35,0.15); color: #92400E; }
+  .status-active  { background: #111111; color: white; }
+  .status-sold    { background: #EAE8E3; color: #6B7280; }
+  .type-for_sale  { background: rgba(245,166,35,0.12); color: #92400E; }
+  .type-show_off  { background: #EAE8E3; color: #6B7280; }
+
+  /* BANNERS */
+  .save-banner, .error-banner {
+    padding: 0.75rem 1rem; border-radius: 0.5rem; font-size: 0.875rem;
+    font-weight: 600; margin-bottom: 1rem; transition: opacity 0.3s;
+  }
+  .save-banner  { background: rgba(245,166,35,0.15); color: #92400E; border: 1px solid rgba(245,166,35,0.3); }
+  .error-banner { background: #FEE2E2; color: #991B1B; border: 1px solid #FECACA; }
+  .hidden { display: none; }
+
+  /* LAYOUT */
+  .edit-grid { display: grid; grid-template-columns: 1fr 280px; gap: 1.5rem; align-items: start; }
+  @media (max-width: 900px) { .edit-grid { grid-template-columns: 1fr; } }
+
+  /* CARD */
+  .card {
+    background: white; border: 1px solid #DDD9D3; border-radius: 0.875rem;
+    padding: 1.5rem; margin-bottom: 1.25rem;
+  }
+  .card-heading {
+    font-size: 0.65rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.14em; color: #6B7280;
+    margin-bottom: 1.25rem; padding-bottom: 0.75rem; border-bottom: 1px solid #EAE8E3;
+  }
+
+  /* FIELDS */
+  .field { margin-bottom: 1rem; }
+  .field:last-child { margin-bottom: 0; }
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
+  .field-row .field { margin-bottom: 0; }
+  label {
+    display: block; font-size: 0.75rem; font-weight: 600;
+    color: #6B7280; margin-bottom: 0.375rem; text-transform: uppercase; letter-spacing: 0.06em;
+  }
+  .label-hint { font-weight: 400; text-transform: none; letter-spacing: 0; color: #9CA3AF; }
+  input, select, textarea {
+    width: 100%; border: 1.5px solid #DDD9D3; border-radius: 0.5rem;
+    font-size: 0.9375rem; color: #111; background: white;
+    padding: 0.625rem 0.875rem; outline: none; font-family: inherit;
+    transition: border-color 0.15s;
+  }
+  input:focus, select:focus, textarea:focus { border-color: #F5A623; }
+  textarea { resize: vertical; }
+
+  /* ACTIONS */
+  .form-actions { display: flex; align-items: center; gap: 1rem; padding-bottom: 2rem; }
+  .btn-save {
+    background: #111; color: white; border: none; border-radius: 0.5rem;
+    font-size: 0.875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+    padding: 0.75rem 1.75rem; cursor: pointer; transition: background 0.15s;
+  }
+  .btn-save:hover { background: #333; }
+  .btn-save:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-view-live {
+    font-size: 0.8125rem; font-weight: 600; color: #F5A623;
+    text-decoration: none; transition: opacity 0.15s;
+  }
+  .btn-view-live:hover { opacity: 0.75; }
+
+  /* PHOTOS */
+  .photo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+  .photo-wrap { border-radius: 0.5rem; overflow: hidden; aspect-ratio: 1; background: #EAE8E3; }
+  .photo-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .no-photos { font-size: 0.875rem; color: #9CA3AF; }
+</style>
+
+<script define:vars={{ listingId: listing.id }}>
+  const form = document.getElementById('edit-form');
+  const saveBtn = document.getElementById('save-btn');
+  const saveBanner = document.getElementById('save-banner');
+  const errorBanner = document.getElementById('error-banner');
+  const typeSelect = document.getElementById('f-listing-type');
+  const saleFields = document.getElementById('sale-fields');
+  const modsField = document.getElementById('mods-field');
+
+  // Toggle sale/show-off fields
+  typeSelect.addEventListener('change', () => {
+    const isShowOff = typeSelect.value === 'show_off';
+    saleFields.style.display = isShowOff ? 'none' : '';
+    modsField.style.display  = isShowOff ? '' : 'none';
+  });
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Saving…';
+    saveBanner.classList.add('hidden');
+    errorBanner.classList.add('hidden');
+
+    const data = Object.fromEntries(new FormData(form));
+    // Coerce numeric fields
+    if (data.year)    data.year    = Number(data.year);
+    if (data.price)   data.price   = Number(data.price);
+    if (data.mileage) data.mileage = Number(data.mileage);
+
+    try {
+      const res = await fetch(`/api/listings/${listingId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+
+      if (res.ok) {
+        saveBanner.classList.remove('hidden');
+        setTimeout(() => saveBanner.classList.add('hidden'), 3000);
+      } else {
+        errorBanner.classList.remove('hidden');
+      }
+    } catch {
+      errorBanner.classList.remove('hidden');
+    }
+
+    saveBtn.disabled = false;
+    saveBtn.textContent = 'Save Changes';
+  });
+</script>

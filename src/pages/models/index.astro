@@ -1,0 +1,213 @@
+---
+import Base from '@/layouts/Base.astro';
+import { MODELS } from '@/data/models';
+
+const mainLine = MODELS.filter(m => m.category === 'Main Line');
+const series70 = MODELS.filter(m => m.category === '70 Series Family');
+const prado = MODELS.filter(m => m.category === 'Prado');
+const fj = MODELS.filter(m => m.category === 'FJ');
+
+const groups = [
+  { label: '70 Series Family', sub: '1984 – Present · Still in production', models: series70 },
+  { label: 'Main Line', sub: 'The full-size Land Cruiser heritage', models: mainLine },
+  { label: 'Prado', sub: 'Mid-size · South Africa\'s most popular Land Cruiser family', models: prado },
+  { label: 'FJ Line', sub: 'Retro-inspired · Character in every panel', models: fj },
+];
+---
+
+<Base
+  title="Land Cruiser Model Guides — Land Cruiser SA"
+  description="Complete guides to every Land Cruiser model sold in South Africa — 70 Series, 200, 300, Prado, FJ Cruiser and the new Land Cruiser FJ."
+>
+
+  <div class="bg-[#111111]">
+    <div class="max-w-7xl mx-auto px-4 py-12">
+      <p class="text-[#F5A623] font-heading font-bold uppercase tracking-widest text-xs mb-3">The Full Lineup</p>
+      <h1 class="font-heading font-bold uppercase text-white text-5xl md:text-6xl leading-none mb-4">Land Cruiser Models</h1>
+      <p class="text-white/60 text-base max-w-2xl leading-relaxed">
+        Every Land Cruiser sold in South Africa — specs, buying guides, common issues, and who each model is really for.
+      </p>
+    </div>
+  </div>
+  <div class="h-1 bg-[#F5A623]"></div>
+
+  <div class="max-w-7xl mx-auto px-4 py-12">
+
+    {groups.map(group => (
+      <div class="model-group">
+        <div class="group-header">
+          <span class="accent-bar"></span>
+          <h2 class="group-title">{group.label}</h2>
+          <span class="group-sub">{group.sub}</span>
+        </div>
+        <div class="model-grid">
+          {group.models.map(m => (
+            <a href={`/models/${m.slug}/`} class="model-card">
+              <div class="card-img-wrap">
+                <img src={m.hero} alt={m.heroAlt} loading="lazy" />
+                <span class="card-badge">{m.category}</span>
+              </div>
+              <div class="card-body">
+                <p class="card-sub">{m.subtitle}</p>
+                <h3 class="card-name">{m.name}</h3>
+                <p class="card-years">{m.years}</p>
+                <p class="card-tagline">{m.tagline}</p>
+              </div>
+              <div class="card-footer">
+                <span class="card-price">{m.priceRange}</span>
+                <span class="card-arrow">Guide →</span>
+              </div>
+            </a>
+          ))}
+        </div>
+      </div>
+    ))}
+
+  </div>
+
+</Base>
+
+<style>
+  .model-group { margin-bottom: 4rem; }
+
+  .group-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .accent-bar {
+    width: 4px;
+    height: 1.5rem;
+    background: #F5A623;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+  .group-title {
+    font-family: var(--font-heading);
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 1.5rem;
+    color: #111111;
+    letter-spacing: 0.02em;
+  }
+  .group-sub {
+    font-size: 0.8125rem;
+    color: #9CA3AF;
+    padding-left: 0.625rem;
+    border-left: 1px solid #DDD9D3;
+    margin-left: 0.125rem;
+  }
+
+  .model-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1.25rem;
+  }
+
+  /* Card */
+  .model-card {
+    display: flex;
+    flex-direction: column;
+    text-decoration: none;
+    background: white;
+    border: 1px solid #DDD9D3;
+    border-radius: 1rem;
+    overflow: hidden;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .model-card:hover {
+    border-color: #F5A623;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+  }
+
+  .card-img-wrap {
+    position: relative;
+    aspect-ratio: 16 / 9;
+    overflow: hidden;
+    background: #111;
+  }
+  .card-img-wrap img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0.85;
+    transition: transform 0.4s, opacity 0.2s;
+  }
+  .model-card:hover .card-img-wrap img {
+    transform: scale(1.04);
+    opacity: 1;
+  }
+  .card-badge {
+    position: absolute;
+    top: 0.75rem;
+    left: 0.75rem;
+    background: #F5A623;
+    color: #111;
+    font-family: var(--font-heading);
+    font-size: 0.6rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 0.2rem 0.6rem;
+    border-radius: 0.25rem;
+  }
+
+  .card-body {
+    padding: 1.125rem;
+    flex: 1;
+  }
+  .card-sub {
+    font-family: var(--font-heading);
+    font-size: 0.675rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #F5A623;
+    margin-bottom: 0.25rem;
+  }
+  .card-name {
+    font-family: var(--font-heading);
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 1.0625rem;
+    color: #111;
+    margin-bottom: 0.2rem;
+    line-height: 1.15;
+    transition: color 0.15s;
+  }
+  .model-card:hover .card-name { color: #D4881A; }
+  .card-years {
+    font-size: 0.75rem;
+    color: #9CA3AF;
+    margin-bottom: 0.625rem;
+  }
+  .card-tagline {
+    font-size: 0.8125rem;
+    color: #4A4A4A;
+    line-height: 1.5;
+  }
+
+  .card-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1.125rem;
+    border-top: 1px solid #F5F3EE;
+    background: #FAFAF8;
+    flex-shrink: 0;
+  }
+  .card-price {
+    font-size: 0.75rem;
+    color: #6B7280;
+  }
+  .card-arrow {
+    font-family: var(--font-heading);
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: #F5A623;
+    letter-spacing: 0.05em;
+  }
+</style>

@@ -1,0 +1,304 @@
+---
+export const prerender = false;
+
+import AdminLayout from '@/layouts/AdminLayout.astro';
+import { db } from '@/db/index';
+import { listings } from '@/db/schema';
+import { desc } from 'drizzle-orm';
+import type { Listing } from '@/db/schema';
+
+const all = await db.select().from(listings).orderBy(desc(listings.created_at));
+
+const pending = all.filter(l => l.status === 'pending');
+const active  = all.filter(l => l.status === 'active');
+const sold    = all.filter(l => l.status === 'sold');
+
+function firstPhoto(photos: string) {
+  try { return JSON.parse(photos)[0] ?? null; } catch { return null; }
+}
+function formatPrice(n: number) {
+  return 'R' + n.toLocaleString('en-ZA');
+}
+function formatDate(d: Date | null) {
+  if (!d) return '—';
+  return new Intl.DateTimeFormat('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' }).format(d);
+}
+
+const grouped: { label: string; status: string; items: Listing[] }[] = [
+  { label: 'Pending Approval', status: 'pending', items: pending },
+  { label: 'Active',           status: 'active',  items: active  },
+  { label: 'Sold',             status: 'sold',    items: sold    },
+];
+---
+
+<AdminLayout title="Listings">
+
+  <!-- STATS -->
+  <div class="stats-row">
+    <div class="stat stat-pending">
+      <span class="stat-val">{pending.length}</span>
+      <span class="stat-lbl">Pending</span>
+    </div>
+    <div class="stat stat-active">
+      <span class="stat-val">{active.length}</span>
+      <span class="stat-lbl">Active</span>
+    </div>
+    <div class="stat stat-sold">
+      <span class="stat-val">{sold.length}</span>
+      <span class="stat-lbl">Sold</span>
+    </div>
+    <div class="stat stat-total">
+      <span class="stat-val">{all.length}</span>
+      <span class="stat-lbl">Total</span>
+    </div>
+  </div>
+
+  <!-- GROUPS -->
+  {grouped.map(({ label, status, items }) => (
+    <div class="group">
+      <p class="group-head">
+        <span class={`status-dot dot-${status}`}></span>
+        {label}
+        <span class="group-count">{items.length}</span>
+      </p>
+
+      {items.length === 0 && <p class="empty-state">None</p>}
+
+      <div class="card-list">
+        {items.map((l: Listing) => {
+          const photo = firstPhoto(l.photos);
+          return (
+            <div class={`lcard lcard-${l.status}`} id={`card-${l.id}`}>
+              <a href={`/admin/listings/${l.id}`} class="lcard-thumb-link">
+                {photo
+                  ? <img class="lcard-thumb" src={photo} alt={l.title} loading="lazy" />
+                  : <div class="lcard-thumb lcard-thumb-empty">🚗</div>
+                }
+              </a>
+              <div class="lcard-body">
+                <div class="lcard-meta">
+                  <span class={`badge badge-${l.listing_type === 'for_sale' ? 'sale' : 'show'}`}>
+                    {l.listing_type === 'for_sale' ? 'For Sale' : '★ Show Off'}
+                  </span>
+                  {l.listing_type === 'for_sale' && (
+                    <span class="lcard-price">{formatPrice(l.price)}</span>
+                  )}
+                </div>
+                <a href={`/admin/listings/${l.id}`} class="lcard-title">{l.title}</a>
+                <p class="lcard-sub">{l.year} · {l.model.replace('-', ' ').toUpperCase()} · {l.province}{l.mileage > 0 ? ` · ${l.mileage.toLocaleString('en-ZA')} km` : ''}</p>
+                <p class="lcard-seller">
+                  {l.seller_name} · <a href={`mailto:${l.seller_email}`}>{l.seller_email}</a> · <a href={`tel:${l.seller_phone}`}>{l.seller_phone}</a>
+                </p>
+                <p class="lcard-date">{formatDate(l.created_at)}</p>
+              </div>
+              <div class="lcard-actions">
+                <a href={`/admin/listings/${l.id}`} class="btn btn-edit">Edit</a>
+                {l.status === 'pending' && (
+                  <>
+                    <button class="btn btn-approve" data-action="approve" data-id={l.id}>✓ Approve</button>
+                    <button class="btn btn-reject"  data-action="delete"  data-id={l.id}>✗ Delete</button>
+                  </>
+                )}
+                {l.status === 'active' && (
+                  <>
+                    <a href={`/listings/${l.slug}/`} target="_blank" class="btn btn-view">View →</a>
+                    <button class="btn btn-sold" data-action="sold" data-id={l.id}>Mark Sold</button>
+                  </>
+                )}
+                {l.status === 'sold' && (
+                  <>
+                    <a href={`/listings/${l.slug}/`} target="_blank" class="btn btn-view">View →</a>
+                    <button class="btn btn-approve" data-action="reactivate" data-id={l.id}>↩ Reactivate</button>
+                  </>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  ))}
+
+</AdminLayout>
+
+<style>
+  /* STATS */
+  .stats-row { display: flex; gap: 1rem; margin-bottom: 2rem; flex-wrap: wrap; }
+  .stat {
+    border: 1.5px solid #E5E7EB; border-radius: 0.75rem;
+    padding: 1rem 1.5rem; display: flex; flex-direction: column; gap: 0.2rem; min-width: 100px;
+  }
+  .stat-val { font-size: 2rem; font-weight: 700; line-height: 1; color: #111111; }
+  .stat-lbl { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em; color: #9CA3AF; }
+  .stat-pending .stat-val { color: #F5A623; }
+  .stat-active  .stat-val { color: #111111; }
+  .stat-sold    .stat-val { color: #9CA3AF; }
+
+  /* GROUPS */
+  .group { margin-bottom: 2.5rem; }
+  .group-head {
+    display: flex; align-items: center; gap: 0.5rem;
+    font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.14em; color: #9CA3AF;
+    margin-bottom: 0.75rem; padding-bottom: 0.75rem; border-bottom: 1.5px solid #F3F4F6;
+  }
+  .group-count {
+    background: #F3F4F6; color: #9CA3AF;
+    font-size: 0.6rem; padding: 0.15rem 0.5rem; border-radius: 9999px;
+  }
+  .status-dot { width: 6px; height: 6px; border-radius: 9999px; flex-shrink: 0; }
+  .dot-pending { background: #F5A623; }
+  .dot-active  { background: #111111; }
+  .dot-sold    { background: #D1D5DB; }
+
+  .empty-state { font-size: 0.875rem; color: #9CA3AF; padding: 0.5rem 0; }
+  .card-list { display: flex; flex-direction: column; gap: 0.625rem; }
+
+  /* LISTING CARD */
+  .lcard {
+    border: 1.5px solid #E5E7EB; border-radius: 0.75rem;
+    display: grid; grid-template-columns: 180px 1fr auto;
+    overflow: hidden; transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .lcard:hover { border-color: #F5A623; box-shadow: 0 2px 12px rgba(245,166,35,0.12); }
+  .lcard-pending { border-left: 4px solid #F5A623; }
+  .lcard-active  { border-left: 4px solid #111111; }
+  .lcard-sold    { border-left: 4px solid #D1D5DB; opacity: 0.65; }
+
+  .lcard-thumb-link { display: block; }
+  .lcard-thumb { width: 180px; height: 100%; object-fit: cover; display: block; background: #F3F4F6; }
+  .lcard-thumb-empty {
+    width: 180px; height: 100%; min-height: 90px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.75rem; background: #F3F4F6;
+  }
+
+  .lcard-body { padding: 1rem 1.125rem; min-width: 0; }
+  .lcard-meta { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.35rem; }
+
+  .badge {
+    font-size: 0.55rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em;
+    padding: 0.2rem 0.6rem; border-radius: 9999px;
+  }
+  .badge-sale { background: #FEF3C7; color: #92400E; }
+  .badge-show { background: #F3F4F6; color: #6B7280; }
+
+  .lcard-price { font-size: 0.9375rem; font-weight: 700; color: #111111; }
+
+  .lcard-title {
+    display: block; font-size: 1rem; font-weight: 700; color: #111111;
+    text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    margin-bottom: 0.25rem; transition: color 0.15s;
+  }
+  .lcard-title:hover { color: #F5A623; }
+  .lcard-sub    { font-size: 0.75rem; color: #6B7280; margin-bottom: 0.25rem; }
+  .lcard-seller { font-size: 0.75rem; color: #9CA3AF; margin-bottom: 0.15rem; }
+  .lcard-seller a { color: #9CA3AF; text-decoration: none; }
+  .lcard-seller a:hover { color: #F5A623; }
+  .lcard-date { font-size: 0.65rem; color: #D1D5DB; }
+
+  /* ACTIONS */
+  .lcard-actions {
+    display: flex; flex-direction: column; gap: 0.375rem;
+    padding: 0.875rem; border-left: 1.5px solid #F3F4F6;
+    justify-content: center; flex-shrink: 0; min-width: 112px;
+  }
+  .btn {
+    font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em;
+    padding: 0.45rem 0.75rem; border-radius: 0.375rem; cursor: pointer;
+    border: 1.5px solid transparent; transition: all 0.15s; white-space: nowrap;
+    text-decoration: none; display: inline-block; text-align: center; line-height: 1.5;
+  }
+  .btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  .btn-edit    { background: white; color: #6B7280; border-color: #E5E7EB; }
+  .btn-edit:hover { color: #111111; border-color: #111111; }
+
+  .btn-approve { background: #F5A623; color: #111111; border-color: #F5A623; }
+  .btn-approve:hover { background: #D4881A; border-color: #D4881A; }
+
+  .btn-reject  { background: white; color: #9CA3AF; border-color: #E5E7EB; }
+  .btn-reject:hover  { background: #FEF2F2; color: #991B1B; border-color: #FECACA; }
+
+  .btn-sold    { background: #111111; color: white; border-color: #111111; }
+  .btn-sold:hover    { background: #374151; border-color: #374151; }
+
+  .btn-view    { background: white; color: #9CA3AF; border-color: #E5E7EB; }
+  .btn-view:hover    { color: #111111; border-color: #111111; }
+
+  @media (max-width: 640px) {
+    .lcard { grid-template-columns: 80px 1fr; }
+    .lcard-thumb, .lcard-thumb-empty { width: 80px; }
+    .lcard-actions { grid-column: 1 / -1; flex-direction: row; flex-wrap: wrap; border-left: none; border-top: 1.5px solid #F3F4F6; padding: 0.625rem 0.875rem; }
+  }
+</style>
+
+<script>
+  function updateStat(selector: string, delta: number) {
+    const el = document.querySelector(selector);
+    if (el) el.textContent = String(Math.max(0, Number(el.textContent) + delta));
+  }
+
+  function removeCard(id: string) {
+    const card = document.getElementById(`card-${id}`);
+    if (!card) return;
+    card.style.transition = 'opacity 0.25s, transform 0.25s';
+    card.style.opacity = '0';
+    card.style.transform = 'translateX(8px)';
+    setTimeout(() => card.remove(), 260);
+  }
+
+  document.addEventListener('click', async (e) => {
+    const btn = (e.target as Element).closest<HTMLButtonElement>('[data-action]');
+    if (!btn) return;
+
+    const action = btn.dataset.action!;
+    const id = btn.dataset.id!;
+
+    if (action === 'delete') {
+      if (!confirm('Delete this listing permanently?')) return;
+    }
+
+    const originalText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = '…';
+
+    try {
+      let res: Response;
+      if (action === 'delete') {
+        res = await fetch(`/api/listings/${id}`, { method: 'DELETE' });
+      } else {
+        const statusMap: Record<string, string> = { approve: 'active', sold: 'sold', reactivate: 'active' };
+        res = await fetch(`/api/listings/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: statusMap[action] }),
+        });
+      }
+
+      if (res.ok) {
+        if (action === 'approve') {
+          updateStat('.stat-pending .stat-val', -1);
+          updateStat('.stat-active .stat-val',  +1);
+        } else if (action === 'sold') {
+          updateStat('.stat-active .stat-val', -1);
+          updateStat('.stat-sold .stat-val',   +1);
+        } else if (action === 'reactivate') {
+          updateStat('.stat-sold .stat-val',   -1);
+          updateStat('.stat-active .stat-val', +1);
+        } else if (action === 'delete') {
+          updateStat('.stat-pending .stat-val', -1);
+          updateStat('.stat-total .stat-val',   -1);
+        }
+        removeCard(id);
+      } else {
+        btn.disabled = false;
+        btn.textContent = originalText;
+        alert('Something went wrong — try again.');
+      }
+    } catch {
+      btn.disabled = false;
+      btn.textContent = originalText;
+      alert('Network error — try again.');
+    }
+  });
+</script>

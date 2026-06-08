@@ -1,0 +1,318 @@
+---
+export const prerender = false;
+
+import Base from '@/layouts/Base.astro';
+import { db } from '@/db/index';
+import { listings } from '@/db/schema';
+import { eq, desc } from 'drizzle-orm';
+
+const allListings = await db
+  .select()
+  .from(listings)
+  .where(eq(listings.status, 'active'))
+  .orderBy(desc(listings.created_at));
+
+const PROVINCES = ['All', 'Gauteng', 'Western Cape', 'KwaZulu-Natal', 'Eastern Cape', 'Limpopo', 'Mpumalanga', 'North West', 'Free State', 'Northern Cape'];
+const MODELS = [
+  { value: 'all', label: 'All Models' },
+  { value: '70-series', label: '70 Series' },
+  { value: '76-series', label: '76 Series' },
+  { value: '79-series', label: '79 Series' },
+  { value: '100-series', label: '100 Series' },
+  { value: '200-series', label: '200 Series' },
+  { value: '300-series', label: '300 Series' },
+  { value: 'prado', label: 'Prado' },
+  { value: 'fj-cruiser', label: 'FJ Cruiser' },
+  { value: 'other', label: 'Other' },
+];
+
+function formatPrice(n: number) {
+  return 'R' + n.toLocaleString('en-ZA');
+}
+function formatMileage(n: number) {
+  return n.toLocaleString('en-ZA') + ' km';
+}
+function firstPhoto(photos: string) {
+  try { return JSON.parse(photos)[0] ?? '/images/og-default.jpg'; }
+  catch { return '/images/og-default.jpg'; }
+}
+---
+
+<Base
+  title="Land Cruiser Listings — Buy & Sell in South Africa"
+  description="Browse Land Cruiser classifieds in South Africa. For sale and community build showcases — 70, 79, 100, 200 and 300 Series."
+>
+
+  <!-- HEADER -->
+  <div class="bg-[#111111]">
+    <div class="max-w-7xl mx-auto px-4 py-8 sm:py-10 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+      <div>
+        <p class="text-[#F5A623] font-heading font-bold uppercase tracking-widest text-xs mb-2">Classifieds</p>
+        <h1 class="font-heading font-bold uppercase text-white text-4xl md:text-5xl leading-none">Land Cruiser Listings</h1>
+      </div>
+      <a href="/listings/submit/" class="inline-flex items-center gap-2 bg-[#F5A623] text-[#111111] font-heading font-bold uppercase tracking-wide px-6 py-3.5 rounded-xl hover:bg-[#D4881A] transition-colors text-sm self-start sm:self-auto touch-manipulation">
+        + List Your Vehicle
+      </a>
+    </div>
+  </div>
+  <div class="h-1 bg-[#F5A623]"></div>
+
+  <div class="max-w-7xl mx-auto px-4 py-8 sm:py-10">
+
+    <!-- TYPE TOGGLE -->
+    <div class="flex gap-2 mb-5" id="type-filter">
+      <button class="type-pill active" data-type="all">All</button>
+      <button class="type-pill" data-type="for_sale">For Sale</button>
+      <button class="type-pill" data-type="show_off">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        Show Off
+      </button>
+    </div>
+
+    <!-- DROPDOWN FILTERS -->
+    <div class="flex flex-wrap gap-2.5 mb-8" id="filters">
+      <select id="filter-model" class="border border-[#DDD9D3] rounded-xl px-4 py-2.5 text-sm bg-white focus:outline-none focus:border-[#F5A623] transition-colors cursor-pointer min-h-[44px]">
+        {MODELS.map(m => <option value={m.value}>{m.label}</option>)}
+      </select>
+      <select id="filter-province" class="border border-[#DDD9D3] rounded-xl px-4 py-2.5 text-sm bg-white focus:outline-none focus:border-[#F5A623] transition-colors cursor-pointer min-h-[44px]">
+        <option value="all">All Provinces</option>
+        {PROVINCES.filter(p => p !== 'All').map(p => <option value={p}>{p}</option>)}
+      </select>
+      <select id="filter-price" class="border border-[#DDD9D3] rounded-xl px-4 py-2.5 text-sm bg-white focus:outline-none focus:border-[#F5A623] transition-colors cursor-pointer min-h-[44px]">
+        <option value="all">Any Price</option>
+        <option value="0-300000">Under R300k</option>
+        <option value="300000-600000">R300k – R600k</option>
+        <option value="600000-900000">R600k – R900k</option>
+        <option value="900000-9999999">Over R900k</option>
+      </select>
+      <span id="results-count" class="self-center text-sm text-[#6B7280] ml-auto"></span>
+    </div>
+
+    <!-- GRID -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5" id="listings-grid">
+      {allListings.map(l => (
+        <a
+          href={`/listings/${l.slug}/`}
+          class={`listing-card group border rounded-xl overflow-hidden transition-all ${
+            l.listing_type === 'show_off'
+              ? 'bg-[#1A1A1A] border-[rgba(245,166,35,0.15)] hover:border-[#F5A623] hover:shadow-lg hover:shadow-[rgba(245,166,35,0.1)]'
+              : 'bg-white border-[#DDD9D3] hover:border-[#F5A623] hover:shadow-md'
+          }`}
+          data-model={l.model}
+          data-province={l.province}
+          data-price={l.price}
+          data-type={l.listing_type}
+        >
+          <div class="card-img-wrap">
+            <img
+              src={firstPhoto(l.photos)}
+              alt={l.title}
+              class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+              loading="lazy"
+            />
+            <div class="absolute top-3 left-3 flex gap-1.5 flex-wrap">
+              <span class={`card-badge ${l.listing_type === 'show_off' ? 'card-badge-show' : ''}`}>
+                {l.listing_type === 'show_off' ? '★ ' : ''}{l.model.replace('-', ' ').toUpperCase()}
+              </span>
+              {l.status === 'sold' && <span class="card-badge card-badge-sold">Sold</span>}
+            </div>
+            {l.listing_type === 'show_off' && (
+              <span class="show-off-ribbon">Community Build</span>
+            )}
+          </div>
+          <div class="p-4 sm:p-5">
+            <h2 class={`font-heading font-bold uppercase text-base leading-tight mb-1 transition-colors group-hover:text-[#F5A623] ${l.listing_type === 'show_off' ? 'text-white' : 'text-[#111111]'}`}>
+              {l.title}
+            </h2>
+            {l.listing_type === 'show_off' ? (
+              <p class="text-xs text-[rgba(255,255,255,0.4)] mb-4">{l.province} · {l.year} · {l.transmission === 'manual' ? 'Manual' : 'Auto'} · {l.colour}</p>
+            ) : (
+              <p class="text-xs text-[#6B7280] mb-4">{l.province} · {formatMileage(l.mileage)} · {l.transmission === 'manual' ? 'Manual' : 'Auto'} · {l.colour}</p>
+            )}
+            <div class="flex items-center justify-between">
+              {l.listing_type === 'for_sale' ? (
+                <>
+                  <p class="font-heading font-bold text-2xl text-[#111111]">{formatPrice(l.price)}</p>
+                  <span class="text-xs font-bold uppercase px-2.5 py-1 rounded-full bg-[#F5F3EE] text-[#6B7280]">{l.new_or_used}</span>
+                </>
+              ) : (
+                <>
+                  <span class="show-off-tag">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                    Show Off
+                  </span>
+                  <span class="text-xs font-bold uppercase px-2.5 py-1 rounded-full bg-[#1c1c1c] text-[#9CA3AF]">{l.new_or_used}</span>
+                </>
+              )}
+            </div>
+          </div>
+        </a>
+      ))}
+    </div>
+
+    <!-- EMPTY STATE -->
+    <div id="empty-state" class="hidden text-center py-24">
+      <p class="text-[#6B7280] text-lg mb-2">No listings match your filters.</p>
+      <button id="reset-filters" class="text-[#F5A623] text-sm font-semibold hover:underline min-h-[44px] px-4">Clear filters</button>
+    </div>
+
+  </div>
+
+</Base>
+
+<style>
+  .card-img-wrap {
+    position: relative;
+    aspect-ratio: 16 / 10;
+    overflow: hidden;
+    background: #F5F3EE;
+  }
+  .card-badge {
+    background: #111111;
+    color: white;
+    font-size: 0.6rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0.2rem 0.5rem;
+    border-radius: 0.25rem;
+  }
+  .card-badge-show {
+    background: rgba(245,166,35,0.9);
+    color: #111111;
+  }
+  .card-badge-sold { background: #dc2626; }
+
+  .show-off-ribbon {
+    position: absolute;
+    bottom: 0.75rem;
+    right: 0.75rem;
+    background: rgba(245,166,35,0.9);
+    color: #111111;
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 0.25rem 0.625rem;
+    border-radius: 0.375rem;
+    backdrop-filter: blur(4px);
+  }
+
+  .show-off-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    background: rgba(245,166,35,0.12);
+    color: #F5A623;
+    border: 1px solid rgba(245,166,35,0.3);
+    font-family: var(--font-heading);
+    font-weight: 700;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 0.3rem 0.75rem;
+    border-radius: 999px;
+  }
+
+  /* Type pill buttons */
+  .type-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    background: white;
+    border: 1.5px solid #DDD9D3;
+    color: #6B7280;
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-family: var(--font-heading);
+    padding: 0.5rem 1rem;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s, background 0.15s;
+    min-height: 40px;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+  .type-pill.active {
+    background: #111111;
+    border-color: #111111;
+    color: white;
+  }
+  .type-pill:not(.active):hover {
+    border-color: #F5A623;
+    color: #F5A623;
+  }
+</style>
+
+<script>
+  const grid = document.getElementById('listings-grid')!;
+  const cards = Array.from(grid.querySelectorAll<HTMLElement>('.listing-card'));
+  const emptyState = document.getElementById('empty-state')!;
+  const countEl = document.getElementById('results-count')!;
+
+  const modelSel = document.getElementById('filter-model') as HTMLSelectElement;
+  const provinceSel = document.getElementById('filter-province') as HTMLSelectElement;
+  const priceSel = document.getElementById('filter-price') as HTMLSelectElement;
+  const typePills = document.querySelectorAll<HTMLButtonElement>('.type-pill');
+
+  let activeType = 'all';
+
+  function applyFilters() {
+    const model = modelSel.value;
+    const province = provinceSel.value;
+    const [minP, maxP] = priceSel.value === 'all'
+      ? [0, Infinity]
+      : priceSel.value.split('-').map(Number);
+
+    let visible = 0;
+    cards.forEach(card => {
+      const price = Number(card.dataset.price);
+      const cardType = card.dataset.type ?? 'for_sale';
+      const isShowOff = cardType === 'show_off';
+
+      // Price filter only applies to for_sale listings
+      const priceOk = isShowOff || (price >= minP && price <= maxP);
+
+      const show =
+        (model === 'all' || card.dataset.model === model) &&
+        (province === 'all' || card.dataset.province === province) &&
+        priceOk &&
+        (activeType === 'all' || cardType === activeType);
+
+      card.style.display = show ? '' : 'none';
+      if (show) visible++;
+    });
+
+    emptyState.classList.toggle('hidden', visible > 0);
+    countEl.textContent = `${visible} listing${visible !== 1 ? 's' : ''}`;
+  }
+
+  typePills.forEach(pill => {
+    pill.addEventListener('click', () => {
+      activeType = pill.dataset.type ?? 'all';
+      typePills.forEach(p => p.classList.remove('active'));
+      pill.classList.add('active');
+
+      // Hide price filter when showing show-off only (it doesn't apply)
+      const priceFilter = document.getElementById('filter-price') as HTMLSelectElement;
+      priceFilter.style.display = activeType === 'show_off' ? 'none' : '';
+
+      applyFilters();
+    });
+  });
+
+  [modelSel, provinceSel, priceSel].forEach(el => el.addEventListener('change', applyFilters));
+
+  document.getElementById('reset-filters')?.addEventListener('click', () => {
+    modelSel.value = 'all';
+    provinceSel.value = 'all';
+    priceSel.value = 'all';
+    activeType = 'all';
+    typePills.forEach(p => p.classList.toggle('active', p.dataset.type === 'all'));
+    applyFilters();
+  });
+
+  applyFilters();
+</script>

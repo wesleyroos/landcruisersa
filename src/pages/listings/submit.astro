@@ -1,0 +1,966 @@
+---
+export const prerender = false;
+import Base from '@/layouts/Base.astro';
+---
+
+<Base
+  title="List Your Land Cruiser — Land Cruiser SA"
+  description="List your Land Cruiser for sale or show off your build to the Land Cruiser SA community."
+>
+
+<div class="wiz-outer">
+
+  <!-- STICKY HEADER BAR -->
+  <div class="wiz-bar" id="wiz-bar">
+    <a href="/listings/" class="wiz-back-link" id="wiz-back-btn">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+      <span>Listings</span>
+    </a>
+    <div class="wiz-progress-track">
+      <div class="wiz-progress-fill" id="wiz-progress"></div>
+    </div>
+    <span class="wiz-step-label" id="wiz-step-label">Step 1 of 4</span>
+  </div>
+
+  <!-- ─── STEP 1: CHOOSE TYPE ─────────────────────────── -->
+  <div id="step-1" class="wiz-step">
+    <div class="wiz-hero">
+      <h1>What are you listing?</h1>
+      <p>Choose how you want to post your Land Cruiser.</p>
+    </div>
+
+    <div class="type-grid">
+      <button class="type-card" id="card-for-sale" data-type="for_sale">
+        <div class="type-check" id="check-for-sale"></div>
+        <div class="type-icon">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>
+          </svg>
+        </div>
+        <div class="type-body">
+          <h2>For Sale</h2>
+          <p>Reach thousands of buyers across South Africa. Your listing gets posted to Instagram automatically.</p>
+          <ul class="type-perks">
+            <li>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#F5A623" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+              Price + contact info
+            </li>
+            <li>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#F5A623" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+              Direct WhatsApp enquiries
+            </li>
+            <li>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#F5A623" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+              Automatic Instagram post
+            </li>
+          </ul>
+        </div>
+      </button>
+
+      <button class="type-card" id="card-show-off" data-type="show_off">
+        <div class="type-check" id="check-show-off"></div>
+        <div class="type-icon">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+          </svg>
+        </div>
+        <div class="type-body">
+          <h2>Show Off</h2>
+          <p>Share your build with the community. No selling — just bragging rights and an IG feature.</p>
+          <ul class="type-perks">
+            <li>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#F5A623" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+              Community build spotlight
+            </li>
+            <li>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#F5A623" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+              Instagram feature post
+            </li>
+            <li>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#F5A623" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+              Free — no listing fee
+            </li>
+          </ul>
+        </div>
+      </button>
+    </div>
+  </div>
+
+  <!-- ─── STEP 2: PHOTOS ──────────────────────────────── -->
+  <div id="step-2" class="wiz-step hidden">
+    <div class="wiz-hero">
+      <h1>Add Photos</h1>
+      <p>Up to 10 photos. First photo is the cover image.</p>
+    </div>
+
+    <button type="button" id="photo-upload-btn" class="photo-zone">
+      <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25">
+        <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/>
+        <circle cx="12" cy="13" r="4"/>
+      </svg>
+      <span class="photo-zone-label">Tap to add photos</span>
+      <span class="photo-zone-sub">JPEG · PNG · WebP · Max 10MB each</span>
+    </button>
+    <input type="file" id="photo-input" multiple accept="image/*" class="sr-only" />
+
+    <div id="photo-grid" class="photo-grid"></div>
+    <p id="photo-badge" class="photo-badge hidden"></p>
+
+    <div class="wiz-actions">
+      <button type="button" class="btn-back" id="step2-back">← Back</button>
+      <button type="button" class="btn-next" id="step2-next">Continue →</button>
+    </div>
+  </div>
+
+  <!-- ─── STEP 3: VEHICLE DETAILS ─────────────────────── -->
+  <div id="step-3" class="wiz-step hidden">
+    <div class="wiz-hero">
+      <h1>Vehicle Details</h1>
+      <p id="step3-sub">Tell us about your Land Cruiser.</p>
+    </div>
+
+    <div class="fields">
+
+      <div class="field">
+        <label for="f-title">Listing Title *</label>
+        <input id="f-title" type="text" autocomplete="off" placeholder="e.g. 2019 Land Cruiser 79 Series Double Cab 4.2D" />
+        <span class="field-hint">Year, series, and body style work best.</span>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="f-model">Series *</label>
+          <select id="f-model">
+            <option value="">Select</option>
+            <option value="70-series">70 Series</option>
+            <option value="76-series">76 Series</option>
+            <option value="79-series">79 Series</option>
+            <option value="100-series">100 Series</option>
+            <option value="200-series">200 Series</option>
+            <option value="300-series">300 Series</option>
+            <option value="prado">Prado</option>
+            <option value="fj-cruiser">FJ Cruiser</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="f-year">Year *</label>
+          <input id="f-year" type="number" min="1960" max="2027" placeholder="2019" />
+        </div>
+      </div>
+
+      <!-- FOR SALE ONLY -->
+      <div id="sale-fields">
+        <div class="field-row">
+          <div class="field">
+            <label for="f-price">Asking Price (ZAR) *</label>
+            <input id="f-price" type="number" min="0" placeholder="695000" inputmode="numeric" />
+          </div>
+          <div class="field">
+            <label for="f-mileage">Mileage (km) *</label>
+            <input id="f-mileage" type="number" min="0" placeholder="87000" inputmode="numeric" />
+          </div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="f-province">Province *</label>
+        <select id="f-province">
+          <option value="">Select province</option>
+          <option>Gauteng</option>
+          <option>Western Cape</option>
+          <option>KwaZulu-Natal</option>
+          <option>Eastern Cape</option>
+          <option>Limpopo</option>
+          <option>Mpumalanga</option>
+          <option>North West</option>
+          <option>Free State</option>
+          <option>Northern Cape</option>
+        </select>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="f-new-or-used">Condition *</label>
+          <select id="f-new-or-used">
+            <option value="">Select</option>
+            <option value="Used">Used</option>
+            <option value="New">New</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="f-transmission">Gearbox *</label>
+          <select id="f-transmission">
+            <option value="">Select</option>
+            <option value="manual">Manual</option>
+            <option value="automatic">Automatic</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="f-colour">Colour *</label>
+        <input id="f-colour" type="text" autocomplete="off" placeholder="e.g. White" />
+      </div>
+
+      <!-- SHOW OFF ONLY -->
+      <div id="mods-field" class="field hidden">
+        <label for="f-mods">Build Mods</label>
+        <textarea id="f-mods" rows="4" placeholder="e.g. OME suspension lift, ARB bull bar, 35&#34; BFG KO2s, snorkel, dual battery, Engel fridge..."></textarea>
+        <span class="field-hint">One mod per line or comma-separated. Skip if you'd rather put it all in the story below.</span>
+      </div>
+
+      <div class="field">
+        <label for="f-description" id="desc-label">Description *</label>
+        <textarea id="f-description" rows="5" id="f-description" placeholder="Describe the vehicle — service history, mods, condition, reason for selling..."></textarea>
+      </div>
+
+    </div>
+
+    <p id="step3-error" class="field-error hidden">Please fill in all required fields.</p>
+
+    <div class="wiz-actions">
+      <button type="button" class="btn-back" id="step3-back">← Back</button>
+      <button type="button" class="btn-next" id="step3-next">Continue →</button>
+    </div>
+  </div>
+
+  <!-- ─── STEP 4: CONTACT ──────────────────────────────── -->
+  <div id="step-4" class="wiz-step hidden">
+    <div class="wiz-hero">
+      <h1>Your Details</h1>
+      <p>We'll notify you when your listing goes live.</p>
+    </div>
+
+    <div class="fields">
+      <div class="field">
+        <label for="f-name">Full Name *</label>
+        <input id="f-name" type="text" autocomplete="name" placeholder="Your name" />
+      </div>
+      <div class="field">
+        <label for="f-email">Email *</label>
+        <input id="f-email" type="email" autocomplete="email" placeholder="you@example.com" />
+        <span class="field-hint">We'll email you when your listing is approved.</span>
+      </div>
+      <div class="field">
+        <label for="f-phone">Phone / WhatsApp *</label>
+        <input id="f-phone" type="tel" autocomplete="tel" placeholder="082 555 1234" inputmode="tel" />
+        <span id="phone-hint" class="field-hint">Buyers contact you directly. Not shown publicly on Show Off posts.</span>
+      </div>
+    </div>
+
+    <p id="form-error" class="field-error hidden"></p>
+
+    <div class="wiz-actions wiz-actions-col">
+      <button type="button" class="btn-submit" id="submit-btn">Submit Listing</button>
+      <button type="button" class="btn-back" id="step4-back">← Back</button>
+    </div>
+    <p class="submit-note">Listings are reviewed within 24 hours before going live.</p>
+  </div>
+
+  <!-- ─── SUCCESS ──────────────────────────────────────── -->
+  <div id="step-success" class="wiz-step hidden success-wrap">
+    <div class="success-icon">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+    </div>
+    <h2 id="success-heading">Listing Submitted!</h2>
+    <p id="success-body">We'll review it and get it live within 24 hours. You'll get an email when it's published and posted to Instagram.</p>
+    <a href="/listings/" class="btn-next" style="display:inline-flex;text-decoration:none;max-width:240px;margin:0 auto;">Browse Listings</a>
+  </div>
+
+</div>
+
+</Base>
+
+<style>
+  /* ── LAYOUT ─────────────────────────────────────── */
+  .wiz-outer {
+    min-height: 100vh;
+    background: #F5F3EE;
+    padding-bottom: 4rem;
+  }
+
+  /* ── PROGRESS BAR ───────────────────────────────── */
+  .wiz-bar {
+    position: sticky;
+    top: 64px;
+    z-index: 40;
+    background: #111111;
+    padding: 0.875rem 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 0.875rem;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+  .wiz-back-link {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    color: rgba(255,255,255,0.5);
+    text-decoration: none;
+    font-size: 0.75rem;
+    font-weight: 600;
+    white-space: nowrap;
+    transition: color 0.15s;
+    flex-shrink: 0;
+  }
+  .wiz-back-link:hover { color: white; }
+  .wiz-progress-track {
+    flex: 1;
+    height: 3px;
+    background: rgba(255,255,255,0.12);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+  .wiz-progress-fill {
+    height: 100%;
+    background: #F5A623;
+    border-radius: 999px;
+    transition: width 0.4s cubic-bezier(.4,0,.2,1);
+    width: 25%;
+  }
+  .wiz-step-label {
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: rgba(255,255,255,0.4);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  /* ── STEPS ──────────────────────────────────────── */
+  .wiz-step {
+    max-width: 560px;
+    margin: 0 auto;
+    padding: 2rem 1.25rem;
+  }
+  .hidden { display: none !important; }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }
+
+  /* ── HERO ───────────────────────────────────────── */
+  .wiz-hero { margin-bottom: 2rem; }
+  .wiz-hero h1 {
+    font-family: var(--font-heading);
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: clamp(1.75rem, 6vw, 2.25rem);
+    color: #111111;
+    line-height: 1;
+    margin-bottom: 0.5rem;
+  }
+  .wiz-hero p { font-size: 0.9rem; color: #6B7280; line-height: 1.5; }
+
+  /* ── TYPE CARDS ─────────────────────────────────── */
+  .type-grid { display: flex; flex-direction: column; gap: 1rem; }
+
+  .type-card {
+    position: relative;
+    width: 100%;
+    background: white;
+    border: 2px solid #DDD9D3;
+    border-radius: 1.125rem;
+    padding: 1.5rem;
+    text-align: left;
+    cursor: pointer;
+    display: flex;
+    align-items: flex-start;
+    gap: 1.25rem;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+  .type-card:active { transform: scale(0.985); }
+  .type-card.selected {
+    border-color: #F5A623;
+    box-shadow: 0 0 0 4px rgba(245,166,35,0.12);
+  }
+
+  .type-check {
+    position: absolute;
+    top: 1.125rem;
+    right: 1.125rem;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 2px solid #DDD9D3;
+    background: white;
+    transition: background 0.2s, border-color 0.2s;
+    flex-shrink: 0;
+  }
+  .type-card.selected .type-check {
+    background: #F5A623;
+    border-color: #F5A623;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='10' viewBox='0 0 24 20'%3E%3Cpolyline points='20 2 9 17 4 12' stroke='%23111' stroke-width='3' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: center;
+  }
+
+  .type-icon {
+    flex-shrink: 0;
+    width: 52px;
+    height: 52px;
+    border-radius: 0.75rem;
+    background: #F5F3EE;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #6B7280;
+    transition: background 0.2s, color 0.2s;
+  }
+  .type-card.selected .type-icon { background: rgba(245,166,35,0.12); color: #F5A623; }
+
+  .type-body { flex: 1; min-width: 0; padding-right: 1.5rem; }
+  .type-body h2 {
+    font-family: var(--font-heading);
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 1.2rem;
+    color: #111111;
+    margin-bottom: 0.375rem;
+  }
+  .type-body p {
+    font-size: 0.85rem;
+    color: #6B7280;
+    line-height: 1.5;
+    margin-bottom: 1rem;
+  }
+  .type-perks {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+  .type-perks li {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.8rem;
+    color: #4A4A4A;
+    font-weight: 500;
+  }
+
+  /* ── PHOTO ZONE ─────────────────────────────────── */
+  .photo-zone {
+    width: 100%;
+    min-height: 150px;
+    background: white;
+    border: 2px dashed #DDD9D3;
+    border-radius: 1.125rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.625rem;
+    cursor: pointer;
+    padding: 2rem 1.5rem;
+    transition: border-color 0.2s, background 0.2s;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    color: #9CA3AF;
+  }
+  .photo-zone:active, .photo-zone.active { border-color: #F5A623; border-style: solid; background: rgba(245,166,35,0.04); }
+  .photo-zone.has-photos { min-height: 80px; border-style: solid; border-color: rgba(245,166,35,0.5); }
+  .photo-zone-label {
+    font-family: var(--font-heading);
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 1rem;
+    color: #111111;
+    letter-spacing: 0.04em;
+  }
+  .photo-zone-sub { font-size: 0.75rem; color: #9CA3AF; }
+
+  .photo-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.625rem;
+    margin-top: 1rem;
+  }
+  @media (min-width: 400px) { .photo-grid { grid-template-columns: repeat(4, 1fr); } }
+
+  .photo-thumb {
+    position: relative;
+    aspect-ratio: 1;
+    border-radius: 0.75rem;
+    overflow: hidden;
+    background: #E5E2DC;
+  }
+  .photo-thumb img { width: 100%; height: 100%; object-fit: cover; }
+  .photo-remove {
+    position: absolute;
+    top: 0.3rem;
+    right: 0.3rem;
+    background: rgba(0,0,0,0.6);
+    border: none;
+    border-radius: 50%;
+    width: 26px;
+    height: 26px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .photo-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    background: #F0FDF4;
+    border: 1px solid #BBF7D0;
+    color: #166534;
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 0.375rem 0.875rem;
+    border-radius: 999px;
+    margin-top: 0.875rem;
+  }
+
+  /* ── FORM FIELDS ────────────────────────────────── */
+  .fields { display: flex; flex-direction: column; gap: 1.25rem; }
+
+  .field { display: flex; flex-direction: column; gap: 0.4rem; }
+  .field label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #111111;
+  }
+  .field input,
+  .field select,
+  .field textarea {
+    width: 100%;
+    border: 1.5px solid #DDD9D3;
+    border-radius: 0.75rem;
+    padding: 0.9rem 1rem;
+    font-size: 16px;
+    color: #111111;
+    background: white;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    outline: none;
+    -webkit-appearance: none;
+    appearance: none;
+    font-family: inherit;
+  }
+  .field select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' stroke='%236B7280' stroke-width='1.75' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 1rem center;
+    padding-right: 2.75rem;
+  }
+  .field input:focus,
+  .field select:focus,
+  .field textarea:focus {
+    border-color: #F5A623;
+    box-shadow: 0 0 0 3px rgba(245,166,35,0.14);
+  }
+  .field input.error,
+  .field select.error,
+  .field textarea.error {
+    border-color: #DC2626;
+    box-shadow: 0 0 0 3px rgba(220,38,38,0.1);
+  }
+  .field textarea { resize: vertical; min-height: 120px; line-height: 1.6; }
+  .field-hint { font-size: 0.7rem; color: #9CA3AF; line-height: 1.4; }
+  .field-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.875rem;
+  }
+
+  .field-error {
+    background: #FEF2F2;
+    border: 1px solid #FECACA;
+    color: #DC2626;
+    font-size: 0.85rem;
+    padding: 0.75rem 1rem;
+    border-radius: 0.75rem;
+    margin-top: 0.5rem;
+    line-height: 1.4;
+  }
+
+  /* ── ACTIONS ────────────────────────────────────── */
+  .wiz-actions {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 2rem;
+    align-items: stretch;
+  }
+  .wiz-actions-col {
+    flex-direction: column;
+  }
+
+  .btn-next {
+    flex: 1;
+    background: #F5A623;
+    color: #111111;
+    font-family: var(--font-heading);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-size: 0.9rem;
+    padding: 1rem 1.5rem;
+    border: none;
+    border-radius: 0.875rem;
+    cursor: pointer;
+    min-height: 54px;
+    transition: background 0.15s, transform 0.1s;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .btn-next:active { background: #D4881A; transform: scale(0.98); }
+  .btn-next:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+
+  .btn-submit {
+    width: 100%;
+    background: #111111;
+    color: white;
+    font-family: var(--font-heading);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-size: 0.9rem;
+    padding: 1rem 1.5rem;
+    border: none;
+    border-radius: 0.875rem;
+    cursor: pointer;
+    min-height: 54px;
+    transition: background 0.15s, transform 0.1s;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .btn-submit:active { background: #2a2a2a; }
+  .btn-submit:disabled { opacity: 0.55; cursor: not-allowed; }
+
+  .btn-back {
+    background: transparent;
+    color: #6B7280;
+    font-family: var(--font-heading);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-size: 0.8rem;
+    padding: 1rem;
+    border: 1.5px solid #DDD9D3;
+    border-radius: 0.875rem;
+    cursor: pointer;
+    min-height: 54px;
+    min-width: 90px;
+    transition: border-color 0.15s, color 0.15s;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+  .btn-back:hover { border-color: #111111; color: #111111; }
+
+  .submit-note {
+    text-align: center;
+    font-size: 0.72rem;
+    color: #9CA3AF;
+    margin-top: 1rem;
+    line-height: 1.5;
+  }
+
+  /* ── SUCCESS ────────────────────────────────────── */
+  .success-wrap {
+    text-align: center;
+    padding-top: 3rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+  }
+  .success-icon {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    background: #F0FDF4;
+    border: 2px solid #BBF7D0;
+    color: #16A34A;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 1.5rem;
+  }
+  .success-wrap h2 {
+    font-family: var(--font-heading);
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 2rem;
+    color: #111111;
+    margin-bottom: 0.75rem;
+    line-height: 1;
+  }
+  .success-wrap p {
+    color: #6B7280;
+    font-size: 0.9rem;
+    line-height: 1.65;
+    margin-bottom: 2rem;
+    max-width: 340px;
+  }
+</style>
+
+<script>
+  // ── State ────────────────────────────────────────────
+  let currentStep = 1;
+  let selectedType = '';
+  const uploadedUrls: string[] = [];
+
+  const STEPS: Record<number, string> = {
+    1: 'step-1',
+    2: 'step-2',
+    3: 'step-3',
+    4: 'step-4',
+    5: 'step-success',
+  };
+
+  // ── Navigation ───────────────────────────────────────
+  function goTo(step: number) {
+    const current = document.getElementById(STEPS[currentStep]);
+    const next = document.getElementById(STEPS[step]);
+    current?.classList.add('hidden');
+    next?.classList.remove('hidden');
+    currentStep = step;
+    updateBar();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function updateBar() {
+    const fill = document.getElementById('wiz-progress') as HTMLElement;
+    const label = document.getElementById('wiz-step-label') as HTMLElement;
+    const pct = currentStep >= 5 ? 100 : (currentStep / 4) * 100;
+    fill.style.width = `${pct}%`;
+    label.textContent = currentStep <= 4 ? `Step ${currentStep} of 4` : 'Done!';
+  }
+
+  // ── Step 1: Type selection ────────────────────────────
+  document.querySelectorAll<HTMLButtonElement>('.type-card').forEach(card => {
+    card.addEventListener('click', () => {
+      selectedType = card.dataset.type ?? '';
+      document.querySelectorAll('.type-card').forEach(c => c.classList.remove('selected'));
+      card.classList.add('selected');
+      adaptStep3();
+      setTimeout(() => goTo(2), 320);
+    });
+  });
+
+  function adaptStep3() {
+    const saleFields = document.getElementById('sale-fields')!;
+    const modsField = document.getElementById('mods-field')!;
+    const descLabel = document.getElementById('desc-label')!;
+    const step3Sub = document.getElementById('step3-sub')!;
+    const phoneHint = document.getElementById('phone-hint')!;
+
+    if (selectedType === 'show_off') {
+      saleFields.classList.add('hidden');
+      modsField.classList.remove('hidden');
+      descLabel.textContent = 'Build Story *';
+      step3Sub.textContent = 'Tell us about your build.';
+      (document.getElementById('f-description') as HTMLTextAreaElement).placeholder =
+        "Tell the community about your build — how long you've had it, the journey, what makes it special...";
+      phoneHint.textContent = "We'll contact you for community features. Not shown publicly.";
+    } else {
+      saleFields.classList.remove('hidden');
+      modsField.classList.add('hidden');
+      descLabel.textContent = 'Description *';
+      step3Sub.textContent = 'Tell buyers about your vehicle.';
+      (document.getElementById('f-description') as HTMLTextAreaElement).placeholder =
+        'Describe the vehicle — service history, mods, condition, reason for selling...';
+      phoneHint.textContent = 'Buyers contact you directly. Not shown publicly.';
+    }
+  }
+
+  // ── Step 2: Photos ───────────────────────────────────
+  const photoBtn = document.getElementById('photo-upload-btn') as HTMLButtonElement;
+  const photoInput = document.getElementById('photo-input') as HTMLInputElement;
+  const photoGrid = document.getElementById('photo-grid')!;
+  const photoBadge = document.getElementById('photo-badge')!;
+  const step2Next = document.getElementById('step2-next') as HTMLButtonElement;
+
+  photoBtn.addEventListener('click', () => photoInput.click());
+  photoInput.addEventListener('change', () => handleFiles(Array.from(photoInput.files ?? [])));
+
+  async function handleFiles(files: File[]) {
+    const remaining = 10 - uploadedUrls.length;
+    const toUpload = files.slice(0, remaining);
+    if (!toUpload.length) return;
+
+    step2Next.disabled = true;
+    const orig = step2Next.textContent;
+    step2Next.textContent = `Uploading ${toUpload.length} photo${toUpload.length > 1 ? 's' : ''}…`;
+
+    for (const file of toUpload) {
+      const fd = new FormData();
+      fd.append('file', file);
+      try {
+        const res = await fetch('/api/uploads/', { method: 'POST', body: fd });
+        if (res.ok) {
+          const { url } = await res.json();
+          uploadedUrls.push(url);
+          addThumb(url);
+        }
+      } catch {}
+    }
+
+    step2Next.disabled = false;
+    step2Next.textContent = orig;
+    photoInput.value = '';
+    if (uploadedUrls.length > 0) photoBtn.classList.add('has-photos');
+    refreshBadge();
+  }
+
+  function addThumb(url: string) {
+    const div = document.createElement('div');
+    div.className = 'photo-thumb';
+    div.innerHTML = `
+      <img src="${url}" alt="Photo" />
+      <button type="button" class="photo-remove" aria-label="Remove">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>`;
+    div.querySelector('.photo-remove')!.addEventListener('click', () => {
+      const i = uploadedUrls.indexOf(url);
+      if (i > -1) uploadedUrls.splice(i, 1);
+      div.remove();
+      if (!uploadedUrls.length) photoBtn.classList.remove('has-photos');
+      refreshBadge();
+    });
+    photoGrid.appendChild(div);
+  }
+
+  function refreshBadge() {
+    if (uploadedUrls.length) {
+      photoBadge.classList.remove('hidden');
+      photoBadge.textContent = `✓ ${uploadedUrls.length} photo${uploadedUrls.length !== 1 ? 's' : ''} added`;
+    } else {
+      photoBadge.classList.add('hidden');
+    }
+  }
+
+  // ── Step 3: Validate & navigate ──────────────────────
+  function validateStep3(): boolean {
+    const ids = ['f-title', 'f-model', 'f-year', 'f-province', 'f-new-or-used', 'f-transmission', 'f-colour', 'f-description'];
+    if (selectedType === 'for_sale') ids.push('f-price', 'f-mileage');
+
+    let first: HTMLElement | null = null;
+    let allOk = true;
+
+    ids.forEach(id => {
+      const el = document.getElementById(id) as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
+      if (!el?.value.trim()) {
+        el?.classList.add('error');
+        allOk = false;
+        if (!first) first = el;
+      } else {
+        el?.classList.remove('error');
+      }
+    });
+
+    const errEl = document.getElementById('step3-error')!;
+    if (!allOk) {
+      errEl.classList.remove('hidden');
+      first?.focus();
+    } else {
+      errEl.classList.add('hidden');
+    }
+    return allOk;
+  }
+
+  // ── Back button on wiz bar ───────────────────────────
+  document.getElementById('wiz-back-btn')?.addEventListener('click', (e) => {
+    if (currentStep > 1 && currentStep < 5) {
+      e.preventDefault();
+      goTo(currentStep - 1);
+    }
+  });
+
+  document.getElementById('step2-back')?.addEventListener('click', () => goTo(1));
+  document.getElementById('step2-next')?.addEventListener('click', () => goTo(3));
+  document.getElementById('step3-back')?.addEventListener('click', () => goTo(2));
+  document.getElementById('step3-next')?.addEventListener('click', () => {
+    if (validateStep3()) goTo(4);
+  });
+  document.getElementById('step4-back')?.addEventListener('click', () => goTo(3));
+
+  // Clear error styling on input
+  document.querySelectorAll('.field input, .field select, .field textarea').forEach(el => {
+    el.addEventListener('input', () => el.classList.remove('error'));
+  });
+
+  // ── Submit ───────────────────────────────────────────
+  const submitBtn = document.getElementById('submit-btn') as HTMLButtonElement;
+  const formError = document.getElementById('form-error')!;
+
+  submitBtn.addEventListener('click', async () => {
+    const name = (document.getElementById('f-name') as HTMLInputElement).value.trim();
+    const email = (document.getElementById('f-email') as HTMLInputElement).value.trim();
+    const phone = (document.getElementById('f-phone') as HTMLInputElement).value.trim();
+
+    if (!name || !email || !phone) {
+      formError.textContent = 'Please fill in your name, email, and phone number.';
+      formError.classList.remove('hidden');
+      return;
+    }
+
+    formError.classList.add('hidden');
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Submitting…';
+
+    const payload = {
+      listing_type: selectedType,
+      title: (document.getElementById('f-title') as HTMLInputElement).value.trim(),
+      model: (document.getElementById('f-model') as HTMLSelectElement).value,
+      year: (document.getElementById('f-year') as HTMLInputElement).value,
+      price: selectedType === 'for_sale' ? (document.getElementById('f-price') as HTMLInputElement).value : '0',
+      mileage: selectedType === 'for_sale' ? (document.getElementById('f-mileage') as HTMLInputElement).value : '0',
+      province: (document.getElementById('f-province') as HTMLSelectElement).value,
+      new_or_used: (document.getElementById('f-new-or-used') as HTMLSelectElement).value,
+      transmission: (document.getElementById('f-transmission') as HTMLSelectElement).value,
+      colour: (document.getElementById('f-colour') as HTMLInputElement).value.trim(),
+      description: (document.getElementById('f-description') as HTMLTextAreaElement).value.trim(),
+      mods: (document.getElementById('f-mods') as HTMLTextAreaElement).value.trim(),
+      photos: uploadedUrls,
+      seller_name: name,
+      seller_email: email,
+      seller_phone: phone,
+    };
+
+    try {
+      const res = await fetch('/api/listings/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (res.ok) {
+        // Update success message based on type
+        if (selectedType === 'show_off') {
+          (document.getElementById('success-heading') as HTMLElement).textContent = 'Build Submitted!';
+          (document.getElementById('success-body') as HTMLElement).textContent =
+            "We'll review your build and feature it within 24 hours — then post it to Instagram. We'll email you when it's live.";
+        }
+        goTo(5);
+      } else {
+        const err = await res.json();
+        formError.textContent = err.error ?? 'Something went wrong. Please try again.';
+        formError.classList.remove('hidden');
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Submit Listing';
+      }
+    } catch {
+      formError.textContent = 'Network error. Please check your connection and try again.';
+      formError.classList.remove('hidden');
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Submit Listing';
+    }
+  });
+</script>

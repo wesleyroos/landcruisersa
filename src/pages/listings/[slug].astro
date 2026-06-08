@@ -1,0 +1,892 @@
+---
+export const prerender = false;
+
+import Base from '@/layouts/Base.astro';
+import { db } from '@/db/index';
+import { listings } from '@/db/schema';
+import { eq, ne } from 'drizzle-orm';
+
+const { slug } = Astro.params;
+const [listing] = await db.select().from(listings).where(eq(listings.slug, slug!));
+
+if (!listing || listing.status === 'pending') {
+  return Astro.redirect('/listings/');
+}
+
+const isSold = listing.status === 'sold';
+const isExternal = Boolean(listing.source_url);
+const isShowOff = listing.listing_type === 'show_off';
+
+const similar = await db.select().from(listings)
+  .where(eq(listings.status, 'active'))
+  .limit(6);
+const similarFiltered = similar.filter(l => l.slug !== slug).slice(0, 3);
+
+const photos: string[] = JSON.parse(listing.photos);
+const mainPhoto = photos[0] ?? '/images/og-default.jpg';
+const gridPhotos = photos.slice(1, 5);
+
+function formatPrice(n: number) {
+  return 'R ' + n.toLocaleString('en-ZA');
+}
+function formatMileage(n: number) {
+  return n.toLocaleString('en-ZA') + ' km';
+}
+function cap(s: string) {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+function firstPhoto(p: string) {
+  try { return JSON.parse(p)[0] ?? '/images/og-default.jpg'; } catch { return '/images/og-default.jpg'; }
+}
+
+// IG caption generated server-side for easy copy when posting
+const modelLabel = listing.model.replace('-', ' ').toUpperCase();
+const igCaption = isShowOff
+  ? `🏆 COMMUNITY BUILD | ${listing.year} Land Cruiser ${modelLabel} | ${listing.province}\n\n${listing.mods ? listing.mods.slice(0, 150) + (listing.mods.length > 150 ? '...' : '') + '\n\n' : ''}${listing.description.slice(0, 200)}${listing.description.length > 200 ? '...' : ''}\n\n📸 Member submission — want to be featured? Link in bio.\n\n#LandCruiserSA #LandCruiser #${modelLabel.replace(' ', '')} #LandCruiserBuild #4x4SouthAfrica #4x4 #OffRoad`
+  : `🚨 FOR SALE | ${listing.year} Land Cruiser ${modelLabel} | ${formatPrice(listing.price)} | ${listing.province}\n\n${listing.description.slice(0, 180)}${listing.description.length > 180 ? '...' : ''}\n\n📱 DM us or tap the link in bio to enquire.\n\n#LandCruiserSA #LandCruiser #${modelLabel.replace(' ', '')} #ForSale #4x4SouthAfrica #4x4 #OffRoad`;
+
+// Vehicle JSON-LD for AI agents and Google
+const vehicleSchema: Record<string, unknown> = {
+  "@context": "https://schema.org",
+  "@type": "Vehicle",
+  "name": listing.title,
+  "description": listing.description,
+  "vehicleModelDate": String(listing.year),
+  "color": listing.colour,
+  "vehicleTransmission": listing.transmission === 'manual' ? 'ManualTransmission' : 'AutomaticTransmission',
+  "image": mainPhoto.startsWith('http') ? mainPhoto : `https://landcruisersa.co.za${mainPhoto}`,
+  "url": `https://landcruisersa.co.za/listings/${listing.slug}/`,
+  ...(listing.mileage > 0 ? {
+    "mileageFromOdometer": {
+      "@type": "QuantitativeValue",
+      "value": listing.mileage,
+      "unitCode": "KMT"
+    }
+  } : {}),
+  ...(!isShowOff && listing.price > 0 ? {
+    "offers": {
+      "@type": "Offer",
+      "price": listing.price,
+      "priceCurrency": "ZAR",
+      "availability": isSold ? "https://schema.org/SoldOut" : "https://schema.org/InStock",
+      "seller": {
+        "@type": "Person",
+        "name": listing.seller_name
+      }
+    }
+  } : {})
+};
+---
+
+<Base
+  title={`${listing.title} — Land Cruiser SA`}
+  description={listing.description.slice(0, 160)}
+  image={mainPhoto}
+  schema={vehicleSchema}
+>
+
+<div class="page-bg">
+
+  <!-- BREADCRUMB -->
+  <div class="section-breadcrumb">
+    <a href="/listings/" class="back-link">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+      Back to listings
+    </a>
+  </div>
+
+  <!-- SOLD BANNER -->
+  {isSold && (
+    <div class="sold-banner-wrap">
+      <div class="sold-banner">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <div>
+          <strong>This vehicle is no longer available.</strong>
+          <span>The listing has been removed from the source — it may have sold or been withdrawn. Browse similar vehicles below.</span>
+        </div>
+        <a href="/listings/" class="sold-browse">Browse listings →</a>
+      </div>
+    </div>
+  )}
+
+  <!-- HEADER ROW -->
+  <div class="section-header">
+    <div class="header-row">
+      <div class="header-left">
+        <div class="header-meta">
+          {isShowOff && <span class="show-off-pill">★ Community Build</span>}
+          <span class="model-pill">{listing.model.replace('-', ' ').toUpperCase()}</span>
+          <span class="year-pill">{listing.year}</span>
+        </div>
+        <h1 class="listing-title">{listing.title}</h1>
+        <p class="listing-location">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/></svg>
+          {listing.province} · Listed {new Date(listing.created_at).toLocaleDateString('en-ZA', { day: 'numeric', month: 'long', year: 'numeric' })}
+        </p>
+      </div>
+      {isSold && (
+        <span class="sold-pill">No Longer Available</span>
+      )}
+      {!isSold && !isExternal && !isShowOff && (
+        <a
+          href={`https://wa.me/27${listing.seller_phone.replace(/^0/, '').replace(/\s/g, '')}?text=Hi, I saw your ${encodeURIComponent(listing.title)} on Land Cruiser SA.`}
+          target="_blank" rel="noopener"
+          class="wa-btn-header"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.126.554 4.122 1.526 5.855L.057 23.886a.5.5 0 00.606.619l6.222-1.638A11.94 11.94 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.9a9.89 9.89 0 01-5.033-1.371l-.36-.214-3.733.982.998-3.648-.235-.374A9.861 9.861 0 012.1 12c0-5.459 4.441-9.9 9.9-9.9 5.459 0 9.9 4.441 9.9 9.9 0 5.459-4.441 9.9-9.9 9.9z"/></svg>
+          WhatsApp Seller
+        </a>
+      )}
+      {!isSold && isExternal && (
+        <a href={listing.source_url!} target="_blank" rel="noopener" class="wa-btn-header ext-btn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+          View on AutoTrader
+        </a>
+      )}
+    </div>
+  </div>
+
+  <!-- PHOTO MOSAIC -->
+  <div class="section-mosaic">
+    <div class={`mosaic ${gridPhotos.length > 0 ? 'mosaic-split' : 'mosaic-single'}`}>
+      <button class="mosaic-main lb-trigger" data-index="0">
+        <img src={mainPhoto} alt={listing.title} />
+        <span class="photo-count">{photos.length} photos · click to view</span>
+      </button>
+      {gridPhotos.length > 0 && (
+        <div class="mosaic-grid">
+          {gridPhotos.map((p, i) => (
+            <button class="mosaic-thumb lb-trigger" data-index={i + 1}>
+              <img src={p} alt={`Photo ${i + 2}`} loading="lazy" />
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  </div>
+
+  <!-- SPEC CHIPS -->
+  <div class="section-chips">
+    <div class="spec-chips">
+      <span class="chip">
+        <img src="/images/icons/year.svg" width="14" height="14" alt="" class="chip-icon" />
+        {listing.year}
+      </span>
+      <span class="chip">
+        <img src="/images/icons/mileage.svg" width="14" height="14" alt="" class="chip-icon" />
+        {formatMileage(listing.mileage)}
+      </span>
+      <span class="chip">
+        <img src={`/images/icons/transmission-${listing.transmission}.svg`} width="14" height="14" alt="" class="chip-icon" />
+        {cap(listing.transmission)}
+      </span>
+      {listing.fuel_type && (
+        <span class="chip">
+          <img src={`/images/icons/${listing.fuel_type.toLowerCase()}.svg`} width="14" height="14" alt="" class="chip-icon" />
+          {listing.fuel_type}
+        </span>
+      )}
+      {listing.fuel_consumption && (
+        <span class="chip">
+          <img src="/images/icons/fuel-nozzle.svg" width="14" height="14" alt="" class="chip-icon" />
+          {listing.fuel_consumption} L/100km
+        </span>
+      )}
+      {listing.power_kw && (
+        <span class="chip">
+          <img src="/images/icons/engine-power.svg" width="14" height="14" alt="" class="chip-icon" />
+          {listing.power_kw} kW
+        </span>
+      )}
+      {listing.seats && (
+        <span class="chip">
+          <img src="/images/icons/seats.svg" width="14" height="14" alt="" class="chip-icon" />
+          {listing.seats} Seats
+        </span>
+      )}
+      {listing.co2 && (
+        <span class="chip">
+          <img src="/images/icons/carbon-emissions.svg" width="14" height="14" alt="" class="chip-icon" />
+          {listing.co2} g/km CO₂
+        </span>
+      )}
+      <span class="chip">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="12" cy="12" r="10"/><polyline points="12 8 12 12 14 14"/></svg>
+        {listing.new_or_used}
+      </span>
+    </div>
+  </div>
+
+  <!-- BODY -->
+  <div class="section-body">
+    <div class="body-grid">
+
+      <!-- LEFT -->
+      <div class="body-left">
+
+        <!-- About -->
+        <div class="card">
+          <h2 class="card-heading">{isShowOff ? 'Build Story' : 'About this vehicle'}</h2>
+          <p class="description-text">{listing.description}</p>
+        </div>
+
+        <!-- Mods (show_off only) -->
+        {isShowOff && listing.mods && (
+          <div class="card">
+            <h2 class="card-heading">Build Mods</h2>
+            <div class="mods-list">
+              {listing.mods.split(/[\n,]/).map((m: string) => m.trim()).filter(Boolean).map((mod: string) => (
+                <span class="mod-tag">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                  {mod}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <!-- Key specs table -->
+        <div class="card">
+          <h2 class="card-heading">Specifications</h2>
+          <div class="specs-table">
+            <div class="spec-row"><span class="spec-k">Year</span><span class="spec-v">{listing.year}</span></div>
+            <div class="spec-row"><span class="spec-k">Model</span><span class="spec-v">{listing.model.replace('-', ' ').toUpperCase()}</span></div>
+            {listing.mileage > 0 && <div class="spec-row"><span class="spec-k">Mileage</span><span class="spec-v">{formatMileage(listing.mileage)}</span></div>}
+            <div class="spec-row"><span class="spec-k">Transmission</span><span class="spec-v">{cap(listing.transmission)}</span></div>
+            <div class="spec-row"><span class="spec-k">Colour</span><span class="spec-v">{listing.colour}</span></div>
+            {listing.fuel_type && <div class="spec-row"><span class="spec-k">Fuel Type</span><span class="spec-v">{listing.fuel_type}</span></div>}
+            {listing.fuel_consumption && <div class="spec-row"><span class="spec-k">Fuel Consumption</span><span class="spec-v">{listing.fuel_consumption} L/100km</span></div>}
+            {listing.power_kw && <div class="spec-row"><span class="spec-k">Maximum Power</span><span class="spec-v">{listing.power_kw} kW</span></div>}
+            {listing.seats && <div class="spec-row"><span class="spec-k">Seats</span><span class="spec-v">{listing.seats}</span></div>}
+            {listing.co2 && <div class="spec-row"><span class="spec-k">CO₂ Emissions</span><span class="spec-v">{listing.co2} g/km</span></div>}
+            <div class="spec-row"><span class="spec-k">Condition</span><span class="spec-v">{listing.new_or_used}</span></div>
+            <div class="spec-row"><span class="spec-k">Province</span><span class="spec-v">{listing.province}</span></div>
+          </div>
+        </div>
+
+        <!-- IG Caption (admin copy tool) -->
+        <div class="ig-card">
+          <div class="ig-card-header">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg>
+            <span>Instagram Caption</span>
+            <button id="copy-caption-btn" class="ig-copy-btn">Copy</button>
+          </div>
+          <pre id="ig-caption-text" class="ig-caption-body">{igCaption}</pre>
+        </div>
+
+        {!isShowOff && (
+          <div class="safety-card">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F5A623" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            <p><strong>Stay safe:</strong> Always meet in a public place. Never transfer money without viewing the vehicle in person. Land Cruiser SA does not verify listing accuracy.</p>
+          </div>
+        )}
+
+      </div>
+
+      <!-- RIGHT: sticky card -->
+      <aside class="body-right">
+        <div class="price-card">
+          {isShowOff ? (
+            <>
+              <div class="price-header">
+                <div>
+                  <p class="price-label">Community Build</p>
+                  <p class="show-off-badge-lg">★ Show Off</p>
+                  <p class="price-sub">{listing.year} · {listing.province}</p>
+                </div>
+                <span class="condition-badge cb-neutral">{listing.new_or_used}</span>
+              </div>
+              <div class="seller-section">
+                <p class="seller-label">Submitted by</p>
+                <p class="seller-name">{listing.seller_name}</p>
+              </div>
+              <div class="cta-stack">
+                <a href="/listings/submit/" class="cta-call" style="text-align:center;text-decoration:none;">Share Your Build →</a>
+                <a href="/listings/" class="cta-email" style="text-align:center;text-decoration:none;">Browse All Listings</a>
+              </div>
+            </>
+          ) : (
+            <>
+              <div class="price-header">
+                <div>
+                  <p class="price-label">Asking Price</p>
+                  <p class="price-value">{formatPrice(listing.price)}</p>
+                  <p class="price-sub">{listing.year} · {formatMileage(listing.mileage)}</p>
+                </div>
+                <span class="condition-badge cb-neutral">{listing.new_or_used}</span>
+              </div>
+              <div class="seller-section">
+                {isExternal ? (
+                  <>
+                    <p class="seller-label">Dealer</p>
+                    <p class="seller-name">{listing.seller_name}</p>
+                    <p class="seller-source">Listed on AutoTrader</p>
+                  </>
+                ) : (
+                  <>
+                    <p class="seller-label">Private Seller</p>
+                    <p class="seller-name">{listing.seller_name}</p>
+                    <a href={`tel:${listing.seller_phone.replace(/\s/g, '')}`} class="seller-contact">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg>
+                      {listing.seller_phone}
+                    </a>
+                    <a href={`mailto:${listing.seller_email}`} class="seller-contact">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>
+                      {listing.seller_email}
+                    </a>
+                  </>
+                )}
+              </div>
+              {isSold ? (
+                <div class="cta-stack">
+                  <div class="cta-sold-notice">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                    No longer available
+                  </div>
+                  <a href="/listings/" class="cta-call">Browse Similar Listings →</a>
+                </div>
+              ) : isExternal ? (
+                <div class="cta-stack">
+                  <a href={listing.source_url!} target="_blank" rel="noopener" class="cta-autotrader">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                    View Full Listing on AutoTrader
+                  </a>
+                  <p class="ext-note">Contact details, finance options, and more photos available on AutoTrader.</p>
+                </div>
+              ) : (
+                <div class="cta-stack">
+                  <a
+                    href={`https://wa.me/27${listing.seller_phone.replace(/^0/, '').replace(/\s/g, '')}?text=Hi, I saw your ${encodeURIComponent(listing.title)} on Land Cruiser SA.`}
+                    target="_blank" rel="noopener" class="cta-wa"
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.126.554 4.122 1.526 5.855L.057 23.886a.5.5 0 00.606.619l6.222-1.638A11.94 11.94 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.9a9.89 9.89 0 01-5.033-1.371l-.36-.214-3.733.982.998-3.648-.235-.374A9.861 9.861 0 012.1 12c0-5.459 4.441-9.9 9.9-9.9 5.459 0 9.9 4.441 9.9 9.9 0 5.459-4.441 9.9-9.9 9.9z"/></svg>
+                    WhatsApp Seller
+                  </a>
+                  <a href={`tel:${listing.seller_phone.replace(/\s/g, '')}`} class="cta-call">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg>
+                    Call Seller
+                  </a>
+                  <a href={`mailto:${listing.seller_email}?subject=Enquiry: ${listing.title}`} class="cta-email">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>
+                    Send Email
+                  </a>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <!-- SIMILAR LISTINGS -->
+  {similarFiltered.length > 0 && (
+    <div class="similar-section">
+      <div class="section-similar">
+        <div class="similar-head">
+          <p class="eyebrow">More like this</p>
+          <h2 class="similar-title">Similar Vehicles</h2>
+        </div>
+        <div class="similar-grid">
+          {similarFiltered.map(l => (
+            <a href={`/listings/${l.slug}/`} class="sim-card">
+              <div class="sim-img">
+                <img src={firstPhoto(l.photos)} alt={l.title} loading="lazy" />
+                <span class="sim-badge">{l.model.replace('-', ' ').toUpperCase()}</span>
+              </div>
+              <div class="sim-body">
+                <p class="sim-title">{l.title}</p>
+                <p class="sim-meta">{l.province} · {l.mileage.toLocaleString('en-ZA')} km</p>
+                <p class="sim-price">{formatPrice(l.price)}</p>
+              </div>
+            </a>
+          ))}
+        </div>
+      </div>
+    </div>
+  )}
+
+</div>
+
+<!-- LIGHTBOX -->
+<div id="lightbox" class="lb" aria-hidden="true">
+  <button class="lb-close" id="lb-close" aria-label="Close">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+  </button>
+  <button class="lb-arrow lb-prev" id="lb-prev" aria-label="Previous">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+  </button>
+  <div class="lb-img-wrap">
+    <img id="lb-img" src="" alt="" />
+    <p id="lb-counter" class="lb-counter"></p>
+  </div>
+  <button class="lb-arrow lb-next" id="lb-next" aria-label="Next">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+  </button>
+</div>
+
+</Base>
+
+<style>
+  /* ─ BASE ─────────────────────────────────────── */
+  .page-bg { background: #F5F3EE; min-height: 100vh; }
+
+  /* Every section centres content and adds horizontal padding */
+  .section-breadcrumb,
+  .section-header,
+  .section-mosaic,
+  .section-chips,
+  .section-body,
+  .section-similar {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding-left: 2rem;
+    padding-right: 2rem;
+  }
+  @media (min-width: 768px) {
+    .section-breadcrumb,
+    .section-header,
+    .section-mosaic,
+    .section-chips,
+    .section-body,
+    .section-similar {
+      padding-left: 3rem;
+      padding-right: 3rem;
+    }
+  }
+
+  .section-breadcrumb { padding-top: 1.5rem;  padding-bottom: 0.75rem; }
+  .section-header      { padding-bottom: 1.5rem; }
+  .section-mosaic      { padding-bottom: 1.5rem; }
+  .section-chips       { padding-bottom: 2.5rem; }
+  .section-body        { padding-bottom: 5rem; }
+  .section-similar     { padding-top: 4rem; padding-bottom: 4rem; }
+
+  /* Back */
+  .back-link {
+    display: inline-flex; align-items: center; gap: 0.375rem;
+    font-size: 0.75rem; color: #6B7280; text-decoration: none;
+    transition: color 0.15s;
+  }
+  .back-link:hover { color: #111111; }
+
+  /* Header */
+  .header-row {
+    display: flex; align-items: flex-start;
+    gap: 1.5rem;
+  }
+  .header-left { flex: 1; min-width: 0; }
+  .header-meta { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
+  .model-pill {
+    background: #F5A623; color: #111111;
+    font-size: 0.6rem; font-weight: 700; letter-spacing: 0.12em;
+    text-transform: uppercase; padding: 0.25rem 0.625rem;
+    border-radius: 9999px;
+  }
+  .year-pill { font-size: 0.75rem; color: #6B7280; font-weight: 600; }
+  .listing-title {
+    font-family: var(--font-heading); font-weight: 700;
+    text-transform: uppercase; color: #111111; line-height: 1.05;
+    font-size: clamp(1.5rem, 3.5vw, 2.5rem);
+    margin-bottom: 0.4rem;
+  }
+  .listing-location {
+    display: flex; align-items: center; gap: 0.3rem;
+    font-size: 0.75rem; color: #6B7280;
+  }
+  .wa-btn-header {
+    display: inline-flex; align-items: center; gap: 0.5rem;
+    background: #25D366; color: white; text-decoration: none;
+    font-family: var(--font-heading); font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.06em;
+    font-size: 0.8125rem; padding: 0.75rem 1.25rem;
+    border-radius: 0.5rem; white-space: nowrap; flex-shrink: 0;
+    transition: background 0.15s;
+  }
+  .wa-btn-header:hover { background: #1da851; }
+
+  /* MOSAIC */
+  .mosaic {
+    border-radius: 0.875rem; overflow: hidden;
+    background: white; height: 380px;
+    display: grid; gap: 4px;
+  }
+  .mosaic-single { grid-template-columns: 1fr; }
+  .mosaic-split { grid-template-columns: 1fr; }
+  @media (min-width: 768px) {
+    .mosaic { height: 480px; }
+    .mosaic-split { grid-template-columns: 3fr 2fr; }
+  }
+  .mosaic-main {
+    position: relative; overflow: hidden;
+    border: none; padding: 0; cursor: pointer; background: none;
+    display: block; width: 100%; height: 100%;
+  }
+  .mosaic-main img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.4s; }
+  .mosaic-main:hover img { transform: scale(1.02); }
+  .photo-count {
+    position: absolute; bottom: 0.875rem; left: 0.875rem;
+    background: rgba(0,0,0,0.65); color: white; backdrop-filter: blur(4px);
+    font-size: 0.7rem; font-weight: 600; padding: 0.35rem 0.75rem;
+    border-radius: 9999px;
+  }
+  .mosaic-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 4px;
+  }
+  .mosaic-thumb {
+    border: none; padding: 0; cursor: pointer;
+    overflow: hidden; background: #1a1a1a;
+    display: block;
+  }
+  .mosaic-thumb img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.4s; }
+  .mosaic-thumb:hover img { transform: scale(1.05); }
+
+  /* SPEC CHIPS */
+  .spec-chips { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 0.375rem;
+    background: white; border: 1px solid #E5E2DC;
+    color: #4A4A4A; font-size: 0.75rem; font-weight: 600;
+    padding: 0.4rem 0.875rem; border-radius: 9999px;
+  }
+  .chip-icon {
+    display: block; flex-shrink: 0;
+    filter: brightness(0) invert(29%); /* black → #4A4A4A */
+  }
+
+  /* BODY GRID */
+  .body-grid {
+    display: grid; grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+  @media (min-width: 1024px) {
+    .body-grid { grid-template-columns: 1fr 340px; gap: 2rem; }
+  }
+
+  /* CARDS */
+  .card {
+    background: white; border-radius: 0.875rem;
+    padding: 1.75rem 2rem; margin-bottom: 1.25rem;
+  }
+  .card-heading {
+    font-family: var(--font-heading); font-weight: 700;
+    text-transform: uppercase; font-size: 1.125rem;
+    color: #111111; margin-bottom: 1.25rem;
+    padding-bottom: 0.75rem; border-bottom: 1px solid #F0EDE8;
+  }
+  .description-text {
+    font-size: 0.875rem; color: #4A4A4A;
+    line-height: 1.75; white-space: pre-wrap;
+  }
+  .specs-table { display: flex; flex-direction: column; gap: 0; }
+  .spec-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 0.75rem 0; border-bottom: 1px solid #F5F3EE;
+  }
+  .spec-row:last-child { border-bottom: none; }
+  .spec-k { font-size: 0.8125rem; color: #6B7280; }
+  .spec-v { font-size: 0.8125rem; font-weight: 600; color: #111111; }
+
+  .safety-card {
+    display: flex; align-items: flex-start; gap: 0.75rem;
+    background: #FFFBF0; border: 1px solid rgba(245,166,35,0.25);
+    border-radius: 0.75rem; padding: 1.25rem 1.5rem;
+  }
+  .safety-card svg { flex-shrink: 0; margin-top: 1px; }
+  .safety-card p { font-size: 0.8125rem; color: #6B7280; line-height: 1.6; }
+  .safety-card strong { color: #111111; }
+
+  /* PRICE CARD */
+  .price-card {
+    background: white; border-radius: 0.875rem;
+    overflow: hidden; position: sticky; top: 80px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+  }
+  .price-header {
+    background: #111111; padding: 1.5rem 1.75rem;
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem;
+  }
+  .price-label { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em; color: #F5A623; margin-bottom: 0.4rem; }
+  .price-value {
+    font-family: var(--font-heading); font-weight: 700;
+    color: white; font-size: 2.25rem; line-height: 1; margin-bottom: 0.3rem;
+  }
+  .price-sub { font-size: 0.7rem; color: rgba(255,255,255,0.35); }
+  .condition-badge {
+    font-size: 0.65rem; font-weight: 700; text-transform: uppercase;
+    padding: 0.3rem 0.75rem; border-radius: 9999px; white-space: nowrap; flex-shrink: 0;
+  }
+  .cb-neutral { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.7); }
+
+  .seller-section {
+    padding: 1.25rem 1.75rem; border-bottom: 1px solid #F0EDE8;
+  }
+  .seller-label { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em; color: #9CA3AF; margin-bottom: 0.5rem; }
+  .seller-name { font-weight: 700; font-size: 0.9375rem; color: #111111; margin-bottom: 0.75rem; }
+  .seller-contact {
+    display: flex; align-items: center; gap: 0.5rem;
+    font-size: 0.8125rem; color: #4A4A4A; text-decoration: none;
+    padding: 0.3rem 0; transition: color 0.15s;
+  }
+  .seller-contact:hover { color: #F5A623; }
+
+  .seller-source { font-size: 0.75rem; color: #9CA3AF; margin-top: 0.25rem; }
+
+  .cta-autotrader {
+    display: flex; align-items: center; justify-content: center;
+    gap: 0.5rem; width: 100%; text-decoration: none;
+    font-family: var(--font-heading); font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.06em;
+    font-size: 0.875rem; padding: 0.875rem;
+    border-radius: 0.5rem; background: #F5A623; color: #111111;
+    transition: background 0.15s;
+  }
+  .cta-autotrader:hover { background: #D4881A; }
+  .ext-note {
+    font-size: 0.7rem; color: #9CA3AF; text-align: center; line-height: 1.5;
+  }
+  .ext-btn { background: #111111; }
+
+  .cta-stack { padding: 1.25rem 1.75rem 1.75rem; display: flex; flex-direction: column; gap: 0.625rem; }
+  .cta-wa, .cta-call, .cta-email {
+    display: flex; align-items: center; justify-content: center;
+    gap: 0.5rem; width: 100%; text-decoration: none;
+    font-family: var(--font-heading); font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.06em;
+    font-size: 0.875rem; padding: 0.875rem;
+    border-radius: 0.5rem; transition: background 0.15s, border-color 0.15s, color 0.15s;
+  }
+  .cta-wa { background: #25D366; color: white; }
+  .cta-wa:hover { background: #1da851; }
+  .cta-call { background: #111111; color: white; }
+  .cta-call:hover { background: #222; }
+  .cta-email { background: transparent; border: 1.5px solid #DDD9D3; color: #4A4A4A; }
+  .cta-email:hover { border-color: #F5A623; color: #F5A623; }
+
+  /* SIMILAR */
+  .similar-section { background: #111111; padding: 4rem 0; }
+  .similar-head { margin-bottom: 2rem; }
+  .eyebrow { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.16em; color: #F5A623; margin-bottom: 0.4rem; }
+  .similar-title {
+    font-family: var(--font-heading); font-weight: 700;
+    text-transform: uppercase; color: white;
+    font-size: clamp(1.5rem, 3vw, 2rem); line-height: 1;
+  }
+  .similar-grid {
+    display: grid; grid-template-columns: 1fr; gap: 1rem;
+  }
+  @media (min-width: 768px) { .similar-grid { grid-template-columns: repeat(3, 1fr); } }
+  .sim-card {
+    background: #1c1c1c; border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 0.75rem; overflow: hidden; text-decoration: none;
+    transition: border-color 0.2s, transform 0.2s;
+  }
+  .sim-card:hover { border-color: #F5A623; transform: translateY(-2px); }
+  .sim-img { aspect-ratio: 16/10; overflow: hidden; position: relative; }
+  .sim-img img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.4s; }
+  .sim-card:hover .sim-img img { transform: scale(1.04); }
+  .sim-badge {
+    position: absolute; top: 0.75rem; left: 0.75rem;
+    background: rgba(0,0,0,0.65); color: #F5A623;
+    font-size: 0.6rem; font-weight: 700; letter-spacing: 0.1em;
+    text-transform: uppercase; padding: 0.25rem 0.625rem; border-radius: 9999px;
+    border: 1px solid rgba(245,166,35,0.3); backdrop-filter: blur(4px);
+  }
+  .sim-body { padding: 1rem 1.25rem 1.25rem; }
+  .sim-title {
+    font-family: var(--font-heading); font-weight: 700;
+    font-size: 0.875rem; text-transform: uppercase;
+    color: white; line-height: 1.25; margin-bottom: 0.3rem;
+  }
+  .sim-meta { font-size: 0.7rem; color: rgba(255,255,255,0.35); margin-bottom: 0.625rem; }
+  .sim-price { font-family: var(--font-heading); font-weight: 700; font-size: 1.25rem; color: #F5A623; }
+
+  /* SOLD BANNER */
+  .sold-banner-wrap {
+    max-width: 1200px; margin: 0 auto;
+    padding: 0 2rem 0;
+  }
+  @media (min-width: 768px) { .sold-banner-wrap { padding: 0 3rem 0; } }
+  .sold-banner {
+    background: #FFF8E7; border: 1.5px solid #F5A623;
+    border-radius: 0.75rem; padding: 1rem 1.25rem;
+    display: flex; align-items: flex-start; gap: 0.875rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.5rem;
+  }
+  .sold-banner svg { color: #F5A623; flex-shrink: 0; margin-top: 1px; }
+  .sold-banner div { flex: 1; min-width: 0; }
+  .sold-banner strong { display: block; font-size: 0.875rem; color: #111111; margin-bottom: 0.2rem; }
+  .sold-banner span { font-size: 0.8125rem; color: #6B7280; line-height: 1.5; }
+  .sold-browse {
+    align-self: center; flex-shrink: 0;
+    background: #111111; color: white; text-decoration: none;
+    font-family: var(--font-heading); font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.06em;
+    font-size: 0.75rem; padding: 0.6rem 1.125rem;
+    border-radius: 0.5rem; white-space: nowrap;
+    transition: background 0.15s;
+  }
+  .sold-browse:hover { background: #333; }
+
+  .sold-pill {
+    display: inline-flex; align-items: center;
+    background: rgba(245,166,35,0.15); color: #F5A623;
+    border: 1px solid rgba(245,166,35,0.4);
+    font-family: var(--font-heading); font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.08em;
+    font-size: 0.75rem; padding: 0.6rem 1.25rem;
+    border-radius: 0.5rem; white-space: nowrap; flex-shrink: 0;
+  }
+
+  .cta-sold-notice {
+    display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+    background: #FFF8E7; border: 1.5px solid rgba(245,166,35,0.4);
+    color: #92400e; border-radius: 0.5rem; padding: 0.875rem;
+    font-family: var(--font-heading); font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.06em; font-size: 0.8125rem;
+  }
+
+  /* SHOW-OFF STYLES */
+  .show-off-pill {
+    display: inline-flex; align-items: center; gap: 0.35rem;
+    background: rgba(245,166,35,0.15); color: #F5A623;
+    border: 1px solid rgba(245,166,35,0.4);
+    font-family: var(--font-heading); font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.08em;
+    font-size: 0.7rem; padding: 0.35rem 0.875rem;
+    border-radius: 9999px;
+  }
+  .show-off-badge-lg {
+    font-family: var(--font-heading); font-weight: 700;
+    text-transform: uppercase; color: #F5A623;
+    font-size: 1.5rem; line-height: 1; margin-bottom: 0.3rem;
+  }
+
+  /* MODS */
+  .mods-list { display: flex; flex-wrap: wrap; gap: 0.5rem; padding-top: 0.25rem; }
+  .mod-tag {
+    display: inline-flex; align-items: center; gap: 0.35rem;
+    background: #F5F3EE; color: #4A4A4A;
+    border: 1px solid #E5E2DC; font-size: 0.75rem; font-weight: 600;
+    padding: 0.35rem 0.75rem; border-radius: 9999px;
+  }
+
+  /* IG CAPTION */
+  .ig-card { background: #111111; border-radius: 0.875rem; overflow: hidden; margin-bottom: 1.25rem; }
+  .ig-card-header {
+    display: flex; align-items: center; gap: 0.75rem; justify-content: space-between;
+    padding: 0.875rem 1.25rem; border-bottom: 1px solid rgba(255,255,255,0.07);
+  }
+  .ig-card-header span {
+    font-size: 0.65rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.12em; color: #F5A623; flex: 1;
+  }
+  .ig-copy-btn {
+    background: rgba(245,166,35,0.15); color: #F5A623;
+    border: 1px solid rgba(245,166,35,0.3);
+    font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.08em; padding: 0.3rem 0.75rem; border-radius: 9999px;
+    cursor: pointer; transition: background 0.15s; font-family: var(--font-heading);
+    -webkit-tap-highlight-color: transparent; white-space: nowrap;
+  }
+  .ig-copy-btn:hover, .ig-copy-btn.copied { background: rgba(245,166,35,0.3); }
+  .ig-caption-body {
+    padding: 1rem 1.25rem; font-size: 0.8rem; line-height: 1.7;
+    color: rgba(255,255,255,0.7); white-space: pre-wrap; word-break: break-word;
+    margin: 0; font-family: inherit;
+  }
+
+  /* LIGHTBOX */
+  .lb {
+    position: fixed; inset: 0; z-index: 1000;
+    background: rgba(0,0,0,0.95); backdrop-filter: blur(8px);
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; pointer-events: none; transition: opacity 0.2s;
+  }
+  .lb.lb-open { opacity: 1; pointer-events: all; }
+  .lb-img-wrap {
+    max-width: 90vw; max-height: 90vh;
+    display: flex; flex-direction: column; align-items: center; gap: 0.75rem;
+  }
+  .lb-img-wrap img {
+    max-width: 90vw; max-height: 85vh;
+    object-fit: contain; border-radius: 0.5rem;
+    user-select: none;
+  }
+  .lb-counter { color: rgba(255,255,255,0.5); font-size: 0.75rem; }
+  .lb-close {
+    position: absolute; top: 1.25rem; right: 1.25rem;
+    background: rgba(255,255,255,0.1); border: none;
+    border-radius: 9999px; width: 2.5rem; height: 2.5rem;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s;
+  }
+  .lb-close:hover { background: rgba(255,255,255,0.2); }
+  .lb-arrow {
+    position: absolute; top: 50%; transform: translateY(-50%);
+    background: rgba(255,255,255,0.1); border: none;
+    border-radius: 9999px; width: 3rem; height: 3rem;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s;
+  }
+  .lb-arrow:hover { background: rgba(255,255,255,0.2); }
+  .lb-prev { left: 1.25rem; }
+  .lb-next { right: 1.25rem; }
+</style>
+
+<script define:vars={{ photos }}>
+  const lb = document.getElementById('lightbox');
+  const lbImg = document.getElementById('lb-img');
+  const lbCounter = document.getElementById('lb-counter');
+  let current = 0;
+
+  function open(index) {
+    current = index;
+    lbImg.src = photos[current];
+    lbCounter.textContent = `${current + 1} / ${photos.length}`;
+    lb.classList.add('lb-open');
+    document.body.style.overflow = 'hidden';
+  }
+  function close() {
+    lb.classList.remove('lb-open');
+    document.body.style.overflow = '';
+  }
+  function prev() { open((current - 1 + photos.length) % photos.length); }
+  function next() { open((current + 1) % photos.length); }
+
+  document.querySelectorAll('.lb-trigger').forEach(btn => {
+    btn.addEventListener('click', () => open(Number(btn.dataset.index)));
+  });
+  document.getElementById('lb-close').addEventListener('click', close);
+  document.getElementById('lb-prev').addEventListener('click', prev);
+  document.getElementById('lb-next').addEventListener('click', next);
+  lb.addEventListener('click', e => { if (e.target === lb) close(); });
+  document.addEventListener('keydown', e => {
+    if (!lb.classList.contains('lb-open')) return;
+    if (e.key === 'Escape') close();
+    if (e.key === 'ArrowLeft') prev();
+    if (e.key === 'ArrowRight') next();
+  });
+</script>
+
+<script>
+  const copyBtn = document.getElementById('copy-caption-btn');
+  if (copyBtn) {
+    const captionEl = document.getElementById('ig-caption-text');
+    copyBtn.addEventListener('click', () => {
+      const text = captionEl?.textContent ?? '';
+      navigator.clipboard.writeText(text).then(() => {
+        copyBtn.textContent = 'Copied!';
+        copyBtn.classList.add('copied');
+        setTimeout(() => {
+          copyBtn.textContent = 'Copy';
+          copyBtn.classList.remove('copied');
+        }, 2000);
+      });
+    });
+  }
+</script>

@@ -1,0 +1,22 @@
+dist/
+node_modules/
+.env
+.env.*
+!.env.example
+.DS_Store
+*.log
+.astro/
+
+# local SQLite (prod DB lives on the Fly volume, never in git)
+db.sqlite
+db.sqlite-shm
+db.sqlite-wal
+
+# Images — large binary assets, managed on the server not in git
+public/images/wp-media/
+public/images/posts/
+public/images/training/
+public/images/partners/
+public/images/models/
+public/images/og/
+public/uploads/

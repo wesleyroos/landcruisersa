@@ -1,0 +1,593 @@
+---
+export const prerender = false;
+
+import Base from '@/layouts/Base.astro';
+import { getCollection } from 'astro:content';
+import { SITE } from '@/data/site';
+import { PARTNERS } from '@/data/partners';
+import { db } from '@/db/index';
+import { listings } from '@/db/schema';
+import { eq, desc } from 'drizzle-orm';
+
+const allPosts = await getCollection('posts', p => !p.data.draft);
+const posts = allPosts
+  .sort((a, b) => b.data.publishedAt.valueOf() - a.data.publishedAt.valueOf())
+  .slice(0, 6);
+
+const featuredListings = await db
+  .select()
+  .from(listings)
+  .where(eq(listings.status, 'active'))
+  .orderBy(desc(listings.created_at))
+  .limit(3);
+
+function firstPhoto(photos: string) {
+  try { return JSON.parse(photos)[0] ?? '/images/og-default.jpg'; } catch { return '/images/og-default.jpg'; }
+}
+function formatPrice(n: number) {
+  return 'R ' + n.toLocaleString('en-ZA');
+}
+---
+
+<Base
+  title="Land Cruiser SA — For People Who Love All Things Land Cruiser"
+  description="South Africa's home for Land Cruiser enthusiasts. Guides, builds, classifieds, 4x4 training, and gear — all in one place."
+>
+
+  <!-- ═══════════════════════════════════ HERO -->
+  <section class="hero">
+    <img src="/images/hero-bg.jpg" alt="" class="hero-img" fetchpriority="high" />
+    <div class="hero-scrim"></div>
+    <div class="hero-inner">
+      <p class="hero-eyebrow">South Africa's #1 Land Cruiser Community</p>
+      <h1 class="hero-heading">Built for the road<br/>less taken.</h1>
+      <div class="hero-actions">
+        <a href="/useful-info/" class="btn-primary">Guides & Advice</a>
+        <a href="/listings/" class="btn-ghost">Browse Listings</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════ LISTINGS -->
+  <section class="s-listings">
+    <div class="wrap">
+      <div class="s-head">
+        <div>
+          <p class="eyebrow">Buy & sell</p>
+          <h2 class="s-title">Land Cruiser Classifieds</h2>
+        </div>
+        <a href="/listings/" class="link-more">All listings →</a>
+      </div>
+      <div class="listings-row">
+        {featuredListings.map(l => (
+          <a href={`/listings/${l.slug}/`} class="lc lc-light">
+            <div class="lc-img">
+              <img src={firstPhoto(l.photos)} alt={l.title} loading="lazy" />
+              <span class="lc-badge">{l.model.replace('-', ' ').toUpperCase()}</span>
+            </div>
+            <div class="lc-body">
+              <p class="lc-title lc-title-dark">{l.title}</p>
+              <p class="lc-meta lc-meta-light">{l.province} · {l.mileage.toLocaleString('en-ZA')} km · {l.transmission.charAt(0).toUpperCase() + l.transmission.slice(1)}</p>
+              <p class="lc-price lc-price-dark">{formatPrice(l.price)}</p>
+            </div>
+          </a>
+        ))}
+      </div>
+      <div class="listings-foot">
+        <a href="/listings/submit/" class="btn-outline">+ List Your Vehicle</a>
+        <a href="/listings/" class="btn-primary">View All Listings</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════ ARTICLES -->
+
+  <section class="s-light">
+    <div class="wrap">
+      <div class="s-head">
+        <div>
+          <p class="eyebrow">From the community</p>
+          <h2 class="s-title">Guides & Advice</h2>
+        </div>
+        <a href="/useful-info/" class="link-more">All guides →</a>
+      </div>
+      <div class="articles-grid">
+        {posts.map(post => (
+          <a href={`/useful-info/${post.slug}/`} class="article-card">
+            <div class="ac-img">
+              <img src={post.data.featuredImage} alt={post.data.featuredImageAlt} loading="lazy" />
+              <span class="ac-tag">{post.data.category.replace('-', ' ')}</span>
+            </div>
+            <div class="ac-body">
+              <h3 class="ac-title">{post.data.title}</h3>
+              <p class="ac-excerpt">{post.data.excerpt}</p>
+            </div>
+          </a>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════ TRAINING -->
+  <section class="training">
+    <img src="/images/training/training-wp-1.jpg" alt="" class="training-img" loading="lazy" />
+    <div class="training-scrim"></div>
+    <div class="wrap training-inner">
+      <div class="training-text">
+        <p class="eyebrow-gold">In partnership with Toyota Advanced Driving</p>
+        <h2 class="training-h">Advanced 4×4<br/>Driving & Recovery</h2>
+        <p class="training-p">A full day of hands-on terrain driving — sand, mud, winching, vehicle recovery. Breakfast, lunch and certificate included.</p>
+        <div class="training-facts">
+          <div class="tf"><span class="tf-v">R4,250</span><span class="tf-l">Per person</span></div>
+          <div class="tf"><span class="tf-v">Full day</span><span class="tf-l">Duration</span></div>
+          <div class="tf"><span class="tf-v">Zwartkops</span><span class="tf-l">Venue</span></div>
+        </div>
+        <a href="/training/" class="btn-primary-lg">Book Your Spot →</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════ MODELS -->
+  <section class="s-light">
+    <div class="wrap">
+      <div class="s-head">
+        <div>
+          <p class="eyebrow">Explore the range</p>
+          <h2 class="s-title">Land Cruiser Models</h2>
+        </div>
+      </div>
+      <div class="models-grid">
+        <a href="/models/70-series/" class="mc">
+          <img src="/images/models/lc-70.jpg" alt="LC 70 Series" loading="lazy" />
+          <div class="mc-overlay"></div>
+          <div class="mc-label"><span>70 Series</span><span class="mc-arrow">→</span></div>
+        </a>
+        <a href="/models/79-series/" class="mc">
+          <img src="/images/models/lc-79.jpg" alt="LC 79 Series" loading="lazy" />
+          <div class="mc-overlay"></div>
+          <div class="mc-label"><span>79 Series</span><span class="mc-arrow">→</span></div>
+        </a>
+        <a href="/models/200-series/" class="mc">
+          <img src="/images/models/lc-200.jpg" alt="LC 200 Series" loading="lazy" />
+          <div class="mc-overlay"></div>
+          <div class="mc-label"><span>200 Series</span><span class="mc-arrow">→</span></div>
+        </a>
+        <a href="/models/300-series/" class="mc">
+          <img src="/images/models/lc-300.jpg" alt="LC 300 Series" loading="lazy" />
+          <div class="mc-overlay"></div>
+          <div class="mc-label"><span>300 Series</span><span class="mc-arrow">→</span></div>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════ PARTNERS -->
+  <section class="s-light partners-section">
+    <div class="wrap">
+      <div class="s-head">
+        <div>
+          <p class="eyebrow">Trusted by the community</p>
+          <h2 class="s-title">Our Partners</h2>
+        </div>
+        <a href="/partners/" class="link-more">All partners →</a>
+      </div>
+      <div class="partners-track-wrap">
+        <div class="partners-track">
+          {[...PARTNERS, ...PARTNERS].map(p => (
+            <a href={`/partners/${p.slug}/`} class="partner-tile">
+              <div class="pt-img">
+                <img src={p.hero} alt={p.name} loading="lazy" />
+              </div>
+              <div class="pt-body">
+                <span class="pt-cat">{p.category}</span>
+                <p class="pt-name">{p.name}</p>
+                <p class="pt-loc">{p.location}</p>
+              </div>
+            </a>
+          ))}
+        </div>
+      </div>
+    </div>
+  </section>
+
+</Base>
+
+<style>
+  /* ─ HERO ──────────────────────────────────────── */
+  .hero {
+    position: relative;
+    height: 65vh;
+    min-height: 480px;
+    max-height: 700px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .hero-img {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    object-fit: cover; object-position: center 40%;
+  }
+  .hero-scrim {
+    position: absolute; inset: 0;
+    background: linear-gradient(
+      105deg,
+      rgba(0,0,0,0.80) 0%,
+      rgba(0,0,0,0.55) 55%,
+      rgba(0,0,0,0.20) 100%
+    );
+  }
+  .hero-inner {
+    position: relative; z-index: 10;
+    text-align: center;
+    padding: 0 2rem;
+    max-width: 780px;
+  }
+  .hero-eyebrow {
+    font-size: 0.7rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.18em;
+    color: #F5A623; margin-bottom: 1.25rem;
+  }
+  .hero-heading {
+    font-family: var(--font-heading);
+    font-weight: 700; text-transform: uppercase;
+    color: white; line-height: 0.95;
+    font-size: clamp(3rem, 8vw, 5.5rem);
+    margin-bottom: 2rem;
+  }
+  .hero-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; justify-content: center; }
+
+  /* ─ BUTTONS ───────────────────────────────────── */
+  .btn-primary {
+    display: inline-flex; align-items: center;
+    background: #F5A623; color: #111111;
+    font-family: var(--font-heading); font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.08em;
+    font-size: 0.875rem; padding: 0.875rem 1.75rem;
+    border-radius: 0.5rem; text-decoration: none;
+    transition: background 0.15s;
+  }
+  .btn-primary:hover { background: #D4881A; }
+
+  .btn-primary-lg {
+    display: inline-flex; align-items: center;
+    background: #F5A623; color: #111111;
+    font-family: var(--font-heading); font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.08em;
+    font-size: 1rem; padding: 1.125rem 2.25rem;
+    border-radius: 0.5rem; text-decoration: none;
+    transition: background 0.15s;
+  }
+  .btn-primary-lg:hover { background: #D4881A; }
+
+  .btn-ghost {
+    display: inline-flex; align-items: center;
+    background: rgba(255,255,255,0.1); color: white;
+    border: 1.5px solid rgba(255,255,255,0.3);
+    font-family: var(--font-heading); font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.08em;
+    font-size: 0.875rem; padding: 0.875rem 1.75rem;
+    border-radius: 0.5rem; text-decoration: none;
+    backdrop-filter: blur(4px);
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .btn-ghost:hover { background: rgba(255,255,255,0.2); border-color: rgba(255,255,255,0.6); }
+
+  .btn-ghost-gold {
+    display: inline-flex; align-items: center;
+    background: transparent; color: rgba(255,255,255,0.7);
+    border: 1.5px solid rgba(255,255,255,0.2);
+    font-family: var(--font-heading); font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.08em;
+    font-size: 0.875rem; padding: 0.875rem 1.75rem;
+    border-radius: 0.5rem; text-decoration: none;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .btn-ghost-gold:hover { border-color: #F5A623; color: #F5A623; }
+
+  /* ─ SHARED ────────────────────────────────────── */
+  .wrap { max-width: 1200px; margin: 0 auto; padding: 0 1.5rem; }
+  .s-light    { background: #F5F3EE; padding: 5rem 0; }
+  .s-dark     { background: #111111; padding: 5rem 0; }
+  .s-listings { background: #F5F3EE; padding: 5rem 0; }
+
+  .s-head, .s-head-dark {
+    display: flex; align-items: flex-end;
+    justify-content: space-between;
+    margin-bottom: 2.5rem; gap: 1rem;
+  }
+  .eyebrow {
+    font-size: 0.65rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.16em;
+    color: #F5A623; margin-bottom: 0.4rem;
+    display: block;
+  }
+  .eyebrow-gold {
+    font-size: 0.65rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.16em;
+    color: #F5A623; margin-bottom: 0.4rem;
+    display: block;
+  }
+  .s-title {
+    font-family: var(--font-heading); font-weight: 700;
+    text-transform: uppercase; color: #111111;
+    font-size: clamp(1.75rem, 4vw, 2.5rem); line-height: 1;
+  }
+  .s-title-white {
+    font-family: var(--font-heading); font-weight: 700;
+    text-transform: uppercase; color: white;
+    font-size: clamp(1.75rem, 4vw, 2.5rem); line-height: 1;
+  }
+  .link-more {
+    font-size: 0.8125rem; font-weight: 600; color: #F5A623;
+    text-decoration: none; white-space: nowrap;
+    padding-bottom: 2px; border-bottom: 1px solid transparent;
+    transition: border-color 0.15s;
+  }
+  .link-more:hover { border-color: #F5A623; }
+  .link-more-gold {
+    font-size: 0.8125rem; font-weight: 600;
+    color: rgba(255,255,255,0.4);
+    text-decoration: none; white-space: nowrap;
+    transition: color 0.15s;
+  }
+  .link-more-gold:hover { color: #F5A623; }
+
+  /* ─ ARTICLES ──────────────────────────────────── */
+  .articles-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1.5rem;
+  }
+  .article-card {
+    display: flex; flex-direction: column;
+    background: white; border-radius: 0.75rem;
+    overflow: hidden; text-decoration: none;
+    border: 1px solid #E5E2DC;
+    transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+  }
+  .article-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.1);
+    border-color: #F5A623;
+  }
+  .ac-img {
+    position: relative;
+    aspect-ratio: 16/9; overflow: hidden;
+  }
+  .ac-img img {
+    width: 100%; height: 100%; object-fit: cover;
+    transition: transform 0.5s;
+  }
+  .article-card:hover .ac-img img { transform: scale(1.05); }
+  .ac-tag {
+    position: absolute; bottom: 0.75rem; left: 0.75rem;
+    background: #F5A623; color: #111111;
+    font-size: 0.6rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.1em;
+    padding: 0.25rem 0.625rem; border-radius: 9999px;
+  }
+  .ac-body { padding: 1.25rem 1.5rem 1.5rem; flex: 1; display: flex; flex-direction: column; gap: 0.5rem; }
+  .ac-title {
+    font-family: var(--font-heading); font-weight: 700;
+    text-transform: uppercase; color: #111111;
+    font-size: 1.0625rem; line-height: 1.2;
+    transition: color 0.15s;
+  }
+  .article-card:hover .ac-title { color: #D4881A; }
+  .ac-excerpt {
+    font-size: 0.8125rem; color: #6B7280; line-height: 1.6;
+    display: -webkit-box; -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical; overflow: hidden;
+  }
+
+  /* ─ LISTINGS ROW ──────────────────────────────── */
+  .listings-row {
+    display: grid; grid-template-columns: 1fr;
+    gap: 1rem; margin-bottom: 2.5rem;
+  }
+  @media (min-width: 768px) { .listings-row { grid-template-columns: repeat(3, 1fr); } }
+  .lc {
+    background: #1c1c1c; border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 0.75rem; overflow: hidden;
+    text-decoration: none;
+    transition: border-color 0.2s, transform 0.2s;
+  }
+  .lc:hover { border-color: #F5A623; transform: translateY(-2px); }
+  .lc-img { aspect-ratio: 16/10; position: relative; overflow: hidden; }
+  .lc-img img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.5s; }
+  .lc:hover .lc-img img { transform: scale(1.04); }
+  .lc-badge {
+    position: absolute; top: 0.75rem; left: 0.75rem;
+    background: rgba(0,0,0,0.7); color: #F5A623;
+    font-size: 0.6rem; font-weight: 700; letter-spacing: 0.1em;
+    text-transform: uppercase; padding: 0.25rem 0.625rem;
+    border-radius: 9999px; border: 1px solid rgba(245,166,35,0.35);
+    backdrop-filter: blur(4px);
+  }
+  .lc-body { padding: 1rem 1.25rem 1.375rem; }
+  .lc-title {
+    font-family: var(--font-heading); font-weight: 700;
+    font-size: 0.9375rem; text-transform: uppercase;
+    color: white; line-height: 1.25; margin-bottom: 0.3rem;
+  }
+  .lc-meta { font-size: 0.7rem; color: rgba(255,255,255,0.35); margin-bottom: 0.75rem; }
+  .lc-price {
+    font-family: var(--font-heading); font-weight: 700;
+    font-size: 1.375rem; color: #F5A623; line-height: 1;
+  }
+  .lc-light {
+    background: white;
+    border-color: #E5E2DC;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+  }
+  .lc-light:hover { border-color: #F5A623; box-shadow: 0 6px 20px rgba(0,0,0,0.09); }
+  .lc-title-dark { color: #111111; }
+  .lc-meta-light { color: #9CA3AF; }
+  .lc-price-dark { color: #D4881A; }
+
+  .btn-outline {
+    display: inline-flex; align-items: center;
+    background: transparent; color: #6B7280;
+    border: 1.5px solid #D1CDC6;
+    font-family: var(--font-heading); font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.08em;
+    font-size: 0.875rem; padding: 0.875rem 1.75rem;
+    border-radius: 0.5rem; text-decoration: none;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .btn-outline:hover { border-color: #F5A623; color: #D4881A; }
+
+  .listings-foot {
+    display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap;
+  }
+
+  /* ─ TRAINING ──────────────────────────────────── */
+  .training {
+    position: relative; min-height: 560px;
+    display: flex; align-items: center;
+  }
+  .training-img {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    object-fit: cover; object-position: center 35%;
+  }
+  .training-scrim {
+    position: absolute; inset: 0;
+    background: linear-gradient(
+      to right,
+      rgba(0,0,0,0.92) 0%,
+      rgba(0,0,0,0.75) 45%,
+      rgba(0,0,0,0.25) 100%
+    );
+  }
+  .training-inner { position: relative; z-index: 10; padding-top: 5rem; padding-bottom: 5rem; }
+  .training-text { max-width: 520px; }
+  .training-h {
+    font-family: var(--font-heading); font-weight: 700;
+    text-transform: uppercase; color: white;
+    font-size: clamp(2.25rem, 5vw, 3.5rem);
+    line-height: 1.0; margin-bottom: 1.25rem;
+  }
+  .training-p {
+    color: rgba(255,255,255,0.65); font-size: 0.9375rem;
+    line-height: 1.7; margin-bottom: 2rem;
+  }
+  .training-facts { display: flex; gap: 2.5rem; margin-bottom: 2.5rem; flex-wrap: wrap; }
+  .tf { display: flex; flex-direction: column; gap: 0.2rem; }
+  .tf-v {
+    font-family: var(--font-heading); font-weight: 700;
+    font-size: 1.5rem; color: #F5A623; line-height: 1;
+  }
+  .tf-l { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.12em; color: rgba(255,255,255,0.35); }
+
+  /* ─ MODELS ────────────────────────────────────── */
+  .models-grid {
+    display: grid; gap: 1rem;
+    grid-template-columns: repeat(2, 1fr);
+  }
+  @media (min-width: 768px) { .models-grid { grid-template-columns: repeat(4, 1fr); } }
+  .mc {
+    position: relative; aspect-ratio: 3/2;
+    border-radius: 0.75rem; overflow: hidden;
+    text-decoration: none; display: block;
+  }
+  .mc img {
+    width: 100%; height: 100%; object-fit: cover;
+    transition: transform 0.5s;
+  }
+  .mc:hover img { transform: scale(1.07); }
+  .mc-overlay {
+    position: absolute; inset: 0;
+    background: linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.1) 55%);
+    transition: background 0.3s;
+  }
+  .mc:hover .mc-overlay { background: linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.2) 55%); }
+  .mc-label {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    padding: 1rem 1.125rem;
+    display: flex; align-items: center; justify-content: space-between;
+    font-family: var(--font-heading); font-weight: 700;
+    text-transform: uppercase; color: white; font-size: 1.0625rem;
+  }
+  .mc-arrow { color: #F5A623; transition: transform 0.2s; }
+  .mc:hover .mc-arrow { transform: translateX(4px); }
+
+  /* ─ PARTNERS MARQUEE ─────────────────────────── */
+  .partners-section { padding-top: 5rem; padding-bottom: 5rem; }
+  .partners-track-wrap {
+    overflow: hidden;
+    position: relative;
+    margin-top: 2rem;
+  }
+  .partners-track {
+    display: flex;
+    gap: 1rem;
+    width: max-content;
+    will-change: transform;
+  }
+  .partner-tile {
+    flex: 0 0 240px;
+    background: white; border: 1px solid #E5E2DC;
+    border-radius: 0.75rem; overflow: hidden;
+    text-decoration: none;
+    transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+  }
+  .partner-tile:hover {
+    border-color: #F5A623;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+  }
+  .pt-img { aspect-ratio: 16/10; overflow: hidden; }
+  .pt-img img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.5s; }
+  .partner-tile:hover .pt-img img { transform: scale(1.04); }
+  .pt-body { padding: 0.875rem 1rem 1.125rem; }
+  .pt-cat {
+    display: block; font-size: 0.6rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.1em; color: #F5A623; margin-bottom: 0.2rem;
+  }
+  .pt-name {
+    font-family: var(--font-heading); font-weight: 700;
+    text-transform: uppercase; font-size: 0.875rem; color: #111111; margin-bottom: 0.2rem;
+  }
+  .pt-loc { font-size: 0.7rem; color: #9CA3AF; }
+</style>
+
+<script define:vars={{ partnerCount: PARTNERS.length }}>
+  const track = document.querySelector('.partners-track');
+  if (track) {
+    const tiles = track.querySelectorAll('.partner-tile');
+    const realCount = partnerCount;
+    let current = 0;
+    let animating = false;
+    let timer = null;
+
+    function advance() {
+      if (animating) return;
+      animating = true;
+
+      const next = current + 1;
+      const offset = tiles[next].offsetLeft;
+
+      track.style.transition = 'transform 0.55s cubic-bezier(0.4, 0, 0.2, 1)';
+      track.style.transform = `translateX(-${offset}px)`;
+      current = next;
+
+      setTimeout(() => {
+        if (current >= realCount) {
+          track.style.transition = 'none';
+          track.style.transform = 'translateX(0)';
+          current = 0;
+        }
+        animating = false;
+      }, 600);
+    }
+
+    function start() { timer = setInterval(advance, 3000); }
+    function stop()  { clearInterval(timer); }
+
+    start();
+    track.addEventListener('mouseenter', stop);
+    track.addEventListener('mouseleave', start);
+  }
+</script>

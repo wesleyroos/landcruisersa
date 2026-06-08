@@ -1,0 +1,53 @@
+---
+import type { CollectionEntry } from 'astro:content';
+
+interface Props {
+  post: CollectionEntry<'posts'>;
+  size?: 'default' | 'large';
+}
+
+const { post, size = 'default' } = Astro.props;
+const { title, excerpt, publishedAt, featuredImage, featuredImageAlt, category } = post.data;
+
+const formattedDate = publishedAt.toLocaleDateString('en-ZA', {
+  day: 'numeric',
+  month: 'short',
+  year: 'numeric',
+});
+
+const categoryLabel: Record<string, string> = {
+  'useful-info': 'Useful Info',
+  'partners': 'Partners',
+  'gear': 'Gear',
+  'routes': 'Routes',
+  'builds': 'Builds',
+};
+---
+
+<article class:list={['group bg-white border border-[#DDD9D3] rounded-xl overflow-hidden hover:border-[#F5A623] hover:shadow-lg transition-all duration-200', size === 'large' && 'md:flex']}>
+  <a href={`/useful-info/${post.slug}/`} class:list={['block overflow-hidden flex-shrink-0', size === 'large' ? 'md:w-80' : '']}>
+    <img
+      src={featuredImage}
+      alt={featuredImageAlt}
+      class:list={['w-full object-cover group-hover:scale-105 transition-transform duration-500', size === 'large' ? 'h-56 md:h-full' : 'h-48']}
+      loading="lazy"
+    />
+  </a>
+  <div class="p-5 flex flex-col">
+    <div class="flex items-center gap-3 mb-3">
+      <span class="text-xs font-bold uppercase tracking-wider text-[#F5A623]">
+        {categoryLabel[category] ?? category}
+      </span>
+      <time class="text-xs text-[#6B7280]">{formattedDate}</time>
+    </div>
+    <a href={`/useful-info/${post.slug}/`}>
+      <h3 class:list={['font-heading font-bold uppercase leading-tight mb-2 hover:text-[#F5A623] transition-colors', size === 'large' ? 'text-2xl' : 'text-lg']}>
+        {title}
+      </h3>
+    </a>
+    <p class="text-sm text-[#6B7280] line-clamp-2 flex-1">{excerpt}</p>
+    <a href={`/useful-info/${post.slug}/`} class="mt-4 text-sm font-semibold text-[#F5A623] hover:text-[#F9C06A] transition-colors">
+      Read more →
+    </a>
+  </div>
+</article>

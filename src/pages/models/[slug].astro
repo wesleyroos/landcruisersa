@@ -1,0 +1,677 @@
+---
+import Base from '@/layouts/Base.astro';
+import { MODELS } from '@/data/models';
+
+export function getStaticPaths() {
+  return MODELS.map(m => ({ params: { slug: m.slug }, props: { model: m } }));
+}
+
+const { model: m } = Astro.props;
+
+const related = m.relatedSlugs
+  ? MODELS.filter(r => m.relatedSlugs!.includes(r.slug))
+  : [];
+
+const specs = [
+  { label: 'Engine', value: m.engine },
+  { label: 'Power', value: m.power },
+  { label: 'Torque', value: m.torque },
+  { label: 'Gearbox', value: m.gearbox },
+  { label: 'Drivetrain', value: m.driveType },
+  { label: 'Body Style', value: m.bodyStyle },
+  ...(m.payload ? [{ label: 'Payload', value: m.payload }] : []),
+  ...(m.gvm ? [{ label: 'GVM', value: m.gvm }] : []),
+  { label: 'Fuel Capacity', value: m.fuelCapacity },
+];
+
+const offRoadSpecs = [
+  { label: 'Ground Clearance', value: m.groundClearance },
+  { label: 'Approach Angle', value: m.approachAngle },
+  ...(m.breakoverAngle ? [{ label: 'Breakover Angle', value: m.breakoverAngle }] : []),
+  { label: 'Departure Angle', value: m.departureAngle },
+  { label: 'Wading Depth', value: m.wadeDepth },
+];
+---
+
+<Base
+  title={`${m.name} Guide — Land Cruiser SA`}
+  description={m.tagline}
+  image={m.hero}
+>
+
+  <!-- Breadcrumb -->
+  <div class="bc-bar">
+    <div class="bc-inner">
+      <a href="/" class="bc-link">Home</a>
+      <span class="bc-sep">›</span>
+      <a href="/models/" class="bc-link">Models</a>
+      <span class="bc-sep">›</span>
+      <span class="bc-current">{m.name}</span>
+    </div>
+  </div>
+
+  <!-- Hero -->
+  <div class="hero-wrap">
+    <img src={m.hero} alt={m.heroAlt} class="hero-img" loading="eager" fetchpriority="high" />
+    <div class="hero-overlay"></div>
+    <div class="hero-content">
+      <div class="hero-inner">
+        <div class="hero-tags">
+          <span class="hero-cat">{m.category}</span>
+          <span class="hero-years">{m.years}</span>
+        </div>
+        <h1 class="hero-title">{m.name}</h1>
+        <p class="hero-sub">{m.subtitle}</p>
+        <p class="hero-tagline">"{m.tagline}"</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Body -->
+  <div class="body-outer">
+    <div class="body-grid">
+
+      <!-- Main Column -->
+      <main class="main-col">
+
+        <!-- About -->
+        <section class="content-section">
+          <div class="section-hdr">
+            <span class="accent-bar"></span>
+            <h2 class="section-h2">About the {m.name}</h2>
+          </div>
+          <p class="body-text">{m.description}</p>
+        </section>
+
+        <!-- Who It's For -->
+        <section class="content-section">
+          <div class="section-hdr">
+            <span class="accent-bar"></span>
+            <h2 class="section-h2">Who It's For</h2>
+          </div>
+          <div class="who-for-box">
+            <p class="body-text">{m.whoFor}</p>
+          </div>
+        </section>
+
+        <!-- Pros & Cons -->
+        <section class="content-section">
+          <div class="section-hdr">
+            <span class="accent-bar"></span>
+            <h2 class="section-h2">Pros & Cons</h2>
+          </div>
+          <div class="pros-cons-grid">
+            <div class="pros-box">
+              <h3 class="pc-heading pc-heading-pros">Strengths</h3>
+              <ul class="pc-list">
+                {m.pros.map(p => (
+                  <li class="pc-item">
+                    <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" class="pc-icon pc-icon-pro"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                    {p}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div class="cons-box">
+              <h3 class="pc-heading pc-heading-cons">Weaknesses</h3>
+              <ul class="pc-list">
+                {m.cons.map(c => (
+                  <li class="pc-item">
+                    <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" class="pc-icon pc-icon-con"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+                    {c}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <!-- Buying Tips -->
+        <section class="content-section">
+          <div class="section-hdr">
+            <span class="accent-bar"></span>
+            <h2 class="section-h2">Buying Tips</h2>
+          </div>
+          <ol class="tips-list">
+            {m.buyingTips.map((tip, i) => (
+              <li class="tip-item">
+                <span class="tip-num">{i + 1}</span>
+                <span class="tip-text">{tip}</span>
+              </li>
+            ))}
+          </ol>
+        </section>
+
+        <!-- Common Issues -->
+        <section class="content-section">
+          <div class="section-hdr">
+            <span class="accent-bar"></span>
+            <h2 class="section-h2">Common Issues to Check</h2>
+          </div>
+          <ul class="issues-list">
+            {m.commonIssues.map(issue => (
+              <li class="issue-item">
+                <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" class="issue-icon"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+                {issue}
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <!-- Related Models -->
+        {related.length > 0 && (
+          <section class="content-section">
+            <div class="section-hdr">
+              <span class="accent-bar"></span>
+              <h2 class="section-h2">Also Consider</h2>
+            </div>
+            <div class="related-grid">
+              {related.map(r => (
+                <a href={`/models/${r.slug}/`} class="related-card">
+                  <div class="related-img-wrap">
+                    <img src={r.hero} alt={r.heroAlt} loading="lazy" />
+                  </div>
+                  <div class="related-body">
+                    <p class="related-sub">{r.subtitle}</p>
+                    <p class="related-name">{r.name}</p>
+                    <p class="related-years">{r.years}</p>
+                  </div>
+                </a>
+              ))}
+            </div>
+          </section>
+        )}
+
+      </main>
+
+      <!-- Sidebar -->
+      <aside class="sidebar-col">
+
+        <!-- Price Range -->
+        <div class="sidebar-card price-card">
+          <p class="sidebar-label">Price Range (SA)</p>
+          <p class="price-value">{m.priceRange}</p>
+          <a href="/listings/" class="sidebar-cta-btn">Browse Listings →</a>
+        </div>
+
+        <!-- Specs -->
+        <div class="sidebar-card">
+          <h3 class="sidebar-card-title">Specifications</h3>
+          <dl class="spec-list">
+            {specs.map(s => (
+              <div class="spec-row">
+                <dt class="spec-label">{s.label}</dt>
+                <dd class="spec-value">{s.value}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+
+        <!-- Off-Road Specs -->
+        <div class="sidebar-card">
+          <h3 class="sidebar-card-title">Off-Road Capability</h3>
+          <dl class="spec-list">
+            {offRoadSpecs.map(s => (
+              <div class="spec-row">
+                <dt class="spec-label">{s.label}</dt>
+                <dd class="spec-value spec-value-highlight">{s.value}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+
+        <!-- Training CTA -->
+        <div class="sidebar-card dark-card">
+          <p class="dark-card-label">4x4 Training</p>
+          <p class="dark-card-title">Know your Land Cruiser's limits</p>
+          <p class="dark-card-body">Learn to extract every ounce of capability from your vehicle with our Advanced 4x4 Driving Course.</p>
+          <a href="/training/" class="dark-card-btn">View Course</a>
+        </div>
+
+        <!-- Back link -->
+        <a href="/models/" class="back-link">← All Models</a>
+
+      </aside>
+
+    </div>
+  </div>
+
+</Base>
+
+<style>
+  /* Breadcrumb */
+  .bc-bar {
+    background: #F5F3EE;
+    border-bottom: 1px solid #DDD9D3;
+  }
+  .bc-inner {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0.75rem 2rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.75rem;
+    color: #6B7280;
+    flex-wrap: wrap;
+  }
+  .bc-link { color: #6B7280; text-decoration: none; }
+  .bc-link:hover { color: #F5A623; }
+  .bc-sep { color: #DDD9D3; }
+  .bc-current { color: #1A1A1A; }
+
+  /* Hero */
+  .hero-wrap {
+    position: relative;
+    height: 400px;
+    overflow: hidden;
+    background: #111;
+  }
+  @media (min-width: 768px) { .hero-wrap { height: 500px; } }
+  .hero-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0.45;
+  }
+  .hero-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top, #111111 35%, transparent 100%);
+  }
+  .hero-content {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: flex-end;
+  }
+  .hero-inner {
+    max-width: 1200px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 0 2rem 2.5rem;
+  }
+  .hero-tags {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+  }
+  .hero-cat {
+    background: #F5A623;
+    color: #111;
+    font-family: var(--font-heading);
+    font-size: 0.6rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding: 0.2rem 0.65rem;
+    border-radius: 0.25rem;
+  }
+  .hero-years {
+    font-size: 0.8rem;
+    color: rgba(255,255,255,0.5);
+    font-family: var(--font-heading);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .hero-title {
+    font-family: var(--font-heading);
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 2.5rem;
+    line-height: 1;
+    color: white;
+    margin-bottom: 0.3rem;
+  }
+  @media (min-width: 768px) { .hero-title { font-size: 3.75rem; } }
+  .hero-sub {
+    font-family: var(--font-heading);
+    font-size: 0.875rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #F5A623;
+    margin-bottom: 0.625rem;
+  }
+  .hero-tagline {
+    font-size: 0.9375rem;
+    color: rgba(255,255,255,0.6);
+    font-style: italic;
+    max-width: 620px;
+  }
+
+  /* Body layout */
+  .body-outer {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 3rem 2rem 5rem;
+  }
+  .body-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 2.5rem;
+    align-items: start;
+  }
+  @media (min-width: 1024px) {
+    .body-grid { grid-template-columns: 1fr 320px; }
+  }
+
+  /* Sections */
+  .content-section { margin-bottom: 2.75rem; }
+  .section-hdr {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1.125rem;
+  }
+  .accent-bar {
+    width: 4px;
+    height: 1.5rem;
+    background: #F5A623;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+  .section-h2 {
+    font-family: var(--font-heading);
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 1.375rem;
+    color: #111;
+    letter-spacing: 0.02em;
+  }
+  .body-text {
+    font-size: 0.9375rem;
+    color: #4A4A4A;
+    line-height: 1.75;
+  }
+
+  /* Who it's for */
+  .who-for-box {
+    background: #F5F3EE;
+    border-left: 4px solid #F5A623;
+    border-radius: 0 0.625rem 0.625rem 0;
+    padding: 1.25rem 1.5rem;
+  }
+
+  /* Pros & Cons */
+  .pros-cons-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  @media (min-width: 640px) {
+    .pros-cons-grid { grid-template-columns: 1fr 1fr; }
+  }
+  .pros-box, .cons-box {
+    border-radius: 0.75rem;
+    padding: 1.25rem;
+    border: 1px solid #DDD9D3;
+  }
+  .pros-box { background: #F0FDF4; border-color: #BBF7D0; }
+  .cons-box { background: #FFF7ED; border-color: #FED7AA; }
+  .pc-heading {
+    font-family: var(--font-heading);
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 0.875rem;
+  }
+  .pc-heading-pros { color: #16A34A; }
+  .pc-heading-cons { color: #D97706; }
+  .pc-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; }
+  .pc-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    font-size: 0.8125rem;
+    color: #374151;
+    line-height: 1.4;
+  }
+  .pc-icon { flex-shrink: 0; margin-top: 0.1rem; }
+  .pc-icon-pro { color: #16A34A; }
+  .pc-icon-con { color: #D97706; }
+
+  /* Buying Tips */
+  .tips-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.75rem; }
+  .tip-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.875rem;
+    padding: 0.875rem 1rem;
+    background: white;
+    border: 1px solid #DDD9D3;
+    border-radius: 0.625rem;
+  }
+  .tip-num {
+    flex-shrink: 0;
+    width: 1.5rem;
+    height: 1.5rem;
+    background: #F5A623;
+    color: #111;
+    font-family: var(--font-heading);
+    font-size: 0.75rem;
+    font-weight: 700;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .tip-text {
+    font-size: 0.8125rem;
+    color: #374151;
+    line-height: 1.5;
+    padding-top: 0.1rem;
+  }
+
+  /* Common Issues */
+  .issues-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; }
+  .issue-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.625rem;
+    font-size: 0.8125rem;
+    color: #374151;
+    line-height: 1.5;
+    padding: 0.625rem 0;
+    border-bottom: 1px solid #F5F3EE;
+  }
+  .issue-icon { color: #EF4444; flex-shrink: 0; margin-top: 0.1rem; }
+
+  /* Related */
+  .related-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 1rem;
+  }
+  .related-card {
+    display: flex;
+    flex-direction: column;
+    text-decoration: none;
+    border: 1px solid #DDD9D3;
+    border-radius: 0.75rem;
+    overflow: hidden;
+    transition: border-color 0.15s;
+  }
+  .related-card:hover { border-color: #F5A623; }
+  .related-img-wrap {
+    aspect-ratio: 16 / 9;
+    overflow: hidden;
+    background: #111;
+  }
+  .related-img-wrap img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0.8;
+    transition: transform 0.3s;
+  }
+  .related-card:hover .related-img-wrap img { transform: scale(1.04); }
+  .related-body { padding: 0.875rem; }
+  .related-sub {
+    font-family: var(--font-heading);
+    font-size: 0.625rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #F5A623;
+    margin-bottom: 0.2rem;
+  }
+  .related-name {
+    font-family: var(--font-heading);
+    font-size: 0.9375rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: #111;
+    margin-bottom: 0.2rem;
+    line-height: 1.1;
+  }
+  .related-years { font-size: 0.725rem; color: #9CA3AF; }
+
+  /* Sidebar */
+  .sidebar-col {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    position: sticky;
+    top: 5rem;
+  }
+  .sidebar-card {
+    background: white;
+    border: 1px solid #DDD9D3;
+    border-radius: 1rem;
+    padding: 1.25rem;
+  }
+  .sidebar-label {
+    font-family: var(--font-heading);
+    font-size: 0.675rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #9CA3AF;
+    margin-bottom: 0.375rem;
+  }
+  .price-value {
+    font-family: var(--font-heading);
+    font-size: 1.25rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: #111;
+    margin-bottom: 1rem;
+    line-height: 1.2;
+  }
+  .sidebar-cta-btn {
+    display: block;
+    text-align: center;
+    background: #F5A623;
+    color: #111;
+    font-family: var(--font-heading);
+    font-size: 0.8125rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 0.75rem;
+    border-radius: 0.5rem;
+    text-decoration: none;
+    transition: background 0.15s;
+  }
+  .sidebar-cta-btn:hover { background: #D4881A; }
+
+  .sidebar-card-title {
+    font-family: var(--font-heading);
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #111;
+    margin-bottom: 0.875rem;
+    padding-bottom: 0.625rem;
+    border-bottom: 1px solid #DDD9D3;
+  }
+
+  .spec-list { display: flex; flex-direction: column; gap: 0; }
+  .spec-row {
+    display: flex;
+    flex-direction: column;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #F5F3EE;
+    gap: 0.125rem;
+  }
+  .spec-label {
+    font-family: var(--font-heading);
+    font-size: 0.6rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #9CA3AF;
+  }
+  .spec-value {
+    font-size: 0.8125rem;
+    color: #111;
+    line-height: 1.3;
+  }
+  .spec-value-highlight {
+    font-family: var(--font-heading);
+    font-weight: 700;
+    font-size: 0.875rem;
+    color: #111;
+  }
+
+  /* Dark sidebar card */
+  .dark-card {
+    background: #111;
+    border-color: #111;
+    color: white;
+  }
+  .dark-card-label {
+    font-family: var(--font-heading);
+    font-size: 0.625rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #F5A623;
+    margin-bottom: 0.375rem;
+  }
+  .dark-card-title {
+    font-family: var(--font-heading);
+    font-size: 1rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: white;
+    margin-bottom: 0.625rem;
+    line-height: 1.2;
+  }
+  .dark-card-body {
+    font-size: 0.8rem;
+    color: rgba(255,255,255,0.6);
+    line-height: 1.5;
+    margin-bottom: 1rem;
+  }
+  .dark-card-btn {
+    display: block;
+    text-align: center;
+    background: #F5A623;
+    color: #111;
+    font-family: var(--font-heading);
+    font-size: 0.8125rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 0.75rem;
+    border-radius: 0.5rem;
+    text-decoration: none;
+    transition: background 0.15s;
+  }
+  .dark-card-btn:hover { background: #D4881A; }
+
+  .back-link {
+    font-size: 0.8125rem;
+    color: #6B7280;
+    text-decoration: none;
+    transition: color 0.15s;
+    display: inline-block;
+  }
+  .back-link:hover { color: #F5A623; }
+</style>

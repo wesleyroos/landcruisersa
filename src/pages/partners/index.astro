@@ -1,0 +1,165 @@
+---
+import Base from '@/layouts/Base.astro';
+import { PARTNERS } from '@/data/partners';
+
+const categories = ['All', 'Services', 'Tours', 'Training', 'Gear'];
+
+const categoryColors: Record<string, string> = {
+  Services: 'bg-blue-100 text-blue-800',
+  Tours: 'bg-green-100 text-green-800',
+  Training: 'bg-orange-100 text-orange-800',
+  Gear: 'bg-purple-100 text-purple-800',
+};
+---
+
+<Base
+  title="Partners — Land Cruiser SA"
+  description="Our trusted network of overlanding specialists, trainers, tour operators and fabricators across South Africa."
+>
+
+  <div class="bg-[#111111]">
+    <div class="max-w-7xl mx-auto px-4 py-12">
+      <p class="text-[#F5A623] font-heading font-bold uppercase tracking-widest text-xs mb-3">Trusted Network</p>
+      <h1 class="font-heading font-bold uppercase text-white text-5xl md:text-6xl leading-none mb-4">Our Partners</h1>
+      <p class="text-white/60 text-base max-w-2xl leading-relaxed">
+        Carefully selected specialists we've worked with, trust, and recommend. From custom vehicle builders to guided expeditions — these are the people who know the African bush.
+      </p>
+    </div>
+  </div>
+  <div class="h-1 bg-[#F5A623]"></div>
+
+  <div class="max-w-7xl mx-auto px-4 py-12">
+
+    <!-- Category filters -->
+    <div class="flex flex-wrap gap-2 mb-10" id="filters">
+      {categories.map((cat, i) => (
+        <button
+          class={`filter-btn px-4 py-2 rounded-full text-sm font-heading font-bold uppercase tracking-wide border transition-colors ${i === 0 ? 'bg-[#111111] text-white border-[#111111]' : 'bg-white text-[#111111] border-[#DDD9D3] hover:border-[#111111]'}`}
+          data-category={cat === 'All' ? 'all' : cat}
+        >
+          {cat}
+        </button>
+      ))}
+    </div>
+
+    <!-- Partners grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="partners-grid">
+      {PARTNERS.map(p => (
+        <a
+          href={`/partners/${p.slug}/`}
+          class="partner-card group bg-white border border-[#DDD9D3] rounded-2xl overflow-hidden hover:border-[#F5A623] hover:shadow-lg transition-all duration-200"
+          data-category={p.category}
+        >
+          <div class="hero-img-wrap">
+            <img
+              src={p.hero}
+              alt={p.name}
+              class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+              loading="lazy"
+            />
+            <div class="category-chip">{p.category}</div>
+          </div>
+          <div class="p-5">
+            <h2 class="font-heading font-bold uppercase text-lg leading-tight text-[#111111] mb-1 group-hover:text-[#D4881A] transition-colors">
+              {p.name}
+            </h2>
+            <p class="text-xs text-[#6B7280] mb-3">{p.location}</p>
+            <p class="text-sm text-[#4A4A4A] leading-relaxed mb-4 line-clamp-2">{p.description}</p>
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-1">
+                <span class="text-[#F5A623] text-sm">{'★'.repeat(Math.round(p.rating))}</span>
+                <span class="text-xs text-[#6B7280] ml-1">{p.rating}/5 ({p.reviewCount})</span>
+              </div>
+              <span class="text-xs font-heading font-bold uppercase tracking-wide text-[#F5A623] group-hover:translate-x-0.5 transition-transform">
+                View →
+              </span>
+            </div>
+          </div>
+        </a>
+      ))}
+    </div>
+
+    <!-- Empty state -->
+    <div id="empty-state" class="hidden text-center py-24">
+      <p class="text-[#6B7280] text-lg mb-2">No partners in that category yet.</p>
+      <button id="reset-filters" class="text-[#F5A623] text-sm font-semibold hover:underline">Show all</button>
+    </div>
+
+  </div>
+
+  <!-- CTA band -->
+  <div class="bg-[#F5F3EE] border-t border-[#DDD9D3]">
+    <div class="max-w-7xl mx-auto px-4 py-14 text-center">
+      <p class="text-[#F5A623] font-heading font-bold uppercase tracking-widest text-xs mb-3">Work With Us</p>
+      <h2 class="font-heading font-bold uppercase text-4xl text-[#111111] mb-4">Become a Partner</h2>
+      <p class="text-[#6B7280] text-base max-w-xl mx-auto mb-8 leading-relaxed">
+        Are you a reputable overlanding business in South Africa? We'd love to hear from you. Our partner network is built on trust and shared passion for the African bush.
+      </p>
+      <a href="/contact/" class="inline-block bg-[#111111] text-white font-heading font-bold uppercase tracking-wide px-8 py-4 rounded-lg hover:bg-[#222] transition-colors text-sm">
+        Get in Touch
+      </a>
+    </div>
+  </div>
+
+</Base>
+
+<style>
+  .hero-img-wrap {
+    position: relative;
+    aspect-ratio: 16 / 9;
+    overflow: hidden;
+    background: #F5F3EE;
+  }
+  .category-chip {
+    position: absolute;
+    top: 0.75rem;
+    left: 0.75rem;
+    background: #111111;
+    color: white;
+    font-family: var(--font-heading);
+    font-weight: 700;
+    font-size: 0.625rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 0.2rem 0.6rem;
+    border-radius: 0.25rem;
+  }
+</style>
+
+<script>
+  const cards = Array.from(document.querySelectorAll<HTMLElement>('.partner-card'));
+  const btns = Array.from(document.querySelectorAll<HTMLButtonElement>('.filter-btn'));
+  const emptyState = document.getElementById('empty-state')!;
+
+  function setActive(btn: HTMLButtonElement) {
+    btns.forEach(b => {
+      b.classList.remove('bg-[#111111]', 'text-white', 'border-[#111111]');
+      b.classList.add('bg-white', 'text-[#111111]', 'border-[#DDD9D3]');
+    });
+    btn.classList.add('bg-[#111111]', 'text-white', 'border-[#111111]');
+    btn.classList.remove('bg-white', 'text-[#111111]', 'border-[#DDD9D3]');
+  }
+
+  function filter(category: string) {
+    let visible = 0;
+    cards.forEach(card => {
+      const show = category === 'all' || card.dataset.category === category;
+      card.style.display = show ? '' : 'none';
+      if (show) visible++;
+    });
+    emptyState.classList.toggle('hidden', visible > 0);
+  }
+
+  btns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      setActive(btn);
+      filter(btn.dataset.category!);
+    });
+  });
+
+  document.getElementById('reset-filters')?.addEventListener('click', () => {
+    const allBtn = btns.find(b => b.dataset.category === 'all')!;
+    setActive(allBtn);
+    filter('all');
+  });
+</script>

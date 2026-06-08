@@ -1,0 +1,52 @@
+---
+import Base from '@/layouts/Base.astro';
+import PostCard from '@/components/PostCard.astro';
+import { getCollection } from 'astro:content';
+
+const allPosts = await getCollection('posts', p => !p.data.draft);
+const posts = allPosts.sort((a, b) => b.data.publishedAt.valueOf() - a.data.publishedAt.valueOf());
+
+const categories = [
+  { slug: 'all', label: 'All' },
+  { slug: 'useful-info', label: 'Useful Info' },
+  { slug: 'gear', label: 'Gear' },
+  { slug: 'routes', label: 'Routes' },
+  { slug: 'builds', label: 'Builds' },
+];
+---
+
+<Base
+  title="Useful Info — Land Cruiser SA"
+  description="Guides, buyers guides, how-tos and overlanding tips for South African Land Cruiser owners. Updated regularly."
+>
+  <!-- Header -->
+  <div class="bg-[#111111] text-white">
+    <div class="max-w-7xl mx-auto px-4 py-12">
+      <p class="text-[#F5A623] font-heading font-bold uppercase tracking-widest text-sm mb-2">Knowledge base</p>
+      <h1 class="font-heading font-bold uppercase text-4xl md:text-5xl">Useful Info</h1>
+    </div>
+  </div>
+  <div class="h-1 bg-[#F5A623]"></div>
+
+  <div class="max-w-7xl mx-auto px-4 py-16">
+    {posts.length === 0 ? (
+      <p class="text-[#6B7280] text-center py-20">Articles coming soon.</p>
+    ) : (
+      <>
+        <!-- Featured post (first one, large) -->
+        {posts[0] && (
+          <div class="mb-12">
+            <PostCard post={posts[0]} size="large" />
+          </div>
+        )}
+
+        <!-- Remaining posts grid -->
+        {posts.length > 1 && (
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {posts.slice(1).map(post => <PostCard post={post} />)}
+          </div>
+        )}
+      </>
+    )}
+  </div>
+</Base>
