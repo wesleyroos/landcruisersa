@@ -71,5 +71,8 @@ db.exec(`
 // Data fix: Prado 250-series launched in 2024 — backfill prado-150 rows missed before normalize was updated
 db.exec(`UPDATE listings SET model = 'prado-250' WHERE model = 'prado-150' AND year >= 2024`);
 
+// Data fix: consolidate land-cruiser-fj → fj-cruiser (same vehicle, different AutoTrader naming)
+db.exec(`UPDATE listings SET model = 'fj-cruiser' WHERE model = 'land-cruiser-fj'`);
+
 console.log('Migration complete.');
 db.close();
