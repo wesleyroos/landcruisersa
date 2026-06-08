@@ -9,7 +9,7 @@ function checkAdmin(request: Request): boolean {
   const cookie = request.headers.get('cookie') ?? '';
   const match = cookie.match(/lcsa_admin=([^;]+)/);
   const token = match?.[1];
-  const secret = import.meta.env.ADMIN_SECRET;
+  const secret = process.env.ADMIN_SECRET;
   return Boolean(token && secret && token === secret);
 }
 
