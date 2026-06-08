@@ -112,7 +112,7 @@ function firstPhoto(photos: string) {
             />
             <div class="absolute top-3 left-3 flex gap-1.5 flex-wrap">
               <span class={`card-badge ${l.listing_type === 'show_off' ? 'card-badge-show' : ''}`}>
-                {l.listing_type === 'show_off' ? '★ ' : ''}{l.model.replace('-', ' ').toUpperCase()}
+                {l.listing_type === 'show_off' ? '★ ' : ''}{l.model.replaceAll('-', ' ').toUpperCase()}
               </span>
               {l.status === 'sold' && <span class="card-badge card-badge-sold">Sold</span>}
             </div>

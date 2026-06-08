@@ -111,7 +111,7 @@ const grouped: { label: string; status: string; items: Listing[] }[] = [
                   )}
                 </div>
                 <a href={`/admin/listings/${l.id}`} class="lcard-title">{l.title}</a>
-                <p class="lcard-sub">{l.year} · {l.model.replace('-', ' ').toUpperCase()} · {l.province}{l.mileage > 0 ? ` · ${l.mileage.toLocaleString('en-ZA')} km` : ''}</p>
+                <p class="lcard-sub">{l.year} · {l.model.replaceAll('-', ' ').toUpperCase()} · {l.province}{l.mileage > 0 ? ` · ${l.mileage.toLocaleString('en-ZA')} km` : ''}</p>
                 <p class="lcard-seller">
                   {l.seller_name} · <a href={`mailto:${l.seller_email}`}>{l.seller_email}</a> · <a href={`tel:${l.seller_phone}`}>{l.seller_phone}</a>
                 </p>

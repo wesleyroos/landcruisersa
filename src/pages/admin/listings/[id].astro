@@ -22,7 +22,7 @@ function allPhotos(photos: string) {
 const photos = allPhotos(listing.photos);
 const thumb = firstPhoto(listing.photos);
 
-const MODELS = ['70-series','76-series','79-series','100-series','200-series','300-series','prado','fj-cruiser','other'];
+const MODELS = ['70-series','76-series','78-series','79-series','80-series','100-series','200-series','300-series','prado-150','prado-250','fj-cruiser','other'];
 const PROVINCES = ['Gauteng','Western Cape','KwaZulu-Natal','Eastern Cape','Limpopo','Mpumalanga','North West','Free State','Northern Cape'];
 
 // IG caption generation
@@ -100,7 +100,7 @@ ${listing.description ? listing.description.slice(0, 200).trim() + (listing.desc
             <div class="field">
               <label>Model</label>
               <select name="model">
-                {MODELS.map(m => <option value={m} selected={listing.model === m}>{m.replace('-', ' ').toUpperCase()}</option>)}
+                {MODELS.map(m => <option value={m} selected={listing.model === m}>{m.replaceAll('-', ' ').toUpperCase()}</option>)}
               </select>
             </div>
             <div class="field">

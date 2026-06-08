@@ -49,7 +49,7 @@ function firstPhoto(p: string) {
   try { return JSON.parse(p)[0] ?? 'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/og-default.jpg'; } catch { return 'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/og-default.jpg'; }
 }
 
-const modelLabel = listing.model.replace('-', ' ').toUpperCase();
+const modelLabel = listing.model.replaceAll('-', ' ').toUpperCase();
 
 // Vehicle JSON-LD for AI agents and Google
 const vehicleSchema: Record<string, unknown> = {
@@ -121,7 +121,7 @@ const vehicleSchema: Record<string, unknown> = {
       <div class="header-left">
         <div class="header-meta">
           {isShowOff && <span class="show-off-pill">★ Community Build</span>}
-          <span class="model-pill">{listing.model.replace('-', ' ').toUpperCase()}</span>
+          <span class="model-pill">{listing.model.replaceAll('-', ' ').toUpperCase()}</span>
           <span class="year-pill">{listing.year}</span>
         </div>
         <h1 class="listing-title">{listing.title}</h1>
@@ -258,7 +258,7 @@ const vehicleSchema: Record<string, unknown> = {
           <h2 class="card-heading">Specifications</h2>
           <div class="specs-table">
             <div class="spec-row"><span class="spec-k">Year</span><span class="spec-v">{listing.year}</span></div>
-            <div class="spec-row"><span class="spec-k">Model</span><span class="spec-v">{listing.model.replace('-', ' ').toUpperCase()}</span></div>
+            <div class="spec-row"><span class="spec-k">Model</span><span class="spec-v">{listing.model.replaceAll('-', ' ').toUpperCase()}</span></div>
             {listing.mileage > 0 && <div class="spec-row"><span class="spec-k">Mileage</span><span class="spec-v">{formatMileage(listing.mileage)}</span></div>}
             <div class="spec-row"><span class="spec-k">Transmission</span><span class="spec-v">{cap(listing.transmission)}</span></div>
             <div class="spec-row"><span class="spec-k">Colour</span><span class="spec-v">{listing.colour}</span></div>
@@ -391,7 +391,7 @@ const vehicleSchema: Record<string, unknown> = {
             <a href={`/listings/${l.slug}/`} class="sim-card">
               <div class="sim-img">
                 <img src={firstPhoto(l.photos)} alt={l.title} loading="lazy" />
-                <span class="sim-badge">{l.model.replace('-', ' ').toUpperCase()}</span>
+                <span class="sim-badge">{l.model.replaceAll('-', ' ').toUpperCase()}</span>
               </div>
               <div class="sim-body">
                 <p class="sim-title">{l.title}</p>
