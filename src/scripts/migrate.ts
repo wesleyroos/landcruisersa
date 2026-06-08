@@ -42,5 +42,23 @@ db.exec(`
   )
 `);
 
+// Additive migrations — safe to run repeatedly (ADD COLUMN is no-op if already present via try/catch)
+const addColumns: [string, string][] = [
+  ['source',         `ALTER TABLE listings ADD COLUMN source TEXT NOT NULL DEFAULT 'own'`],
+  ['source_id',      `ALTER TABLE listings ADD COLUMN source_id TEXT`],
+  ['last_polled_at', `ALTER TABLE listings ADD COLUMN last_polled_at INTEGER`],
+  ['review_flag',    `ALTER TABLE listings ADD COLUMN review_flag INTEGER NOT NULL DEFAULT 0`],
+];
+
+const existingCols = new Set(
+  (db.prepare('PRAGMA table_info(listings)').all() as { name: string }[]).map(r => r.name)
+);
+
+for (const [col, sql] of addColumns) {
+  if (!existingCols.has(col)) db.exec(sql);
+}
+
+db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS listings_source_source_id ON listings (source, source_id)`);
+
 console.log('Migration complete.');
 db.close();

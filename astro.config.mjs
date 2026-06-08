@@ -8,6 +8,9 @@ export default defineConfig({
   site: 'https://landcruisersa.co.za',
   // 'static' = static by default; individual pages/endpoints use `export const prerender = false` to opt into SSR
   output: 'static',
+  security: {
+    checkOrigin: false,
+  },
   adapter: node({ mode: 'standalone' }),
   integrations: [
     mdx(),
