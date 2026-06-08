@@ -14,6 +14,7 @@ const SCRIPTS = [
   'src/scripts/ingest-autotrader.ts',
   'src/scripts/ingest-wbc.ts',
   'src/scripts/ingest-adios.ts',
+  'src/scripts/ingest-wbb.ts',
 ];
 
 function runScript(

@@ -1,6 +1,7 @@
 import { AutoTraderAdapter } from '../lib/sources/autotrader.ts';
 import { WbcAdapter } from '../lib/sources/wbc.ts';
 import { AdiosAdapter } from '../lib/sources/adios.ts';
+import { WbbAdapter } from '../lib/sources/wbb.ts';
 
 const SITE_URL = process.env.SITE_URL ?? 'https://landcruisersa.fly.dev';
 const TOKEN = process.env.INGEST_TOKEN ?? '';
@@ -11,6 +12,7 @@ const ADAPTERS: Record<string, { isStillLive: typeof AutoTraderAdapter.isStillLi
   autotrader: AutoTraderAdapter,
   wbc: WbcAdapter,
   adios: AdiosAdapter,
+  wbb: WbbAdapter,
 };
 
 async function sendAlert(subject: string, body: string) {
