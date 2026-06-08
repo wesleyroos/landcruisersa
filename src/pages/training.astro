@@ -239,10 +239,14 @@ import Base from '@/layouts/Base.astro';
         </div>
       </div>
 
+      <div id="training-success" class="hidden bg-green-50 border border-green-200 text-green-800 rounded-xl px-5 py-4 text-sm font-medium mb-5">
+        Enquiry sent — we'll be in touch with available dates shortly.
+      </div>
+      <div id="training-error" class="hidden bg-red-50 border border-red-200 text-red-800 rounded-xl px-5 py-4 text-sm font-medium mb-5">
+        Something went wrong. Please try again or email us directly.
+      </div>
       <form
-        name="training-enquiry"
-        method="POST"
-        action="/training/thanks/"
+        id="training-form"
         class="bg-white rounded-2xl shadow-sm border border-[#DDD9D3] p-8 space-y-5"
       >
         <div class="grid grid-cols-2 gap-4">
@@ -283,8 +287,8 @@ import Base from '@/layouts/Base.astro';
           <textarea id="message" name="message" rows="3"
             class="w-full border border-[#DDD9D3] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#F5A623] transition-colors resize-none"></textarea>
         </div>
-        <button type="submit"
-          class="w-full bg-[#F5A623] text-[#111111] font-heading font-bold uppercase tracking-wide py-4 rounded-lg hover:bg-[#D4881A] transition-colors">
+        <button type="submit" id="training-submit"
+          class="w-full bg-[#F5A623] text-[#111111] font-heading font-bold uppercase tracking-wide py-4 rounded-lg hover:bg-[#D4881A] transition-colors disabled:opacity-50">
           Send Enquiry
         </button>
       </form>
@@ -293,3 +297,39 @@ import Base from '@/layouts/Base.astro';
   </section>
 
 </Base>
+
+<script>
+  const form = document.getElementById('training-form') as HTMLFormElement;
+  const submitBtn = document.getElementById('training-submit') as HTMLButtonElement;
+  const successEl = document.getElementById('training-success')!;
+  const errorEl = document.getElementById('training-error')!;
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    successEl.classList.add('hidden');
+    errorEl.classList.add('hidden');
+
+    const data = Object.fromEntries(new FormData(form));
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Sending…';
+
+    try {
+      const res = await fetch('/api/training-enquiry', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (res.ok) {
+        successEl.classList.remove('hidden');
+        form.reset();
+      } else {
+        errorEl.classList.remove('hidden');
+      }
+    } catch {
+      errorEl.classList.remove('hidden');
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Send Enquiry';
+    }
+  });
+</script>
