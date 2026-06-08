@@ -58,8 +58,18 @@ const grouped: { label: string; status: string; items: Listing[] }[] = [
     <div class="tools-row">
       <div class="tool-card">
         <div class="tool-info">
+          <p class="tool-name">Ingest Listings <span class="local-badge">LOCAL</span></p>
+          <p class="tool-desc">Discover and import new listings from AutoTrader, WBC, and Adios using your residential IP.</p>
+        </div>
+        <div class="tool-controls">
+          <button id="run-ingest-btn" class="btn btn-tool">Run Ingest</button>
+          <p id="ingest-status" class="tool-status"></p>
+        </div>
+      </div>
+      <div class="tool-card">
+        <div class="tool-info">
           <p class="tool-name">AT Image Backfill <span class="local-badge">LOCAL</span></p>
-          <p class="tool-desc">Fetch full image sets for AT listings with &lt;2 photos. Runs from your Mac so AutoTrader won't block it.</p>
+          <p class="tool-desc">Fetch full image sets for AT listings with &lt;2 photos.</p>
         </div>
         <div class="tool-controls">
           <button id="run-backfill-btn" class="btn btn-tool">Run Backfill</button>
@@ -278,6 +288,47 @@ const grouped: { label: string; status: string; items: Listing[] }[] = [
     card.style.transform = 'translateX(8px)';
     setTimeout(() => card.remove(), 260);
   }
+
+  // Ingest — streams SSE progress from child processes
+  document.getElementById('run-ingest-btn')?.addEventListener('click', async function () {
+    const btn = this as HTMLButtonElement;
+    const statusEl = document.getElementById('ingest-status')!;
+    btn.disabled = true;
+    btn.textContent = 'Running…';
+    statusEl.textContent = 'Starting…';
+    try {
+      const res = await fetch('/api/admin/run-ingest');
+      if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = '';
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const parts = buf.split('\n\n');
+        buf = parts.pop() ?? '';
+        for (const part of parts) {
+          if (!part.startsWith('data: ')) continue;
+          let ev: Record<string, unknown>;
+          try { ev = JSON.parse(part.slice(6)); } catch { continue; }
+          if (ev.type === 'script-start') {
+            statusEl.textContent = `Running ${ev.name}…`;
+          } else if (ev.type === 'log') {
+            statusEl.textContent = String(ev.text).slice(0, 80);
+          } else if (ev.type === 'script-done') {
+            statusEl.textContent = `${ev.name}: ${ev.ok ? 'done' : `failed (exit ${ev.code})`}`;
+          } else if (ev.type === 'done') {
+            statusEl.textContent = 'All sources ingested.';
+          }
+        }
+      }
+    } catch (err) {
+      statusEl.textContent = `Error: ${String(err)}`;
+    }
+    btn.disabled = false;
+    btn.textContent = 'Run Ingest';
+  });
 
   // AT image backfill — streams SSE progress
   document.getElementById('run-backfill-btn')?.addEventListener('click', async function () {
