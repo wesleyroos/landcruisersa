@@ -24,6 +24,10 @@ export const PATCH: APIRoute = async ({ params, request }) => {
     if (key in body) updates[key] = body[key];
   }
 
+  if ('photos' in body && Array.isArray(body.photos)) {
+    updates.photos = JSON.stringify(body.photos);
+  }
+
   if (Object.keys(updates).length === 0) {
     return new Response(JSON.stringify({ error: 'No valid fields provided' }), { status: 400 });
   }

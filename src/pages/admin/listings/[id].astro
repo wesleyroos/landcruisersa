@@ -180,13 +180,18 @@ const PROVINCES = ['Gauteng','Western Cape','KwaZulu-Natal','Eastern Cape','Limp
       <div class="card">
         <h2 class="card-heading">Photos</h2>
         {photos.length === 0 && <p class="no-photos">No photos uploaded.</p>}
-        <div class="photo-grid">
+        {photos.length > 1 && <p class="photo-hint">Drag to reorder. First photo is the cover.</p>}
+        <div class="photo-grid" id="photo-grid">
           {photos.map((src, i) => (
-            <div class="photo-wrap">
+            <div class="photo-wrap" draggable="true" data-src={src}>
+              <span class="photo-num">{i + 1}</span>
               <img src={src} alt={`Photo ${i + 1}`} loading="lazy" />
             </div>
           ))}
         </div>
+        {photos.length > 1 && (
+          <button id="save-order-btn" class="btn-save-order hidden">Save Order</button>
+        )}
       </div>
     </div>
 
@@ -275,9 +280,31 @@ const PROVINCES = ['Gauteng','Western Cape','KwaZulu-Natal','Eastern Cape','Limp
   .btn-view-live:hover { opacity: 0.75; }
 
   /* PHOTOS */
+  .photo-hint { font-size: 0.7rem; color: #9CA3AF; margin-bottom: 0.625rem; }
   .photo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
-  .photo-wrap { border-radius: 0.5rem; overflow: hidden; aspect-ratio: 1; background: #EAE8E3; }
-  .photo-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .photo-wrap {
+    position: relative; border-radius: 0.5rem; overflow: hidden;
+    aspect-ratio: 1; background: #EAE8E3; cursor: grab;
+    transition: opacity 0.15s, box-shadow 0.15s;
+  }
+  .photo-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; pointer-events: none; }
+  .photo-wrap.dragging { opacity: 0.35; cursor: grabbing; }
+  .photo-wrap.drag-over { box-shadow: inset 0 0 0 3px #F5A623; }
+  .photo-num {
+    position: absolute; top: 0.3rem; left: 0.3rem; z-index: 1;
+    background: rgba(0,0,0,0.55); color: white;
+    font-size: 0.6rem; font-weight: 700; line-height: 1;
+    min-width: 1.25rem; height: 1.25rem; padding: 0 0.3rem;
+    border-radius: 9999px; display: flex; align-items: center; justify-content: center;
+  }
+  .btn-save-order {
+    margin-top: 0.625rem; width: 100%; background: #F5A623; color: #111;
+    border: none; border-radius: 0.5rem; padding: 0.6rem 1rem;
+    font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+    cursor: pointer; transition: background 0.15s;
+  }
+  .btn-save-order:hover:not(:disabled) { background: #D4881A; }
+  .btn-save-order:disabled { opacity: 0.5; cursor: not-allowed; }
   .no-photos { font-size: 0.875rem; color: #9CA3AF; }
 </style>
 
@@ -330,4 +357,59 @@ const PROVINCES = ['Gauteng','Western Cape','KwaZulu-Natal','Eastern Cape','Limp
     saveBtn.disabled = false;
     saveBtn.textContent = 'Save Changes';
   });
+
+  // Photo drag-and-drop reordering
+  const grid = document.getElementById('photo-grid');
+  const saveOrderBtn = document.getElementById('save-order-btn');
+  if (grid && saveOrderBtn) {
+    let dragSrc = null;
+
+    grid.addEventListener('dragstart', (e) => {
+      dragSrc = e.target.closest('.photo-wrap');
+      if (!dragSrc) return;
+      setTimeout(() => dragSrc.classList.add('dragging'), 0);
+      e.dataTransfer.effectAllowed = 'move';
+    });
+
+    grid.addEventListener('dragend', () => {
+      grid.querySelectorAll('.photo-wrap').forEach(el => el.classList.remove('dragging', 'drag-over'));
+    });
+
+    grid.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      const target = e.target.closest('.photo-wrap');
+      grid.querySelectorAll('.photo-wrap').forEach(el => el.classList.remove('drag-over'));
+      if (target && target !== dragSrc) target.classList.add('drag-over');
+    });
+
+    grid.addEventListener('drop', (e) => {
+      e.preventDefault();
+      const target = e.target.closest('.photo-wrap');
+      if (!target || target === dragSrc) return;
+      target.classList.remove('drag-over');
+      const all = [...grid.querySelectorAll('.photo-wrap')];
+      const si = all.indexOf(dragSrc), ti = all.indexOf(target);
+      grid.insertBefore(dragSrc, si < ti ? target.nextSibling : target);
+      grid.querySelectorAll('.photo-num').forEach((el, i) => el.textContent = String(i + 1));
+      saveOrderBtn.classList.remove('hidden');
+    });
+
+    saveOrderBtn.addEventListener('click', async () => {
+      const photos = [...grid.querySelectorAll('.photo-wrap')].map(el => el.dataset.src);
+      saveOrderBtn.disabled = true;
+      saveOrderBtn.textContent = 'Saving…';
+      const res = await fetch(`/api/listings/${listingId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ photos }),
+      });
+      if (res.ok) {
+        saveOrderBtn.textContent = 'Saved!';
+        setTimeout(() => { saveOrderBtn.classList.add('hidden'); saveOrderBtn.textContent = 'Save Order'; saveOrderBtn.disabled = false; }, 2000);
+      } else {
+        saveOrderBtn.textContent = 'Error — try again';
+        saveOrderBtn.disabled = false;
+      }
+    });
+  }
 </script>
