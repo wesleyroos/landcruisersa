@@ -22,7 +22,7 @@ const similar = await db.select().from(listings)
   .limit(6);
 const similarFiltered = similar.filter(l => l.slug !== slug).slice(0, 3);
 
-const photos: string[] = JSON.parse(listing.photos);
+const photos: string[] = (() => { try { return JSON.parse(listing.photos) ?? []; } catch { return []; } })();
 const mainPhoto = photos[0] ?? '/images/og-default.jpg';
 const gridPhotos = photos.slice(1, 5);
 
@@ -121,7 +121,7 @@ const vehicleSchema: Record<string, unknown> = {
         <h1 class="listing-title">{listing.title}</h1>
         <p class="listing-location">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/></svg>
-          {listing.province} · Listed {new Date(listing.created_at).toLocaleDateString('en-ZA', { day: 'numeric', month: 'long', year: 'numeric' })}
+          {listing.province} · Listed {(listing.created_at instanceof Date ? listing.created_at : new Date((listing.created_at as unknown as number) * 1000)).toLocaleDateString('en-ZA', { day: 'numeric', month: 'long', year: 'numeric' })}
         </p>
       </div>
       {isSold && (

@@ -22,7 +22,7 @@ const MODELS = [
   { value: '200-series', label: '200 Series' },
   { value: '300-series', label: '300 Series' },
   { value: 'prado', label: 'Prado' },
-  { value: 'fj-cruiser', label: 'FJ Cruiser' },
+  { value: 'fj', label: 'FJ' },
   { value: 'other', label: 'Other' },
 ];
 
@@ -275,8 +275,15 @@ function firstPhoto(photos: string) {
       // Price filter only applies to for_sale listings
       const priceOk = isShowOff || (price >= minP && price <= maxP);
 
+      const cardModel = card.dataset.model ?? '';
+      const modelMatch =
+        model === 'all' ||
+        (model === 'prado' && cardModel.startsWith('prado')) ||
+        (model === 'fj' && (cardModel === 'fj-cruiser' || cardModel === 'land-cruiser-fj')) ||
+        cardModel === model;
+
       const show =
-        (model === 'all' || card.dataset.model === model) &&
+        modelMatch &&
         (province === 'all' || card.dataset.province === province) &&
         priceOk &&
         (activeType === 'all' || cardType === activeType);

@@ -1,0 +1,30 @@
+name: Ingest Listings
+
+on:
+  schedule:
+    - cron: '0 */4 * * *'   # every 4 hours
+  workflow_dispatch:
+
+jobs:
+  ingest:
+    name: Scrape & Ingest
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Run AutoTrader ingest
+        run: node --experimental-strip-types src/scripts/ingest-autotrader.ts
+        env:
+          INGEST_TOKEN: ${{ secrets.INGEST_TOKEN }}
+          SITE_URL: ${{ secrets.SITE_URL }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          NOTIFY_EMAIL: ${{ secrets.NOTIFY_EMAIL }}
