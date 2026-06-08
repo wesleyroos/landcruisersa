@@ -23,7 +23,7 @@ const similar = await db.select().from(listings)
 const similarFiltered = similar.filter(l => l.slug !== slug).slice(0, 3);
 
 const photos: string[] = (() => { try { return JSON.parse(listing.photos) ?? []; } catch { return []; } })();
-const mainPhoto = photos[0] ?? '/images/og-default.jpg';
+const mainPhoto = photos[0] ?? 'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/og-default.jpg';
 const gridPhotos = photos.slice(1, 5);
 
 function formatPrice(n: number) {
@@ -36,7 +36,7 @@ function cap(s: string) {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 function firstPhoto(p: string) {
-  try { return JSON.parse(p)[0] ?? '/images/og-default.jpg'; } catch { return '/images/og-default.jpg'; }
+  try { return JSON.parse(p)[0] ?? 'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/og-default.jpg'; } catch { return 'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/og-default.jpg'; }
 }
 
 // IG caption generated server-side for easy copy when posting
@@ -169,11 +169,11 @@ const vehicleSchema: Record<string, unknown> = {
   <div class="section-chips">
     <div class="spec-chips">
       <span class="chip">
-        <img src="/images/icons/year.svg" width="14" height="14" alt="" class="chip-icon" />
+        <img src="https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/icons/year.svg" width="14" height="14" alt="" class="chip-icon" />
         {listing.year}
       </span>
       <span class="chip">
-        <img src="/images/icons/mileage.svg" width="14" height="14" alt="" class="chip-icon" />
+        <img src="https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/icons/mileage.svg" width="14" height="14" alt="" class="chip-icon" />
         {formatMileage(listing.mileage)}
       </span>
       <span class="chip">
@@ -188,25 +188,25 @@ const vehicleSchema: Record<string, unknown> = {
       )}
       {listing.fuel_consumption && (
         <span class="chip">
-          <img src="/images/icons/fuel-nozzle.svg" width="14" height="14" alt="" class="chip-icon" />
+          <img src="https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/icons/fuel-nozzle.svg" width="14" height="14" alt="" class="chip-icon" />
           {listing.fuel_consumption} L/100km
         </span>
       )}
       {listing.power_kw && (
         <span class="chip">
-          <img src="/images/icons/engine-power.svg" width="14" height="14" alt="" class="chip-icon" />
+          <img src="https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/icons/engine-power.svg" width="14" height="14" alt="" class="chip-icon" />
           {listing.power_kw} kW
         </span>
       )}
       {listing.seats && (
         <span class="chip">
-          <img src="/images/icons/seats.svg" width="14" height="14" alt="" class="chip-icon" />
+          <img src="https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/icons/seats.svg" width="14" height="14" alt="" class="chip-icon" />
           {listing.seats} Seats
         </span>
       )}
       {listing.co2 && (
         <span class="chip">
-          <img src="/images/icons/carbon-emissions.svg" width="14" height="14" alt="" class="chip-icon" />
+          <img src="https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/icons/carbon-emissions.svg" width="14" height="14" alt="" class="chip-icon" />
           {listing.co2} g/km CO₂
         </span>
       )}

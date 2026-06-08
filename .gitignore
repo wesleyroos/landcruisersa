@@ -12,11 +12,15 @@ db.sqlite
 db.sqlite-shm
 db.sqlite-wal
 
-# Images — large binary assets, managed on the server not in git
+# WordPress media dump — not used on the new site
 public/images/wp-media/
+
+# Content images — served from Cloudflare R2 CDN, not needed in git
 public/images/posts/
 public/images/training/
 public/images/partners/
 public/images/models/
 public/images/og/
+
+# User-uploaded listing photos — served from Fly volume or CDN
 public/uploads/

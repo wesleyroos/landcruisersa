@@ -33,8 +33,8 @@ function formatMileage(n: number) {
   return n.toLocaleString('en-ZA') + ' km';
 }
 function firstPhoto(photos: string) {
-  try { return JSON.parse(photos)[0] ?? '/images/og-default.jpg'; }
-  catch { return '/images/og-default.jpg'; }
+  try { return JSON.parse(photos)[0] ?? 'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/og-default.jpg'; }
+  catch { return 'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/og-default.jpg'; }
 }
 ---
 

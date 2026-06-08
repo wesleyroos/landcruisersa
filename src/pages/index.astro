@@ -22,7 +22,7 @@ const featuredListings = await db
   .limit(3);
 
 function firstPhoto(photos: string) {
-  try { return JSON.parse(photos)[0] ?? '/images/og-default.jpg'; } catch { return '/images/og-default.jpg'; }
+  try { return JSON.parse(photos)[0] ?? 'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/og-default.jpg'; } catch { return 'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/og-default.jpg'; }
 }
 function formatPrice(n: number) {
   return 'R ' + n.toLocaleString('en-ZA');
@@ -36,7 +36,7 @@ function formatPrice(n: number) {
 
   <!-- ═══════════════════════════════════ HERO -->
   <section class="hero">
-    <img src="/images/hero-bg.jpg" alt="" class="hero-img" fetchpriority="high" />
+    <img src="https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/hero-bg.jpg" alt="" class="hero-img" fetchpriority="high" />
     <div class="hero-scrim"></div>
     <div class="hero-inner">
       <p class="hero-eyebrow">South Africa's #1 Land Cruiser Community</p>
@@ -110,7 +110,7 @@ function formatPrice(n: number) {
 
   <!-- ═══════════════════════════════════ TRAINING -->
   <section class="training">
-    <img src="/images/training/training-wp-1.jpg" alt="" class="training-img" loading="lazy" />
+    <img src="https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/training/training-wp-1.jpg" alt="" class="training-img" loading="lazy" />
     <div class="training-scrim"></div>
     <div class="wrap training-inner">
       <div class="training-text">
@@ -138,22 +138,22 @@ function formatPrice(n: number) {
       </div>
       <div class="models-grid">
         <a href="/models/70-series/" class="mc">
-          <img src="/images/models/lc-70.jpg" alt="LC 70 Series" loading="lazy" />
+          <img src="https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/models/lc-70.jpg" alt="LC 70 Series" loading="lazy" />
           <div class="mc-overlay"></div>
           <div class="mc-label"><span>70 Series</span><span class="mc-arrow">→</span></div>
         </a>
         <a href="/models/79-series/" class="mc">
-          <img src="/images/models/lc-79.jpg" alt="LC 79 Series" loading="lazy" />
+          <img src="https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/models/lc-79.jpg" alt="LC 79 Series" loading="lazy" />
           <div class="mc-overlay"></div>
           <div class="mc-label"><span>79 Series</span><span class="mc-arrow">→</span></div>
         </a>
         <a href="/models/200-series/" class="mc">
-          <img src="/images/models/lc-200.jpg" alt="LC 200 Series" loading="lazy" />
+          <img src="https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/models/lc-200.jpg" alt="LC 200 Series" loading="lazy" />
           <div class="mc-overlay"></div>
           <div class="mc-label"><span>200 Series</span><span class="mc-arrow">→</span></div>
         </a>
         <a href="/models/300-series/" class="mc">
-          <img src="/images/models/lc-300.jpg" alt="LC 300 Series" loading="lazy" />
+          <img src="https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/models/lc-300.jpg" alt="LC 300 Series" loading="lazy" />
           <div class="mc-overlay"></div>
           <div class="mc-label"><span>300 Series</span><span class="mc-arrow">→</span></div>
         </a>
