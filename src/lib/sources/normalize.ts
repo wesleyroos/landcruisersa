@@ -1,4 +1,9 @@
 const MODEL_MAP: [RegExp, string][] = [
+  // Prado must come first — "Land Cruiser Prado" contains "Land Cruiser" which
+  // would otherwise fall through to a numbered-series pattern if variant text
+  // contains a series number (e.g. "70th Anniversary Edition").
+  [/prado.?250|250[\s-]?series/i,                    'prado-250'],
+  [/prado.?150|150[\s-]?series|prado/i,              'prado-150'],
   [/79[\s-]?series|lc79|land.?cruiser.?79/i,         '79-series'],
   [/76[\s-]?series|lc76|land.?cruiser.?76/i,         '76-series'],
   [/78[\s-]?series|troopcarrier|troop.?carrier/i,    '78-series'],
@@ -7,8 +12,6 @@ const MODEL_MAP: [RegExp, string][] = [
   [/200[\s-]?series|lc200|land.?cruiser.?200/i,      '200-series'],
   [/100[\s-]?series|lc100|land.?cruiser.?100/i,      '100-series'],
   [/80[\s-]?series|lc80|land.?cruiser.?80/i,         '80-series'],
-  [/prado.?250|250[\s-]?series/i,                    'prado-250'],
-  [/prado.?150|150[\s-]?series|prado/i,              'prado-150'],
   [/land.?cruiser.?fj(?!\s*cruiser)/i,               'land-cruiser-fj'],
   [/fj[\s-]?cruiser/i,                               'fj-cruiser'],
 ];

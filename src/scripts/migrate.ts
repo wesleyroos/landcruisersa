@@ -60,7 +60,15 @@ for (const [col, sql] of addColumns) {
 
 db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS listings_source_source_id ON listings (source, source_id)`);
 
-// Data fix: Prado 250-series launched in 2024 — backfill any rows missed before normalize was updated
+// Data fix: any listing with "prado" in the title that got misclassified as another series
+// (e.g. 70-series via a "70th Anniversary" variant string, or any other series mismatch)
+db.exec(`
+  UPDATE listings
+  SET model = CASE WHEN year >= 2024 THEN 'prado-250' ELSE 'prado-150' END
+  WHERE LOWER(title) LIKE '%prado%'
+    AND model NOT IN ('prado-150', 'prado-250')
+`);
+// Data fix: Prado 250-series launched in 2024 — backfill prado-150 rows missed before normalize was updated
 db.exec(`UPDATE listings SET model = 'prado-250' WHERE model = 'prado-150' AND year >= 2024`);
 
 console.log('Migration complete.');
