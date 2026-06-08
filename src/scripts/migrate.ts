@@ -60,5 +60,8 @@ for (const [col, sql] of addColumns) {
 
 db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS listings_source_source_id ON listings (source, source_id)`);
 
+// Data fix: Prado 250-series launched in 2024 — backfill any rows missed before normalize was updated
+db.exec(`UPDATE listings SET model = 'prado-250' WHERE model = 'prado-150' AND year >= 2024`);
+
 console.log('Migration complete.');
 db.close();
