@@ -17,6 +17,10 @@ const isSold = listing.status === 'sold';
 const isExternal = Boolean(listing.source_url);
 const isShowOff = listing.listing_type === 'show_off';
 
+const adminToken = Astro.cookies.get('lcsa_admin')?.value;
+const adminSecret = import.meta.env.ADMIN_SECRET;
+const isAdmin = Boolean(adminToken && adminSecret && adminToken === adminSecret);
+
 const similar = await db.select().from(listings)
   .where(eq(listings.status, 'active'))
   .limit(6);
@@ -264,15 +268,17 @@ const vehicleSchema: Record<string, unknown> = {
           </div>
         </div>
 
-        <!-- IG Caption (admin copy tool) -->
-        <div class="ig-card">
-          <div class="ig-card-header">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg>
-            <span>Instagram Caption</span>
-            <button id="copy-caption-btn" class="ig-copy-btn">Copy</button>
+        <!-- IG Caption (admin only) -->
+        {isAdmin && (
+          <div class="ig-card">
+            <div class="ig-card-header">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg>
+              <span>Instagram Caption</span>
+              <button id="copy-caption-btn" class="ig-copy-btn">Copy</button>
+            </div>
+            <pre id="ig-caption-text" class="ig-caption-body">{igCaption}</pre>
           </div>
-          <pre id="ig-caption-text" class="ig-caption-body">{igCaption}</pre>
-        </div>
+        )}
 
         {!isShowOff && (
           <div class="safety-card">
