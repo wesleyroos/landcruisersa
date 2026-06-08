@@ -117,7 +117,9 @@ async function batchGetVehicles(ids: string[]): Promise<WbcVehicle[]> {
 }
 
 function isLandCruiser(v: WbcVehicle): boolean {
-  return v.Make === 'Toyota' && /land.?cruiser/i.test(v.Model ?? '');
+  if (v.Make !== 'Toyota') return false;
+  const model = v.Model ?? '';
+  return /land.?cruiser/i.test(model) || /\bprado\b/i.test(model) || /\bfj.?cruiser\b/i.test(model);
 }
 
 function normalizeWbc(v: WbcVehicle): NormalizedListing {
