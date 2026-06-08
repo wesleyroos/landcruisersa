@@ -2,6 +2,9 @@ export const prerender = false;
 
 import type { APIRoute } from 'astro';
 
+export const GET: APIRoute = () =>
+  new Response(null, { status: 405, headers: { Allow: 'POST' } });
+
 function checkToken(request: Request): boolean {
   const auth = request.headers.get('authorization') ?? '';
   const token = import.meta.env.INGEST_TOKEN ?? process.env.INGEST_TOKEN;
