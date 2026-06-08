@@ -1,11 +1,20 @@
 export const prerender = false;
 
 import type { APIRoute } from 'astro';
-import { writeFile, mkdir } from 'fs/promises';
-import { resolve } from 'path';
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { randomBytes } from 'crypto';
 
+const R2_ENDPOINT = import.meta.env.R2_ENDPOINT;
+const R2_ACCESS_KEY_ID = import.meta.env.R2_ACCESS_KEY_ID;
+const R2_SECRET_ACCESS_KEY = import.meta.env.R2_SECRET_ACCESS_KEY;
+const R2_BUCKET = import.meta.env.R2_BUCKET ?? 'landcruisersa';
+const R2_PUBLIC_URL = import.meta.env.R2_PUBLIC_URL ?? 'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev';
+
 export const POST: APIRoute = async ({ request }) => {
+  if (!R2_ENDPOINT || !R2_ACCESS_KEY_ID || !R2_SECRET_ACCESS_KEY) {
+    return new Response(JSON.stringify({ error: 'Storage not configured' }), { status: 503 });
+  }
+
   const formData = await request.formData();
   const file = formData.get('file') as File | null;
 
@@ -23,12 +32,22 @@ export const POST: APIRoute = async ({ request }) => {
   }
 
   const ext = file.name.split('.').pop()?.toLowerCase() ?? 'jpg';
-  const name = `${Date.now()}-${randomBytes(4).toString('hex')}.${ext}`;
-  const dir = resolve(process.cwd(), 'public/uploads/listings');
-  await mkdir(dir, { recursive: true });
-  await writeFile(resolve(dir, name), Buffer.from(await file.arrayBuffer()));
+  const key = `uploads/listings/${Date.now()}-${randomBytes(4).toString('hex')}.${ext}`;
 
-  return new Response(JSON.stringify({ url: `/uploads/listings/${name}` }), {
+  const s3 = new S3Client({
+    region: 'auto',
+    endpoint: R2_ENDPOINT,
+    credentials: { accessKeyId: R2_ACCESS_KEY_ID, secretAccessKey: R2_SECRET_ACCESS_KEY },
+  });
+
+  await s3.send(new PutObjectCommand({
+    Bucket: R2_BUCKET,
+    Key: key,
+    Body: Buffer.from(await file.arrayBuffer()),
+    ContentType: file.type,
+  }));
+
+  return new Response(JSON.stringify({ url: `${R2_PUBLIC_URL}/${key}` }), {
     status: 200,
     headers: { 'Content-Type': 'application/json' },
   });
