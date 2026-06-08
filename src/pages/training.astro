@@ -320,14 +320,15 @@ import Base from '@/layouts/Base.astro';
         body: JSON.stringify(data),
       });
       if (res.ok) {
+        form.classList.add('hidden');
         successEl.classList.remove('hidden');
-        form.reset();
       } else {
         errorEl.classList.remove('hidden');
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Send Enquiry';
       }
     } catch {
       errorEl.classList.remove('hidden');
-    } finally {
       submitBtn.disabled = false;
       submitBtn.textContent = 'Send Enquiry';
     }

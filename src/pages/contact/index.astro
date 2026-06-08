@@ -302,14 +302,15 @@ import { SITE } from '@/data/site';
         body: JSON.stringify(data),
       });
       if (res.ok) {
+        form.classList.add('hidden');
         successEl.classList.remove('hidden');
-        form.reset();
       } else {
         errorEl.classList.remove('hidden');
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Send Message →';
       }
     } catch {
       errorEl.classList.remove('hidden');
-    } finally {
       submitBtn.disabled = false;
       submitBtn.textContent = 'Send Message →';
     }

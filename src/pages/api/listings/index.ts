@@ -55,9 +55,9 @@ export const POST: APIRoute = async ({ request }) => {
     created_at: new Date(),
   });
 
-  // Email notification (requires RESEND_API_KEY env var)
-  const resendKey = import.meta.env.RESEND_API_KEY;
-  const notifyEmail = import.meta.env.NOTIFY_EMAIL;
+  // Email notification
+  const resendKey = import.meta.env.RESEND_API_KEY ?? process.env.RESEND_API_KEY;
+  const notifyEmail = import.meta.env.NOTIFY_EMAIL ?? process.env.NOTIFY_EMAIL;
   if (resendKey && notifyEmail) {
     const typeLabel = listing_type === 'show_off' ? '★ Show Off' : '🔖 For Sale';
     fetch('https://api.resend.com/emails', {
