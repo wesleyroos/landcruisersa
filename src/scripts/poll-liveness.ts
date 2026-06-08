@@ -1,4 +1,5 @@
 import { AutoTraderAdapter } from '../lib/sources/autotrader.ts';
+import { WbcAdapter } from '../lib/sources/wbc.ts';
 
 const SITE_URL = process.env.SITE_URL ?? 'https://landcruisersa.fly.dev';
 const TOKEN = process.env.INGEST_TOKEN ?? '';
@@ -7,6 +8,7 @@ const NOTIFY_EMAIL = process.env.NOTIFY_EMAIL ?? '';
 
 const ADAPTERS: Record<string, { isStillLive: typeof AutoTraderAdapter.isStillLive }> = {
   autotrader: AutoTraderAdapter,
+  wbc: WbcAdapter,
 };
 
 async function sendAlert(subject: string, body: string) {
