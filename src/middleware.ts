@@ -8,7 +8,7 @@ export const onRequest = defineMiddleware(async ({ url, cookies, redirect }, nex
 
   if (isAdminArea && !isLoginPage && !isLoginApi) {
     const token = cookies.get('lcsa_admin')?.value;
-    const secret = import.meta.env.ADMIN_SECRET;
+    const secret = import.meta.env.ADMIN_SECRET ?? process.env.ADMIN_SECRET;
 
     if (!token || !secret || token !== secret) {
       return redirect('/admin/login');

@@ -18,7 +18,7 @@ const isExternal = Boolean(listing.source_url);
 const isShowOff = listing.listing_type === 'show_off';
 
 const adminToken = Astro.cookies.get('lcsa_admin')?.value;
-const adminSecret = import.meta.env.ADMIN_SECRET;
+const adminSecret = process.env.ADMIN_SECRET;
 const isAdmin = Boolean(adminToken && adminSecret && adminToken === adminSecret);
 
 const similar = await db.select().from(listings)

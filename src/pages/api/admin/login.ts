@@ -6,8 +6,10 @@ export const POST: APIRoute = async ({ request, cookies, redirect }) => {
   const form = await request.formData();
   const password = form.get('password') as string;
 
-  if (password && password === import.meta.env.ADMIN_PASSWORD) {
-    cookies.set('lcsa_admin', import.meta.env.ADMIN_SECRET, {
+  const adminPassword = import.meta.env.ADMIN_PASSWORD ?? process.env.ADMIN_PASSWORD;
+  const adminSecret   = import.meta.env.ADMIN_SECRET   ?? process.env.ADMIN_SECRET;
+  if (password && password === adminPassword) {
+    cookies.set('lcsa_admin', adminSecret ?? '', {
       path: '/',
       httpOnly: true,
       secure: import.meta.env.PROD,
