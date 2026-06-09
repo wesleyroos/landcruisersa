@@ -7,6 +7,10 @@ const BASE = 'https://www.autotrader.co.za';
 
 // All Land Cruiser model slugs on AutoTrader SA
 const SEARCH_URLS = [
+  `${BASE}/cars-for-sale/toyota/land-cruiser-79`,
+  `${BASE}/cars-for-sale/toyota/land-cruiser-76`,
+  `${BASE}/cars-for-sale/toyota/land-cruiser-200`,
+  `${BASE}/cars-for-sale/toyota/land-cruiser-300`,
   `${BASE}/cars-for-sale/toyota/land-cruiser`,
   `${BASE}/cars-for-sale/toyota/land-cruiser-prado`,
   `${BASE}/cars-for-sale/toyota/fj-cruiser`,
@@ -133,7 +137,7 @@ export const AutoTraderAdapter: SourceAdapter = {
     const seen = new Set<string>();
 
     for (const baseUrl of SEARCH_URLS) {
-      for (let page = 1; page <= 15; page++) {
+      for (let page = 1; page <= 30; page++) {
         const pageUrl = page === 1 ? baseUrl : `${baseUrl}?p=${page}`;
         const res = await politeFetch(pageUrl, {
           headers: {
