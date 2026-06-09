@@ -53,6 +53,12 @@ ${listing.description ? listing.description.slice(0, 200).trim() + (listing.desc
       <span class={`status-badge status-${listing.status}`}>{listing.status}</span>
       <span class={`type-badge type-${listing.listing_type}`}>{listing.listing_type === 'for_sale' ? 'For Sale' : '★ Show Off'}</span>
     </div>
+    {listing.status === 'active' && listing.slug && (
+      <a href={`/listings/${listing.slug}/`} target="_blank" class="view-link">
+        View on site
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+      </a>
+    )}
   </div>
 
   <div class="edit-grid">
@@ -237,6 +243,13 @@ ${listing.description ? listing.description.slice(0, 200).trim() + (listing.desc
   }
   .back-link:hover { color: #111; }
   .header-badges { display: flex; gap: 0.5rem; }
+  .view-link {
+    display: inline-flex; align-items: center; gap: 0.3rem; margin-left: auto;
+    font-size: 0.72rem; font-weight: 700; color: #6B7280; text-decoration: none;
+    border: 1.5px solid #E5E7EB; border-radius: 0.5rem; padding: 0.35rem 0.75rem;
+    transition: all 0.15s;
+  }
+  .view-link:hover { color: #111111; border-color: #111111; }
   .status-badge, .type-badge {
     font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
     padding: 0.25rem 0.625rem; border-radius: 9999px;

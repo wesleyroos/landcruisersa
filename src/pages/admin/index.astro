@@ -4,13 +4,31 @@ export const prerender = false;
 import AdminLayout from '@/layouts/AdminLayout.astro';
 import { db } from '@/db/index';
 import { listings } from '@/db/schema';
-import { desc, eq, sql } from 'drizzle-orm';
+import { desc, eq, and, gte, lte, sql } from 'drizzle-orm';
 import type { Listing } from '@/db/schema';
+import type { SQL } from 'drizzle-orm';
 
 const PAGE_SIZE = 50;
 const page = Math.max(1, Number(Astro.url.searchParams.get('page') ?? '1'));
 
-// Fast counts — no full table scan
+// Filter params
+const fSource   = Astro.url.searchParams.get('source')   ?? '';
+const fModel    = Astro.url.searchParams.get('model')    ?? '';
+const fYear     = Astro.url.searchParams.get('year')     ?? '';
+const fPrice    = Astro.url.searchParams.get('price')    ?? '';
+const fProvince = Astro.url.searchParams.get('province') ?? '';
+const fType     = Astro.url.searchParams.get('type')     ?? '';
+const hasFilter = !!(fSource || fModel || fYear || fPrice || fProvince || fType);
+
+function buildFilterUrl(overrides: Record<string, string>) {
+  const params = new URLSearchParams();
+  const base = { source: fSource, model: fModel, year: fYear, price: fPrice, province: fProvince, type: fType, ...overrides };
+  for (const [k, v] of Object.entries(base)) if (v) params.set(k, v);
+  const s = params.toString();
+  return `/admin${s ? '?' + s : ''}`;
+}
+
+// Fast status counts (unfiltered — for stats row)
 const statusCounts = db.select({ status: listings.status, n: sql<number>`count(*)` })
   .from(listings).groupBy(listings.status).all();
 const countMap: Record<string, number> = {};
@@ -20,16 +38,37 @@ const activeCount  = countMap['active']  ?? 0;
 const soldCount    = countMap['sold']    ?? 0;
 const totalCount   = pendingCount + activeCount + soldCount;
 
-// Pending: always load all (small)
+// Build active WHERE clause with filters
+const activeConds: SQL[] = [eq(listings.status, 'active')];
+if (fSource)   activeConds.push(eq(listings.source,       fSource));
+if (fModel)    activeConds.push(eq(listings.model,        fModel));
+if (fProvince) activeConds.push(eq(listings.province,     fProvince));
+if (fType)     activeConds.push(eq(listings.listing_type, fType));
+if (fYear) {
+  const [yMin, yMax] = fYear.split('-').map(Number);
+  activeConds.push(gte(listings.year, yMin));
+  if (yMax < 9999) activeConds.push(lte(listings.year, yMax));
+}
+if (fPrice) {
+  const [pMin, pMax] = fPrice.split('-').map(Number);
+  activeConds.push(gte(listings.price, pMin));
+  if (pMax < 9999999) activeConds.push(lte(listings.price, pMax));
+}
+const activeWhere = and(...activeConds);
+
+// Filtered count for pagination
+const filteredActiveCount = (db.select({ n: sql<number>`count(*)` }).from(listings).where(activeWhere).get())?.n ?? 0;
+
+// Pending: always load all
 const pending = db.select().from(listings)
   .where(eq(listings.status, 'pending'))
   .orderBy(desc(listings.created_at)).all();
 
-// Active: paginated
-const totalPages = Math.max(1, Math.ceil(activeCount / PAGE_SIZE));
+// Active: paginated + filtered
+const totalPages = Math.max(1, Math.ceil(filteredActiveCount / PAGE_SIZE));
 const safePage   = Math.min(page, totalPages);
 const active = db.select().from(listings)
-  .where(eq(listings.status, 'active'))
+  .where(activeWhere)
   .orderBy(desc(listings.created_at))
   .limit(PAGE_SIZE).offset((safePage - 1) * PAGE_SIZE).all();
 
@@ -129,68 +168,68 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
   )}
 
   <!-- FILTER BAR -->
-  <div class="filter-bar" id="filter-bar">
+  <div class="filter-bar">
     <div class="filter-fields">
-      <select id="af-source" class="af-sel">
+      <select class={`af-sel${fSource   ? ' active' : ''}`} data-filter="source">
         <option value="">All Sources</option>
-        <option value="autotrader">AutoTrader</option>
-        <option value="wbc">WBC</option>
-        <option value="adios">Adios</option>
-        <option value="wbb">We Buy Bakkies</option>
-        <option value="own">Own</option>
+        <option value="autotrader" selected={fSource==='autotrader'}>AutoTrader</option>
+        <option value="wbc"        selected={fSource==='wbc'}>WBC</option>
+        <option value="adios"      selected={fSource==='adios'}>Adios</option>
+        <option value="wbb"        selected={fSource==='wbb'}>We Buy Bakkies</option>
+        <option value="own"        selected={fSource==='own'}>Own</option>
       </select>
-      <select id="af-model" class="af-sel">
+      <select class={`af-sel${fModel    ? ' active' : ''}`} data-filter="model">
         <option value="">All Models</option>
-        <option value="76-series">76 Series</option>
-        <option value="78-series">78 Series</option>
-        <option value="79-series">79 Series</option>
-        <option value="80-series">80 Series</option>
-        <option value="100-series">100 Series</option>
-        <option value="200-series">200 Series</option>
-        <option value="300-series">300 Series</option>
-        <option value="prado-150">Prado 150</option>
-        <option value="prado-250">Prado 250</option>
-        <option value="fj-cruiser">FJ Cruiser</option>
-        <option value="land-cruiser-fj">LC FJ</option>
-        <option value="other">Other</option>
+        <option value="76-series"      selected={fModel==='76-series'}>76 Series</option>
+        <option value="78-series"      selected={fModel==='78-series'}>78 Series</option>
+        <option value="79-series"      selected={fModel==='79-series'}>79 Series</option>
+        <option value="80-series"      selected={fModel==='80-series'}>80 Series</option>
+        <option value="100-series"     selected={fModel==='100-series'}>100 Series</option>
+        <option value="200-series"     selected={fModel==='200-series'}>200 Series</option>
+        <option value="300-series"     selected={fModel==='300-series'}>300 Series</option>
+        <option value="prado-150"      selected={fModel==='prado-150'}>Prado 150</option>
+        <option value="prado-250"      selected={fModel==='prado-250'}>Prado 250</option>
+        <option value="fj-cruiser"     selected={fModel==='fj-cruiser'}>FJ Cruiser</option>
+        <option value="land-cruiser-fj" selected={fModel==='land-cruiser-fj'}>LC FJ</option>
+        <option value="other"          selected={fModel==='other'}>Other</option>
       </select>
-      <select id="af-year" class="af-sel">
+      <select class={`af-sel${fYear     ? ' active' : ''}`} data-filter="year">
         <option value="">Any Year</option>
-        <option value="2023-9999">2023+</option>
-        <option value="2020-2022">2020–2022</option>
-        <option value="2015-2019">2015–2019</option>
-        <option value="2010-2014">2010–2014</option>
-        <option value="2000-2009">2000s</option>
-        <option value="0-1999">Pre-2000</option>
+        <option value="2023-9999" selected={fYear==='2023-9999'}>2023+</option>
+        <option value="2020-2022" selected={fYear==='2020-2022'}>2020–2022</option>
+        <option value="2015-2019" selected={fYear==='2015-2019'}>2015–2019</option>
+        <option value="2010-2014" selected={fYear==='2010-2014'}>2010–2014</option>
+        <option value="2000-2009" selected={fYear==='2000-2009'}>2000s</option>
+        <option value="0-1999"    selected={fYear==='0-1999'}>Pre-2000</option>
       </select>
-      <select id="af-price" class="af-sel">
+      <select class={`af-sel${fPrice    ? ' active' : ''}`} data-filter="price">
         <option value="">Any Price</option>
-        <option value="0-300000">Under R300k</option>
-        <option value="300000-600000">R300k – R600k</option>
-        <option value="600000-900000">R600k – R900k</option>
-        <option value="900000-9999999">Over R900k</option>
+        <option value="0-300000"       selected={fPrice==='0-300000'}>Under R300k</option>
+        <option value="300000-600000"  selected={fPrice==='300000-600000'}>R300k – R600k</option>
+        <option value="600000-900000"  selected={fPrice==='600000-900000'}>R600k – R900k</option>
+        <option value="900000-9999999" selected={fPrice==='900000-9999999'}>Over R900k</option>
       </select>
-      <select id="af-province" class="af-sel">
+      <select class={`af-sel${fProvince ? ' active' : ''}`} data-filter="province">
         <option value="">All Provinces</option>
-        <option value="Gauteng">Gauteng</option>
-        <option value="Western Cape">Western Cape</option>
-        <option value="KwaZulu-Natal">KwaZulu-Natal</option>
-        <option value="Eastern Cape">Eastern Cape</option>
-        <option value="Limpopo">Limpopo</option>
-        <option value="Mpumalanga">Mpumalanga</option>
-        <option value="North West">North West</option>
-        <option value="Free State">Free State</option>
-        <option value="Northern Cape">Northern Cape</option>
+        <option value="Gauteng"       selected={fProvince==='Gauteng'}>Gauteng</option>
+        <option value="Western Cape"  selected={fProvince==='Western Cape'}>Western Cape</option>
+        <option value="KwaZulu-Natal" selected={fProvince==='KwaZulu-Natal'}>KwaZulu-Natal</option>
+        <option value="Eastern Cape"  selected={fProvince==='Eastern Cape'}>Eastern Cape</option>
+        <option value="Limpopo"       selected={fProvince==='Limpopo'}>Limpopo</option>
+        <option value="Mpumalanga"    selected={fProvince==='Mpumalanga'}>Mpumalanga</option>
+        <option value="North West"    selected={fProvince==='North West'}>North West</option>
+        <option value="Free State"    selected={fProvince==='Free State'}>Free State</option>
+        <option value="Northern Cape" selected={fProvince==='Northern Cape'}>Northern Cape</option>
       </select>
-      <select id="af-type" class="af-sel">
+      <select class={`af-sel${fType     ? ' active' : ''}`} data-filter="type">
         <option value="">All Types</option>
-        <option value="for_sale">For Sale</option>
-        <option value="show_off">Show Off</option>
+        <option value="for_sale"  selected={fType==='for_sale'}>For Sale</option>
+        <option value="show_off"  selected={fType==='show_off'}>Show Off</option>
       </select>
     </div>
     <div class="filter-meta">
-      <span id="af-count" class="af-count"></span>
-      <button id="af-clear" class="af-clear" style="display:none">✕ Clear</button>
+      {hasFilter && <span class="af-count">{filteredActiveCount} listing{filteredActiveCount !== 1 ? 's' : ''}</span>}
+      {hasFilter && <a href="/admin" class="af-clear">✕ Clear</a>}
     </div>
   </div>
 
@@ -255,6 +294,9 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
                     <button class="btn btn-sold" data-action="sold" data-id={l.id}>Mark Sold</button>
                   </>
                 )}
+                {l.status === 'pending' && l.slug && (
+                  <a href={`/listings/${l.slug}/`} target="_blank" class="btn btn-view">View →</a>
+                )}
                 {l.status === 'sold' && (
                   <>
                     <a href={`/listings/${l.slug}/`} target="_blank" class="btn btn-view">View →</a>
@@ -273,12 +315,15 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
   {totalPages > 1 && (
     <div class="pagination">
       {safePage > 1
-        ? <a href={`/admin?page=${safePage - 1}`} class="btn btn-page">← Prev</a>
+        ? <a href={buildFilterUrl({ page: String(safePage - 1) })} class="btn btn-page">← Prev</a>
         : <span class="btn btn-page btn-page-disabled">← Prev</span>
       }
-      <span class="page-info">Page {safePage} of {totalPages} <span class="page-sub">({activeCount} active listings)</span></span>
+      <span class="page-info">
+        Page {safePage} of {totalPages}
+        <span class="page-sub"> ({filteredActiveCount} listing{filteredActiveCount !== 1 ? 's' : ''})</span>
+      </span>
       {safePage < totalPages
-        ? <a href={`/admin?page=${safePage + 1}`} class="btn btn-page">Next →</a>
+        ? <a href={buildFilterUrl({ page: String(safePage + 1) })} class="btn btn-page">Next →</a>
         : <span class="btn btn-page btn-page-disabled">Next →</span>
       }
     </div>
@@ -368,9 +413,9 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
   .filter-meta { display: flex; align-items: center; gap: 0.625rem; flex-shrink: 0; }
   .af-count { font-size: 0.7rem; font-weight: 700; color: #6B7280; white-space: nowrap; }
   .af-clear {
-    font-size: 0.65rem; font-weight: 700; color: #6B7280;
-    background: #F3F4F6; border: none; border-radius: 0.5rem;
-    padding: 0.4rem 0.75rem; cursor: pointer; transition: background 0.15s, color 0.15s;
+    font-size: 0.65rem; font-weight: 700; color: #6B7280; text-decoration: none;
+    background: #F3F4F6; border-radius: 0.5rem;
+    padding: 0.4rem 0.75rem; transition: background 0.15s, color 0.15s;
     letter-spacing: 0.04em;
   }
   .af-clear:hover { background: #E5E7EB; color: #111111; }
@@ -489,71 +534,15 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
 </style>
 
 <script>
-  // ── Admin filters ──────────────────────────────────────────────────────────
-  const afSelectors = ['af-source', 'af-model', 'af-year', 'af-price', 'af-province', 'af-type'];
-  const afEls = Object.fromEntries(
-    afSelectors.map(id => [id, document.getElementById(id) as HTMLSelectElement])
-  );
-  const afCount  = document.getElementById('af-count')!;
-  const afClear  = document.getElementById('af-clear') as HTMLButtonElement;
-  const allCards = Array.from(document.querySelectorAll<HTMLElement>('.lcard'));
-  const allGroups = Array.from(document.querySelectorAll<HTMLElement>('.group'));
-
-  function applyAdminFilters() {
-    const source   = afEls['af-source'].value;
-    const model    = afEls['af-model'].value;
-    const yearBand = afEls['af-year'].value;
-    const priceBand = afEls['af-price'].value;
-    const province = afEls['af-province'].value;
-    const type     = afEls['af-type'].value;
-
-    const [yMin, yMax] = yearBand  ? yearBand.split('-').map(Number)   : [0, 9999];
-    const [pMin, pMax] = priceBand ? priceBand.split('-').map(Number)  : [0, Infinity];
-
-    const hasFilter = source || model || yearBand || priceBand || province || type;
-    afClear.style.display = hasFilter ? '' : 'none';
-
-    // Highlight active selects
-    afSelectors.forEach(id => {
-      afEls[id].classList.toggle('active', !!afEls[id].value);
+  // ── Admin filters — server-side, navigate on change ──────────────────────
+  document.querySelectorAll<HTMLSelectElement>('.af-sel[data-filter]').forEach(sel => {
+    sel.addEventListener('change', () => {
+      const params = new URLSearchParams(window.location.search);
+      params.delete('page');
+      if (sel.value) params.set(sel.dataset.filter!, sel.value);
+      else params.delete(sel.dataset.filter!);
+      window.location.href = '/admin' + (params.toString() ? '?' + params.toString() : '');
     });
-
-    let total = 0;
-
-    allGroups.forEach(group => {
-      const cards = Array.from(group.querySelectorAll<HTMLElement>('.lcard'));
-      let groupVisible = 0;
-
-      cards.forEach(card => {
-        const year  = Number(card.dataset.year ?? 0);
-        const price = Number(card.dataset.price ?? 0);
-        const show =
-          (!source   || card.dataset.source   === source) &&
-          (!model    || card.dataset.model    === model) &&
-          (!province || card.dataset.province === province) &&
-          (!type     || card.dataset.type     === type) &&
-          (!yearBand  || (year  >= yMin && year  <= yMax)) &&
-          (!priceBand || (price >= pMin && price <= pMax));
-
-        card.style.display = show ? '' : 'none';
-        if (show) { groupVisible++; total++; }
-      });
-
-      // Update per-group count and hide group if nothing matches
-      const countEl = group.querySelector<HTMLElement>('.group-count');
-      const base = Number(countEl?.dataset.base ?? 0);
-      if (countEl) countEl.textContent = hasFilter ? String(groupVisible) : String(base);
-      group.style.display = groupVisible === 0 && hasFilter ? 'none' : '';
-    });
-
-    afCount.textContent = hasFilter ? `${total} listing${total !== 1 ? 's' : ''}` : '';
-  }
-
-  afSelectors.forEach(id => afEls[id].addEventListener('change', applyAdminFilters));
-
-  afClear.addEventListener('click', () => {
-    afSelectors.forEach(id => { afEls[id].value = ''; afEls[id].classList.remove('active'); });
-    applyAdminFilters();
   });
 
   // ── Run-time helpers ───────────────────────────────────────────────────────
