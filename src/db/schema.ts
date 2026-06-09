@@ -37,3 +37,9 @@ export const listings = sqliteTable('listings', {
 
 export type Listing = typeof listings.$inferSelect;
 export type NewListing = typeof listings.$inferInsert;
+
+export const siteConfig = sqliteTable('site_config', {
+  key:        text('key').primaryKey(),
+  value:      text('value').notNull(),
+  updated_at: integer('updated_at', { mode: 'timestamp' }).notNull(),
+});

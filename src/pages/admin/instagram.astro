@@ -1,0 +1,389 @@
+---
+export const prerender = false;
+
+import AdminLayout from '@/layouts/AdminLayout.astro';
+import { getCredentials } from '@/lib/instagram';
+import { db } from '@/db/index';
+import { listings } from '@/db/schema';
+import { desc, eq } from 'drizzle-orm';
+import type { Listing } from '@/db/schema';
+
+const creds = await getCredentials();
+const connected = !!creds;
+
+const active = db
+  .select()
+  .from(listings)
+  .where(eq(listings.status, 'active'))
+  .orderBy(desc(listings.created_at))
+  .all();
+
+const urlError   = Astro.url.searchParams.get('error');
+const urlSuccess = Astro.url.searchParams.get('connected');
+
+const errorMessages: Record<string, string> = {
+  denied:         'You denied the Instagram authorisation.',
+  missing_params: 'OAuth callback was missing required parameters.',
+  invalid_state:  'OAuth state mismatch — please try again.',
+  token_exchange: 'Failed to exchange the authorisation code for a token.',
+  not_configured: 'Instagram credentials are not configured on the server.',
+};
+
+function firstPhoto(photos: string): string | null {
+  try { return JSON.parse(photos)[0] ?? null; } catch { return null; }
+}
+function photoCount(photos: string): number {
+  try { return JSON.parse(photos).length; } catch { return 0; }
+}
+function formatPrice(n: number) {
+  return 'R' + n.toLocaleString('en-ZA');
+}
+---
+
+<AdminLayout title="Instagram" activePage="instagram">
+
+  <!-- CONNECTION CARD -->
+  <div class="section">
+    <div class={`conn-card ${connected ? 'conn-card-ok' : 'conn-card-off'}`}>
+      <div class="conn-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
+          <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/>
+          <circle cx="12" cy="12" r="4"/>
+          <circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/>
+        </svg>
+      </div>
+      <div class="conn-body">
+        {connected ? (
+          <>
+            <p class="conn-title">Connected as <strong>@{creds!.username}</strong></p>
+            <p class="conn-sub">Long-lived token · refresh monthly to keep it alive</p>
+          </>
+        ) : (
+          <>
+            <p class="conn-title">Not connected</p>
+            <p class="conn-sub">Connect your Instagram account to start posting</p>
+          </>
+        )}
+      </div>
+      <div class="conn-actions">
+        {connected ? (
+          <>
+            <button id="refresh-token-btn" class="btn btn-outline">Refresh Token</button>
+            <button id="disconnect-btn"    class="btn btn-danger">Disconnect</button>
+          </>
+        ) : (
+          <a href="/api/admin/instagram/connect" class="btn btn-ig">Connect Instagram</a>
+        )}
+      </div>
+    </div>
+
+    {urlSuccess && (
+      <div class="alert alert-ok">Instagram connected successfully.</div>
+    )}
+    {urlError && (
+      <div class="alert alert-err">{errorMessages[urlError] ?? 'Something went wrong.'}</div>
+    )}
+  </div>
+
+  <!-- LISTINGS -->
+  {connected && (
+    <div class="section">
+      <p class="section-head">Active Listings</p>
+
+      {active.length === 0 && (
+        <p class="empty-state">No active listings yet.</p>
+      )}
+
+      <div class="listing-grid">
+        {active.map((l: Listing) => {
+          const photo = firstPhoto(l.photos);
+          const count = photoCount(l.photos);
+          return (
+            <div class="lcard" data-id={l.id}>
+              <div class="lcard-thumb-wrap">
+                {photo
+                  ? <img class="lcard-thumb" src={photo} alt={l.title} loading="lazy" />
+                  : <div class="lcard-thumb lcard-thumb-empty">🚗</div>
+                }
+                {count > 1 && <span class="photo-count">{count} photos</span>}
+              </div>
+              <div class="lcard-body">
+                <p class="lcard-title">{l.title}</p>
+                <p class="lcard-sub">
+                  {l.year} · {l.model.replaceAll('-', ' ').toUpperCase()} · {l.province}
+                  {l.listing_type === 'for_sale' && ` · ${formatPrice(l.price)}`}
+                </p>
+              </div>
+              <div class="lcard-action">
+                <button class="btn btn-preview" data-action="preview" data-id={l.id}>
+                  Preview Caption
+                </button>
+                <button class="btn btn-post" data-action="post" data-id={l.id}>
+                  Post to Instagram
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  )}
+
+  <!-- PREVIEW MODAL -->
+  <div id="preview-modal" class="modal-backdrop" hidden>
+    <div class="modal">
+      <p class="modal-title">Caption Preview</p>
+      <p id="modal-photo-count" class="modal-meta"></p>
+      <pre id="modal-caption" class="modal-caption"></pre>
+      <div class="modal-actions">
+        <button id="modal-cancel"  class="btn btn-outline">Cancel</button>
+        <button id="modal-confirm" class="btn btn-post">Post Now</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST -->
+  <div id="toast" class="toast" hidden></div>
+
+</AdminLayout>
+
+<style>
+  .section { margin-bottom: 2rem; }
+
+  /* ── Connection card ── */
+  .conn-card {
+    border: 1.5px solid #E5E7EB; border-radius: 0.875rem;
+    padding: 1.25rem 1.5rem; display: flex; align-items: center; gap: 1.25rem; flex-wrap: wrap;
+  }
+  .conn-card-ok  { border-color: #111111; }
+  .conn-card-off { border-color: #E5E7EB; }
+
+  .conn-icon { color: #111111; flex-shrink: 0; }
+  .conn-card-off .conn-icon { color: #9CA3AF; }
+
+  .conn-body { flex: 1; min-width: 0; }
+  .conn-title { font-size: 0.9rem; font-weight: 700; color: #111111; }
+  .conn-sub   { font-size: 0.72rem; color: #9CA3AF; margin-top: 0.15rem; }
+
+  .conn-actions { display: flex; gap: 0.5rem; flex-shrink: 0; flex-wrap: wrap; }
+
+  /* ── Alerts ── */
+  .alert {
+    margin-top: 0.75rem; border-radius: 0.5rem; padding: 0.625rem 1rem;
+    font-size: 0.8rem; font-weight: 600;
+  }
+  .alert-ok  { background: #DCFCE7; color: #166534; }
+  .alert-err { background: #FEF2F2; color: #991B1B; }
+
+  /* ── Section heading ── */
+  .section-head {
+    font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.14em;
+    color: #9CA3AF; margin-bottom: 0.75rem; padding-bottom: 0.75rem; border-bottom: 1.5px solid #F3F4F6;
+  }
+  .empty-state { font-size: 0.875rem; color: #9CA3AF; }
+
+  /* ── Listing grid ── */
+  .listing-grid { display: flex; flex-direction: column; gap: 0.625rem; }
+
+  .lcard {
+    border: 1.5px solid #E5E7EB; border-radius: 0.75rem;
+    display: grid; grid-template-columns: 140px 1fr auto;
+    overflow: hidden; transition: border-color 0.15s;
+  }
+  .lcard:hover { border-color: #F5A623; }
+
+  .lcard-thumb-wrap { position: relative; }
+  .lcard-thumb { width: 140px; height: 100%; object-fit: cover; display: block; background: #F3F4F6; min-height: 80px; }
+  .lcard-thumb-empty {
+    width: 140px; height: 100%; min-height: 80px;
+    display: flex; align-items: center; justify-content: center; font-size: 1.5rem; background: #F3F4F6;
+  }
+  .photo-count {
+    position: absolute; bottom: 6px; right: 6px;
+    background: rgba(0,0,0,0.65); color: white; font-size: 0.6rem; font-weight: 700;
+    padding: 0.15rem 0.45rem; border-radius: 9999px;
+  }
+
+  .lcard-body { padding: 0.875rem 1rem; min-width: 0; align-self: center; }
+  .lcard-title { font-size: 0.9375rem; font-weight: 700; color: #111111; margin-bottom: 0.25rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .lcard-sub   { font-size: 0.75rem; color: #6B7280; }
+
+  .lcard-action {
+    display: flex; flex-direction: column; gap: 0.375rem;
+    padding: 0.875rem; border-left: 1.5px solid #F3F4F6;
+    justify-content: center; flex-shrink: 0;
+  }
+
+  /* ── Buttons ── */
+  .btn {
+    font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em;
+    padding: 0.45rem 0.875rem; border-radius: 0.375rem; cursor: pointer;
+    border: 1.5px solid transparent; transition: all 0.15s; white-space: nowrap;
+    text-decoration: none; display: inline-block; text-align: center; line-height: 1.5;
+  }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .btn-ig      { background: #111111; color: white; border-color: #111111; }
+  .btn-ig:hover { background: #374151; border-color: #374151; }
+
+  .btn-outline  { background: white; color: #6B7280; border-color: #E5E7EB; }
+  .btn-outline:hover { color: #111111; border-color: #111111; }
+
+  .btn-danger   { background: white; color: #9CA3AF; border-color: #E5E7EB; }
+  .btn-danger:hover { background: #FEF2F2; color: #991B1B; border-color: #FECACA; }
+
+  .btn-preview  { background: white; color: #6B7280; border-color: #E5E7EB; }
+  .btn-preview:hover { color: #111111; border-color: #111111; }
+
+  .btn-post     { background: #111111; color: white; border-color: #111111; }
+  .btn-post:hover:not(:disabled) { background: #374151; border-color: #374151; }
+
+  /* ── Modal ── */
+  .modal-backdrop {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+    display: flex; align-items: center; justify-content: center; z-index: 50;
+  }
+  .modal-backdrop[hidden] { display: none; }
+  .modal {
+    background: white; border-radius: 0.875rem; border: 1.5px solid #E5E7EB;
+    padding: 1.5rem; width: 100%; max-width: 480px; box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+    display: flex; flex-direction: column; gap: 0.875rem;
+  }
+  .modal-title  { font-size: 0.875rem; font-weight: 700; color: #111111; }
+  .modal-meta   { font-size: 0.72rem; color: #9CA3AF; margin-top: -0.5rem; }
+  .modal-caption {
+    font-size: 0.78rem; color: #374151; line-height: 1.6;
+    background: #F9FAFB; border: 1.5px solid #E5E7EB; border-radius: 0.5rem;
+    padding: 0.875rem 1rem; white-space: pre-wrap; word-break: break-word;
+    max-height: 320px; overflow-y: auto; font-family: inherit;
+  }
+  .modal-actions { display: flex; gap: 0.5rem; justify-content: flex-end; }
+
+  /* ── Toast ── */
+  .toast {
+    position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 100;
+    background: #111111; color: white; font-size: 0.8rem; font-weight: 600;
+    padding: 0.75rem 1.25rem; border-radius: 0.625rem;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.2); transition: opacity 0.3s;
+  }
+  .toast[hidden] { display: none; }
+  .toast-ok  { background: #166534; }
+  .toast-err { background: #991B1B; }
+
+  @media (max-width: 640px) {
+    .lcard { grid-template-columns: 80px 1fr; }
+    .lcard-thumb, .lcard-thumb-empty { width: 80px; }
+    .lcard-action { grid-column: 1 / -1; flex-direction: row; flex-wrap: wrap; border-left: none; border-top: 1.5px solid #F3F4F6; padding: 0.625rem; }
+  }
+</style>
+
+<script>
+  let pendingListingId: number | null = null;
+
+  const modal       = document.getElementById('preview-modal')!;
+  const modalCaption = document.getElementById('modal-caption')!;
+  const modalMeta    = document.getElementById('modal-photo-count')!;
+  const modalCancel  = document.getElementById('modal-cancel')!;
+  const modalConfirm = document.getElementById('modal-confirm') as HTMLButtonElement;
+  const toast        = document.getElementById('toast')!;
+
+  function showToast(msg: string, type: 'ok' | 'err') {
+    toast.textContent = msg;
+    toast.className = `toast toast-${type}`;
+    toast.hidden = false;
+    setTimeout(() => { toast.hidden = true; }, 3500);
+  }
+
+  // Close modal
+  modalCancel.addEventListener('click', () => { modal.hidden = true; pendingListingId = null; });
+  modal.addEventListener('click', (e) => { if (e.target === modal) { modal.hidden = true; pendingListingId = null; } });
+
+  // Listing action buttons
+  document.addEventListener('click', async (e) => {
+    const btn = (e.target as Element).closest<HTMLButtonElement>('[data-action]');
+    if (!btn) return;
+
+    const action = btn.dataset.action!;
+    const id     = Number(btn.dataset.id!);
+
+    if (action === 'preview') {
+      btn.disabled = true;
+      try {
+        const res  = await fetch('/api/admin/instagram/post', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ listingId: id, previewOnly: true }),
+        });
+        const data = await res.json();
+        if (!res.ok) { showToast(data.error ?? 'Failed to load preview', 'err'); return; }
+        modalCaption.textContent = data.caption;
+        modalMeta.textContent    = `${data.photoCount} photo${data.photoCount !== 1 ? 's' : ''} will be posted as ${data.photoCount > 1 ? 'a carousel' : 'a single image'}`;
+        pendingListingId = id;
+        modal.hidden = false;
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    if (action === 'post') {
+      if (!confirm('Post this listing to Instagram now?')) return;
+      await doPost(id, btn);
+    }
+  });
+
+  // Confirm from modal
+  modalConfirm.addEventListener('click', async () => {
+    if (!pendingListingId) return;
+    modal.hidden = true;
+    const id = pendingListingId;
+    pendingListingId = null;
+    const btn = document.querySelector<HTMLButtonElement>(`[data-action="post"][data-id="${id}"]`);
+    await doPost(id, btn);
+  });
+
+  async function doPost(id: number, btn: HTMLButtonElement | null) {
+    if (btn) { btn.disabled = true; btn.textContent = 'Posting…'; }
+
+    try {
+      const res  = await fetch('/api/admin/instagram/post', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ listingId: id }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showToast('Posted to Instagram!', 'ok');
+      } else {
+        showToast(data.error ?? 'Post failed', 'err');
+      }
+    } catch {
+      showToast('Network error', 'err');
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = 'Post to Instagram'; }
+    }
+  }
+
+  // Refresh token
+  document.getElementById('refresh-token-btn')?.addEventListener('click', async function () {
+    const btn = this as HTMLButtonElement;
+    btn.disabled = true;
+    btn.textContent = 'Refreshing…';
+    try {
+      const res  = await fetch('/api/admin/instagram/refresh-token', { method: 'POST' });
+      const data = await res.json();
+      showToast(res.ok ? 'Token refreshed.' : (data.error ?? 'Refresh failed'), res.ok ? 'ok' : 'err');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Refresh Token';
+    }
+  });
+
+  // Disconnect
+  document.getElementById('disconnect-btn')?.addEventListener('click', async function () {
+    if (!confirm('Disconnect Instagram? You\'ll need to re-authorise to post again.')) return;
+    const btn = this as HTMLButtonElement;
+    btn.disabled = true;
+    await fetch('/api/admin/instagram/disconnect', { method: 'POST' });
+    location.reload();
+  });
+</script>
