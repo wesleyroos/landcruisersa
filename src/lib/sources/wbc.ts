@@ -129,7 +129,7 @@ function normalizeWbc(v: WbcVehicle): NormalizedListing {
   ].slice(0, 20);
 
   const transmissionRaw = (v.Transmission ?? '').toLowerCase();
-  const transmission: 'manual' | 'automatic' = transmissionRaw.includes('auto') ? 'automatic' : 'manual';
+  const transmission: 'manual' | 'automatic' = transmissionRaw.includes('manual') ? 'manual' : 'automatic';
   const mileage = Number(v.Mileage ?? 0);
   const title = [v.Year, v.Make, v.Model, v.Variant].filter(Boolean).join(' ');
 

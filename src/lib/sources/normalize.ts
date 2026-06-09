@@ -25,6 +25,8 @@ export function normalizeModel(raw: string, year?: number): string {
     if (re.test(raw)) {
       // Prado 250-series launched in 2024; catch-all 'prado' pattern defaults to 150
       if (slug === 'prado-150' && year && year >= 2024) return 'prado-250';
+      // New Land Cruiser FJ launched 2026; older "Land Cruiser FJ" listings are FJ Cruisers
+      if (slug === 'land-cruiser-fj' && year && year <= 2025) return 'fj-cruiser';
       return slug;
     }
   }
