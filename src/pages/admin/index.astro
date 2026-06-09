@@ -111,10 +111,10 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
     </div>
   </div>
 
-  <!-- TOOLS (local dev only) -->
-  {import.meta.env.DEV && (
-    <>
-      <div class="tools-row">
+  <!-- TOOLS -->
+  <div class="tools-row">
+    {import.meta.env.DEV && (
+      <>
         <div class="tool-card">
           <div class="tool-info">
             <p class="tool-name">Ingest Listings <span class="local-badge">LOCAL</span></p>
@@ -147,37 +147,39 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
             <button id="run-backfill-btn" class="btn btn-tool">Run Backfill</button>
           </div>
         </div>
-        <div class="tool-card">
-          <div class="tool-info">
-            <p class="tool-name">AT Description Backfill <span class="local-badge">LOCAL</span></p>
-            <p class="tool-desc">Pull seller comments &amp; colour for AT listings missing a description.</p>
-            <p class="tool-times">
-              <span class="time-label">Last run:</span> <span id="desc-backfill-last-run" class="time-val">—</span>
-              <span id="desc-backfill-status" class="tool-status-inline"></span>
-            </p>
-          </div>
-          <div class="tool-controls">
-            <button id="run-desc-backfill-btn" class="btn btn-tool">Run</button>
-          </div>
-        </div>
+      </>
+    )}
+    <div class="tool-card">
+      <div class="tool-info">
+        <p class="tool-name">AT Description Backfill</p>
+        <p class="tool-desc">Pull seller comments &amp; colour for AT listings missing a description.</p>
+        <p class="tool-times">
+          <span class="time-label">Last run:</span> <span id="desc-backfill-last-run" class="time-val">—</span>
+          <span id="desc-backfill-status" class="tool-status-inline"></span>
+        </p>
       </div>
+      <div class="tool-controls">
+        <button id="run-desc-backfill-btn" class="btn btn-tool">Run</button>
+      </div>
+    </div>
+  </div>
 
-      <div id="ingest-modal" class="modal-backdrop" hidden>
-        <div class="modal">
-          <p class="modal-title">Select Sources</p>
-          <div class="modal-sources">
-            <label class="source-opt"><input type="checkbox" name="source" value="autotrader" checked /> AutoTrader</label>
-            <label class="source-opt"><input type="checkbox" name="source" value="wbc" checked /> WBC</label>
-            <label class="source-opt"><input type="checkbox" name="source" value="adios" checked /> Adios</label>
-            <label class="source-opt"><input type="checkbox" name="source" value="wbb" checked /> We Buy Bakkies</label>
-          </div>
-          <div class="modal-actions">
-            <button id="ingest-cancel-btn" class="btn btn-edit">Cancel</button>
-            <button id="ingest-confirm-btn" class="btn btn-tool">Run</button>
-          </div>
+  {import.meta.env.DEV && (
+    <div id="ingest-modal" class="modal-backdrop" hidden>
+      <div class="modal">
+        <p class="modal-title">Select Sources</p>
+        <div class="modal-sources">
+          <label class="source-opt"><input type="checkbox" name="source" value="autotrader" checked /> AutoTrader</label>
+          <label class="source-opt"><input type="checkbox" name="source" value="wbc" checked /> WBC</label>
+          <label class="source-opt"><input type="checkbox" name="source" value="adios" checked /> Adios</label>
+          <label class="source-opt"><input type="checkbox" name="source" value="wbb" checked /> We Buy Bakkies</label>
+        </div>
+        <div class="modal-actions">
+          <button id="ingest-cancel-btn" class="btn btn-edit">Cancel</button>
+          <button id="ingest-confirm-btn" class="btn btn-tool">Run</button>
         </div>
       </div>
-    </>
+    </div>
   )}
 
   <!-- FILTER BAR -->
@@ -358,7 +360,7 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
   .stat-sold    .stat-val { color: #9CA3AF; }
 
   /* TOOLS */
-  .tools-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.625rem; margin-bottom: 1.25rem; }
+  .tools-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 0.625rem; margin-bottom: 1.25rem; }
   .tool-card {
     border: 1.5px solid #E5E7EB; border-radius: 0.625rem;
     padding: 0.75rem 1rem; display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
