@@ -61,6 +61,11 @@ const grouped: { label: string; status: string; items: Listing[] }[] = [
           <div class="tool-info">
             <p class="tool-name">Ingest Listings <span class="local-badge">LOCAL</span></p>
             <p class="tool-desc">Discover and import new listings from AutoTrader, WBC, Adios, and We Buy Bakkies using your residential IP.</p>
+            <p class="tool-times">
+              <span class="time-label">Last run:</span> <span id="ingest-last-run" class="time-val">—</span>
+              <span class="time-sep">·</span>
+              <span class="time-label">Next:</span> <span id="ingest-next-run" class="time-val">—</span>
+            </p>
           </div>
           <div class="tool-controls">
             <button id="run-ingest-btn" class="btn btn-tool">Run Ingest</button>
@@ -71,6 +76,11 @@ const grouped: { label: string; status: string; items: Listing[] }[] = [
           <div class="tool-info">
             <p class="tool-name">AT Image Backfill <span class="local-badge">LOCAL</span></p>
             <p class="tool-desc">Fetch full image sets for AT listings with &lt;2 photos.</p>
+            <p class="tool-times">
+              <span class="time-label">Last run:</span> <span id="backfill-last-run" class="time-val">—</span>
+              <span class="time-sep">·</span>
+              <span class="time-label">Next:</span> <span id="backfill-next-run" class="time-val">—</span>
+            </p>
           </div>
           <div class="tool-controls">
             <button id="run-backfill-btn" class="btn btn-tool">Run Backfill</button>
@@ -187,9 +197,13 @@ const grouped: { label: string; status: string; items: Listing[] }[] = [
   .tool-info { flex: 1; min-width: 0; }
   .tool-name { font-size: 0.75rem; font-weight: 700; color: #111111; margin-bottom: 0.15rem; display: flex; align-items: center; gap: 0.4rem; }
   .local-badge { font-size: 0.55rem; font-weight: 700; letter-spacing: 0.08em; background: #DCFCE7; color: #166534; padding: 0.15rem 0.5rem; border-radius: 9999px; }
-  .tool-desc { font-size: 0.7rem; color: #9CA3AF; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tool-desc { font-size: 0.7rem; color: #9CA3AF; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 0.2rem; }
+  .tool-times { font-size: 0.65rem; color: #9CA3AF; display: flex; align-items: center; gap: 0.3rem; flex-wrap: wrap; }
+  .time-label { font-weight: 600; color: #6B7280; }
+  .time-val { font-variant-numeric: tabular-nums; color: #374151; }
+  .time-sep { color: #D1D5DB; }
   .tool-controls { display: flex; align-items: center; gap: 0.625rem; flex-shrink: 0; }
-  .tool-status { font-size: 0.65rem; color: #6B7280; font-variant-numeric: tabular-nums; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tool-status { font-size: 0.65rem; color: #6B7280; font-variant-numeric: tabular-nums; }
   .btn-tool { background: #111111; color: white; border-color: #111111; }
   .btn-tool:hover:not(:disabled) { background: #374151; border-color: #374151; }
   .btn-tool:disabled { opacity: 0.5; }
@@ -315,6 +329,43 @@ const grouped: { label: string; status: string; items: Listing[] }[] = [
 </style>
 
 <script>
+  function fmtTime(ms: number | null): string {
+    if (!ms) return '—';
+    return new Intl.DateTimeFormat('en-ZA', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(ms));
+  }
+
+  function fmtNext(ms: number): string {
+    const now = Date.now();
+    const diff = ms - now;
+    if (diff < 0) return 'overdue';
+    const mins = Math.round(diff / 60000);
+    if (mins < 60) return `in ${mins}m`;
+    // More than an hour away — show the actual time instead of a relative duration
+    const d = new Date(ms);
+    const isToday = new Date(now).toDateString() === d.toDateString();
+    const isTomorrow = new Date(now + 86400000).toDateString() === d.toDateString();
+    const timeStr = d.toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' });
+    if (isToday) return `today at ${timeStr}`;
+    if (isTomorrow) return `tomorrow at ${timeStr}`;
+    return fmtTime(ms);
+  }
+
+  async function loadRunTimes() {
+    try {
+      const data = await fetch('/api/admin/run-times').then(r => r.json());
+      const il = document.getElementById('ingest-last-run');
+      const in_ = document.getElementById('ingest-next-run');
+      const bl = document.getElementById('backfill-last-run');
+      const bn = document.getElementById('backfill-next-run');
+      if (il) il.textContent = fmtTime(data.ingest.lastRun);
+      if (in_) in_.textContent = fmtNext(data.ingest.nextRun);
+      if (bl) bl.textContent = fmtTime(data.backfill.lastRun);
+      if (bn) bn.textContent = fmtNext(data.backfill.nextRun);
+    } catch { /* non-critical */ }
+  }
+
+  loadRunTimes();
+
   function updateStat(selector: string, delta: number) {
     const el = document.querySelector(selector);
     if (el) el.textContent = String(Math.max(0, Number(el.textContent) + delta));
@@ -384,6 +435,8 @@ const grouped: { label: string; status: string; items: Listing[] }[] = [
           } else if (ev.type === 'done') {
             const label = checked.length === 4 ? 'All sources' : checked.join(', ');
             statusEl.textContent = `${label} ingested.`;
+            const el = document.getElementById('ingest-last-run');
+            if (el) el.textContent = fmtTime(Date.now());
           }
         }
       }
@@ -429,6 +482,8 @@ const grouped: { label: string; status: string; items: Listing[] }[] = [
               : `${ev.source_id}: ${ev.reason}`;
           } else if (ev.type === 'done') {
             statusEl.textContent = `Done — ${ev.updated} updated, ${ev.empty} empty, ${ev.failed} failed`;
+            const el = document.getElementById('backfill-last-run');
+            if (el) el.textContent = fmtTime(Date.now());
           }
         }
       }
