@@ -39,24 +39,48 @@ export const POST: APIRoute = async ({ request }) => {
     });
 
     if (!res.ok) {
-      return new Response(JSON.stringify({ images: [] }), { status: 200 });
+      return new Response(JSON.stringify({ images: [], description: '', colour: '' }), { status: 200 });
     }
 
     const html = await res.text();
+
+    // Images
     const seen = new Set<string>();
     const images: string[] = [];
     for (const m of html.matchAll(/https:\/\/img\.autotrader\.co\.za\/(\d+)/g)) {
-      if (!seen.has(m[1])) {
-        seen.add(m[1]);
-        images.push(m[0]);
-      }
+      if (!seen.has(m[1])) { seen.add(m[1]); images.push(m[0]); }
     }
 
-    return new Response(JSON.stringify({ images: images.slice(0, 20) }), {
+    // Description + colour from __NEXT_DATA__ JSON blob
+    let description = '';
+    let colour = '';
+    const nextDataMatch = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
+    if (nextDataMatch) {
+      try {
+        const json = JSON.parse(nextDataMatch[1]);
+        const props = json?.props?.pageProps ?? {};
+        const ad = props.advert ?? props.listing ?? props.vehicle ?? props.data?.advert ?? {};
+        description = ad.sellerComment ?? ad.description ?? ad.comments ?? ad.dealerComment ?? '';
+        colour = ad.colour ?? ad.color ?? ad.exteriorColour ?? '';
+        // Fallback: walk props looking for sellerComment anywhere
+        if (!description) {
+          const str = nextDataMatch[1];
+          const m = str.match(/"sellerComment"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+          if (m) description = m[1].replace(/\\n/g, '\n').replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+        }
+        if (!colour) {
+          const str = nextDataMatch[1];
+          const m = str.match(/"colour"\s*:\s*"([^"]+)"/);
+          if (m) colour = m[1];
+        }
+      } catch { /* malformed JSON — skip */ }
+    }
+
+    return new Response(JSON.stringify({ images: images.slice(0, 20), description, colour }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     });
   } catch {
-    return new Response(JSON.stringify({ images: [] }), { status: 200 });
+    return new Response(JSON.stringify({ images: [], description: '', colour: '' }), { status: 200 });
   }
 };
