@@ -5,7 +5,7 @@ import AdminLayout from '@/layouts/AdminLayout.astro';
 import { getCredentials } from '@/lib/instagram';
 import { db } from '@/db/index';
 import { listings } from '@/db/schema';
-import { desc, eq, and, gte, lte, sql, isNotNull } from 'drizzle-orm';
+import { desc, eq, and, gte, lte, sql, isNotNull, isNull } from 'drizzle-orm';
 import type { Listing } from '@/db/schema';
 import type { SQL } from 'drizzle-orm';
 
@@ -21,10 +21,11 @@ const fPosted   = Astro.url.searchParams.get('posted')   === '1';
 const hasFilter = !!(fModel || fYear || fProvince || fType || fPosted);
 
 const conds: SQL[] = [eq(listings.status, 'active')];
+// Default view shows unposted only; Posted toggle shows posted only
+conds.push(fPosted ? isNotNull(listings.ig_posted_at) : isNull(listings.ig_posted_at));
 if (fModel)    conds.push(eq(listings.model,        fModel));
 if (fProvince) conds.push(eq(listings.province,     fProvince));
 if (fType)     conds.push(eq(listings.listing_type, fType));
-if (fPosted)   conds.push(isNotNull(listings.ig_posted_at));
 if (fYear) {
   const [yMin, yMax] = fYear.split('-').map(Number);
   conds.push(gte(listings.year, yMin));
@@ -36,7 +37,7 @@ const active = db.select().from(listings)
   .orderBy(desc(listings.created_at)).all();
 
 const totalActive = (db.select({ n: sql<number>`count(*)` }).from(listings)
-  .where(eq(listings.status, 'active')).get())?.n ?? 0;
+  .where(and(eq(listings.status, 'active'), isNull(listings.ig_posted_at))).get())?.n ?? 0;
 const totalPosted = (db.select({ n: sql<number>`count(*)` }).from(listings)
   .where(and(eq(listings.status, 'active'), isNotNull(listings.ig_posted_at))).get())?.n ?? 0;
 
@@ -178,7 +179,7 @@ function formatPrice(n: number) {
   <!-- LISTINGS -->
   {connected && (
     <div class="section">
-      <p class="section-head">Active Listings</p>
+      <p class="section-head">{fPosted ? 'Posted to Instagram' : 'Not Yet Posted'}</p>
 
       {active.length === 0 && (
         <p class="empty-state">No active listings match your filters.</p>
