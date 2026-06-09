@@ -51,30 +51,16 @@ export const POST: APIRoute = async ({ request }) => {
       if (!seen.has(m[1])) { seen.add(m[1]); images.push(m[0]); }
     }
 
-    // Description + colour from __NEXT_DATA__ JSON blob
+    // Description: seller-comment block in server-rendered HTML
     let description = '';
     let colour = '';
-    const nextDataMatch = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
-    if (nextDataMatch) {
-      try {
-        const json = JSON.parse(nextDataMatch[1]);
-        const props = json?.props?.pageProps ?? {};
-        const ad = props.advert ?? props.listing ?? props.vehicle ?? props.data?.advert ?? {};
-        description = ad.sellerComment ?? ad.description ?? ad.comments ?? ad.dealerComment ?? '';
-        colour = ad.colour ?? ad.color ?? ad.exteriorColour ?? '';
-        // Fallback: walk props looking for sellerComment anywhere
-        if (!description) {
-          const str = nextDataMatch[1];
-          const m = str.match(/"sellerComment"\s*:\s*"((?:[^"\\]|\\.)*)"/);
-          if (m) description = m[1].replace(/\\n/g, '\n').replace(/\\"/g, '"').replace(/\\\\/g, '\\');
-        }
-        if (!colour) {
-          const str = nextDataMatch[1];
-          const m = str.match(/"colour"\s*:\s*"([^"]+)"/);
-          if (m) colour = m[1];
-        }
-      } catch { /* malformed JSON — skip */ }
+    const descMatch = html.match(/class="[^"]*seller-comment[^"]*"[^>]*>[\s\S]*?<span class="[^"]*e-read-more-line[^"]*">([\s\S]*?)<\/span>/);
+    if (descMatch) {
+      description = descMatch[1].replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#x[0-9A-Fa-f]+;/g, c => String.fromCodePoint(parseInt(c.slice(3, -1), 16))).trim();
     }
+    // Colour: rendered as "Colour</span><span class="...">VALUE</span>"
+    const colourMatch = html.match(/Colou?r<\/span>\s*<span[^>]*>([^<]+)<\/span>/);
+    if (colourMatch) colour = colourMatch[1].trim();
 
     return new Response(JSON.stringify({ images: images.slice(0, 20), description, colour }), {
       status: 200,

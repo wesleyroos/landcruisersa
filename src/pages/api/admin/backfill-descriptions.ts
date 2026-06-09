@@ -22,27 +22,16 @@ async function fetchAtDetails(sourceUrl: string): Promise<{ description: string;
   if (!res.ok) return { description: '', colour: '' };
   const html = await res.text();
 
+  // Description: seller-comment block in server-rendered HTML
   let description = '';
   let colour = '';
-
-  const nextDataMatch = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
-  if (nextDataMatch) {
-    try {
-      const json = JSON.parse(nextDataMatch[1]);
-      const props = json?.props?.pageProps ?? {};
-      const ad = props.advert ?? props.listing ?? props.vehicle ?? props.data?.advert ?? {};
-      description = ad.sellerComment ?? ad.description ?? ad.comments ?? ad.dealerComment ?? '';
-      colour = ad.colour ?? ad.color ?? ad.exteriorColour ?? '';
-      if (!description) {
-        const m = nextDataMatch[1].match(/"sellerComment"\s*:\s*"((?:[^"\\]|\\.)*)"/);
-        if (m) description = m[1].replace(/\\n/g, '\n').replace(/\\"/g, '"').replace(/\\\\/g, '\\');
-      }
-      if (!colour) {
-        const m = nextDataMatch[1].match(/"colour"\s*:\s*"([^"]+)"/);
-        if (m) colour = m[1];
-      }
-    } catch { /* malformed JSON */ }
+  const descMatch = html.match(/class="[^"]*seller-comment[^"]*"[^>]*>[\s\S]*?<span class="[^"]*e-read-more-line[^"]*">([\s\S]*?)<\/span>/);
+  if (descMatch) {
+    description = descMatch[1].replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#x[0-9A-Fa-f]+;/g, (c: string) => String.fromCodePoint(parseInt(c.slice(3, -1), 16))).trim();
   }
+  // Colour: rendered as "Colour</span><span class="...">VALUE</span>"
+  const colourMatch = html.match(/Colou?r<\/span>\s*<span[^>]*>([^<]+)<\/span>/);
+  if (colourMatch) colour = colourMatch[1].trim();
 
   return { description: description.trim(), colour: colour.trim() };
 }
