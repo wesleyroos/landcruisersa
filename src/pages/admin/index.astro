@@ -577,6 +577,10 @@ const grouped: { label: string; status: string; items: Listing[] }[] = [
     ingestBtn!.textContent = 'Running…';
     statusEl.textContent = 'Starting…';
 
+    const sourceResults: Record<string, { created: number; updated: number; ok: boolean }> = {};
+    const summaryRe = /\] done — created: (\d+), updated: (\d+)/;
+    let currentSource = '';
+
     try {
       const url = `/api/admin/run-ingest?sources=${checked.join(',')}`;
       const res = await fetch(url);
@@ -595,14 +599,25 @@ const grouped: { label: string; status: string; items: Listing[] }[] = [
           let ev: Record<string, unknown>;
           try { ev = JSON.parse(part.slice(6)); } catch { continue; }
           if (ev.type === 'script-start') {
-            statusEl.textContent = `Running ${ev.name}…`;
+            currentSource = String(ev.name);
+            statusEl.textContent = `Running ${currentSource}…`;
           } else if (ev.type === 'log') {
-            statusEl.textContent = String(ev.text).slice(0, 80);
+            const text = String(ev.text);
+            statusEl.textContent = text.slice(0, 80);
+            const m = summaryRe.exec(text);
+            if (m && currentSource) {
+              sourceResults[currentSource] = { created: Number(m[1]), updated: Number(m[2]), ok: true };
+            }
           } else if (ev.type === 'script-done') {
-            statusEl.textContent = `${ev.name}: ${ev.ok ? 'done' : `failed (exit ${ev.code})`}`;
+            if (!sourceResults[currentSource]) {
+              sourceResults[currentSource] = { created: 0, updated: 0, ok: Boolean(ev.ok) };
+            }
           } else if (ev.type === 'done') {
-            const label = checked.length === 4 ? 'All sources' : checked.join(', ');
-            statusEl.textContent = `${label} ingested.`;
+            const LABELS: Record<string, string> = { autotrader: 'AT', wbc: 'WBC', adios: 'Adios', wbb: 'WBB' };
+            const summary = Object.entries(sourceResults)
+              .map(([src, r]) => `${LABELS[src] ?? src.toUpperCase()} +${r.created} new`)
+              .join(' · ');
+            statusEl.textContent = summary || 'Done.';
             const el = document.getElementById('ingest-last-run');
             if (el) el.textContent = fmtTime(Date.now());
           }
