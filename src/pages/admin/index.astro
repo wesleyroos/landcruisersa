@@ -55,28 +55,46 @@ const grouped: { label: string; status: string; items: Listing[] }[] = [
 
   <!-- TOOLS (local dev only) -->
   {import.meta.env.DEV && (
-    <div class="tools-row">
-      <div class="tool-card">
-        <div class="tool-info">
-          <p class="tool-name">Ingest Listings <span class="local-badge">LOCAL</span></p>
-          <p class="tool-desc">Discover and import new listings from AutoTrader, WBC, and Adios using your residential IP.</p>
+    <>
+      <div class="tools-row">
+        <div class="tool-card">
+          <div class="tool-info">
+            <p class="tool-name">Ingest Listings <span class="local-badge">LOCAL</span></p>
+            <p class="tool-desc">Discover and import new listings from AutoTrader, WBC, Adios, and We Buy Bakkies using your residential IP.</p>
+          </div>
+          <div class="tool-controls">
+            <button id="run-ingest-btn" class="btn btn-tool">Run Ingest</button>
+            <p id="ingest-status" class="tool-status"></p>
+          </div>
         </div>
-        <div class="tool-controls">
-          <button id="run-ingest-btn" class="btn btn-tool">Run Ingest</button>
-          <p id="ingest-status" class="tool-status"></p>
+        <div class="tool-card">
+          <div class="tool-info">
+            <p class="tool-name">AT Image Backfill <span class="local-badge">LOCAL</span></p>
+            <p class="tool-desc">Fetch full image sets for AT listings with &lt;2 photos.</p>
+          </div>
+          <div class="tool-controls">
+            <button id="run-backfill-btn" class="btn btn-tool">Run Backfill</button>
+            <p id="backfill-status" class="tool-status"></p>
+          </div>
         </div>
       </div>
-      <div class="tool-card">
-        <div class="tool-info">
-          <p class="tool-name">AT Image Backfill <span class="local-badge">LOCAL</span></p>
-          <p class="tool-desc">Fetch full image sets for AT listings with &lt;2 photos.</p>
-        </div>
-        <div class="tool-controls">
-          <button id="run-backfill-btn" class="btn btn-tool">Run Backfill</button>
-          <p id="backfill-status" class="tool-status"></p>
+
+      <div id="ingest-modal" class="modal-backdrop" hidden>
+        <div class="modal">
+          <p class="modal-title">Select Sources</p>
+          <div class="modal-sources">
+            <label class="source-opt"><input type="checkbox" name="source" value="autotrader" checked /> AutoTrader</label>
+            <label class="source-opt"><input type="checkbox" name="source" value="wbc" checked /> WBC</label>
+            <label class="source-opt"><input type="checkbox" name="source" value="adios" checked /> Adios</label>
+            <label class="source-opt"><input type="checkbox" name="source" value="wbb" checked /> We Buy Bakkies</label>
+          </div>
+          <div class="modal-actions">
+            <button id="ingest-cancel-btn" class="btn btn-edit">Cancel</button>
+            <button id="ingest-confirm-btn" class="btn btn-tool">Run</button>
+          </div>
         </div>
       </div>
-    </div>
+    </>
   )}
 
   <!-- GROUPS -->
@@ -175,6 +193,28 @@ const grouped: { label: string; status: string; items: Listing[] }[] = [
   .btn-tool { background: #111111; color: white; border-color: #111111; }
   .btn-tool:hover:not(:disabled) { background: #374151; border-color: #374151; }
   .btn-tool:disabled { opacity: 0.5; }
+
+  /* INGEST MODAL */
+  .modal-backdrop {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+    display: flex; align-items: center; justify-content: center; z-index: 50;
+  }
+  .modal-backdrop[hidden] { display: none; }
+  .modal {
+    background: white; border-radius: 0.875rem; border: 1.5px solid #E5E7EB;
+    padding: 1.5rem; width: 100%; max-width: 320px; box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+  }
+  .modal-title { font-size: 0.8rem; font-weight: 700; color: #111111; margin-bottom: 1rem; }
+  .modal-sources { display: flex; flex-direction: column; gap: 0.625rem; margin-bottom: 1.25rem; }
+  .source-opt {
+    display: flex; align-items: center; gap: 0.625rem;
+    font-size: 0.8rem; color: #374151; cursor: pointer;
+    padding: 0.5rem 0.75rem; border-radius: 0.5rem; border: 1.5px solid #E5E7EB;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .source-opt:hover { border-color: #111111; }
+  .source-opt input { accent-color: #111111; width: 14px; height: 14px; cursor: pointer; }
+  .modal-actions { display: flex; gap: 0.5rem; justify-content: flex-end; }
 
   /* GROUPS */
   .group { margin-bottom: 2.5rem; }
@@ -289,15 +329,38 @@ const grouped: { label: string; status: string; items: Listing[] }[] = [
     setTimeout(() => card.remove(), 260);
   }
 
-  // Ingest — streams SSE progress from child processes
-  document.getElementById('run-ingest-btn')?.addEventListener('click', async function () {
-    const btn = this as HTMLButtonElement;
-    const statusEl = document.getElementById('ingest-status')!;
-    btn.disabled = true;
-    btn.textContent = 'Running…';
+  // Ingest — open source picker modal first
+  const ingestModal  = document.getElementById('ingest-modal')!;
+  const ingestBtn    = document.getElementById('run-ingest-btn') as HTMLButtonElement | null;
+  const cancelBtn    = document.getElementById('ingest-cancel-btn')!;
+  const confirmBtn   = document.getElementById('ingest-confirm-btn') as HTMLButtonElement;
+  const statusEl     = document.getElementById('ingest-status')!;
+
+  ingestBtn?.addEventListener('click', () => {
+    ingestModal.hidden = false;
+  });
+
+  cancelBtn?.addEventListener('click', () => {
+    ingestModal.hidden = true;
+  });
+
+  ingestModal?.addEventListener('click', (e) => {
+    if (e.target === ingestModal) ingestModal.hidden = true;
+  });
+
+  confirmBtn?.addEventListener('click', async () => {
+    const checked = [...ingestModal.querySelectorAll<HTMLInputElement>('input[name="source"]:checked')]
+      .map(el => el.value);
+    if (!checked.length) { alert('Select at least one source.'); return; }
+
+    ingestModal.hidden = true;
+    ingestBtn!.disabled = true;
+    ingestBtn!.textContent = 'Running…';
     statusEl.textContent = 'Starting…';
+
     try {
-      const res = await fetch('/api/admin/run-ingest');
+      const url = `/api/admin/run-ingest?sources=${checked.join(',')}`;
+      const res = await fetch(url);
       if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
@@ -319,15 +382,16 @@ const grouped: { label: string; status: string; items: Listing[] }[] = [
           } else if (ev.type === 'script-done') {
             statusEl.textContent = `${ev.name}: ${ev.ok ? 'done' : `failed (exit ${ev.code})`}`;
           } else if (ev.type === 'done') {
-            statusEl.textContent = 'All sources ingested.';
+            const label = checked.length === 4 ? 'All sources' : checked.join(', ');
+            statusEl.textContent = `${label} ingested.`;
           }
         }
       }
     } catch (err) {
       statusEl.textContent = `Error: ${String(err)}`;
     }
-    btn.disabled = false;
-    btn.textContent = 'Run Ingest';
+    ingestBtn!.disabled = false;
+    ingestBtn!.textContent = 'Run Ingest';
   });
 
   // AT image backfill — streams SSE progress

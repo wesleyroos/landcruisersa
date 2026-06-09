@@ -39,19 +39,26 @@ function parseListing(html: string, sourceUrl: string): NormalizedListing | null
     html.match(/property="og:title"\s+content="([^"]+)"/)?.[1]?.trim() ??
     html.match(/<title>([^|<]+)/)?.[1]?.trim() ?? '';
 
-  // Price from og:description (e.g. "R499 000.00" or "R 1 299 000")
+  // Price — require proper ZAR format (6+ digits or thousands-separated) to avoid
+  // matching model numbers like "R76" from og:description.
+  // Pattern matches: "R489 000", "R489,000", "R489000", "R1 299 000"
+  const ZAR_PRICE = /R\s*((?:\d{1,3}[\s,]\d{3}(?:[\s,]\d{3})*|\d{6,})(?:\.\d+)?)/;
   const ogDesc = html.match(/property="og:description"\s+content="([^"]+)"/)?.[1] ?? '';
-  const priceRaw = ogDesc.match(/R[\s]*([\d\s,]+)/)?.[1] ?? '0';
-  const price = Number(priceRaw.replace(/[^0-9]/g, '')) || 0;
+  const priceFromMeta = ogDesc.match(ZAR_PRICE)?.[1];
+  const priceFromBody = html.match(ZAR_PRICE)?.[1];
+  const priceRaw = priceFromMeta ?? priceFromBody ?? '0';
+  // Use parseInt so "489,000.00" → strip separators → "489000.00" → parseInt stops at decimal → 489000
+  const price = parseInt(priceRaw.replace(/[\s,]/g, ''), 10) || 0;
 
-  // Spec table: Elementor `.td-content` cells come in label/value pairs
+  // Spec table: Elementor `.td-content` cells come in label/value pairs.
+  // Labels have a trailing colon (e.g. "YEAR MODEL:") — strip it for consistent key lookup.
   const cells = [...html.matchAll(/class="td-content[^"]*"[^>]*>([^<]*)</g)]
     .map(m => m[1].trim())
     .filter(Boolean);
 
   const specs: Record<string, string> = {};
   for (let i = 0; i + 1 < cells.length; i += 2) {
-    specs[cells[i].toLowerCase().trim()] = cells[i + 1];
+    specs[cells[i].toLowerCase().trim().replace(/:$/, '')] = cells[i + 1];
   }
 
   const yearRaw = specs['year model'] ?? specs['year'] ?? '';
