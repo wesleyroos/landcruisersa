@@ -374,6 +374,7 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
   .time-val { font-variant-numeric: tabular-nums; color: #374151; white-space: nowrap; }
   .time-next { margin-left: auto; display: flex; align-items: center; gap: 0.4rem; flex-shrink: 0; }
   .tool-status-inline { font-variant-numeric: tabular-nums; color: #9CA3AF; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; }
+  .tool-status-inline.is-error { color: #991B1B; background: #FEF2F2; border-radius: 0.375rem; padding: 0.2rem 0.5rem; white-space: normal; overflow: visible; text-overflow: unset; font-weight: 600; }
   .tool-controls { display: flex; align-items: center; gap: 0.625rem; flex-shrink: 0; }
   .btn-tool { background: #111111; color: white; border-color: #111111; }
   .btn-tool:hover:not(:disabled) { background: #374151; border-color: #374151; }
@@ -688,7 +689,8 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
         }
       }
     } catch (err) {
-      statusEl.textContent = `Error: ${String(err)}`;
+      statusEl.textContent = String(err);
+      statusEl.classList.add('is-error');
     }
     ingestBtn!.disabled = false;
     ingestBtn!.textContent = 'Run Ingest';
@@ -735,7 +737,8 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
         }
       }
     } catch (err) {
-      statusEl.textContent = `Error: ${String(err)}`;
+      statusEl.textContent = String(err);
+      statusEl.classList.add('is-error');
     }
 
     btn.disabled = false;
@@ -750,6 +753,7 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
     btn.disabled = true;
     btn.textContent = 'Running…';
     statusEl.textContent = 'Starting…';
+    statusEl.classList.remove('is-error');
 
     try {
       const res = await fetch('/api/admin/backfill-descriptions');
@@ -783,7 +787,8 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
         }
       }
     } catch (err) {
-      statusEl.textContent = `Error: ${String(err)}`;
+      statusEl.textContent = String(err);
+      statusEl.classList.add('is-error');
     }
 
     btn.disabled = false;
