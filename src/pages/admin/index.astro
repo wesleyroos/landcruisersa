@@ -167,29 +167,29 @@ const grouped: { label: string; status: string; items: Listing[] }[] = [
 
 <style>
   /* STATS */
-  .stats-row { display: flex; gap: 1rem; margin-bottom: 2rem; flex-wrap: wrap; }
+  .stats-row { display: flex; gap: 0.625rem; margin-bottom: 1.25rem; flex-wrap: wrap; }
   .stat {
-    border: 1.5px solid #E5E7EB; border-radius: 0.75rem;
-    padding: 1rem 1.5rem; display: flex; flex-direction: column; gap: 0.2rem; min-width: 100px;
+    border: 1.5px solid #E5E7EB; border-radius: 0.625rem;
+    padding: 0.625rem 1rem; display: flex; flex-direction: column; gap: 0.1rem; min-width: 80px;
   }
-  .stat-val { font-size: 2rem; font-weight: 700; line-height: 1; color: #111111; }
-  .stat-lbl { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em; color: #9CA3AF; }
+  .stat-val { font-size: 1.5rem; font-weight: 700; line-height: 1; color: #111111; }
+  .stat-lbl { font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em; color: #9CA3AF; }
   .stat-pending .stat-val { color: #F5A623; }
   .stat-active  .stat-val { color: #111111; }
   .stat-sold    .stat-val { color: #9CA3AF; }
 
   /* TOOLS */
-  .tools-row { margin-bottom: 2rem; }
+  .tools-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.625rem; margin-bottom: 1.25rem; }
   .tool-card {
-    border: 1.5px solid #E5E7EB; border-radius: 0.75rem;
-    padding: 1rem 1.25rem; display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap;
+    border: 1.5px solid #E5E7EB; border-radius: 0.625rem;
+    padding: 0.75rem 1rem; display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
   }
-  .tool-info { flex: 1; min-width: 200px; }
-  .tool-name { font-size: 0.8rem; font-weight: 700; color: #111111; margin-bottom: 0.2rem; display: flex; align-items: center; gap: 0.5rem; }
+  .tool-info { flex: 1; min-width: 0; }
+  .tool-name { font-size: 0.75rem; font-weight: 700; color: #111111; margin-bottom: 0.15rem; display: flex; align-items: center; gap: 0.4rem; }
   .local-badge { font-size: 0.55rem; font-weight: 700; letter-spacing: 0.08em; background: #DCFCE7; color: #166534; padding: 0.15rem 0.5rem; border-radius: 9999px; }
-  .tool-desc { font-size: 0.725rem; color: #9CA3AF; }
-  .tool-controls { display: flex; align-items: center; gap: 0.75rem; flex-shrink: 0; flex-wrap: wrap; }
-  .tool-status { font-size: 0.7rem; color: #6B7280; font-variant-numeric: tabular-nums; }
+  .tool-desc { font-size: 0.7rem; color: #9CA3AF; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tool-controls { display: flex; align-items: center; gap: 0.625rem; flex-shrink: 0; }
+  .tool-status { font-size: 0.65rem; color: #6B7280; font-variant-numeric: tabular-nums; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .btn-tool { background: #111111; color: white; border-color: #111111; }
   .btn-tool:hover:not(:disabled) { background: #374151; border-color: #374151; }
   .btn-tool:disabled { opacity: 0.5; }
@@ -217,7 +217,7 @@ const grouped: { label: string; status: string; items: Listing[] }[] = [
   .modal-actions { display: flex; gap: 0.5rem; justify-content: flex-end; }
 
   /* GROUPS */
-  .group { margin-bottom: 2.5rem; }
+  .group { margin-bottom: 2rem; }
   .group-head {
     display: flex; align-items: center; gap: 0.5rem;
     font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.14em; color: #9CA3AF;
