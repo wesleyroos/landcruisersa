@@ -3,6 +3,7 @@ export const prerender = false;
 import type { APIRoute } from 'astro';
 import { spawn } from 'child_process';
 import { join } from 'path';
+import { writeFileSync } from 'fs';
 
 function checkAdmin(cookies: { get(name: string): { value: string } | undefined }): boolean {
   const token = cookies.get('lcsa_admin')?.value;
@@ -78,6 +79,7 @@ export const GET: APIRoute = async ({ cookies, url }) => {
         send({ type: 'script-done', name, ok: code === 0, code });
       }
 
+      try { writeFileSync('/tmp/lcsa-poll.log', new Date().toISOString()); } catch {}
       send({ type: 'done' });
       controller.close();
     },
