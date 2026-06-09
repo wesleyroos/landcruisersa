@@ -1,6 +1,7 @@
 export const prerender = false;
 
 import type { APIRoute } from 'astro';
+import { writeFileSync } from 'fs';
 import { db } from '@/db/index';
 import { listings } from '@/db/schema';
 import { eq, and, or, isNull, sql } from 'drizzle-orm';
@@ -22,23 +23,23 @@ async function fetchAtDetails(sourceUrl: string): Promise<{ description: string;
   if (!res.ok) return { description: '', colour: '' };
   const html = await res.text();
 
-  // Description: seller-comment block in server-rendered HTML
   let description = '';
   let colour = '';
   const descMatch = html.match(/class="[^"]*seller-comment[^"]*"[^>]*>[\s\S]*?<span class="[^"]*e-read-more-line[^"]*">([\s\S]*?)<\/span>/);
   if (descMatch) {
     description = descMatch[1].replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#x[0-9A-Fa-f]+;/g, (c: string) => String.fromCodePoint(parseInt(c.slice(3, -1), 16))).trim();
   }
-  // Colour: rendered as "Colour</span><span class="...">VALUE</span>"
   const colourMatch = html.match(/Colou?r<\/span>\s*<span[^>]*>([^<]+)<\/span>/);
   if (colourMatch) colour = colourMatch[1].trim();
 
-  return { description: description.trim(), colour: colour.trim() };
+  return { description, colour };
 }
 
 function delay(ms: number) {
   return new Promise(r => setTimeout(r, ms));
 }
+
+const CONCURRENCY = 4;
 
 export const GET: APIRoute = async ({ cookies }) => {
   if (!checkAdmin(cookies)) {
@@ -63,7 +64,6 @@ export const GET: APIRoute = async ({ cookies }) => {
             sql`trim(${listings.description}) = ''`,
           ),
         ))
-        .limit(600)
         .all();
 
       send({ type: 'start', total: pending.length });
@@ -76,44 +76,51 @@ export const GET: APIRoute = async ({ cookies }) => {
 
       let updated = 0, skipped = 0, failed = 0;
 
-      for (const listing of pending) {
-        if (!listing.source_url) { skipped++; continue; }
+      // Process CONCURRENCY listings at a time, then a short pause between batches
+      for (let i = 0; i < pending.length; i += CONCURRENCY) {
+        const chunk = pending.slice(i, i + CONCURRENCY);
 
-        let description = '';
-        let colour = '';
+        await Promise.all(chunk.map(async listing => {
+          if (!listing.source_url) { skipped++; return; }
 
-        try {
-          ({ description, colour } = await fetchAtDetails(listing.source_url));
-        } catch {
-          failed++;
-          send({ type: 'progress', source_id: listing.source_id, ok: false, reason: 'fetch error' });
-          await delay(600);
-          continue;
-        }
+          let description = '';
+          let colour = '';
 
-        if (!description && !colour) {
-          skipped++;
-          send({ type: 'progress', source_id: listing.source_id, ok: false, reason: 'no data found' });
-          await delay(600);
-          continue;
-        }
+          try {
+            ({ description, colour } = await fetchAtDetails(listing.source_url));
+          } catch {
+            failed++;
+            send({ type: 'progress', source_id: listing.source_id, ok: false, reason: 'fetch error' });
+            return;
+          }
 
-        const patch: Record<string, string> = {};
-        if (description) patch.description = description;
-        if (colour && !listing.colour) patch.colour = colour;
+          if (!description && !colour) {
+            skipped++;
+            send({ type: 'progress', source_id: listing.source_id, ok: false, reason: 'no data' });
+            return;
+          }
 
-        if (Object.keys(patch).length) {
-          db.update(listings).set(patch).where(eq(listings.id, listing.id)).run();
-          updated++;
-          send({ type: 'progress', source_id: listing.source_id, ok: true, hasDesc: !!description, hasColour: !!colour });
-        } else {
-          skipped++;
-          send({ type: 'progress', source_id: listing.source_id, ok: false, reason: 'already filled' });
-        }
+          const patch: Record<string, string> = {};
+          if (description) patch.description = description;
+          if (colour && !listing.colour) patch.colour = colour;
 
-        await delay(600);
+          if (Object.keys(patch).length) {
+            db.update(listings).set(patch).where(eq(listings.id, listing.id)).run();
+            updated++;
+            send({ type: 'progress', source_id: listing.source_id, ok: true });
+          } else {
+            skipped++;
+          }
+        }));
+
+        // Progress heartbeat every batch so the UI stays updated
+        send({ type: 'batch', done: Math.min(i + CONCURRENCY, pending.length), total: pending.length, updated, skipped, failed });
+
+        // Brief pause between batches to avoid hammering AT
+        if (i + CONCURRENCY < pending.length) await delay(800);
       }
 
+      try { writeFileSync('/tmp/lcsa-desc-backfill.log', new Date().toISOString()); } catch {}
       send({ type: 'done', updated, skipped, failed });
       controller.close();
     },

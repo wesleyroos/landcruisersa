@@ -28,7 +28,8 @@ function nextHour(): number {
 
 export const GET: APIRoute = () => {
   return new Response(JSON.stringify({
-    ingest:   { lastRun: mtime('/tmp/lcsa-poll.log'),                  nextRun: next4Hour() },
-    backfill: { lastRun: mtime('/tmp/lcsa-backfill-at-images.log'),    nextRun: nextHour() },
+    ingest:      { lastRun: mtime('/tmp/lcsa-poll.log'),                nextRun: next4Hour() },
+    backfill:    { lastRun: mtime('/tmp/lcsa-backfill-at-images.log'),  nextRun: nextHour() },
+    descBackfill:{ lastRun: mtime('/tmp/lcsa-desc-backfill.log'),       nextRun: null },
   }), { headers: { 'Content-Type': 'application/json' } });
 };

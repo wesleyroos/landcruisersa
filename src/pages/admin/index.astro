@@ -590,10 +590,12 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
       const in_ = document.getElementById('ingest-next-run');
       const bl = document.getElementById('backfill-last-run');
       const bn = document.getElementById('backfill-next-run');
+      const dl = document.getElementById('desc-backfill-last-run');
       if (il) il.textContent = fmtTime(data.ingest.lastRun);
       if (in_) in_.textContent = fmtNext(data.ingest.nextRun);
       if (bl) bl.textContent = fmtTime(data.backfill.lastRun);
       if (bn) bn.textContent = fmtNext(data.backfill.nextRun);
+      if (dl) dl.textContent = fmtTime(data.descBackfill?.lastRun);
     } catch { /* non-critical */ }
   }
 
@@ -774,11 +776,9 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
           let ev: Record<string, unknown>;
           try { ev = JSON.parse(part.slice(6)); } catch { continue; }
           if (ev.type === 'start') {
-            statusEl.textContent = ev.total === 0 ? 'All descriptions filled.' : `Processing ${ev.total} listings…`;
-          } else if (ev.type === 'progress') {
-            statusEl.textContent = ev.ok
-              ? `${ev.source_id}: updated`
-              : `${ev.source_id}: ${ev.reason}`;
+            statusEl.textContent = ev.total === 0 ? 'All descriptions filled.' : `0 / ${ev.total} processed…`;
+          } else if (ev.type === 'batch') {
+            statusEl.textContent = `${ev.done} / ${ev.total} — ${ev.updated} updated`;
           } else if (ev.type === 'done') {
             statusEl.textContent = `Done — ${ev.updated} updated, ${ev.skipped} skipped, ${ev.failed} failed`;
             const el = document.getElementById('desc-backfill-last-run');
