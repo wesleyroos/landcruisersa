@@ -63,7 +63,7 @@ export const GET: APIRoute = async ({ cookies }) => {
             sql`trim(${listings.description}) = ''`,
           ),
         ))
-        .limit(50)
+        .limit(600)
         .all();
 
       send({ type: 'start', total: pending.length });
@@ -87,14 +87,14 @@ export const GET: APIRoute = async ({ cookies }) => {
         } catch {
           failed++;
           send({ type: 'progress', source_id: listing.source_id, ok: false, reason: 'fetch error' });
-          await delay(1_000);
+          await delay(600);
           continue;
         }
 
         if (!description && !colour) {
           skipped++;
           send({ type: 'progress', source_id: listing.source_id, ok: false, reason: 'no data found' });
-          await delay(1_000);
+          await delay(600);
           continue;
         }
 
@@ -111,7 +111,7 @@ export const GET: APIRoute = async ({ cookies }) => {
           send({ type: 'progress', source_id: listing.source_id, ok: false, reason: 'already filled' });
         }
 
-        await delay(1_000);
+        await delay(600);
       }
 
       send({ type: 'done', updated, skipped, failed });
