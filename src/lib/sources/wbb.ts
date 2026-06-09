@@ -1,4 +1,4 @@
-import { normalizeModel, normalizeProvince } from './normalize.ts';
+import { normalizeModel } from './normalize.ts';
 import type { DiscoveredRef, NormalizedListing, LivenessResult, SourceAdapter } from './types.ts';
 
 const SOURCE = 'wbb';
@@ -70,6 +70,7 @@ function parseListing(html: string, sourceUrl: string): NormalizedListing | null
   const transmission: 'manual' | 'automatic' = transRaw.includes('auto') ? 'automatic' : 'manual';
 
   const colour = specs['colour'] ?? specs['color'] ?? '';
+  const fuel_type = specs['fuel type'] ?? '';
 
   // Photos — VMG S3 images embedded in the page
   const seen = new Set<string>();
@@ -79,11 +80,8 @@ function parseListing(html: string, sourceUrl: string): NormalizedListing | null
     if (!seen.has(u)) { seen.add(u); photos.push(u); }
   }
 
-  // Province — look for city name near "Branch" or in page title
-  let province = '';
-  const locMatch = html.match(/(?:Branch|Location|City)[^:]*:\s*<[^>]*>([^<]+)/i) ??
-                   html.match(/(?:Branch|Location)\s*[:-]\s*([A-Za-z\s]+)/i);
-  if (locMatch) province = normalizeProvince(locMatch[1].trim());
+  // WBB is a single-location dealer in Pretoria
+  const province = 'Gauteng';
 
   // source_id from URL slug
   const source_id = stockIdFromUrl(sourceUrl);
@@ -106,6 +104,7 @@ function parseListing(html: string, sourceUrl: string): NormalizedListing | null
     new_or_used: mileage > 0 ? 'Used' : 'New',
     transmission,
     colour,
+    fuel_type: fuel_type || undefined,
     description,
     photos,
     seller_name: 'WeBuy Bakkies',

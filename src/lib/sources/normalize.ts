@@ -4,6 +4,10 @@ const MODEL_MAP: [RegExp, string][] = [
   // contains a series number (e.g. "70th Anniversary Edition").
   [/prado.?250|250[\s-]?series/i,                    'prado-250'],
   [/prado.?150|150[\s-]?series|prado/i,              'prado-150'],
+  // AutoTrader uses "70 Series 76 / 78 / 79" — must resolve before the generic 70-series catch-all
+  [/70[\s-]?series\s+79\b/i,                         '79-series'],
+  [/70[\s-]?series\s+78\b/i,                         '78-series'],
+  [/70[\s-]?series\s+76\b/i,                         '76-series'],
   [/79[\s-]?series|lc79|land.?cruiser.?79/i,         '79-series'],
   [/76[\s-]?series|lc76|land.?cruiser.?76/i,         '76-series'],
   [/78[\s-]?series|troopcarrier|troop.?carrier/i,    '78-series'],

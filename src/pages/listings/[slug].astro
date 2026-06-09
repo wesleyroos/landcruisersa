@@ -268,7 +268,7 @@ const vehicleSchema: Record<string, unknown> = {
             {listing.seats && <div class="spec-row"><span class="spec-k">Seats</span><span class="spec-v">{listing.seats}</span></div>}
             {listing.co2 && <div class="spec-row"><span class="spec-k">CO₂ Emissions</span><span class="spec-v">{listing.co2} g/km</span></div>}
             <div class="spec-row"><span class="spec-k">Condition</span><span class="spec-v">{listing.new_or_used}</span></div>
-            <div class="spec-row"><span class="spec-k">Province</span><span class="spec-v">{listing.province}</span></div>
+            {listing.province && <div class="spec-row"><span class="spec-k">Province</span><span class="spec-v">{listing.province}</span></div>}
           </div>
         </div>
 
