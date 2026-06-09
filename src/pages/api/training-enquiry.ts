@@ -4,11 +4,17 @@ import type { APIRoute } from 'astro';
 
 export const POST: APIRoute = async ({ request }) => {
   const resendKey = import.meta.env.RESEND_API_KEY ?? process.env.RESEND_API_KEY ?? '';
-  const notifyEmail = import.meta.env.NOTIFY_EMAIL ?? process.env.NOTIFY_EMAIL ?? '';
 
-  if (!resendKey || !notifyEmail) {
+  if (!resendKey) {
     return new Response(JSON.stringify({ error: 'Email service not configured.' }), { status: 500 });
   }
+
+  const trainingRecipients = [
+    'info@tad-sa.co.za',
+    'wesley@landcruisersa.co.za',
+    'salve@tad-sa.co.za',
+    'paul@tad-sa.co.za',
+  ];
 
   let body: Record<string, string>;
   try {
@@ -30,7 +36,7 @@ export const POST: APIRoute = async ({ request }) => {
     headers: { 'Authorization': `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       from: 'noreply@landcruisersa.co.za',
-      to: notifyEmail,
+      to: trainingRecipients,
       reply_to: email.trim(),
       subject: `[LCSA] Training Enquiry from ${name}`,
       html: `
