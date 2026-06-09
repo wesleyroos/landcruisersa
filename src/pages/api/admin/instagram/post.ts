@@ -1,7 +1,7 @@
 export const prerender = false;
 
 import type { APIRoute } from 'astro';
-import { getCredentials, postListingToInstagram, buildCaption } from '@/lib/instagram';
+import { getCredentials, postListingToInstagram, buildCaptionWithAIHashtags } from '@/lib/instagram';
 import { db } from '@/db/index';
 import { listings } from '@/db/schema';
 import { eq } from 'drizzle-orm';
@@ -12,14 +12,14 @@ export const POST: APIRoute = async ({ request }) => {
     return new Response(JSON.stringify({ error: 'Instagram not connected' }), { status: 401 });
   }
 
-  let body: { listingId?: number; previewOnly?: boolean };
+  let body: { listingId?: number; previewOnly?: boolean; caption?: string };
   try {
     body = await request.json();
   } catch {
     return new Response(JSON.stringify({ error: 'Invalid JSON' }), { status: 400 });
   }
 
-  const { listingId, previewOnly } = body;
+  const { listingId, previewOnly, caption: customCaption } = body;
 
   if (!listingId) {
     return new Response(JSON.stringify({ error: 'listingId required' }), { status: 400 });
@@ -32,7 +32,8 @@ export const POST: APIRoute = async ({ request }) => {
 
   if (previewOnly) {
     const photos: string[] = JSON.parse(listing.photos);
-    return new Response(JSON.stringify({ caption: buildCaption(listing), photoCount: photos.length }), {
+    const caption = await buildCaptionWithAIHashtags(listing);
+    return new Response(JSON.stringify({ caption, photoCount: photos.length }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     });
@@ -41,7 +42,7 @@ export const POST: APIRoute = async ({ request }) => {
   // Fire-and-forget — Instagram container processing can take 30-90s,
   // which exceeds Fly's proxy timeout. Return 202 immediately and let
   // the browser poll /api/admin/instagram/post-status for completion.
-  postListingToInstagram(listing, creds)
+  postListingToInstagram(listing, creds, customCaption || undefined)
     .then(() => {
       db.update(listings).set({ ig_posted_at: new Date() }).where(eq(listings.id, listingId)).run();
       console.log(`[IG post] listing ${listingId} posted successfully`);

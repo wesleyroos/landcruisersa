@@ -1,3 +1,4 @@
+import Anthropic from '@anthropic-ai/sdk';
 import { db } from '@/db/index';
 import { siteConfig } from '@/db/schema';
 import { eq } from 'drizzle-orm';
@@ -197,8 +198,7 @@ const MODEL_TAGS: Record<string, string> = {
   'other':      '#LandCruiser',
 };
 
-export function buildCaption(listing: Listing): string {
-  const modelTag   = MODEL_TAGS[listing.model] ?? '#LandCruiser';
+function buildCaptionBody(listing: Listing): string {
   const modelLabel = listing.model.replace(/-/g, ' ').toUpperCase();
   const lines: string[] = [];
 
@@ -221,21 +221,70 @@ export function buildCaption(listing: Listing): string {
 
   lines.push('');
   lines.push('📲 Link in bio to view full listing');
-  lines.push('');
-  lines.push(`#LandCruiserSA ${modelTag} #4x4SouthAfrica #4x4SA #OffRoad #LandCruiser #TLC`);
-  if (listing.listing_type === 'for_sale') lines.push('#LandCruiserForSale #4x4ForSale');
 
   return lines.join('\n');
 }
 
+function buildFallbackHashtags(listing: Listing): string {
+  const modelTag = MODEL_TAGS[listing.model] ?? '#LandCruiser';
+  let tags = `#LandCruiserSA ${modelTag} #4x4SouthAfrica #4x4SA #OffRoad #LandCruiser #TLC`;
+  if (listing.listing_type === 'for_sale') tags += '\n#LandCruiserForSale #4x4ForSale';
+  return tags;
+}
+
+export async function generateAIHashtags(listing: Listing): Promise<string> {
+  const apiKey = import.meta.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return buildFallbackHashtags(listing);
+
+  try {
+    const client = new Anthropic({ apiKey });
+    const modelLabel = listing.model.replace(/-/g, ' ').toUpperCase();
+    const isForSale = listing.listing_type === 'for_sale';
+
+    const message = await client.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 150,
+      messages: [{
+        role: 'user',
+        content: `Generate Instagram hashtags for a Land Cruiser ${isForSale ? 'for sale' : 'community showcase'} post. Keep them relevant and specific.
+
+Details:
+- ${listing.year} Land Cruiser ${modelLabel}
+- Province: ${listing.province}
+${isForSale ? `- Mileage: ${listing.mileage.toLocaleString('en-ZA')} km` : ''}
+${listing.mods ? `- Mods: ${listing.mods}` : ''}
+
+Always include: #LandCruiserSA #LandCruiser #4x4SA #4x4SouthAfrica
+${isForSale ? 'Always include: #LandCruiserForSale #4x4ForSale' : ''}
+
+Return 12-16 hashtags as a single space-separated line, nothing else.`,
+      }],
+    });
+
+    const text = message.content[0].type === 'text' ? message.content[0].text.trim() : '';
+    return text || buildFallbackHashtags(listing);
+  } catch {
+    return buildFallbackHashtags(listing);
+  }
+}
+
+export function buildCaption(listing: Listing): string {
+  return buildCaptionBody(listing) + '\n\n' + buildFallbackHashtags(listing);
+}
+
+export async function buildCaptionWithAIHashtags(listing: Listing): Promise<string> {
+  const hashtags = await generateAIHashtags(listing);
+  return buildCaptionBody(listing) + '\n\n' + hashtags;
+}
+
 // ─── Main post function ───────────────────────────────────────────────────────
 
-export async function postListingToInstagram(listing: Listing, creds: IgCredentials): Promise<string> {
+export async function postListingToInstagram(listing: Listing, creds: IgCredentials, customCaption?: string): Promise<string> {
   const photos: string[] = JSON.parse(listing.photos);
   if (!photos.length) throw new Error('Listing has no photos');
 
   const imageUrls = photos.slice(0, 10); // IG carousel max 10
-  const caption   = buildCaption(listing);
+  const caption   = customCaption ?? buildCaption(listing);
 
   if (imageUrls.length === 1) {
     const containerId = await createSingleContainer(creds.userId, creds.accessToken, imageUrls[0], caption);

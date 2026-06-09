@@ -212,10 +212,11 @@ function formatPrice(n: number) {
     <div class="modal">
       <p class="modal-title">Caption Preview</p>
       <p id="modal-photo-count" class="modal-meta"></p>
-      <pre id="modal-caption" class="modal-caption"></pre>
+      <textarea id="modal-caption" class="modal-caption" rows="14" spellcheck="false"></textarea>
       <div class="modal-actions">
-        <button id="modal-cancel"  class="btn btn-outline">Cancel</button>
-        <button id="modal-confirm" class="btn btn-post">Post Now</button>
+        <button id="modal-cancel"   class="btn btn-outline">Cancel</button>
+        <button id="modal-rehashtag" class="btn btn-outline" style="margin-right:auto">↺ New hashtags</button>
+        <button id="modal-confirm"  class="btn btn-post">Post Now</button>
       </div>
     </div>
   </div>
@@ -343,9 +344,11 @@ function formatPrice(n: number) {
   .modal-caption {
     font-size: 0.78rem; color: #374151; line-height: 1.6;
     background: #F9FAFB; border: 1.5px solid #E5E7EB; border-radius: 0.5rem;
-    padding: 0.875rem 1rem; white-space: pre-wrap; word-break: break-word;
-    max-height: 320px; overflow-y: auto; font-family: inherit;
+    padding: 0.875rem 1rem; word-break: break-word;
+    width: 100%; box-sizing: border-box; resize: vertical;
+    font-family: inherit; outline: none;
   }
+  .modal-caption:focus { border-color: #111111; }
   .modal-actions { display: flex; gap: 0.5rem; justify-content: flex-end; }
 
   /* ── Filter bar ── */
@@ -394,11 +397,12 @@ function formatPrice(n: number) {
 <script>
   let pendingListingId: number | null = null;
 
-  const modal       = document.getElementById('preview-modal')!;
-  const modalCaption = document.getElementById('modal-caption')!;
+  const modal        = document.getElementById('preview-modal')!;
+  const modalCaption = document.getElementById('modal-caption') as HTMLTextAreaElement;
   const modalMeta    = document.getElementById('modal-photo-count')!;
-  const modalCancel  = document.getElementById('modal-cancel')!;
-  const modalConfirm = document.getElementById('modal-confirm') as HTMLButtonElement;
+  const modalCancel    = document.getElementById('modal-cancel')!;
+  const modalRehashtag = document.getElementById('modal-rehashtag') as HTMLButtonElement;
+  const modalConfirm   = document.getElementById('modal-confirm') as HTMLButtonElement;
   const toast        = document.getElementById('toast')!;
 
   function showToast(msg: string, type: 'ok' | 'err') {
@@ -408,9 +412,44 @@ function formatPrice(n: number) {
     setTimeout(() => { toast.hidden = true; }, 3500);
   }
 
+  const CTA_MARKER = '📲 Link in bio to view full listing';
+
   // Close modal
   modalCancel.addEventListener('click', () => { modal.hidden = true; pendingListingId = null; });
   modal.addEventListener('click', (e) => { if (e.target === modal) { modal.hidden = true; pendingListingId = null; } });
+
+  // Regenerate hashtags — keep the body the user may have edited, swap only the hashtag block
+  modalRehashtag.addEventListener('click', async () => {
+    if (!pendingListingId) return;
+    modalRehashtag.disabled = true;
+    modalRehashtag.textContent = '…';
+    try {
+      const res  = await fetch('/api/admin/instagram/post', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ listingId: pendingListingId, previewOnly: true }),
+      });
+      const data = await res.json();
+      if (!res.ok) { showToast(data.error ?? 'Failed to regenerate', 'err'); return; }
+
+      // Extract new hashtags (everything after the CTA line + blank line)
+      const ctaIdx = data.caption.indexOf(CTA_MARKER);
+      const newHashtags = ctaIdx !== -1 ? data.caption.slice(ctaIdx + CTA_MARKER.length).trimStart() : '';
+
+      // Replace only the hashtag portion in the current textarea
+      const current = modalCaption.value;
+      const bodyEnd = current.indexOf(CTA_MARKER);
+      if (bodyEnd !== -1) {
+        modalCaption.value = current.slice(0, bodyEnd + CTA_MARKER.length) + (newHashtags ? '\n\n' + newHashtags : '');
+      } else {
+        // Fallback: just append new hashtags
+        modalCaption.value = current.trimEnd() + '\n\n' + newHashtags;
+      }
+    } finally {
+      modalRehashtag.disabled = false;
+      modalRehashtag.textContent = '↺ New hashtags';
+    }
+  });
 
   // Listing action buttons
   document.addEventListener('click', async (e) => {
@@ -422,6 +461,13 @@ function formatPrice(n: number) {
 
     if (action === 'preview') {
       btn.disabled = true;
+      btn.textContent = 'Generating…';
+      modalCaption.value = 'Generating hashtags with AI…';
+      modalCaption.disabled = true;
+      modalConfirm.disabled = true;
+      modalMeta.textContent = '';
+      pendingListingId = id;
+      modal.hidden = false;
       try {
         const res  = await fetch('/api/admin/instagram/post', {
           method: 'POST',
@@ -429,13 +475,19 @@ function formatPrice(n: number) {
           body: JSON.stringify({ listingId: id, previewOnly: true }),
         });
         const data = await res.json();
-        if (!res.ok) { showToast(data.error ?? 'Failed to load preview', 'err'); return; }
-        modalCaption.textContent = data.caption;
-        modalMeta.textContent    = `${data.photoCount} photo${data.photoCount !== 1 ? 's' : ''} will be posted as ${data.photoCount > 1 ? 'a carousel' : 'a single image'}`;
-        pendingListingId = id;
-        modal.hidden = false;
+        if (!res.ok) {
+          modal.hidden = true;
+          pendingListingId = null;
+          showToast(data.error ?? 'Failed to load preview', 'err');
+          return;
+        }
+        modalCaption.value    = data.caption;
+        modalCaption.disabled = false;
+        modalConfirm.disabled = false;
+        modalMeta.textContent = `${data.photoCount} photo${data.photoCount !== 1 ? 's' : ''} will be posted as ${data.photoCount > 1 ? 'a carousel' : 'a single image'}`;
       } finally {
         btn.disabled = false;
+        btn.textContent = 'Preview Caption';
       }
     }
 
@@ -445,14 +497,15 @@ function formatPrice(n: number) {
     }
   });
 
-  // Confirm from modal
+  // Confirm from modal — pass whatever caption is currently in the textarea
   modalConfirm.addEventListener('click', async () => {
     if (!pendingListingId) return;
+    const id      = pendingListingId;
+    const caption = modalCaption.value;
     modal.hidden = true;
-    const id = pendingListingId;
     pendingListingId = null;
     const btn = document.querySelector<HTMLButtonElement>(`[data-action="post"][data-id="${id}"]`);
-    await doPost(id, btn);
+    await doPost(id, btn, caption);
   });
 
   function markPosted(id: number, btn: HTMLButtonElement | null) {
@@ -492,14 +545,14 @@ function formatPrice(n: number) {
     setTimeout(() => pollPosted(id, btn, deadline), 4000);
   }
 
-  async function doPost(id: number, btn: HTMLButtonElement | null) {
+  async function doPost(id: number, btn: HTMLButtonElement | null, caption?: string) {
     if (btn) { btn.disabled = true; btn.textContent = 'Posting…'; }
 
     try {
       const res  = await fetch('/api/admin/instagram/post', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ listingId: id }),
+        body: JSON.stringify({ listingId: id, ...(caption ? { caption } : {}) }),
       });
       const data = await res.json();
       if (res.status === 202 || res.ok) {

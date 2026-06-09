@@ -9,6 +9,7 @@
     "astro": "astro"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.102.0",
     "@astrojs/mdx": "^4.0.0",
     "@astrojs/node": "^9.0.0",
     "@astrojs/sitemap": "^3.0.0",
