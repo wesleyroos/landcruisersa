@@ -4,12 +4,12 @@ export const prerender = false;
 import Base from '@/layouts/Base.astro';
 import { db } from '@/db/index';
 import { listings } from '@/db/schema';
-import { eq, desc } from 'drizzle-orm';
+import { inArray, desc } from 'drizzle-orm';
 
 const allListings = await db
   .select()
   .from(listings)
-  .where(eq(listings.status, 'active'))
+  .where(inArray(listings.status, ['active', 'sold']))
   .orderBy(desc(listings.created_at));
 
 const PROVINCES = ['All', 'Gauteng', 'Western Cape', 'KwaZulu-Natal', 'Eastern Cape', 'Limpopo', 'Mpumalanga', 'North West', 'Free State', 'Northern Cape'];
@@ -68,6 +68,7 @@ function firstPhoto(photos: string) {
         <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
         Show Off
       </button>
+      <button class="type-pill" data-type="sold">Sold</button>
     </div>
 
     <!-- DROPDOWN FILTERS -->
@@ -98,11 +99,12 @@ function firstPhoto(photos: string) {
             l.listing_type === 'show_off'
               ? 'bg-[#1A1A1A] border-[rgba(245,166,35,0.15)] hover:border-[#F5A623] hover:shadow-lg hover:shadow-[rgba(245,166,35,0.1)]'
               : 'bg-white border-[#DDD9D3] hover:border-[#F5A623] hover:shadow-md'
-          }`}
+          } ${l.status === 'sold' ? 'is-sold' : ''}`}
           data-model={l.model}
           data-province={l.province}
           data-price={l.price}
           data-type={l.listing_type}
+          data-status={l.status}
         >
           <div class="card-img-wrap">
             <img
@@ -241,9 +243,17 @@ function firstPhoto(photos: string) {
     border-color: #111111;
     color: white;
   }
+  .type-pill[data-type="sold"].active {
+    background: #6B7280;
+    border-color: #6B7280;
+  }
   .type-pill:not(.active):hover {
     border-color: #F5A623;
     color: #F5A623;
+  }
+  .listing-card.is-sold {
+    opacity: 0.6;
+    filter: grayscale(0.4);
   }
 </style>
 
@@ -267,14 +277,20 @@ function firstPhoto(photos: string) {
       ? [0, Infinity]
       : priceSel.value.split('-').map(Number);
 
+    const showingSold = activeType === 'sold';
+
     let visible = 0;
     cards.forEach(card => {
+      const isSold = card.dataset.status === 'sold';
+
+      // Sold filter: only show sold listings; all other filters: only show active
+      if (showingSold !== isSold) { card.style.display = 'none'; return; }
+
       const price = Number(card.dataset.price);
       const cardType = card.dataset.type ?? 'for_sale';
       const isShowOff = cardType === 'show_off';
 
-      // Price filter only applies to for_sale listings
-      const priceOk = isShowOff || (price >= minP && price <= maxP);
+      const priceOk = isShowOff || showingSold || (price >= minP && price <= maxP);
 
       const cardModel = card.dataset.model ?? '';
       const modelMatch =
@@ -283,11 +299,13 @@ function firstPhoto(photos: string) {
         (model === 'fj' && (cardModel === 'fj-cruiser' || cardModel === 'land-cruiser-fj')) ||
         cardModel === model;
 
+      const typeMatch = showingSold || activeType === 'all' || cardType === activeType;
+
       const show =
         modelMatch &&
         (province === 'all' || card.dataset.province === province) &&
         priceOk &&
-        (activeType === 'all' || cardType === activeType);
+        typeMatch;
 
       card.style.display = show ? '' : 'none';
       if (show) visible++;
@@ -303,9 +321,9 @@ function firstPhoto(photos: string) {
       typePills.forEach(p => p.classList.remove('active'));
       pill.classList.add('active');
 
-      // Hide price filter when showing show-off only (it doesn't apply)
+      // Hide price filter when it doesn't apply
       const priceFilter = document.getElementById('filter-price') as HTMLSelectElement;
-      priceFilter.style.display = activeType === 'show_off' ? 'none' : '';
+      priceFilter.style.display = (activeType === 'show_off' || activeType === 'sold') ? 'none' : '';
 
       applyFilters();
     });
