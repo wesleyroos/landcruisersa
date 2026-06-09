@@ -5,7 +5,7 @@ import AdminLayout from '@/layouts/AdminLayout.astro';
 import { getCredentials } from '@/lib/instagram';
 import { db } from '@/db/index';
 import { listings } from '@/db/schema';
-import { desc, eq, and, gte, lte, sql } from 'drizzle-orm';
+import { desc, eq, and, gte, lte, sql, isNotNull } from 'drizzle-orm';
 import type { Listing } from '@/db/schema';
 import type { SQL } from 'drizzle-orm';
 
@@ -17,12 +17,14 @@ const fModel    = Astro.url.searchParams.get('model')    ?? '';
 const fYear     = Astro.url.searchParams.get('year')     ?? '';
 const fProvince = Astro.url.searchParams.get('province') ?? '';
 const fType     = Astro.url.searchParams.get('type')     ?? '';
-const hasFilter = !!(fModel || fYear || fProvince || fType);
+const fPosted   = Astro.url.searchParams.get('posted')   === '1';
+const hasFilter = !!(fModel || fYear || fProvince || fType || fPosted);
 
 const conds: SQL[] = [eq(listings.status, 'active')];
 if (fModel)    conds.push(eq(listings.model,        fModel));
 if (fProvince) conds.push(eq(listings.province,     fProvince));
 if (fType)     conds.push(eq(listings.listing_type, fType));
+if (fPosted)   conds.push(isNotNull(listings.ig_posted_at));
 if (fYear) {
   const [yMin, yMax] = fYear.split('-').map(Number);
   conds.push(gte(listings.year, yMin));
@@ -35,6 +37,17 @@ const active = db.select().from(listings)
 
 const totalActive = (db.select({ n: sql<number>`count(*)` }).from(listings)
   .where(eq(listings.status, 'active')).get())?.n ?? 0;
+const totalPosted = (db.select({ n: sql<number>`count(*)` }).from(listings)
+  .where(and(eq(listings.status, 'active'), isNotNull(listings.ig_posted_at))).get())?.n ?? 0;
+
+// Build toggle URL — adds or removes the posted=1 param while keeping other filters
+const postedToggleParams = new URLSearchParams();
+if (!fPosted) postedToggleParams.set('posted', '1');
+if (fModel)    postedToggleParams.set('model',    fModel);
+if (fYear)     postedToggleParams.set('year',     fYear);
+if (fProvince) postedToggleParams.set('province', fProvince);
+if (fType)     postedToggleParams.set('type',     fType);
+const postedToggleUrl = '/admin/instagram' + (postedToggleParams.toString() ? '?' + postedToggleParams.toString() : '');
 
 const urlError   = Astro.url.searchParams.get('error');
 const urlSuccess = Astro.url.searchParams.get('connected');
@@ -150,6 +163,9 @@ function formatPrice(n: number) {
         </select>
       </div>
       <div class="filter-meta">
+        <a href={postedToggleUrl} class={`af-posted-toggle${fPosted ? ' active' : ''}`}>
+          ✓ Posted ({totalPosted})
+        </a>
         {hasFilter
           ? <span class="af-count">{active.length} of {totalActive}</span>
           : <span class="af-count">{totalActive} listing{totalActive !== 1 ? 's' : ''}</span>
@@ -375,6 +391,13 @@ function formatPrice(n: number) {
     padding: 0.3rem 0.6rem; transition: all 0.15s;
   }
   .af-clear:hover { border-color: #111111; color: #111111; }
+  .af-posted-toggle {
+    font-size: 0.7rem; font-weight: 700; color: #6B7280;
+    text-decoration: none; border: 1.5px solid #E5E7EB; border-radius: 0.4rem;
+    padding: 0.3rem 0.6rem; transition: all 0.15s;
+  }
+  .af-posted-toggle:hover { border-color: #111111; color: #111111; }
+  .af-posted-toggle.active { background: #111111; color: #fff; border-color: #111111; }
 
   /* ── Toast ── */
   .toast {
