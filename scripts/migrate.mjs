@@ -64,5 +64,15 @@ db.exec(`
     WHERE source_id IS NOT NULL
 `);
 
+// Data fix: prado with wrong model slug (e.g. from old normalize or bad ingest)
+db.exec(`
+  UPDATE listings
+  SET model = CASE WHEN year >= 2024 THEN 'prado-250' ELSE 'prado-150' END
+  WHERE LOWER(title) LIKE '%prado%'
+    AND model NOT IN ('prado-150', 'prado-250')
+`);
+// Data fix: prado-250 launched 2024 — upgrade any stale prado-150 rows
+db.exec(`UPDATE listings SET model = 'prado-250' WHERE model = 'prado-150' AND year >= 2024`);
+
 console.log('[migrate] Schema ready.');
 db.close();
