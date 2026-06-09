@@ -57,6 +57,14 @@ addCol('source_id',      "source_id      TEXT");
 addCol('last_polled_at', "last_polled_at INTEGER");
 addCol('review_flag',    "review_flag    INTEGER NOT NULL DEFAULT 0");
 
+db.exec(`
+  CREATE TABLE IF NOT EXISTS site_config (
+    key        TEXT PRIMARY KEY,
+    value      TEXT NOT NULL,
+    updated_at INTEGER NOT NULL
+  )
+`);
+
 // Unique index for aggregator dedup — safe to run repeatedly
 db.exec(`
   CREATE UNIQUE INDEX IF NOT EXISTS listings_source_source_id
