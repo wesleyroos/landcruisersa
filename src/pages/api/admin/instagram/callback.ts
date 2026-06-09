@@ -13,28 +13,21 @@ const APP_ID       = import.meta.env.INSTAGRAM_APP_ID       ?? process.env.INSTA
 const APP_SECRET   = import.meta.env.INSTAGRAM_APP_SECRET   ?? process.env.INSTAGRAM_APP_SECRET;
 const REDIRECT_URI = import.meta.env.INSTAGRAM_REDIRECT_URI ?? process.env.INSTAGRAM_REDIRECT_URI;
 
-export const GET: APIRoute = async ({ url, redirect }) => {
+export const GET: APIRoute = async ({ url }) => {
+  const origin = url.origin;
+  const go = (path: string) => Response.redirect(`${origin}${path}`, 302);
+
   const code  = url.searchParams.get('code');
   const state = url.searchParams.get('state');
   const error = url.searchParams.get('error');
 
-  if (error) {
-    return redirect('/admin/instagram?error=denied', 302);
-  }
-
-  if (!code || !state) {
-    return redirect('/admin/instagram?error=missing_params', 302);
-  }
-
-  if (!APP_ID || !APP_SECRET || !REDIRECT_URI) {
-    return redirect('/admin/instagram?error=not_configured', 302);
-  }
+  if (error) return go('/admin/instagram?error=denied');
+  if (!code || !state) return go('/admin/instagram?error=missing_params');
+  if (!APP_ID || !APP_SECRET || !REDIRECT_URI) return go('/admin/instagram?error=not_configured');
 
   try {
     const valid = await verifyAndClearOAuthState(state);
-    if (!valid) {
-      return redirect('/admin/instagram?error=invalid_state', 302);
-    }
+    if (!valid) return go('/admin/instagram?error=invalid_state');
 
     const shortToken = await exchangeCodeForToken(code, APP_ID, APP_SECRET, REDIRECT_URI);
     const longToken  = await exchangeForLongLivedToken(shortToken, APP_SECRET);
@@ -42,9 +35,9 @@ export const GET: APIRoute = async ({ url, redirect }) => {
 
     await saveCredentials({ userId: id, accessToken: longToken, username });
 
-    return redirect('/admin/instagram?connected=1', 302);
+    return go('/admin/instagram?connected=1');
   } catch (err) {
     console.error('[IG callback]', err);
-    return redirect('/admin/instagram?error=token_exchange', 302);
+    return go('/admin/instagram?error=token_exchange');
   }
 };
