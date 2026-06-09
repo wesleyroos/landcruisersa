@@ -5,6 +5,7 @@ import { getCredentials, postListingToInstagram, buildCaption } from '@/lib/inst
 import { db } from '@/db/index';
 import { listings } from '@/db/schema';
 import { eq } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
 
 export const POST: APIRoute = async ({ request }) => {
   const creds = await getCredentials();
@@ -40,6 +41,10 @@ export const POST: APIRoute = async ({ request }) => {
 
   try {
     const igPostId = await postListingToInstagram(listing, creds);
+    db.update(listings)
+      .set({ ig_posted_at: new Date() })
+      .where(eq(listings.id, listingId))
+      .run();
     return new Response(JSON.stringify({ ok: true, igPostId }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },

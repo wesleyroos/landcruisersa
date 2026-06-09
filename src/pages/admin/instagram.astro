@@ -173,13 +173,14 @@ function formatPrice(n: number) {
           const photo = firstPhoto(l.photos);
           const count = photoCount(l.photos);
           return (
-            <div class="lcard" data-id={l.id}>
+            <div class={`lcard${l.ig_posted_at ? ' lcard-posted' : ''}`} data-id={l.id}>
               <div class="lcard-thumb-wrap">
                 {photo
                   ? <img class="lcard-thumb" src={photo} alt={l.title} loading="lazy" />
                   : <div class="lcard-thumb lcard-thumb-empty">🚗</div>
                 }
                 {count > 1 && <span class="photo-count">{count} photos</span>}
+                {l.ig_posted_at && <span class="posted-badge">✓ Posted</span>}
               </div>
               <div class="lcard-body">
                 <p class="lcard-title">{l.title}</p>
@@ -187,13 +188,16 @@ function formatPrice(n: number) {
                   {l.year} · {l.model.replaceAll('-', ' ').toUpperCase()} · {l.province}
                   {l.listing_type === 'for_sale' && ` · ${formatPrice(l.price)}`}
                 </p>
+                {l.ig_posted_at && (
+                  <p class="lcard-posted-at">Posted {new Intl.DateTimeFormat('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' }).format(l.ig_posted_at)}</p>
+                )}
               </div>
               <div class="lcard-action">
                 <button class="btn btn-preview" data-action="preview" data-id={l.id}>
                   Preview Caption
                 </button>
-                <button class="btn btn-post" data-action="post" data-id={l.id}>
-                  Post to Instagram
+                <button class={`btn ${l.ig_posted_at ? 'btn-repost' : 'btn-post'}`} data-action="post" data-id={l.id}>
+                  {l.ig_posted_at ? 'Repost' : 'Post to Instagram'}
                 </button>
               </div>
             </div>
@@ -311,6 +315,17 @@ function formatPrice(n: number) {
 
   .btn-post     { background: #111111; color: white; border-color: #111111; }
   .btn-post:hover:not(:disabled) { background: #374151; border-color: #374151; }
+
+  .btn-repost   { background: white; color: #6B7280; border-color: #E5E7EB; }
+  .btn-repost:hover:not(:disabled) { background: #F9FAFB; border-color: #9CA3AF; color: #374151; }
+
+  .lcard-posted { background: #F9FBF9; }
+  .posted-badge {
+    position: absolute; top: 6px; right: 6px;
+    background: #166534; color: white; font-size: 0.6rem; font-weight: 700;
+    padding: 0.15rem 0.45rem; border-radius: 9999px; letter-spacing: 0.04em;
+  }
+  .lcard-posted-at { font-size: 0.68rem; color: #166534; font-weight: 600; margin-top: 0.2rem; }
 
   /* ── Modal ── */
   .modal-backdrop {
@@ -452,12 +467,33 @@ function formatPrice(n: number) {
       const data = await res.json();
       if (res.ok) {
         showToast('Posted to Instagram!', 'ok');
+        // Mark card as posted immediately without a page reload
+        const card = document.querySelector<HTMLElement>(`.lcard[data-id="${id}"]`);
+        if (card) {
+          card.classList.add('lcard-posted');
+          const thumbWrap = card.querySelector('.lcard-thumb-wrap');
+          if (thumbWrap && !thumbWrap.querySelector('.posted-badge')) {
+            const badge = document.createElement('span');
+            badge.className = 'posted-badge';
+            badge.textContent = '✓ Posted';
+            thumbWrap.appendChild(badge);
+          }
+          const body = card.querySelector('.lcard-body');
+          if (body && !body.querySelector('.lcard-posted-at')) {
+            const today = new Intl.DateTimeFormat('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date());
+            const p = document.createElement('p');
+            p.className = 'lcard-posted-at';
+            p.textContent = `Posted ${today}`;
+            body.appendChild(p);
+          }
+        }
+        if (btn) { btn.className = 'btn btn-repost'; btn.textContent = 'Repost'; btn.disabled = false; }
       } else {
         showToast(data.error ?? 'Post failed', 'err');
+        if (btn) { btn.disabled = false; btn.textContent = btn.classList.contains('btn-repost') ? 'Repost' : 'Post to Instagram'; }
       }
     } catch {
       showToast('Network error', 'err');
-    } finally {
       if (btn) { btn.disabled = false; btn.textContent = 'Post to Instagram'; }
     }
   }

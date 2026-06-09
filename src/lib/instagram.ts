@@ -167,13 +167,21 @@ async function createCarouselContainer(userId: string, accessToken: string, chil
   return data.id;
 }
 
-async function publishMedia(userId: string, accessToken: string, creationId: string): Promise<string> {
+async function publishMedia(userId: string, accessToken: string, creationId: string, attempt = 0): Promise<string> {
   const res  = await fetch(`${IG_API}/${userId}/media_publish`, {
     method: 'POST',
     body: new URLSearchParams({ creation_id: creationId, access_token: accessToken }),
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data.error?.message ?? 'Failed to publish media');
+  if (!res.ok) {
+    const msg = data.error?.message ?? 'Failed to publish media';
+    // Instagram sometimes reports the container as FINISHED but isn't ready to publish yet
+    if (attempt < 4 && msg.includes('not available')) {
+      await new Promise(r => setTimeout(r, 5000));
+      return publishMedia(userId, accessToken, creationId, attempt + 1);
+    }
+    throw new Error(msg);
+  }
   return data.id;
 }
 

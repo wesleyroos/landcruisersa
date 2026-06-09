@@ -56,6 +56,7 @@ addCol('source',         "source         TEXT    NOT NULL DEFAULT 'own'");
 addCol('source_id',      "source_id      TEXT");
 addCol('last_polled_at', "last_polled_at INTEGER");
 addCol('review_flag',    "review_flag    INTEGER NOT NULL DEFAULT 0");
+addCol('ig_posted_at',   "ig_posted_at   INTEGER");
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS site_config (

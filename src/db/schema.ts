@@ -30,6 +30,7 @@ export const listings = sqliteTable('listings', {
   source_id:    text('source_id'),                           // platform-native listing ID
   last_polled_at: integer('last_polled_at', { mode: 'timestamp' }), // last liveness check
   review_flag:  integer('review_flag', { mode: 'boolean' }).notNull().default(false),
+  ig_posted_at: integer('ig_posted_at', { mode: 'timestamp' }),    // last posted to Instagram
   created_at:   integer('created_at', { mode: 'timestamp' }).notNull(),
 }, t => ({
   sourceIdIdx: uniqueIndex('listings_source_source_id').on(t.source, t.source_id),
