@@ -233,7 +233,7 @@ function buildFallbackHashtags(listing: Listing): string {
 }
 
 export async function generateAIHashtags(listing: Listing): Promise<string> {
-  const apiKey = import.meta.env.ANTHROPIC_API_KEY;
+  const apiKey = process.env.ANTHROPIC_API_KEY ?? import.meta.env.ANTHROPIC_API_KEY;
   if (!apiKey) return buildFallbackHashtags(listing);
 
   try {

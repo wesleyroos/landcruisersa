@@ -447,6 +447,7 @@ function formatPrice(n: number) {
     if (!pendingListingId) return;
     modalRehashtag.disabled = true;
     modalRehashtag.textContent = '…';
+    let success = false;
     try {
       const res  = await fetch('/api/admin/instagram/post', {
         method: 'POST',
@@ -456,7 +457,7 @@ function formatPrice(n: number) {
       const data = await res.json();
       if (!res.ok) { showToast(data.error ?? 'Failed to regenerate', 'err'); return; }
 
-      // Extract new hashtags (everything after the CTA line + blank line)
+      // Extract new hashtags (everything after the CTA line)
       const ctaIdx = data.caption.indexOf(CTA_MARKER);
       const newHashtags = ctaIdx !== -1 ? data.caption.slice(ctaIdx + CTA_MARKER.length).trimStart() : '';
 
@@ -466,12 +467,13 @@ function formatPrice(n: number) {
       if (bodyEnd !== -1) {
         modalCaption.value = current.slice(0, bodyEnd + CTA_MARKER.length) + (newHashtags ? '\n\n' + newHashtags : '');
       } else {
-        // Fallback: just append new hashtags
         modalCaption.value = current.trimEnd() + '\n\n' + newHashtags;
       }
+      success = true;
     } finally {
       modalRehashtag.disabled = false;
-      modalRehashtag.textContent = '↺ New hashtags';
+      modalRehashtag.textContent = success ? '✓ Updated!' : '↺ New hashtags';
+      if (success) setTimeout(() => { modalRehashtag.textContent = '↺ New hashtags'; }, 1500);
     }
   });
 
