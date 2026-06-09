@@ -5,18 +5,36 @@ import AdminLayout from '@/layouts/AdminLayout.astro';
 import { getCredentials } from '@/lib/instagram';
 import { db } from '@/db/index';
 import { listings } from '@/db/schema';
-import { desc, eq } from 'drizzle-orm';
+import { desc, eq, and, gte, lte, sql } from 'drizzle-orm';
 import type { Listing } from '@/db/schema';
+import type { SQL } from 'drizzle-orm';
 
 const creds = await getCredentials();
 const connected = !!creds;
 
-const active = db
-  .select()
-  .from(listings)
-  .where(eq(listings.status, 'active'))
-  .orderBy(desc(listings.created_at))
-  .all();
+// Filter params
+const fModel    = Astro.url.searchParams.get('model')    ?? '';
+const fYear     = Astro.url.searchParams.get('year')     ?? '';
+const fProvince = Astro.url.searchParams.get('province') ?? '';
+const fType     = Astro.url.searchParams.get('type')     ?? '';
+const hasFilter = !!(fModel || fYear || fProvince || fType);
+
+const conds: SQL[] = [eq(listings.status, 'active')];
+if (fModel)    conds.push(eq(listings.model,        fModel));
+if (fProvince) conds.push(eq(listings.province,     fProvince));
+if (fType)     conds.push(eq(listings.listing_type, fType));
+if (fYear) {
+  const [yMin, yMax] = fYear.split('-').map(Number);
+  conds.push(gte(listings.year, yMin));
+  if (yMax < 9999) conds.push(lte(listings.year, yMax));
+}
+
+const active = db.select().from(listings)
+  .where(and(...conds))
+  .orderBy(desc(listings.created_at)).all();
+
+const totalActive = (db.select({ n: sql<number>`count(*)` }).from(listings)
+  .where(eq(listings.status, 'active')).get())?.n ?? 0;
 
 const urlError   = Astro.url.searchParams.get('error');
 const urlSuccess = Astro.url.searchParams.get('connected');
@@ -85,13 +103,69 @@ function formatPrice(n: number) {
     )}
   </div>
 
+  <!-- FILTER BAR -->
+  {connected && (
+    <div class="filter-bar">
+      <div class="filter-fields">
+        <select class={`af-sel${fModel    ? ' active' : ''}`} data-filter="model">
+          <option value="">All Models</option>
+          <option value="76-series"       selected={fModel==='76-series'}>76 Series</option>
+          <option value="78-series"       selected={fModel==='78-series'}>78 Series</option>
+          <option value="79-series"       selected={fModel==='79-series'}>79 Series</option>
+          <option value="80-series"       selected={fModel==='80-series'}>80 Series</option>
+          <option value="100-series"      selected={fModel==='100-series'}>100 Series</option>
+          <option value="200-series"      selected={fModel==='200-series'}>200 Series</option>
+          <option value="300-series"      selected={fModel==='300-series'}>300 Series</option>
+          <option value="prado-150"       selected={fModel==='prado-150'}>Prado 150</option>
+          <option value="prado-250"       selected={fModel==='prado-250'}>Prado 250</option>
+          <option value="fj-cruiser"      selected={fModel==='fj-cruiser'}>FJ Cruiser</option>
+          <option value="land-cruiser-fj" selected={fModel==='land-cruiser-fj'}>LC FJ</option>
+          <option value="other"           selected={fModel==='other'}>Other</option>
+        </select>
+        <select class={`af-sel${fYear     ? ' active' : ''}`} data-filter="year">
+          <option value="">Any Year</option>
+          <option value="2023-9999" selected={fYear==='2023-9999'}>2023+</option>
+          <option value="2020-2022" selected={fYear==='2020-2022'}>2020–2022</option>
+          <option value="2015-2019" selected={fYear==='2015-2019'}>2015–2019</option>
+          <option value="2010-2014" selected={fYear==='2010-2014'}>2010–2014</option>
+          <option value="2000-2009" selected={fYear==='2000-2009'}>2000s</option>
+          <option value="0-1999"    selected={fYear==='0-1999'}>Pre-2000</option>
+        </select>
+        <select class={`af-sel${fProvince ? ' active' : ''}`} data-filter="province">
+          <option value="">All Provinces</option>
+          <option value="Gauteng"       selected={fProvince==='Gauteng'}>Gauteng</option>
+          <option value="Western Cape"  selected={fProvince==='Western Cape'}>Western Cape</option>
+          <option value="KwaZulu-Natal" selected={fProvince==='KwaZulu-Natal'}>KwaZulu-Natal</option>
+          <option value="Eastern Cape"  selected={fProvince==='Eastern Cape'}>Eastern Cape</option>
+          <option value="Limpopo"       selected={fProvince==='Limpopo'}>Limpopo</option>
+          <option value="Mpumalanga"    selected={fProvince==='Mpumalanga'}>Mpumalanga</option>
+          <option value="North West"    selected={fProvince==='North West'}>North West</option>
+          <option value="Free State"    selected={fProvince==='Free State'}>Free State</option>
+          <option value="Northern Cape" selected={fProvince==='Northern Cape'}>Northern Cape</option>
+        </select>
+        <select class={`af-sel${fType     ? ' active' : ''}`} data-filter="type">
+          <option value="">All Types</option>
+          <option value="for_sale" selected={fType==='for_sale'}>For Sale</option>
+          <option value="show_off" selected={fType==='show_off'}>Show Off</option>
+        </select>
+      </div>
+      <div class="filter-meta">
+        {hasFilter
+          ? <span class="af-count">{active.length} of {totalActive}</span>
+          : <span class="af-count">{totalActive} listing{totalActive !== 1 ? 's' : ''}</span>
+        }
+        {hasFilter && <a href="/admin/instagram" class="af-clear">✕ Clear</a>}
+      </div>
+    </div>
+  )}
+
   <!-- LISTINGS -->
   {connected && (
     <div class="section">
       <p class="section-head">Active Listings</p>
 
       {active.length === 0 && (
-        <p class="empty-state">No active listings yet.</p>
+        <p class="empty-state">No active listings match your filters.</p>
       )}
 
       <div class="listing-grid">
@@ -259,6 +333,31 @@ function formatPrice(n: number) {
   }
   .modal-actions { display: flex; gap: 0.5rem; justify-content: flex-end; }
 
+  /* ── Filter bar ── */
+  .filter-bar {
+    background: white; border: 1.5px solid #E5E7EB; border-radius: 0.75rem;
+    padding: 0.75rem 1rem; margin-bottom: 1.25rem;
+    display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
+  }
+  .filter-fields { display: flex; gap: 0.5rem; flex-wrap: wrap; flex: 1; }
+  .filter-meta { display: flex; align-items: center; gap: 0.75rem; flex-shrink: 0; }
+  .af-sel {
+    font-size: 0.7rem; font-weight: 600; color: #374151;
+    border: 1.5px solid #E5E7EB; border-radius: 0.4rem;
+    padding: 0.35rem 0.6rem; background: white; cursor: pointer;
+    outline: none; transition: border-color 0.15s; box-sizing: border-box;
+    appearance: none; -webkit-appearance: none;
+  }
+  .af-sel:hover { border-color: #9CA3AF; }
+  .af-sel.active { border-color: #111111; background: #111111; color: white; }
+  .af-count { font-size: 0.72rem; font-weight: 600; color: #9CA3AF; }
+  .af-clear {
+    font-size: 0.7rem; font-weight: 700; color: #6B7280;
+    text-decoration: none; border: 1.5px solid #E5E7EB; border-radius: 0.4rem;
+    padding: 0.3rem 0.6rem; transition: all 0.15s;
+  }
+  .af-clear:hover { border-color: #111111; color: #111111; }
+
   /* ── Toast ── */
   .toast {
     position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 100;
@@ -385,5 +484,16 @@ function formatPrice(n: number) {
     btn.disabled = true;
     await fetch('/api/admin/instagram/disconnect', { method: 'POST' });
     location.reload();
+  });
+
+  // Filter selects — navigate to filtered URL on change
+  document.querySelectorAll<HTMLSelectElement>('[data-filter]').forEach(sel => {
+    sel.addEventListener('change', () => {
+      const params = new URLSearchParams(window.location.search);
+      const key = sel.dataset.filter!;
+      if (sel.value) params.set(key, sel.value); else params.delete(key);
+      params.delete('page');
+      window.location.href = '/admin/instagram' + (params.toString() ? '?' + params.toString() : '');
+    });
   });
 </script>
