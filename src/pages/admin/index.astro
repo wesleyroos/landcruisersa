@@ -4,14 +4,34 @@ export const prerender = false;
 import AdminLayout from '@/layouts/AdminLayout.astro';
 import { db } from '@/db/index';
 import { listings } from '@/db/schema';
-import { desc } from 'drizzle-orm';
+import { desc, eq, sql } from 'drizzle-orm';
 import type { Listing } from '@/db/schema';
 
-const all = await db.select().from(listings).orderBy(desc(listings.created_at));
+const PAGE_SIZE = 50;
+const page = Math.max(1, Number(Astro.url.searchParams.get('page') ?? '1'));
 
-const pending = all.filter(l => l.status === 'pending');
-const active  = all.filter(l => l.status === 'active');
-const sold    = all.filter(l => l.status === 'sold');
+// Fast counts — no full table scan
+const statusCounts = db.select({ status: listings.status, n: sql<number>`count(*)` })
+  .from(listings).groupBy(listings.status).all();
+const countMap: Record<string, number> = {};
+for (const r of statusCounts) countMap[r.status] = r.n;
+const pendingCount = countMap['pending'] ?? 0;
+const activeCount  = countMap['active']  ?? 0;
+const soldCount    = countMap['sold']    ?? 0;
+const totalCount   = pendingCount + activeCount + soldCount;
+
+// Pending: always load all (small)
+const pending = db.select().from(listings)
+  .where(eq(listings.status, 'pending'))
+  .orderBy(desc(listings.created_at)).all();
+
+// Active: paginated
+const totalPages = Math.max(1, Math.ceil(activeCount / PAGE_SIZE));
+const safePage   = Math.min(page, totalPages);
+const active = db.select().from(listings)
+  .where(eq(listings.status, 'active'))
+  .orderBy(desc(listings.created_at))
+  .limit(PAGE_SIZE).offset((safePage - 1) * PAGE_SIZE).all();
 
 function firstPhoto(photos: string) {
   try { return JSON.parse(photos)[0] ?? null; } catch { return null; }
@@ -24,10 +44,9 @@ function formatDate(d: Date | null) {
   return new Intl.DateTimeFormat('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' }).format(d);
 }
 
-const grouped: { label: string; status: string; items: Listing[] }[] = [
-  { label: 'Pending Approval', status: 'pending', items: pending },
-  { label: 'Active',           status: 'active',  items: active  },
-  { label: 'Sold',             status: 'sold',    items: sold    },
+const grouped: { label: string; status: string; items: Listing[]; total: number }[] = [
+  { label: 'Pending Approval', status: 'pending', items: pending, total: pendingCount },
+  { label: 'Active',           status: 'active',  items: active,  total: activeCount  },
 ];
 ---
 
@@ -36,19 +55,19 @@ const grouped: { label: string; status: string; items: Listing[] }[] = [
   <!-- STATS -->
   <div class="stats-row">
     <div class="stat stat-pending">
-      <span class="stat-val">{pending.length}</span>
+      <span class="stat-val">{pendingCount}</span>
       <span class="stat-lbl">Pending</span>
     </div>
     <div class="stat stat-active">
-      <span class="stat-val">{active.length}</span>
+      <span class="stat-val">{activeCount}</span>
       <span class="stat-lbl">Active</span>
     </div>
     <div class="stat stat-sold">
-      <span class="stat-val">{sold.length}</span>
+      <span class="stat-val">{soldCount}</span>
       <span class="stat-lbl">Sold</span>
     </div>
     <div class="stat stat-total">
-      <span class="stat-val">{all.length}</span>
+      <span class="stat-val">{totalCount}</span>
       <span class="stat-lbl">Total</span>
     </div>
   </div>
@@ -176,12 +195,12 @@ const grouped: { label: string; status: string; items: Listing[] }[] = [
   </div>
 
   <!-- GROUPS -->
-  {grouped.map(({ label, status, items }) => (
+  {grouped.map(({ label, status, items, total }) => (
     <div class={`group group-${status}`}>
       <p class="group-head">
         <span class={`status-dot dot-${status}`}></span>
         {label}
-        <span class="group-count" data-base={items.length}>{items.length}</span>
+        <span class="group-count" data-base={items.length}>{total}</span>
       </p>
 
       {items.length === 0 && <p class="empty-state">None</p>}
@@ -249,6 +268,21 @@ const grouped: { label: string; status: string; items: Listing[] }[] = [
       </div>
     </div>
   ))}
+
+  <!-- PAGINATION -->
+  {totalPages > 1 && (
+    <div class="pagination">
+      {safePage > 1
+        ? <a href={`/admin?page=${safePage - 1}`} class="btn btn-page">← Prev</a>
+        : <span class="btn btn-page btn-page-disabled">← Prev</span>
+      }
+      <span class="page-info">Page {safePage} of {totalPages} <span class="page-sub">({activeCount} active listings)</span></span>
+      {safePage < totalPages
+        ? <a href={`/admin?page=${safePage + 1}`} class="btn btn-page">Next →</a>
+        : <span class="btn btn-page btn-page-disabled">Next →</span>
+      }
+    </div>
+  )}
 
 </AdminLayout>
 
@@ -431,6 +465,21 @@ const grouped: { label: string; status: string; items: Listing[] }[] = [
 
   .btn-view    { background: white; color: #9CA3AF; border-color: #E5E7EB; }
   .btn-view:hover    { color: #111111; border-color: #111111; }
+
+  /* PAGINATION */
+  .pagination {
+    display: flex; align-items: center; justify-content: center; gap: 1rem;
+    padding: 1.5rem 0 0.5rem; border-top: 1.5px solid #F3F4F6; margin-top: 1rem;
+  }
+  .btn-page {
+    font-size: 0.7rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+    padding: 0.5rem 1rem; border-radius: 0.5rem; border: 1.5px solid #E5E7EB;
+    background: white; color: #374151; text-decoration: none; transition: all 0.15s;
+  }
+  .btn-page:hover:not(.btn-page-disabled) { border-color: #111111; color: #111111; }
+  .btn-page-disabled { opacity: 0.35; cursor: default; }
+  .page-info { font-size: 0.75rem; font-weight: 600; color: #6B7280; }
+  .page-sub  { font-weight: 400; color: #9CA3AF; }
 
   @media (max-width: 640px) {
     .lcard { grid-template-columns: 80px 1fr; }
