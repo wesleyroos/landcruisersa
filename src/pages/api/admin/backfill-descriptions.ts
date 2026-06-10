@@ -25,10 +25,11 @@ async function fetchAtDetails(sourceUrl: string): Promise<{ description: string;
 
   let description = '';
   let colour = '';
-  const descMatch = html.match(/class="[^"]*seller-comment[^"]*"[^>]*>[\s\S]*?<span class="[^"]*e-read-more-line[^"]*">([\s\S]*?)<\/span>/);
-  if (descMatch) {
-    description = descMatch[1].replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#x[0-9A-Fa-f]+;/g, (c: string) => String.fromCodePoint(parseInt(c.slice(3, -1), 16))).trim();
-  }
+  // AT splits the description across multiple e-read-more-line spans (first 1-2 are often empty).
+  // Collect all spans and join non-empty ones instead of stopping at the first match.
+  const spanMatches = [...html.matchAll(/<span[^>]*e-read-more-line[^>]*>([\s\S]*?)<\/span>/g)];
+  const decode = (s: string) => s.replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#x([0-9A-Fa-f]+);/g, (_: string, h: string) => String.fromCodePoint(parseInt(h, 16))).trim();
+  description = spanMatches.map(m => decode(m[1])).filter(Boolean).join('\n');
   const colourMatch = html.match(/Colou?r<\/span>\s*<span[^>]*>([^<]+)<\/span>/);
   if (colourMatch) colour = colourMatch[1].trim();
 
