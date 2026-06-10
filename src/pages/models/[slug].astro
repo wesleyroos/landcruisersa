@@ -33,6 +33,23 @@ const offRoadSpecs = [
   { label: 'Wading Depth', value: m.wadeDepth },
 ];
 
+// Map model guide slug → listing filter slug
+const LISTING_SLUG_MAP: Record<string, string> = {
+  '76-series': '76-series',
+  '78-series': '78-series',
+  '79-series': '79-series',
+  '80-series': '80-series',
+  '100-series': '100-series',
+  '200-series': '200-series',
+  '300-series': '300-series',
+  'prado-150': 'prado',
+  'prado-250': 'prado',
+  'fj-cruiser': 'fj-cruiser',
+  'land-cruiser-fj': 'fj-cruiser',
+};
+const listingSlug = LISTING_SLUG_MAP[m.slug];
+const listingsUrl = listingSlug ? `/listings/model/${listingSlug}/` : '/listings/';
+
 const canonicalUrl = `${SITE.url}/models/${m.slug}/`;
 
 const breadcrumbSchema = {
@@ -206,6 +223,19 @@ const faqSchema = faqItems.length ? {
           </ul>
         </section>
 
+        <!-- Listings CTA -->
+        <section class="listings-cta-block">
+          <div class="listings-cta-inner">
+            <div>
+              <p class="listings-cta-label">Ready to buy?</p>
+              <p class="listings-cta-title">Browse {m.name} listings for sale in South Africa</p>
+            </div>
+            <a href={listingsUrl} class="listings-cta-btn">
+              View Listings →
+            </a>
+          </div>
+        </section>
+
         <!-- Related Models -->
         {related.length > 0 && (
           <section class="content-section">
@@ -239,7 +269,7 @@ const faqSchema = faqItems.length ? {
         <div class="sidebar-card price-card">
           <p class="sidebar-label">Price Range (SA)</p>
           <p class="price-value">{m.priceRange}</p>
-          <a href="/listings/" class="sidebar-cta-btn">Browse Listings →</a>
+          <a href={listingsUrl} class="sidebar-cta-btn">Browse {m.name} for Sale →</a>
         </div>
 
         <!-- Specs -->
@@ -527,6 +557,56 @@ const faqSchema = faqItems.length ? {
     border-bottom: 1px solid #F5F3EE;
   }
   .issue-icon { color: #EF4444; flex-shrink: 0; margin-top: 0.1rem; }
+
+  /* Listings CTA */
+  .listings-cta-block {
+    margin-bottom: 2.75rem;
+    background: #111111;
+    border-radius: 1rem;
+    overflow: hidden;
+  }
+  .listings-cta-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.5rem;
+    padding: 1.75rem 2rem;
+    flex-wrap: wrap;
+  }
+  .listings-cta-label {
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: #F5A623;
+    margin-bottom: 0.3rem;
+  }
+  .listings-cta-title {
+    font-family: var(--font-heading);
+    font-weight: 700;
+    text-transform: uppercase;
+    color: white;
+    font-size: 1.125rem;
+    line-height: 1.2;
+  }
+  .listings-cta-btn {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    background: #F5A623;
+    color: #111111;
+    font-family: var(--font-heading);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 0.875rem;
+    padding: 0.875rem 1.75rem;
+    border-radius: 0.5rem;
+    text-decoration: none;
+    transition: background 0.15s;
+    white-space: nowrap;
+  }
+  .listings-cta-btn:hover { background: #D4881A; }
 
   /* Related */
   .related-grid {
