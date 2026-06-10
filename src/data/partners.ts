@@ -184,43 +184,6 @@ export const PARTNERS: Partner[] = [
     ],
   },
   {
-    slug: 'overland-storage',
-    name: 'Overland Storage Solutions',
-    category: 'Services',
-    location: 'Cape Town, Western Cape',
-    tagline: 'Secure Vehicle Storage for South African Overlanders',
-    description: 'Professional secure storage facilities for overlanding vehicles — 24/7 security, climate control, and flexible terms for local and international clients.',
-    longDescription: `Overland Storage Solutions solves one of the most common problems facing serious overlanders: where do you keep a fully-built expedition vehicle between trips? Their Cape Town facility offers professional secure storage with 24/7 security, proper ventilation, and protective measures designed specifically for kitted-out 4x4s, camper vans, and overland trailers.\n\nParticularly popular with international overlanders shipping vehicles to South Africa, Overland Storage Solutions offers flexible monthly and annual terms, documentation assistance, and vehicle maintenance coordination. A second facility in Hoedspruit — in the heart of Lowveld safari country — is opening soon, giving overlanders a strategic staging point for Kruger and Mozambique expeditions.`,
-    phone: '+27 21 555 0789',
-    email: 'hello@overlandsupply.co.za',
-    website: 'https://overlandsupply.co.za',
-    hero: 'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/partners/overland-storage/overland-storage-facility.jpg',
-    images: [
-      'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/partners/overland-storage/overland-storage-vehicle.jpg',
-    ],
-    rating: 4.9,
-    reviewCount: 23,
-    highlights: ['24/7 Security', 'Cape Town & Hoedspruit', 'International Clients', 'Flexible Terms'],
-    services: [
-      {
-        title: 'Secure Vehicle Storage',
-        description: '24/7 monitored secure facilities with access control, proper ventilation, and protection for fully-built overland vehicles.',
-      },
-      {
-        title: 'International Client Services',
-        description: 'Flexible storage terms, documentation assistance, and maintenance coordination for overseas overlanders shipping to South Africa.',
-      },
-      {
-        title: 'Cape Town Facility',
-        description: 'Centrally located Cape Town storage — ideal for overlanders starting or finishing routes through the Western Cape.',
-      },
-      {
-        title: 'Hoedspruit Facility (Coming Soon)',
-        description: 'A new facility in Hoedspruit, perfectly positioned for vehicles heading to Kruger, Mozambique, and the Eastern Lowveld.',
-      },
-    ],
-  },
-  {
     slug: 'igl-coatings-africa',
     name: 'IGL Coatings Africa',
     category: 'Services',
