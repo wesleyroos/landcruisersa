@@ -118,6 +118,7 @@ export const GET: APIRoute = async ({ cookies }) => {
       }
 
       send({ type: 'done', updated, skipped, failed });
+      try { (await import('fs')).writeFileSync('/tmp/lcsa-desc-backfill.log', new Date().toISOString()); } catch {}
       controller.close();
     },
   });

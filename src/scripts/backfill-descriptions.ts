@@ -113,6 +113,10 @@ async function run() {
   }
 
   console.log(`[backfill] done — updated: ${updated}, skipped: ${skipped}, failed: ${failed}`);
+  try {
+    const { writeFileSync } = await import('fs');
+    writeFileSync('/tmp/lcsa-desc-backfill.log', new Date().toISOString());
+  } catch {}
 }
 
 run().catch(err => { console.error(err); process.exit(1); });
