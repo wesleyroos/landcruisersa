@@ -6,7 +6,7 @@ import { listings } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 
 const UPDATABLE_FIELDS = [
-  'status', 'listing_type', 'title', 'model', 'year', 'price', 'mileage',
+  'status', 'listing_type', 'featured', 'title', 'model', 'year', 'price', 'mileage',
   'province', 'new_or_used', 'transmission', 'colour', 'description',
   'mods', 'seller_name', 'seller_email', 'seller_phone',
 ];
@@ -27,6 +27,8 @@ export const PATCH: APIRoute = async ({ params, request }) => {
   if ('photos' in body && Array.isArray(body.photos)) {
     updates.photos = JSON.stringify(body.photos);
   }
+
+  if ('featured' in updates) updates.featured = Boolean(updates.featured);
 
   if (Object.keys(updates).length === 0) {
     return new Response(JSON.stringify({ error: 'No valid fields provided' }), { status: 400 });

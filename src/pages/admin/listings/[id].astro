@@ -91,6 +91,13 @@ ${listing.description ? listing.description.slice(0, 200).trim() + (listing.desc
               </select>
             </div>
           </div>
+          <div class="field">
+            <label>Featured</label>
+            <select name="featured" id="f-featured">
+              <option value="false" selected={!listing.featured}>No — standard listing</option>
+              <option value="true"  selected={!!listing.featured}>★ Yes — show on home page &amp; top of listings</option>
+            </select>
+          </div>
         </div>
 
         <!-- Vehicle Details -->
@@ -399,6 +406,8 @@ ${listing.description ? listing.description.slice(0, 200).trim() + (listing.desc
     if (data.year)    data.year    = Number(data.year);
     if (data.price)   data.price   = Number(data.price);
     if (data.mileage) data.mileage = Number(data.mileage);
+    // Coerce boolean fields
+    if ('featured' in data) data.featured = data.featured === 'true';
 
     try {
       const res = await fetch(`/api/listings/${listingId}`, {

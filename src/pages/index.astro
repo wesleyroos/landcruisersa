@@ -7,19 +7,32 @@ import { SITE } from '@/data/site';
 import { PARTNERS } from '@/data/partners';
 import { db } from '@/db/index';
 import { listings } from '@/db/schema';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, and, not } from 'drizzle-orm';
 
 const allPosts = await getCollection('posts', p => !p.data.draft);
 const posts = allPosts
   .sort((a, b) => b.data.publishedAt.valueOf() - a.data.publishedAt.valueOf())
   .slice(0, 6);
 
-const featuredListings = await db
+const SLOTS = 3;
+
+const pinnedListings = await db
   .select()
   .from(listings)
-  .where(eq(listings.status, 'active'))
+  .where(and(eq(listings.status, 'active'), eq(listings.featured, true)))
   .orderBy(desc(listings.created_at))
-  .limit(3);
+  .limit(SLOTS);
+
+const fillListings = pinnedListings.length < SLOTS
+  ? await db
+      .select()
+      .from(listings)
+      .where(and(eq(listings.status, 'active'), not(eq(listings.featured, true))))
+      .orderBy(desc(listings.created_at))
+      .limit(SLOTS - pinnedListings.length)
+  : [];
+
+const featuredListings = [...pinnedListings, ...fillListings];
 
 function firstPhoto(photos: string) {
   try { return JSON.parse(photos)[0] ?? 'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/og-default.jpg'; } catch { return 'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/og-default.jpg'; }

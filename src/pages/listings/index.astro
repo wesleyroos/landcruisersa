@@ -10,7 +10,7 @@ const allListings = await db
   .select()
   .from(listings)
   .where(inArray(listings.status, ['active', 'sold']))
-  .orderBy(desc(listings.created_at));
+  .orderBy(desc(listings.featured), desc(listings.created_at));
 
 const PROVINCES = ['All', 'Gauteng', 'Western Cape', 'KwaZulu-Natal', 'Eastern Cape', 'Limpopo', 'Mpumalanga', 'North West', 'Free State', 'Northern Cape'];
 const MODELS = [
