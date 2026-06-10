@@ -55,7 +55,9 @@ async function fetchGalleryUrls(galleryIds: string[]): Promise<string[]> {
     const res = await fetch(`${MEDIA_API}?include=${ids}&_fields=id,source_url&per_page=100`);
     if (!res.ok) return [];
     const media = await res.json() as Array<{ id: number; source_url: string }>;
-    return media.map(m => m.source_url).filter(Boolean);
+    // WordPress ignores include= ordering; re-sort to match original gallery order
+    const byId = new Map(media.map(m => [String(m.id), m.source_url]));
+    return galleryIds.slice(0, 20).map(id => byId.get(id)).filter(Boolean) as string[];
   } catch {
     return [];
   }
