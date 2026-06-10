@@ -17,6 +17,14 @@ const isSold = listing.status === 'sold';
 const isExternal = Boolean(listing.source_url);
 const isShowOff = listing.listing_type === 'show_off';
 
+const SOURCE_LABEL: Record<string, string> = {
+  autotrader: 'AutoTrader',
+  wbc:        'WeBuyCars',
+  adios:      'Adios',
+  wbb:        'WeBuy Bakkies',
+};
+const portalName = SOURCE_LABEL[listing.source] ?? 'AutoTrader';
+
 // Similar: same model first, then any active listing as fallback
 const sameModel = await db.select().from(listings)
   .where(and(eq(listings.status, 'active'), eq(listings.model, listing.model)))
@@ -147,7 +155,7 @@ const vehicleSchema: Record<string, unknown> = {
       {!isSold && isExternal && (
         <a href={listing.source_url!} target="_blank" rel="noopener" class="wa-btn-header ext-btn" data-track-external>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-          View on AutoTrader
+          View on {portalName}
         </a>
       )}
     </div>
@@ -349,9 +357,9 @@ const vehicleSchema: Record<string, unknown> = {
                 <div class="cta-stack">
                   <a href={listing.source_url!} target="_blank" rel="noopener" class="cta-autotrader" data-track-external>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-                    View Full Listing on AutoTrader
+                    View Full Listing on {portalName}
                   </a>
-                  <p class="ext-note">Contact details, finance options, and more photos available on AutoTrader.</p>
+                  <p class="ext-note">Contact details, finance options, and more photos available on {portalName}.</p>
                 </div>
               ) : (
                 <div class="cta-stack">
@@ -413,7 +421,7 @@ const vehicleSchema: Record<string, unknown> = {
   <div class="mobile-cta" id="mobile-cta">
     <div class="mobile-cta-price">
       {isExternal ? (
-        <span class="mobile-cta-label">AutoTrader Listing</span>
+        <span class="mobile-cta-label">{portalName} Listing</span>
       ) : (
         <>
           <span class="mobile-cta-label">Asking Price</span>
@@ -422,7 +430,7 @@ const vehicleSchema: Record<string, unknown> = {
       )}
     </div>
     {isExternal ? (
-      <a href={listing.source_url!} target="_blank" rel="noopener" class="mobile-cta-btn mobile-cta-wa" data-track-external>View on AutoTrader</a>
+      <a href={listing.source_url!} target="_blank" rel="noopener" class="mobile-cta-btn mobile-cta-wa" data-track-external>View on {portalName}</a>
     ) : (
       <a href={`https://wa.me/27${listing.seller_phone.replace(/^0/, '').replace(/\s/g, '')}?text=Hi, I saw your ${encodeURIComponent(listing.title)} on Land Cruiser SA.`} target="_blank" rel="noopener" class="mobile-cta-btn mobile-cta-wa">WhatsApp Seller</a>
     )}
