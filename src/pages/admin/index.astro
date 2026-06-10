@@ -157,6 +157,9 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
           <p class="tool-times">
             <span class="time-label">Last run:</span> <span id="desc-backfill-last-run" class="time-val">—</span>
             <span id="desc-backfill-status" class="tool-status-inline"></span>
+            <span class="time-next">
+              <span class="time-label">Next:</span> <span id="desc-backfill-next-run" class="time-val">—</span>
+            </span>
           </p>
         </div>
         <div class="tool-controls">
@@ -593,11 +596,13 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
       const bl = document.getElementById('backfill-last-run');
       const bn = document.getElementById('backfill-next-run');
       const dl = document.getElementById('desc-backfill-last-run');
+      const dn = document.getElementById('desc-backfill-next-run');
       if (il) il.textContent = fmtTime(data.ingest.lastRun);
       if (in_) in_.textContent = fmtNext(data.ingest.nextRun);
       if (bl) bl.textContent = fmtTime(data.backfill.lastRun);
       if (bn) bn.textContent = fmtNext(data.backfill.nextRun);
       if (dl) dl.textContent = fmtTime(data.descBackfill?.lastRun);
+      if (dn) dn.textContent = fmtNext(data.descBackfill?.nextRun);
     } catch { /* non-critical */ }
   }
 
