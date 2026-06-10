@@ -147,7 +147,7 @@ export const PARTNERS: Partner[] = [
     tagline: 'Professional Off-Road Driving Courses on Toyota Vehicles',
     description: 'Comprehensive 4x4 driving courses from basic vehicle dynamics to advanced recovery techniques — using Toyota\'s latest vehicles at Zwartkops and De Wildt.',
     longDescription: `The Toyota Gazoo Racing Driving Academy is South Africa's premier manufacturer-backed 4x4 training programme. Held at Zwartkops Raceway and the De Wildt off-road facility, the academy offers full-day courses that cover everything from off-road vehicle dynamics and terrain reading to advanced winching and self-recovery techniques.\n\nWith a maximum of 8 drivers per course and expert Toyota-trained instructors, you'll spend 70% of the day on practical terrain — steep ascents, rock crawling, mud, sand, and water crossings. Every participant leaves with a certificate, TAD cap, and the skills to handle whatever the African bush throws at them. R4,250 per person, VAT included, with breakfast and lunch provided.`,
-    email: 'training@landcruisersa.co.za',
+    email: 'info@tad-sa.co.za',
     website: 'https://landcruisersa.co.za/training/',
     hero: 'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/partners/toyota-gazoo/toyota-gazoo-hero.webp',
     images: [
