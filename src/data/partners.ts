@@ -6,7 +6,6 @@ export interface Partner {
   tagline: string;
   description: string;
   longDescription: string;
-  phone?: string;
   email?: string;
   website?: string;
   instagram?: string;
@@ -27,7 +26,6 @@ export const PARTNERS: Partner[] = [
     tagline: 'Legendary Overlanding Specialist & Toyota Land Cruiser Expert',
     description: 'Premier overlanding specialist with 35+ years of experience in vehicle preparation and expedition consulting.',
     longDescription: `Paul Marsh is a legendary figure in the overlanding world, with over 35 years of hands-on experience building and preparing Toyota Land Cruisers for the most demanding expeditions on earth. A Camel Trophy veteran, Paul has led expeditions from Siberia to the Taklamakan Desert, and completed an 18-month, 70,000 km journey across Africa in the 1980s.\n\nToday, Paul Marsh 4x4 builds custom Land Cruisers for private overlanders, expedition operators, and corporate clients — vehicles that are purpose-built for the African bush and beyond. Every build combines Paul's mechanical engineering background with decades of hard-won field experience.`,
-    phone: '+27 21 555 0123',
     email: 'info@paulmarsh4x4.com',
     website: 'https://paulmarsh4x4.com',
     hero: 'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/partners/paul-marsh/paul-marsh-expedition-27.jpg',
@@ -68,7 +66,6 @@ export const PARTNERS: Partner[] = [
     tagline: 'Premium Custom 4x4 Fabrication & Overland Conversions',
     description: 'Cape Town-based fabrication specialists creating bespoke overland vehicle conversions with aluminium storage systems and full living space solutions.',
     longDescription: `Manjaro Industries is Cape Town's premier custom fabrication shop for overland vehicles. Specialising in Toyota Land Cruiser Troopy conversions, the team designs and builds bespoke modular living systems — from aluminium drawer systems and cabinetry to full off-grid electrical and water integration.\n\nEvery Manjaro build is designed around the way you actually travel. Whether you need a weekend warrior setup or a fully self-sufficient expedition vehicle capable of months in the bush, Manjaro Industries delivers precision fabrication that's built to last. Featured by Expedition Portal and 4XOverland, and the preferred fabricator of Paul Marsh 4x4.`,
-    phone: '+27 21 555 0456',
     email: 'info@manjaroindustries.co.za',
     website: 'https://manjaroindustries.co.za',
     instagram: 'manjaroindustries',
@@ -109,7 +106,6 @@ export const PARTNERS: Partner[] = [
     tagline: 'Premium African Overlanding Expeditions & Self-Drive Safaris',
     description: 'Transformative overlanding expeditions and self-drive safaris across Southern and East Africa, combining expert planning with authentic African experiences.',
     longDescription: `Routes Rediscovered was founded by Mark Bland — a South African with deep roots in hospitality, culinary arts, and adventure travel. The company designs and operates premium overlanding expeditions and self-drive safaris across 14+ African countries, from the dunes of Namibia to the gorillas of Rwanda.\n\nWhether you want a fully hosted expedition with expert guides and luxury camping, or a carefully planned self-drive route with 24/7 backup support, Routes Rediscovered delivers an experience that goes far beyond the typical safari. Winners of the TripAdvisor Certificate of Excellence and a member of the African Travel Association.`,
-    phone: '+27 71 676 9075',
     email: 'hello@routesrediscovered.co.za',
     website: 'https://routesrediscovered.co.za',
     hero: 'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/partners/routes-rediscovered/routes-rediscovered-hero.webp',
@@ -151,7 +147,6 @@ export const PARTNERS: Partner[] = [
     tagline: 'Professional Off-Road Driving Courses on Toyota Vehicles',
     description: 'Comprehensive 4x4 driving courses from basic vehicle dynamics to advanced recovery techniques — using Toyota\'s latest vehicles at Zwartkops and De Wildt.',
     longDescription: `The Toyota Gazoo Racing Driving Academy is South Africa's premier manufacturer-backed 4x4 training programme. Held at Zwartkops Raceway and the De Wildt off-road facility, the academy offers full-day courses that cover everything from off-road vehicle dynamics and terrain reading to advanced winching and self-recovery techniques.\n\nWith a maximum of 8 drivers per course and expert Toyota-trained instructors, you'll spend 70% of the day on practical terrain — steep ascents, rock crawling, mud, sand, and water crossings. Every participant leaves with a certificate, TAD cap, and the skills to handle whatever the African bush throws at them. R4,250 per person, VAT included, with breakfast and lunch provided.`,
-    phone: '+27 12 345 6789',
     email: 'training@landcruisersa.co.za',
     website: 'https://landcruisersa.co.za/training/',
     hero: 'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/partners/toyota-gazoo/toyota-gazoo-hero.webp',
