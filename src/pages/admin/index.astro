@@ -149,19 +149,21 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
         </div>
       </>
     )}
-    <div class="tool-card">
-      <div class="tool-info">
-        <p class="tool-name">AT Description Backfill</p>
-        <p class="tool-desc">Pull seller comments &amp; colour for AT listings missing a description.</p>
-        <p class="tool-times">
-          <span class="time-label">Last run:</span> <span id="desc-backfill-last-run" class="time-val">—</span>
-          <span id="desc-backfill-status" class="tool-status-inline"></span>
-        </p>
+    {import.meta.env.DEV && (
+      <div class="tool-card">
+        <div class="tool-info">
+          <p class="tool-name">AT Description Backfill</p>
+          <p class="tool-desc">Pull seller comments &amp; colour for AT listings missing a description. Run from local only — AT blocks Fly IPs.</p>
+          <p class="tool-times">
+            <span class="time-label">Last run:</span> <span id="desc-backfill-last-run" class="time-val">—</span>
+            <span id="desc-backfill-status" class="tool-status-inline"></span>
+          </p>
+        </div>
+        <div class="tool-controls">
+          <button id="run-desc-backfill-btn" class="btn btn-tool">Run</button>
+        </div>
       </div>
-      <div class="tool-controls">
-        <button id="run-desc-backfill-btn" class="btn btn-tool">Run</button>
-      </div>
-    </div>
+    )}
   </div>
 
   {import.meta.env.DEV && (
