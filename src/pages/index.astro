@@ -191,10 +191,13 @@ function formatPrice(n: number) {
       </div>
       <div class="partners-track-wrap">
         <div class="partners-track">
-          {[...PARTNERS, ...PARTNERS].map(p => (
+          {[...PARTNERS, ...PARTNERS].map((p, i) => (
             <a href={`/partners/${p.slug}/`} class="partner-tile">
               <div class="pt-img">
-                <img src={p.hero} alt={p.name} loading="lazy" />
+                <img src={p.hero} alt={p.name} width="480" height="300"
+                  loading={i < 4 ? 'eager' : 'lazy'}
+                  fetchpriority={i < 2 ? 'high' : 'auto'}
+                  decoding="async" />
               </div>
               <div class="pt-body">
                 <span class="pt-cat">{p.category}</span>
