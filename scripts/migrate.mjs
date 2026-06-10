@@ -67,6 +67,29 @@ db.exec(`
   )
 `);
 
+db.exec(`
+  CREATE TABLE IF NOT EXISTS training_leads (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    name         TEXT    NOT NULL,
+    email        TEXT    NOT NULL,
+    phone        TEXT    NOT NULL,
+    location     TEXT,
+    land_cruiser TEXT,
+    message      TEXT,
+    created_at   INTEGER NOT NULL
+  )
+`);
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS click_events (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    listing_slug  TEXT    NOT NULL,
+    listing_title TEXT,
+    source        TEXT    NOT NULL,
+    created_at    INTEGER NOT NULL
+  )
+`);
+
 // Unique index for aggregator dedup — safe to run repeatedly
 db.exec(`
   CREATE UNIQUE INDEX IF NOT EXISTS listings_source_source_id

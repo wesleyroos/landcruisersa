@@ -145,7 +145,7 @@ const vehicleSchema: Record<string, unknown> = {
         </a>
       )}
       {!isSold && isExternal && (
-        <a href={listing.source_url!} target="_blank" rel="noopener" class="wa-btn-header ext-btn">
+        <a href={listing.source_url!} target="_blank" rel="noopener" class="wa-btn-header ext-btn" data-track-external>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
           View on AutoTrader
         </a>
@@ -347,7 +347,7 @@ const vehicleSchema: Record<string, unknown> = {
                 </div>
               ) : isExternal ? (
                 <div class="cta-stack">
-                  <a href={listing.source_url!} target="_blank" rel="noopener" class="cta-autotrader">
+                  <a href={listing.source_url!} target="_blank" rel="noopener" class="cta-autotrader" data-track-external>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
                     View Full Listing on AutoTrader
                   </a>
@@ -422,11 +422,27 @@ const vehicleSchema: Record<string, unknown> = {
       )}
     </div>
     {isExternal ? (
-      <a href={listing.source_url!} target="_blank" rel="noopener" class="mobile-cta-btn mobile-cta-wa">View on AutoTrader</a>
+      <a href={listing.source_url!} target="_blank" rel="noopener" class="mobile-cta-btn mobile-cta-wa" data-track-external>View on AutoTrader</a>
     ) : (
       <a href={`https://wa.me/27${listing.seller_phone.replace(/^0/, '').replace(/\s/g, '')}?text=Hi, I saw your ${encodeURIComponent(listing.title)} on Land Cruiser SA.`} target="_blank" rel="noopener" class="mobile-cta-btn mobile-cta-wa">WhatsApp Seller</a>
     )}
   </div>
+)}
+
+{isExternal && (
+  <script define:vars={{ _slug: listing.slug, _title: listing.title, _source: listing.source }}>
+    document.querySelectorAll('[data-track-external]').forEach(function(a) {
+      a.addEventListener('click', function() {
+        try {
+          navigator.sendBeacon('/api/track-click', JSON.stringify({
+            listing_slug: _slug,
+            listing_title: _title,
+            source: _source,
+          }));
+        } catch {}
+      });
+    });
+  </script>
 )}
 
 <!-- LIGHTBOX -->

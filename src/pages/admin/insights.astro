@@ -1,0 +1,196 @@
+---
+export const prerender = false;
+
+import AdminLayout from '@/layouts/AdminLayout.astro';
+import { db } from '@/db/index';
+import { trainingLeads, clickEvents } from '@/db/schema';
+import { sql, desc } from 'drizzle-orm';
+
+const cookie = Astro.cookies.get('lcsa_admin');
+const adminSecret = import.meta.env.ADMIN_SECRET ?? process.env.ADMIN_SECRET ?? '';
+if (!cookie || cookie.value !== adminSecret) {
+  return Astro.redirect('/admin/login');
+}
+
+const leads = db.select().from(trainingLeads).orderBy(desc(trainingLeads.created_at)).all();
+
+const clicksBySource = db.select({
+  source: clickEvents.source,
+  count: sql<number>`cast(count(*) as int)`,
+}).from(clickEvents).groupBy(clickEvents.source).all();
+
+const clicksByListing = db.select({
+  listing_slug: clickEvents.listing_slug,
+  listing_title: clickEvents.listing_title,
+  count: sql<number>`cast(count(*) as int)`,
+}).from(clickEvents)
+  .groupBy(clickEvents.listing_slug)
+  .orderBy(sql`count(*) desc`)
+  .limit(30)
+  .all();
+
+const totalClicks = clicksBySource.reduce((s, r) => s + r.count, 0);
+
+function fmt(d: Date | null) {
+  if (!d) return '—';
+  return new Intl.DateTimeFormat('en-ZA', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(d);
+}
+
+const SOURCE_LABEL: Record<string, string> = {
+  autotrader: 'AutoTrader',
+  wbc: 'WeBuyCars',
+  adios: 'Adios',
+  wbb: 'WeBuy Bakkies',
+};
+---
+
+<AdminLayout title="Insights" activePage="insights">
+  <div class="insights-wrap">
+
+    <!-- ── TRAINING LEADS ─────────────────────────────────── -->
+    <section class="card">
+      <div class="card-head">
+        <h2 class="card-title">Training Enquiries</h2>
+        <span class="badge">{leads.length}</span>
+      </div>
+
+      {leads.length === 0 ? (
+        <p class="empty">No enquiries yet.</p>
+      ) : (
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Phone</th>
+                <th>Land Cruiser</th>
+                <th>Location</th>
+                <th>Message</th>
+              </tr>
+            </thead>
+            <tbody>
+              {leads.map(l => (
+                <tr>
+                  <td class="nowrap">{fmt(l.created_at)}</td>
+                  <td class="nowrap">{l.name}</td>
+                  <td><a href={`mailto:${l.email}`}>{l.email}</a></td>
+                  <td class="nowrap">{l.phone}</td>
+                  <td>{l.land_cruiser ?? '—'}</td>
+                  <td>{l.location ?? '—'}</td>
+                  <td class="msg">{l.message ?? '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+
+    <!-- ── CLICK EVENTS ───────────────────────────────────── -->
+    <section class="card">
+      <div class="card-head">
+        <h2 class="card-title">Outbound Listing Clicks</h2>
+        <span class="badge">{totalClicks} total</span>
+      </div>
+
+      {totalClicks === 0 ? (
+        <p class="empty">No clicks tracked yet.</p>
+      ) : (
+        <div class="clicks-layout">
+          <div>
+            <p class="sub-label">By Source</p>
+            <div class="source-grid">
+              {clicksBySource.map(r => (
+                <div class="source-card">
+                  <p class="source-name">{SOURCE_LABEL[r.source] ?? r.source}</p>
+                  <p class="source-count">{r.count}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <p class="sub-label">Top Listings Clicked</p>
+            <div class="table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Listing</th>
+                    <th style="text-align:right">Clicks</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {clicksByListing.map(r => (
+                    <tr>
+                      <td>
+                        <a href={`/listings/${r.listing_slug}/`} target="_blank">
+                          {r.listing_title ?? r.listing_slug}
+                        </a>
+                      </td>
+                      <td style="text-align:right;font-weight:700">{r.count}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+    </section>
+
+  </div>
+</AdminLayout>
+
+<style>
+  .insights-wrap { display: flex; flex-direction: column; gap: 2rem; }
+
+  .card {
+    background: white; border: 1px solid #E5E7EB; border-radius: 0.75rem; overflow: hidden;
+  }
+  .card-head {
+    display: flex; align-items: center; gap: 0.75rem;
+    padding: 1.25rem 1.5rem; border-bottom: 1px solid #F3F4F6;
+  }
+  .card-title { font-size: 0.9375rem; font-weight: 700; color: #111; }
+  .badge {
+    background: #F5A623; color: #111; font-size: 0.6875rem; font-weight: 700;
+    letter-spacing: 0.06em; padding: 0.2rem 0.5rem; border-radius: 9999px;
+  }
+  .empty { padding: 1.5rem; color: #9CA3AF; font-size: 0.875rem; }
+
+  .table-wrap { overflow-x: auto; }
+  .data-table {
+    width: 100%; border-collapse: collapse; font-size: 0.8125rem;
+  }
+  .data-table th {
+    background: #F9FAFB; text-align: left; padding: 0.625rem 1rem;
+    font-size: 0.6875rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.08em; color: #6B7280; white-space: nowrap;
+    border-bottom: 1px solid #E5E7EB;
+  }
+  .data-table td {
+    padding: 0.75rem 1rem; border-bottom: 1px solid #F3F4F6;
+    color: #374151; vertical-align: top;
+  }
+  .data-table tr:last-child td { border-bottom: none; }
+  .data-table a { color: #111; }
+  .data-table a:hover { color: #F5A623; }
+  .nowrap { white-space: nowrap; }
+  .msg { max-width: 280px; white-space: pre-wrap; font-size: 0.75rem; color: #6B7280; }
+
+  .clicks-layout { padding: 1.5rem; display: flex; flex-direction: column; gap: 2rem; }
+
+  .sub-label {
+    font-size: 0.6875rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.08em; color: #9CA3AF; margin-bottom: 0.75rem;
+  }
+  .source-grid { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+  .source-card {
+    background: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 0.5rem;
+    padding: 0.875rem 1.25rem; min-width: 140px;
+  }
+  .source-name { font-size: 0.75rem; font-weight: 600; color: #6B7280; margin-bottom: 0.25rem; }
+  .source-count { font-size: 1.5rem; font-weight: 800; color: #111; }
+</style>

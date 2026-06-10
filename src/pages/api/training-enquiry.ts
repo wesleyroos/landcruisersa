@@ -1,6 +1,8 @@
 export const prerender = false;
 
 import type { APIRoute } from 'astro';
+import { db } from '@/db/index';
+import { trainingLeads } from '@/db/schema';
 
 export const POST: APIRoute = async ({ request }) => {
   const resendKey = import.meta.env.RESEND_API_KEY ?? process.env.RESEND_API_KEY ?? '';
@@ -58,6 +60,20 @@ export const POST: APIRoute = async ({ request }) => {
     const err = await res.text();
     console.error('[training-enquiry] Resend error:', err);
     return new Response(JSON.stringify({ error: 'Failed to send enquiry.' }), { status: 502 });
+  }
+
+  try {
+    db.insert(trainingLeads).values({
+      name,
+      email: email.trim(),
+      phone: phone.trim(),
+      location: location?.trim() || null,
+      land_cruiser: landCruiser?.trim() || null,
+      message: message?.trim() || null,
+      created_at: new Date(),
+    }).run();
+  } catch (err) {
+    console.error('[training-enquiry] DB insert failed:', err);
   }
 
   return new Response(JSON.stringify({ ok: true }), { status: 200 });

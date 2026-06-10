@@ -45,3 +45,22 @@ export const siteConfig = sqliteTable('site_config', {
   value:      text('value').notNull(),
   updated_at: integer('updated_at', { mode: 'timestamp' }).notNull(),
 });
+
+export const trainingLeads = sqliteTable('training_leads', {
+  id:           integer('id').primaryKey({ autoIncrement: true }),
+  name:         text('name').notNull(),
+  email:        text('email').notNull(),
+  phone:        text('phone').notNull(),
+  location:     text('location'),
+  land_cruiser: text('land_cruiser'),
+  message:      text('message'),
+  created_at:   integer('created_at', { mode: 'timestamp' }).notNull(),
+});
+
+export const clickEvents = sqliteTable('click_events', {
+  id:            integer('id').primaryKey({ autoIncrement: true }),
+  listing_slug:  text('listing_slug').notNull(),
+  listing_title: text('listing_title'),
+  source:        text('source').notNull(), // 'autotrader' | 'wbc' | 'adios' | 'wbb'
+  created_at:    integer('created_at', { mode: 'timestamp' }).notNull(),
+});
