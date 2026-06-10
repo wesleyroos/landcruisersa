@@ -14,7 +14,35 @@ export default defineConfig({
   adapter: node({ mode: 'standalone' }),
   integrations: [
     mdx(),
-    sitemap(),
+    sitemap({
+      // SSR pages aren't auto-discovered — add them manually
+      customPages: [
+        'https://landcruisersa.co.za/',
+        'https://landcruisersa.co.za/listings/',
+        // Province pages
+        'https://landcruisersa.co.za/listings/province/gauteng/',
+        'https://landcruisersa.co.za/listings/province/western-cape/',
+        'https://landcruisersa.co.za/listings/province/kwazulu-natal/',
+        'https://landcruisersa.co.za/listings/province/eastern-cape/',
+        'https://landcruisersa.co.za/listings/province/limpopo/',
+        'https://landcruisersa.co.za/listings/province/mpumalanga/',
+        'https://landcruisersa.co.za/listings/province/north-west/',
+        'https://landcruisersa.co.za/listings/province/free-state/',
+        'https://landcruisersa.co.za/listings/province/northern-cape/',
+        // Model pages
+        'https://landcruisersa.co.za/listings/model/76-series/',
+        'https://landcruisersa.co.za/listings/model/78-series/',
+        'https://landcruisersa.co.za/listings/model/79-series/',
+        'https://landcruisersa.co.za/listings/model/80-series/',
+        'https://landcruisersa.co.za/listings/model/100-series/',
+        'https://landcruisersa.co.za/listings/model/200-series/',
+        'https://landcruisersa.co.za/listings/model/300-series/',
+        'https://landcruisersa.co.za/listings/model/prado/',
+        'https://landcruisersa.co.za/listings/model/fj-cruiser/',
+      ],
+      // Keep admin pages out of the sitemap
+      filter: (page) => !page.includes('/admin/'),
+    }),
   ],
   vite: {
     plugins: [tailwindcss()],

@@ -166,6 +166,30 @@ function firstPhoto(photos: string) {
       ))}
     </div>
 
+    <!-- BROWSE BY PROVINCE / MODEL -->
+    <div class="mt-14 pt-10 border-t border-[#DDD9D3] grid grid-cols-1 md:grid-cols-2 gap-10">
+      <div>
+        <h2 class="font-heading font-bold uppercase text-base text-[#111111] mb-3">Browse by Province</h2>
+        <div class="flex flex-wrap gap-2">
+          {['gauteng','western-cape','kwazulu-natal','eastern-cape','limpopo','mpumalanga','north-west','free-state','northern-cape'].map(slug => (
+            <a href={`/listings/province/${slug}/`} class="px-3.5 py-1.5 border border-[#DDD9D3] rounded-full text-sm text-[#4A4A4A] hover:border-[#F5A623] hover:text-[#F5A623] transition-colors capitalize">
+              {slug.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()).replace('Kwazulu Natal', 'KwaZulu-Natal')}
+            </a>
+          ))}
+        </div>
+      </div>
+      <div>
+        <h2 class="font-heading font-bold uppercase text-base text-[#111111] mb-3">Browse by Model</h2>
+        <div class="flex flex-wrap gap-2">
+          {[['76-series','76 Series'],['78-series','78 Series'],['79-series','79 Series'],['80-series','80 Series'],['100-series','100 Series'],['200-series','200 Series'],['300-series','300 Series'],['prado','Prado'],['fj-cruiser','FJ Cruiser']].map(([slug, label]) => (
+            <a href={`/listings/model/${slug}/`} class="px-3.5 py-1.5 border border-[#DDD9D3] rounded-full text-sm text-[#4A4A4A] hover:border-[#F5A623] hover:text-[#F5A623] transition-colors">
+              {label}
+            </a>
+          ))}
+        </div>
+      </div>
+    </div>
+
     <!-- EMPTY STATE -->
     <div id="empty-state" class="hidden text-center py-24">
       <p class="text-[#6B7280] text-lg mb-2">No listings match your filters.</p>

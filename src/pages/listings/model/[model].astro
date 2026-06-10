@@ -1,0 +1,197 @@
+---
+export const prerender = false;
+
+import Base from '@/layouts/Base.astro';
+import { SITE } from '@/data/site';
+import { db } from '@/db/index';
+import { listings } from '@/db/schema';
+import { and, eq, desc, or, like } from 'drizzle-orm';
+import { MODELS } from '@/data/models';
+
+const MODEL_MAP: Record<string, { label: string; description: string }> = {
+  '76-series': { label: '76 Series', description: 'Toyota Land Cruiser 76 Series' },
+  '78-series': { label: '78 Series (Troopcarrier)', description: 'Toyota Land Cruiser 78 Series Troopcarrier' },
+  '79-series': { label: '79 Series', description: 'Toyota Land Cruiser 79 Series' },
+  '80-series': { label: '80 Series', description: 'Toyota Land Cruiser 80 Series' },
+  '100-series': { label: '100 Series', description: 'Toyota Land Cruiser 100 Series' },
+  '200-series': { label: '200 Series', description: 'Toyota Land Cruiser 200 Series' },
+  '300-series': { label: '300 Series', description: 'Toyota Land Cruiser 300 Series' },
+  'prado': { label: 'Prado', description: 'Toyota Land Cruiser Prado' },
+  'fj-cruiser': { label: 'FJ Cruiser', description: 'Toyota FJ Cruiser' },
+};
+
+const { model } = Astro.params;
+const modelInfo = MODEL_MAP[model!];
+
+if (!modelInfo) return Astro.redirect('/listings/');
+
+// Match how the listings index filter works for each model
+let results;
+if (model === 'prado') {
+  results = await db.select().from(listings)
+    .where(and(eq(listings.status, 'active'), like(listings.model, 'prado%')))
+    .orderBy(desc(listings.featured), desc(listings.created_at));
+} else if (model === 'fj-cruiser') {
+  results = await db.select().from(listings)
+    .where(and(
+      eq(listings.status, 'active'),
+      or(eq(listings.model, 'fj-cruiser'), eq(listings.model, 'land-cruiser-fj'))
+    ))
+    .orderBy(desc(listings.featured), desc(listings.created_at));
+} else {
+  results = await db.select().from(listings)
+    .where(and(eq(listings.status, 'active'), eq(listings.model, model!)))
+    .orderBy(desc(listings.featured), desc(listings.created_at));
+}
+
+// Find matching model guide if it exists
+const modelGuide = MODELS.find(m =>
+  m.slug === model ||
+  (model === 'fj-cruiser' && (m.slug === 'fj-cruiser' || m.slug === 'land-cruiser-fj'))
+);
+
+function firstPhoto(photos: string) {
+  try { return JSON.parse(photos)[0] ?? 'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/og-default.jpg'; }
+  catch { return 'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/og-default.jpg'; }
+}
+function formatPrice(n: number) { return 'R' + n.toLocaleString('en-ZA'); }
+function formatMileage(n: number) { return n.toLocaleString('en-ZA') + ' km'; }
+
+const canonicalUrl = `${SITE.url}/listings/model/${model}/`;
+const title = `${modelInfo.description} For Sale in South Africa`;
+const description = results.length
+  ? `Browse ${results.length} ${modelInfo.description}${results.length !== 1 ? 's' : ''} for sale in South Africa. Private sellers and dealer listings — updated daily.`
+  : `${modelInfo.description} classifieds in South Africa. Browse listings from private sellers and dealers — updated daily.`;
+---
+
+<Base
+  title={`${title} — Land Cruiser SA`}
+  description={description}
+  schema={{
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      { "@type": "ListItem", "position": 1, "name": "Home", "item": SITE.url },
+      { "@type": "ListItem", "position": 2, "name": "Listings", "item": `${SITE.url}/listings/` },
+      { "@type": "ListItem", "position": 3, "name": modelInfo.label, "item": canonicalUrl },
+    ],
+  }}
+>
+
+  <div class="bg-[#111111]">
+    <div class="max-w-7xl mx-auto px-4 py-8 sm:py-10">
+      <nav class="flex items-center gap-2 text-xs text-white/40 mb-4">
+        <a href="/" class="hover:text-[#F5A623] transition-colors">Home</a>
+        <span>›</span>
+        <a href="/listings/" class="hover:text-[#F5A623] transition-colors">Listings</a>
+        <span>›</span>
+        <span class="text-white/70">{modelInfo.label}</span>
+      </nav>
+      <p class="text-[#F5A623] font-heading font-bold uppercase tracking-widest text-xs mb-2">{modelInfo.label}</p>
+      <h1 class="font-heading font-bold uppercase text-white text-4xl md:text-5xl leading-none mb-2">{title}</h1>
+      <p class="text-white/50 text-sm">{results.length} active listing{results.length !== 1 ? 's' : ''}</p>
+    </div>
+  </div>
+  <div class="h-1 bg-[#F5A623]"></div>
+
+  <div class="max-w-7xl mx-auto px-4 py-8 sm:py-10">
+
+    {modelGuide && (
+      <div class="mb-8 p-5 bg-[#F5F3EE] border border-[#DDD9D3] rounded-xl flex flex-col sm:flex-row items-start sm:items-center gap-4">
+        <div class="flex-1">
+          <p class="text-xs font-bold uppercase tracking-widest text-[#F5A623] mb-1">Model Guide</p>
+          <p class="font-heading font-bold uppercase text-[#111111] text-base">Want to know more about the {modelInfo.label}?</p>
+          <p class="text-sm text-[#6B7280] mt-0.5">Specs, common issues, buying tips, and who it's really for.</p>
+        </div>
+        <a href={`/models/${modelGuide.slug}/`} class="flex-shrink-0 inline-flex items-center bg-[#111111] text-white font-heading font-bold uppercase tracking-wide px-5 py-2.5 rounded-xl text-sm hover:bg-[#222] transition-colors">
+          Read the Guide →
+        </a>
+      </div>
+    )}
+
+    {results.length === 0 ? (
+      <div class="text-center py-24">
+        <p class="text-[#6B7280] text-lg mb-4">No active {modelInfo.label} listings right now.</p>
+        <a href="/listings/" class="inline-flex items-center bg-[#F5A623] text-[#111111] font-heading font-bold uppercase tracking-wide px-6 py-3 rounded-xl text-sm hover:bg-[#D4881A] transition-colors">
+          Browse All Listings
+        </a>
+      </div>
+    ) : (
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        {results.map((l, i) => (
+          <a
+            href={`/listings/${l.slug}/`}
+            class={`group border rounded-xl overflow-hidden transition-all flex flex-col ${
+              l.listing_type === 'show_off'
+                ? 'bg-[#1A1A1A] border-[rgba(245,166,35,0.15)] hover:border-[#F5A623]'
+                : 'bg-white border-[#DDD9D3] hover:border-[#F5A623] hover:shadow-md'
+            }`}
+          >
+            <div class="card-img">
+              <img
+                src={firstPhoto(l.photos)}
+                alt={l.title}
+                class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                width="800" height="500"
+                loading={i < 6 ? 'eager' : 'lazy'}
+                fetchpriority={i < 3 ? 'high' : 'auto'}
+                decoding="async"
+              />
+              <span class="card-badge">{l.province}</span>
+            </div>
+            <div class="p-4 sm:p-5 flex flex-col flex-1">
+              <h2 class={`font-heading font-bold uppercase text-base leading-tight mb-1 group-hover:text-[#F5A623] transition-colors line-clamp-2 ${l.listing_type === 'show_off' ? 'text-white' : 'text-[#111111]'}`}>
+                {l.title}
+              </h2>
+              <p class={`text-xs mb-4 truncate ${l.listing_type === 'show_off' ? 'text-white/40' : 'text-[#6B7280]'}`}>
+                {formatMileage(l.mileage)} · {l.transmission === 'manual' ? 'Manual' : 'Auto'} · {l.province}
+              </p>
+              <div class="mt-auto">
+                {l.listing_type === 'for_sale'
+                  ? <p class="font-heading font-bold text-2xl text-[#111111]">{formatPrice(l.price)}</p>
+                  : <span class="text-xs font-bold text-[#F5A623] uppercase tracking-wide">★ Community Build</span>
+                }
+              </div>
+            </div>
+          </a>
+        ))}
+      </div>
+    )}
+
+    <!-- Other Models -->
+    <div class="mt-16 pt-10 border-t border-[#DDD9D3]">
+      <h2 class="font-heading font-bold uppercase text-xl text-[#111111] mb-5">Browse by Model</h2>
+      <div class="flex flex-wrap gap-2">
+        {Object.entries(MODEL_MAP).filter(([slug]) => slug !== model).map(([slug, info]) => (
+          <a href={`/listings/model/${slug}/`} class="px-4 py-2 border border-[#DDD9D3] rounded-full text-sm text-[#4A4A4A] hover:border-[#F5A623] hover:text-[#F5A623] transition-colors">
+            {info.label}
+          </a>
+        ))}
+      </div>
+    </div>
+
+  </div>
+
+</Base>
+
+<style>
+  .card-img {
+    position: relative;
+    aspect-ratio: 16 / 10;
+    overflow: hidden;
+    background: #F5F3EE;
+  }
+  .card-badge {
+    position: absolute;
+    top: 0.75rem;
+    left: 0.75rem;
+    background: #111111;
+    color: white;
+    font-size: 0.6rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0.2rem 0.5rem;
+    border-radius: 0.25rem;
+  }
+</style>
