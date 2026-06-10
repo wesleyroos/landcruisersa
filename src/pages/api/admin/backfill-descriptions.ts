@@ -1,10 +1,6 @@
 export const prerender = false;
 
 import type { APIRoute } from 'astro';
-import { writeFileSync } from 'fs';
-import { db } from '@/db/index';
-import { listings } from '@/db/schema';
-import { eq, and, or, isNull, sql } from 'drizzle-orm';
 
 function checkAdmin(cookies: { get(name: string): { value: string } | undefined }): boolean {
   const token = cookies.get('lcsa_admin')?.value;
@@ -15,6 +11,11 @@ function checkAdmin(cookies: { get(name: string): { value: string } | undefined 
 const BROWSER_UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
 
+// Prod URL + token — always talk to prod so local runs fetch AT pages from a
+// non-blocked IP and still write descriptions into the real database.
+const SITE_URL = process.env.SITE_URL ?? import.meta.env.SITE_URL ?? 'https://landcruisersa.fly.dev';
+const TOKEN    = process.env.INGEST_TOKEN ?? import.meta.env.INGEST_TOKEN ?? '';
+
 async function fetchAtDetails(sourceUrl: string): Promise<{ description: string; colour: string }> {
   const res = await fetch(sourceUrl, {
     headers: { 'User-Agent': BROWSER_UA, Accept: 'text/html,application/xhtml+xml' },
@@ -23,21 +24,18 @@ async function fetchAtDetails(sourceUrl: string): Promise<{ description: string;
   if (!res.ok) return { description: '', colour: '' };
   const html = await res.text();
 
-  let description = '';
-  let colour = '';
-  // AT splits the description across multiple e-read-more-line spans (first 1-2 are often empty).
-  // Collect all spans and join non-empty ones instead of stopping at the first match.
-  const spanMatches = [...html.matchAll(/<span[^>]*e-read-more-line[^>]*>([\s\S]*?)<\/span>/g)];
-  const decode = (s: string) => s.replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#x([0-9A-Fa-f]+);/g, (_: string, h: string) => String.fromCodePoint(parseInt(h, 16))).trim();
-  description = spanMatches.map(m => decode(m[1])).filter(Boolean).join('\n');
+  const decode = (s: string) =>
+    s.replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+     .replace(/&#x([0-9A-Fa-f]+);/g, (_: string, h: string) => String.fromCodePoint(parseInt(h, 16))).trim();
+
+  // AT splits description across multiple e-read-more-line spans; first 1-2 are often empty
+  const spans = [...html.matchAll(/<span[^>]*e-read-more-line[^>]*>([\s\S]*?)<\/span>/g)];
+  const description = spans.map(m => decode(m[1])).filter(Boolean).join('\n');
+
   const colourMatch = html.match(/Colou?r<\/span>\s*<span[^>]*>([^<]+)<\/span>/);
-  if (colourMatch) colour = colourMatch[1].trim();
+  const colour = colourMatch ? colourMatch[1].trim() : '';
 
   return { description, colour };
-}
-
-function delay(ms: number) {
-  return new Promise(r => setTimeout(r, ms));
 }
 
 const CONCURRENCY = 4;
@@ -54,18 +52,19 @@ export const GET: APIRoute = async ({ cookies }) => {
       const send = (data: object) =>
         controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
 
-      const pending = db
-        .select({ id: listings.id, source_id: listings.source_id, source_url: listings.source_url, colour: listings.colour })
-        .from(listings)
-        .where(and(
-          eq(listings.source, 'autotrader'),
-          eq(listings.status, 'active'),
-          or(
-            isNull(listings.description),
-            sql`trim(${listings.description}) = ''`,
-          ),
-        ))
-        .all();
+      // Always fetch pending list from prod so local runs see the real AT listings
+      let pending: { id: number; source_id: string; source_url: string; colour: string }[] = [];
+      try {
+        const r = await fetch(`${SITE_URL}/api/admin/listings-missing-descriptions`, {
+          headers: { Authorization: `Bearer ${TOKEN}` },
+        });
+        const data = await r.json() as { listings: typeof pending };
+        pending = data.listings ?? [];
+      } catch (err) {
+        send({ type: 'error', message: 'Failed to fetch pending listings from prod' });
+        controller.close();
+        return;
+      }
 
       send({ type: 'start', total: pending.length });
 
@@ -77,16 +76,13 @@ export const GET: APIRoute = async ({ cookies }) => {
 
       let updated = 0, skipped = 0, failed = 0;
 
-      // Process CONCURRENCY listings at a time, then a short pause between batches
       for (let i = 0; i < pending.length; i += CONCURRENCY) {
         const chunk = pending.slice(i, i + CONCURRENCY);
 
         await Promise.all(chunk.map(async listing => {
           if (!listing.source_url) { skipped++; return; }
 
-          let description = '';
-          let colour = '';
-
+          let description = '', colour = '';
           try {
             ({ description, colour } = await fetchAtDetails(listing.source_url));
           } catch {
@@ -97,31 +93,30 @@ export const GET: APIRoute = async ({ cookies }) => {
 
           if (!description && !colour) {
             skipped++;
-            send({ type: 'progress', source_id: listing.source_id, ok: false, reason: 'no data' });
+            send({ type: 'progress', source_id: listing.source_id, ok: false, reason: 'no data found' });
             return;
           }
 
-          const patch: Record<string, string> = {};
-          if (description) patch.description = description;
-          if (colour && !listing.colour) patch.colour = colour;
-
-          if (Object.keys(patch).length) {
-            db.update(listings).set(patch).where(eq(listings.id, listing.id)).run();
+          // Patch prod DB via API
+          try {
+            await fetch(`${SITE_URL}/api/admin/patch-listing`, {
+              method: 'POST',
+              headers: { Authorization: `Bearer ${TOKEN}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ source_id: listing.source_id, description, colour }),
+            });
             updated++;
             send({ type: 'progress', source_id: listing.source_id, ok: true });
-          } else {
-            skipped++;
+          } catch {
+            failed++;
+            send({ type: 'progress', source_id: listing.source_id, ok: false, reason: 'patch failed' });
           }
         }));
 
-        // Progress heartbeat every batch so the UI stays updated
         send({ type: 'batch', done: Math.min(i + CONCURRENCY, pending.length), total: pending.length, updated, skipped, failed });
 
-        // Brief pause between batches to avoid hammering AT
-        if (i + CONCURRENCY < pending.length) await delay(800);
+        if (i + CONCURRENCY < pending.length) await new Promise(r => setTimeout(r, 800));
       }
 
-      try { writeFileSync('/tmp/lcsa-desc-backfill.log', new Date().toISOString()); } catch {}
       send({ type: 'done', updated, skipped, failed });
       controller.close();
     },
