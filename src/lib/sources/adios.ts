@@ -104,16 +104,26 @@ function normalizeAdiosListing(item: VehicaListing): NormalizedListing | null {
   } as NormalizedListing & { _galleryIds: string[] };
 }
 
+// Vehica API ignores ?include= filter — always returns all results.
+// Cache from discover() so fetchListing can look up by ID without re-fetching.
+const _listingCache = new Map<string, VehicaListing>();
+
+async function fetchAllListings(): Promise<VehicaListing[]> {
+  const res = await fetch(`${API}?per_page=100`, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+  if (!res.ok) return [];
+  const data = await res.json() as VehicaResponse;
+  return data.results ?? [];
+}
+
 export const AdiosAdapter: SourceAdapter = {
   source: SOURCE,
 
   async discover(): Promise<DiscoveredRef[]> {
-    const res = await fetch(`${API}?per_page=100`, {
-      headers: { 'User-Agent': 'Mozilla/5.0' },
-    });
-    if (!res.ok) return [];
-    const data = await res.json() as VehicaResponse;
-    return (data.results ?? []).map(item => ({
+    const results = await fetchAllListings();
+    for (const item of results) {
+      _listingCache.set(String(item.id), item);
+    }
+    return results.map(item => ({
       source: SOURCE,
       source_id: String(item.id),
       source_url: item.url,
@@ -121,12 +131,11 @@ export const AdiosAdapter: SourceAdapter = {
   },
 
   async fetchListing(ref: DiscoveredRef): Promise<NormalizedListing | null> {
-    const res = await fetch(`${API}?include=${ref.source_id}&per_page=1`, {
-      headers: { 'User-Agent': 'Mozilla/5.0' },
-    });
-    if (!res.ok) return null;
-    const data = await res.json() as VehicaResponse;
-    const item = data.results?.[0];
+    let item = _listingCache.get(ref.source_id);
+    if (!item) {
+      const results = await fetchAllListings();
+      item = results.find(r => String(r.id) === ref.source_id);
+    }
     if (!item) return null;
 
     const listing = normalizeAdiosListing(item) as NormalizedListing & { _galleryIds?: string[] };
@@ -141,13 +150,10 @@ export const AdiosAdapter: SourceAdapter = {
 
   async isStillLive(ref: DiscoveredRef): Promise<LivenessResult> {
     try {
-      const res = await fetch(`${API}?include=${ref.source_id}&per_page=1`, {
-        headers: { 'User-Agent': 'Mozilla/5.0' },
-      });
-      if (!res.ok) return 'unknown';
-      const data = await res.json() as VehicaResponse;
-      if (!data.results?.length) return 'removed';
-      const offerType = attrValue(data.results[0].attributes ?? [], 'Offer type');
+      const results = await fetchAllListings();
+      const item = results.find(r => String(r.id) === ref.source_id);
+      if (!item) return 'removed';
+      const offerType = attrValue(item.attributes ?? [], 'Offer type');
       if (offerType.toLowerCase() === 'sold') return 'removed';
       return 'live';
     } catch {
