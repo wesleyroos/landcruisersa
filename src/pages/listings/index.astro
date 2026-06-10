@@ -166,6 +166,9 @@ function firstPhoto(photos: string) {
       ))}
     </div>
 
+    <!-- PAGINATION -->
+    <div id="pagination" class="hidden mt-8 flex items-center justify-center gap-2"></div>
+
     <!-- BROWSE BY PROVINCE / MODEL -->
     <div class="mt-14 pt-10 border-t border-[#DDD9D3] grid grid-cols-1 md:grid-cols-2 gap-10">
       <div>
@@ -299,15 +302,18 @@ function firstPhoto(photos: string) {
   const cards = Array.from(grid.querySelectorAll<HTMLElement>('.listing-card'));
   const emptyState = document.getElementById('empty-state')!;
   const countEl = document.getElementById('results-count')!;
+  const paginationEl = document.getElementById('pagination')!;
 
   const modelSel = document.getElementById('filter-model') as HTMLSelectElement;
   const provinceSel = document.getElementById('filter-province') as HTMLSelectElement;
   const priceSel = document.getElementById('filter-price') as HTMLSelectElement;
   const typePills = document.querySelectorAll<HTMLButtonElement>('.type-pill');
 
+  const PAGE_SIZE = 18;
   let activeType = 'all';
+  let currentPage = 1;
 
-  function applyFilters() {
+  function matchesFilters(card: HTMLElement): boolean {
     const model = modelSel.value;
     const province = provinceSel.value;
     const [minP, maxP] = priceSel.value === 'all'
@@ -315,41 +321,96 @@ function firstPhoto(photos: string) {
       : priceSel.value.split('-').map(Number);
 
     const showingSold = activeType === 'sold';
+    const isSold = card.dataset.status === 'sold';
+    if (showingSold !== isSold) return false;
 
-    let visible = 0;
+    const price = Number(card.dataset.price);
+    const cardType = card.dataset.type ?? 'for_sale';
+    const isShowOff = cardType === 'show_off';
+    const priceOk = isShowOff || showingSold || (price >= minP && price <= maxP);
+
+    const cardModel = card.dataset.model ?? '';
+    const modelMatch =
+      model === 'all' ||
+      (model === 'prado' && cardModel.startsWith('prado')) ||
+      (model === 'fj' && (cardModel === 'fj-cruiser' || cardModel === 'land-cruiser-fj')) ||
+      cardModel === model;
+
+    const typeMatch = showingSold || activeType === 'all' || cardType === activeType;
+
+    return modelMatch &&
+      (province === 'all' || card.dataset.province === province) &&
+      priceOk &&
+      typeMatch;
+  }
+
+  function renderPagination(totalVisible: number, totalPages: number) {
+    if (totalPages <= 1) {
+      paginationEl.classList.add('hidden');
+      return;
+    }
+    paginationEl.classList.remove('hidden');
+    paginationEl.innerHTML = '';
+
+    const btn = (label: string, page: number, disabled: boolean, active = false) => {
+      const el = document.createElement('button');
+      el.textContent = label;
+      el.className = active
+        ? 'px-4 py-2 rounded-lg text-sm font-bold font-heading uppercase bg-[#111111] text-white border border-[#111111] min-h-[40px]'
+        : disabled
+          ? 'px-4 py-2 rounded-lg text-sm font-bold font-heading uppercase border border-[#DDD9D3] text-[#C0BDB8] cursor-not-allowed min-h-[40px]'
+          : 'px-4 py-2 rounded-lg text-sm font-bold font-heading uppercase border border-[#DDD9D3] text-[#4A4A4A] hover:border-[#F5A623] hover:text-[#F5A623] transition-colors min-h-[40px]';
+      if (!disabled && !active) {
+        el.addEventListener('click', () => {
+          currentPage = page;
+          applyFilters(false);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+      }
+      return el;
+    };
+
+    paginationEl.appendChild(btn('← Prev', currentPage - 1, currentPage === 1));
+
+    // Show up to 5 page numbers around current
+    const start = Math.max(1, currentPage - 2);
+    const end = Math.min(totalPages, currentPage + 2);
+    if (start > 1) paginationEl.appendChild(btn('1', 1, false));
+    if (start > 2) {
+      const dots = document.createElement('span');
+      dots.textContent = '…';
+      dots.className = 'px-2 text-[#9CA3AF] text-sm';
+      paginationEl.appendChild(dots);
+    }
+    for (let p = start; p <= end; p++) {
+      paginationEl.appendChild(btn(String(p), p, false, p === currentPage));
+    }
+    if (end < totalPages - 1) {
+      const dots = document.createElement('span');
+      dots.textContent = '…';
+      dots.className = 'px-2 text-[#9CA3AF] text-sm';
+      paginationEl.appendChild(dots);
+    }
+    if (end < totalPages) paginationEl.appendChild(btn(String(totalPages), totalPages, false));
+
+    paginationEl.appendChild(btn('Next →', currentPage + 1, currentPage === totalPages));
+  }
+
+  function applyFilters(resetPage = true) {
+    if (resetPage) currentPage = 1;
+
+    const matched = cards.filter(matchesFilters);
+    const totalPages = Math.ceil(matched.length / PAGE_SIZE);
+    const start = (currentPage - 1) * PAGE_SIZE;
+    const pageCards = new Set(matched.slice(start, start + PAGE_SIZE));
+
     cards.forEach(card => {
-      const isSold = card.dataset.status === 'sold';
-
-      // Sold filter: only show sold listings; all other filters: only show active
-      if (showingSold !== isSold) { card.style.display = 'none'; return; }
-
-      const price = Number(card.dataset.price);
-      const cardType = card.dataset.type ?? 'for_sale';
-      const isShowOff = cardType === 'show_off';
-
-      const priceOk = isShowOff || showingSold || (price >= minP && price <= maxP);
-
-      const cardModel = card.dataset.model ?? '';
-      const modelMatch =
-        model === 'all' ||
-        (model === 'prado' && cardModel.startsWith('prado')) ||
-        (model === 'fj' && (cardModel === 'fj-cruiser' || cardModel === 'land-cruiser-fj')) ||
-        cardModel === model;
-
-      const typeMatch = showingSold || activeType === 'all' || cardType === activeType;
-
-      const show =
-        modelMatch &&
-        (province === 'all' || card.dataset.province === province) &&
-        priceOk &&
-        typeMatch;
-
-      card.style.display = show ? '' : 'none';
-      if (show) visible++;
+      card.style.display = pageCards.has(card) ? '' : 'none';
     });
 
-    emptyState.classList.toggle('hidden', visible > 0);
-    countEl.textContent = `${visible} listing${visible !== 1 ? 's' : ''}`;
+    emptyState.classList.toggle('hidden', matched.length > 0);
+    countEl.textContent = `${matched.length} listing${matched.length !== 1 ? 's' : ''}`;
+    renderPagination(matched.length, totalPages);
   }
 
   typePills.forEach(pill => {
@@ -357,11 +418,8 @@ function firstPhoto(photos: string) {
       activeType = pill.dataset.type ?? 'all';
       typePills.forEach(p => p.classList.remove('active'));
       pill.classList.add('active');
-
-      // Hide price filter when it doesn't apply
       const priceFilter = document.getElementById('filter-price') as HTMLSelectElement;
       priceFilter.style.display = (activeType === 'show_off' || activeType === 'sold') ? 'none' : '';
-
       applyFilters();
     });
   });
