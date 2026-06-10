@@ -68,6 +68,15 @@ const ogImage = new URL(image, SITE.url).href;
     {schema && (
       <script type="application/ld+json" set:html={JSON.stringify(schema)} />
     )}
+
+    <!-- Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-BSFMBFSSLN"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-BSFMBFSSLN');
+    </script>
   </head>
   <body class="min-h-screen flex flex-col">
     <Nav />

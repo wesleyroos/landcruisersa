@@ -92,7 +92,7 @@ function firstPhoto(photos: string) {
 
     <!-- GRID -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5" id="listings-grid">
-      {allListings.map(l => (
+      {allListings.map((l, i) => (
         <a
           href={`/listings/${l.slug}/`}
           class={`listing-card group border rounded-xl overflow-hidden transition-all flex flex-col ${
@@ -111,7 +111,11 @@ function firstPhoto(photos: string) {
               src={firstPhoto(l.photos)}
               alt={l.title}
               class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-              loading="lazy"
+              width="800"
+              height="500"
+              loading={i < 6 ? 'eager' : 'lazy'}
+              fetchpriority={i < 3 ? 'high' : 'auto'}
+              decoding="async"
             />
             <div class="absolute top-3 left-3 flex gap-1.5 flex-wrap">
               <span class={`card-badge ${l.listing_type === 'show_off' ? 'card-badge-show' : ''}`}>

@@ -156,7 +156,7 @@ const vehicleSchema: Record<string, unknown> = {
   <div class="section-mosaic">
     <div class={`mosaic ${gridPhotos.length > 0 ? 'mosaic-split' : 'mosaic-single'}`}>
       <button class="mosaic-main lb-trigger" data-index="0">
-        <img src={mainPhoto} alt={listing.title} />
+        <img src={mainPhoto} alt={listing.title} fetchpriority="high" loading="eager" decoding="async" />
         <span class="photo-count">{photos.length} photos · click to view</span>
       </button>
       {gridPhotos.length > 0 && (
