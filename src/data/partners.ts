@@ -186,6 +186,7 @@ export const PARTNERS: Partner[] = [
     tagline: 'Official IGL Coatings Importer & Distributor for Southern Africa',
     description: 'Premium ceramic coating products and applicator training for Land Cruisers and overland vehicles — protecting your investment against the elements.',
     longDescription: `IGL Coatings Africa is the exclusive official importer and distributor of IGL Coatings products for Southern Africa. IGL is a global leader in graphene-nanotechnology ceramic coatings, trusted by professional detailers and vehicle enthusiasts worldwide for outstanding paint protection, hydrophobic performance, and long-term durability.\n\nFor Land Cruiser owners, a quality ceramic coating is one of the best investments you can make — protecting paintwork from UV damage, red dust, tree sap, bird droppings, and the harsh African bush environment that overlanding inevitably brings. IGL's product range covers everything from entry-level DIY kits to professional-grade coatings applied by certified detailers.\n\nIGL Coatings Africa also provides training and certification for detailing professionals across Southern Africa, and maintains a network of authorised applicators who can prep and coat your vehicle to factory-grade standards.`,
+    email: 'info@iglcoatings.africa',
     website: 'https://iglcoatings.africa/',
     instagram: 'iglcoatings.africa',
     hero: 'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/partners/igl/igl-lc200-bushveld.webp',
