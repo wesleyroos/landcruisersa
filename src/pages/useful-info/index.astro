@@ -41,21 +41,9 @@ const categories = [
     {posts.length === 0 ? (
       <p class="text-[#6B7280] text-center py-20">Articles coming soon.</p>
     ) : (
-      <>
-        <!-- Featured post (first one, large) -->
-        {posts[0] && (
-          <div class="mb-12">
-            <PostCard post={posts[0]} size="large" />
-          </div>
-        )}
-
-        <!-- Remaining posts grid -->
-        {posts.length > 1 && (
-          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {posts.slice(1).map(post => <PostCard post={post} />)}
-          </div>
-        )}
-      </>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {posts.map(post => <PostCard post={post} />)}
+      </div>
     )}
   </div>
 </Base>
