@@ -45,6 +45,7 @@ export const POST: APIRoute = async ({ request }) => {
     Key: key,
     Body: Buffer.from(await file.arrayBuffer()),
     ContentType: file.type,
+    CacheControl: 'public, max-age=31536000, immutable',
   }));
 
   return new Response(JSON.stringify({ url: `${R2_PUBLIC_URL}/${key}` }), {
