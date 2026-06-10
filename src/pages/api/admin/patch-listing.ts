@@ -12,17 +12,19 @@ export const POST: APIRoute = async ({ request }) => {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
   }
 
-  let body: { source_id?: string; description?: string; colour?: string };
+  let body: { source_id?: string; description?: string; colour?: string; status?: string };
   try { body = await request.json(); } catch {
     return new Response(JSON.stringify({ error: 'Invalid JSON' }), { status: 400 });
   }
 
-  const { source_id, description, colour } = body;
+  const { source_id, description, colour, status } = body;
   if (!source_id) return new Response(JSON.stringify({ error: 'source_id required' }), { status: 400 });
 
+  const VALID_STATUSES = ['active', 'inactive', 'sold', 'pending'];
   const updates: Record<string, string> = {};
   if (description !== undefined) updates.description = description;
   if (colour !== undefined) updates.colour = colour;
+  if (status !== undefined && VALID_STATUSES.includes(status)) updates.status = status;
 
   if (!Object.keys(updates).length) {
     return new Response(JSON.stringify({ error: 'Nothing to update' }), { status: 400 });

@@ -9,13 +9,27 @@ const DELAY_MS    = 1_200;
 
 if (!TOKEN) throw new Error('INGEST_TOKEN not set');
 
-async function fetchAtDetails(sourceUrl: string): Promise<{ description: string; colour: string }> {
+type AtResult =
+  | { status: 'gone' }
+  | { status: 'no_description'; colour: string }
+  | { status: 'ok'; description: string; colour: string };
+
+async function fetchAtDetails(sourceUrl: string): Promise<AtResult> {
   const res = await fetch(sourceUrl, {
     headers: { 'User-Agent': BROWSER_UA, Accept: 'text/html,application/xhtml+xml' },
     signal: AbortSignal.timeout(15_000),
   });
-  if (!res.ok) return { description: '', colour: '' };
+
+  // 404 or AT's "page not found" — listing is gone
+  if (res.status === 404) return { status: 'gone' };
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
   const html = await res.text();
+
+  // AT sometimes returns 200 with a "not found" page
+  if (html.includes('Page not found') || html.includes('car-not-found')) {
+    return { status: 'gone' };
+  }
 
   const decode = (s: string) =>
     s.replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
@@ -27,7 +41,8 @@ async function fetchAtDetails(sourceUrl: string): Promise<{ description: string;
   const colourMatch = html.match(/Colou?r<\/span>\s*<span[^>]*>([^<]+)<\/span>/);
   const colour = colourMatch ? colourMatch[1].trim() : '';
 
-  return { description, colour };
+  if (!description) return { status: 'no_description', colour };
+  return { status: 'ok', description, colour };
 }
 
 function delay(ms: number) {
@@ -57,28 +72,36 @@ async function run() {
     await Promise.all(chunk.map(async listing => {
       if (!listing.source_url) { skipped++; return; }
 
-      let description = '', colour = '';
+      let result: AtResult;
       try {
-        ({ description, colour } = await fetchAtDetails(listing.source_url));
+        result = await fetchAtDetails(listing.source_url);
       } catch (err) {
         console.log(`  [skip] ${listing.source_id} — fetch error`);
         failed++;
         return;
       }
 
-      if (!description && !colour) {
-        console.log(`  [skip] ${listing.source_id} — no data found`);
-        skipped++;
-        return;
+      let patch: Record<string, string>;
+
+      if (result.status === 'gone') {
+        // Listing removed from AT — mark inactive so it stops showing on our site
+        patch = { status: 'inactive' };
+        console.log(`  [gone] ${listing.source_id} — marking inactive`);
+      } else if (result.status === 'no_description') {
+        // Page exists but seller left no description — write placeholder to stop retrying
+        patch = { description: 'No description provided by seller.', colour: result.colour };
+        console.log(`  [none] ${listing.source_id} — no description on AT`);
+      } else {
+        patch = { description: result.description, colour: result.colour };
+        console.log(`  [ok]   ${listing.source_id}`);
       }
 
       try {
         await fetch(`${SITE_URL}/api/admin/patch-listing`, {
           method: 'POST',
           headers: { Authorization: `Bearer ${TOKEN}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ source_id: listing.source_id, description, colour }),
+          body: JSON.stringify({ source_id: listing.source_id, ...patch }),
         });
-        console.log(`  [ok]   ${listing.source_id}`);
         updated++;
       } catch {
         console.log(`  [fail] ${listing.source_id} — patch failed`);
