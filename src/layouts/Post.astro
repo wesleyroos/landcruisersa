@@ -84,6 +84,7 @@ const shareTitle = encodeURIComponent(title);
   title={metaTitle ?? `${title} — ${SITE.name}`}
   description={metaDescription ?? excerpt}
   image={featuredImage}
+  ogType="article"
 >
   <script type="application/ld+json" slot="head" set:html={JSON.stringify(articleSchema)} />
   <script type="application/ld+json" slot="head" set:html={JSON.stringify(breadcrumbSchema)} />

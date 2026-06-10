@@ -1,5 +1,6 @@
 ---
 import Base from '@/layouts/Base.astro';
+import { SITE } from '@/data/site';
 import { MODELS } from '@/data/models';
 
 export function getStaticPaths() {
@@ -31,6 +32,50 @@ const offRoadSpecs = [
   { label: 'Departure Angle', value: m.departureAngle },
   { label: 'Wading Depth', value: m.wadeDepth },
 ];
+
+const canonicalUrl = `${SITE.url}/models/${m.slug}/`;
+
+const breadcrumbSchema = {
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": SITE.url },
+    { "@type": "ListItem", "position": 2, "name": "Models", "item": `${SITE.url}/models/` },
+    { "@type": "ListItem", "position": 3, "name": m.name, "item": canonicalUrl },
+  ],
+};
+
+const articleSchema = {
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": `${m.name} Guide — Land Cruiser SA`,
+  "description": m.tagline,
+  "image": new URL(m.hero, SITE.url).href,
+  "author": { "@type": "Organization", "name": SITE.name, "url": SITE.url },
+  "publisher": {
+    "@type": "Organization",
+    "name": SITE.name,
+    "logo": { "@type": "ImageObject", "url": "https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/logo-dark.png" },
+  },
+  "mainEntityOfPage": canonicalUrl,
+};
+
+const faqItems = [
+  ...(m.pros.length ? [{ q: `What are the pros of the ${m.name}?`, a: m.pros.join(' ') }] : []),
+  ...(m.cons.length ? [{ q: `What are the cons of the ${m.name}?`, a: m.cons.join(' ') }] : []),
+  ...(m.buyingTips.length ? [{ q: `What should I check when buying a ${m.name}?`, a: m.buyingTips.join(' ') }] : []),
+  ...(m.commonIssues.length ? [{ q: `What are common issues with the ${m.name}?`, a: m.commonIssues.join(' ') }] : []),
+];
+
+const faqSchema = faqItems.length ? {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": faqItems.map(({ q, a }) => ({
+    "@type": "Question",
+    "name": q,
+    "acceptedAnswer": { "@type": "Answer", "text": a },
+  })),
+} : null;
 ---
 
 <Base
@@ -38,6 +83,9 @@ const offRoadSpecs = [
   description={m.tagline}
   image={m.hero}
 >
+  <script type="application/ld+json" slot="head" set:html={JSON.stringify(breadcrumbSchema)} />
+  <script type="application/ld+json" slot="head" set:html={JSON.stringify(articleSchema)} />
+  {faqSchema && <script type="application/ld+json" slot="head" set:html={JSON.stringify(faqSchema)} />}
 
   <!-- Breadcrumb -->
   <div class="bc-bar">

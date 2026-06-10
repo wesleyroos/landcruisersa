@@ -45,6 +45,18 @@ function formatPrice(n: number) {
 <Base
   title="Land Cruiser SA — For People Who Love All Things Land Cruiser"
   description="South Africa's home for Land Cruiser enthusiasts. Guides, builds, classifieds, 4x4 training, and gear — all in one place."
+  schema={{
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": SITE.name,
+    "url": SITE.url,
+    "description": "South Africa's home for Land Cruiser enthusiasts. Guides, builds, classifieds, 4x4 training, and gear — all in one place.",
+    "potentialAction": {
+      "@type": "SearchAction",
+      "target": `${SITE.url}/listings/?q={search_term_string}`,
+      "query-input": "required name=search_term_string"
+    }
+  }}
 >
 
   <!-- ═══════════════════════════════════ HERO -->

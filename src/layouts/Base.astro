@@ -9,7 +9,8 @@ interface Props {
   description?: string;
   image?: string;
   noindex?: boolean;
-  schema?: Record<string, unknown>; // additional JSON-LD for the page
+  ogType?: string;
+  schema?: Record<string, unknown>;
 }
 
 const {
@@ -17,6 +18,7 @@ const {
   description = SITE.defaultMeta.description,
   image = SITE.defaultMeta.image,
   noindex = false,
+  ogType = 'website',
   schema,
 } = Astro.props;
 
@@ -39,7 +41,7 @@ const ogImage = new URL(image, SITE.url).href;
     {noindex && <meta name="robots" content="noindex, nofollow" />}
 
     <!-- Open Graph -->
-    <meta property="og:type" content="website" />
+    <meta property="og:type" content={ogType} />
     <meta property="og:url" content={canonicalUrl} />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
@@ -70,6 +72,7 @@ const ogImage = new URL(image, SITE.url).href;
     {schema && (
       <script type="application/ld+json" set:html={JSON.stringify(schema)} />
     )}
+    <slot name="head" />
 
     <!-- Google Analytics -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-BSFMBFSSLN"></script>

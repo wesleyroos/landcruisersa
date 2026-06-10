@@ -2,6 +2,7 @@
 export const prerender = false;
 
 import Base from '@/layouts/Base.astro';
+import { SITE } from '@/data/site';
 import { db } from '@/db/index';
 import { listings } from '@/db/schema';
 import { inArray, desc } from 'drizzle-orm';
@@ -42,6 +43,14 @@ function firstPhoto(photos: string) {
 <Base
   title="Land Cruiser Listings — Buy & Sell in South Africa"
   description="Browse Land Cruiser classifieds in South Africa. For sale and community build showcases — 70, 79, 100, 200 and 300 Series."
+  schema={{
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      { "@type": "ListItem", "position": 1, "name": "Home", "item": SITE.url },
+      { "@type": "ListItem", "position": 2, "name": "Listings", "item": `${SITE.url}/listings/` }
+    ]
+  }}
 >
 
   <!-- HEADER -->

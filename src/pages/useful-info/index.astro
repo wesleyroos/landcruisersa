@@ -1,5 +1,6 @@
 ---
 import Base from '@/layouts/Base.astro';
+import { SITE } from '@/data/site';
 import PostCard from '@/components/PostCard.astro';
 import { getCollection } from 'astro:content';
 
@@ -18,6 +19,14 @@ const categories = [
 <Base
   title="Useful Info — Land Cruiser SA"
   description="Guides, buyers guides, how-tos and overlanding tips for South African Land Cruiser owners. Updated regularly."
+  schema={{
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      { "@type": "ListItem", "position": 1, "name": "Home", "item": SITE.url },
+      { "@type": "ListItem", "position": 2, "name": "Useful Info", "item": `${SITE.url}/useful-info/` }
+    ]
+  }}
 >
   <!-- Header -->
   <div class="bg-[#111111] text-white">

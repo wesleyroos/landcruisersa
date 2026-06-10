@@ -1,5 +1,6 @@
 ---
 import Base from '@/layouts/Base.astro';
+import { SITE } from '@/data/site';
 import { MODELS } from '@/data/models';
 
 const mainLine = MODELS.filter(m => m.category === 'Main Line');
@@ -18,6 +19,14 @@ const groups = [
 <Base
   title="Land Cruiser Model Guides — Land Cruiser SA"
   description="Complete guides to every Land Cruiser model sold in South Africa — 70 Series, 200, 300, Prado, FJ Cruiser and the new Land Cruiser FJ."
+  schema={{
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      { "@type": "ListItem", "position": 1, "name": "Home", "item": SITE.url },
+      { "@type": "ListItem", "position": 2, "name": "Models", "item": `${SITE.url}/models/` }
+    ]
+  }}
 >
 
   <div class="bg-[#111111]">
