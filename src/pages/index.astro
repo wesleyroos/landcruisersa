@@ -102,11 +102,10 @@ function formatPrice(n: number) {
         <a href="/listings/submit/" class="btn-outline">+ List Your Vehicle</a>
         <a href="/listings/" class="btn-primary">View All Listings</a>
       </div>
-      <div class="ig-strip">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1112.63 8 4 4 0 0116 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
-        <span>List your Land Cruiser here — we'll post it to our <strong>18,800 followers</strong> on Instagram. Free.</span>
-        <a href="/listings/submit/" class="ig-strip-link">List now →</a>
-      </div>
+      <p class="ig-note">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1112.63 8 4 4 0 0116 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
+        List your Land Cruiser free — we'll post it to our <strong>18,800 followers</strong> on Instagram.
+      </p>
     </div>
   </section>
 
@@ -499,24 +498,14 @@ function formatPrice(n: number) {
   .listings-foot {
     display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap;
   }
-  .ig-strip {
-    display: flex; align-items: center; gap: 0.875rem;
-    background: #111111; color: rgba(255,255,255,0.6);
-    padding: 0.875rem 1.25rem; border-radius: 0.75rem;
-    font-size: 0.8rem; line-height: 1.4; margin-top: 1.25rem;
-    flex-wrap: wrap;
+  .ig-note {
+    display: flex; align-items: center; justify-content: center;
+    gap: 0.5rem; flex-wrap: wrap;
+    margin-top: 1.125rem; text-align: center;
+    font-size: 0.8rem; color: #9CA3AF; line-height: 1.5;
   }
-  .ig-strip svg { flex-shrink: 0; color: #F5A623; }
-  .ig-strip strong { color: white; font-weight: 600; }
-  .ig-strip span { flex: 1; min-width: 200px; }
-  .ig-strip-link {
-    white-space: nowrap; color: #F5A623;
-    font-weight: 700; font-size: 0.75rem;
-    text-decoration: none; font-family: var(--font-heading);
-    text-transform: uppercase; letter-spacing: 0.08em;
-    flex-shrink: 0;
-  }
-  .ig-strip-link:hover { text-decoration: underline; }
+  .ig-note svg { flex-shrink: 0; color: #F5A623; }
+  .ig-note strong { color: #4A4A4A; font-weight: 600; }
 
   /* ─ TRAINING ──────────────────────────────────── */
   .training {
