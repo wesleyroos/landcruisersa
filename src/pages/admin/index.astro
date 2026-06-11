@@ -2,9 +2,10 @@
 export const prerender = false;
 
 import AdminLayout from '@/layouts/AdminLayout.astro';
+import { getCredentials } from '@/lib/instagram';
 import { db } from '@/db/index';
-import { listings } from '@/db/schema';
-import { desc, eq, and, gte, lte, sql } from 'drizzle-orm';
+import { listings, clickEvents } from '@/db/schema';
+import { desc, eq, and, gte, lte, sql, isNotNull } from 'drizzle-orm';
 import type { Listing } from '@/db/schema';
 import type { SQL } from 'drizzle-orm';
 
@@ -18,11 +19,12 @@ const fYear     = Astro.url.searchParams.get('year')     ?? '';
 const fPrice    = Astro.url.searchParams.get('price')    ?? '';
 const fProvince = Astro.url.searchParams.get('province') ?? '';
 const fType     = Astro.url.searchParams.get('type')     ?? '';
-const hasFilter = !!(fSource || fModel || fYear || fPrice || fProvince || fType);
+const fPosted   = Astro.url.searchParams.get('posted')   === '1';
+const hasFilter = !!(fSource || fModel || fYear || fPrice || fProvince || fType || fPosted);
 
 function buildFilterUrl(overrides: Record<string, string>) {
   const params = new URLSearchParams();
-  const base = { source: fSource, model: fModel, year: fYear, price: fPrice, province: fProvince, type: fType, ...overrides };
+  const base = { source: fSource, model: fModel, year: fYear, price: fPrice, province: fProvince, type: fType, posted: fPosted ? '1' : '', ...overrides };
   for (const [k, v] of Object.entries(base)) if (v) params.set(k, v);
   const s = params.toString();
   return `/admin${s ? '?' + s : ''}`;
@@ -54,6 +56,7 @@ if (fPrice) {
   activeConds.push(gte(listings.price, pMin));
   if (pMax < 9999999) activeConds.push(lte(listings.price, pMax));
 }
+if (fPosted) activeConds.push(isNotNull(listings.ig_posted_at));
 const activeWhere = and(...activeConds);
 
 // Filtered count for pagination
@@ -71,6 +74,91 @@ const active = db.select().from(listings)
   .where(activeWhere)
   .orderBy(desc(listings.created_at))
   .limit(PAGE_SIZE).offset((safePage - 1) * PAGE_SIZE).all();
+
+// ─── Instagram publishing ─────────────────────────────────────────────────────
+const creds = await getCredentials();
+const igConnected = !!creds;
+
+// Posted count for the filter toggle
+const postedCount = (db.select({ n: sql<number>`count(*)` }).from(listings)
+  .where(and(eq(listings.status, 'active'), isNotNull(listings.ig_posted_at))).get())?.n ?? 0;
+
+// IG media stats — only fetched in the Posted view so normal page loads stay fast.
+// Step 1: fetch media list, match to listings by timestamp (±2 min window)
+// Step 2: for each match, fetch insights (views, total_interactions)
+type IgStats = { likes: number; comments: number; views: number; interactions: number };
+const igMediaStats = new Map<number, IgStats>(); // keyed by listing.id
+
+if (fPosted && creds) {
+  try {
+    const res = await fetch(
+      `https://graph.instagram.com/v21.0/${creds.userId}/media` +
+      `?fields=id,timestamp,like_count,comments_count&limit=100` +
+      `&access_token=${creds.accessToken}`
+    );
+    const json = await res.json();
+    if (Array.isArray(json.data)) {
+      // Match media items to our listings
+      const matched: Array<{ listingId: number; mediaId: string; likes: number; comments: number }> = [];
+      for (const item of json.data) {
+        const igMs = new Date(item.timestamp).getTime();
+        for (const l of active) {
+          if (!l.ig_posted_at) continue;
+          const ourMs = l.ig_posted_at instanceof Date
+            ? l.ig_posted_at.getTime()
+            : (l.ig_posted_at as unknown as number) * 1000;
+          if (Math.abs(igMs - ourMs) < 2 * 60 * 1000) {
+            matched.push({ listingId: l.id, mediaId: item.id, likes: item.like_count ?? 0, comments: item.comments_count ?? 0 });
+          }
+        }
+      }
+
+      // Fetch insights in parallel for each matched post.
+      // Views (not reach) — matches the headline number shown in the IG app.
+      await Promise.all(matched.map(async (m) => {
+        let views = 0, interactions = 0;
+        try {
+          const ir = await fetch(
+            `https://graph.instagram.com/v21.0/${m.mediaId}/insights` +
+            `?metric=views,total_interactions&period=lifetime&access_token=${creds.accessToken}`
+          );
+          const ij = await ir.json();
+          if (Array.isArray(ij.data)) {
+            for (const d of ij.data) {
+              const val = d.values?.[0]?.value ?? d.value ?? 0;
+              if (d.name === 'views')              views        = val;
+              if (d.name === 'total_interactions') interactions = val;
+            }
+          }
+        } catch { /* scope not yet available — shows 0 */ }
+        igMediaStats.set(m.listingId, { likes: m.likes, comments: m.comments, views, interactions });
+      }));
+    }
+  } catch { /* IG unavailable — show cards without stats */ }
+}
+
+// ─── Outbound clicks per listing ──────────────────────────────────────────────
+type ClickCounts = { whatsapp: number; call: number; email: number; portal: number };
+const listingClicks = new Map<string, ClickCounts>();
+
+{
+  const rows = db.select({
+    slug:   clickEvents.listing_slug,
+    source: clickEvents.source,
+    count:  sql<number>`cast(count(*) as int)`,
+  }).from(clickEvents)
+    .groupBy(clickEvents.listing_slug, clickEvents.source)
+    .all();
+
+  for (const r of rows) {
+    const c = listingClicks.get(r.slug) ?? { whatsapp: 0, call: 0, email: 0, portal: 0 };
+    if (r.source === 'whatsapp') c.whatsapp += r.count;
+    else if (r.source === 'call') c.call += r.count;
+    else if (r.source === 'email') c.email += r.count;
+    else c.portal += r.count;
+    listingClicks.set(r.slug, c);
+  }
+}
 
 function firstPhoto(photos: string) {
   try { return JSON.parse(photos)[0] ?? null; } catch { return null; }
@@ -248,6 +336,11 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
       </select>
     </div>
     <div class="filter-meta">
+      {igConnected && (
+        <a href={buildFilterUrl({ posted: fPosted ? '' : '1', page: '' })} class={`af-posted-toggle${fPosted ? ' active' : ''}`}>
+          ✓ Posted to IG ({postedCount})
+        </a>
+      )}
       {hasFilter && <span class="af-count">{filteredActiveCount} listing{filteredActiveCount !== 1 ? 's' : ''}</span>}
       {hasFilter && <a href="/admin" class="af-clear">✕ Clear</a>}
     </div>
@@ -267,6 +360,9 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
       <div class="card-list">
         {items.map((l: Listing) => {
           const photo = firstPhoto(l.photos);
+          const igS = fPosted ? igMediaStats.get(l.id) : undefined;
+          const clk = listingClicks.get(l.slug) ?? { whatsapp: 0, call: 0, email: 0, portal: 0 };
+          const hasClicks = clk.whatsapp + clk.call + clk.email + clk.portal > 0;
           return (
             <div
               class={`lcard lcard-${l.status}`}
@@ -299,6 +395,30 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
                   {l.seller_name} · <a href={`mailto:${l.seller_email}`}>{l.seller_email}</a> · <a href={`tel:${l.seller_phone}`}>{l.seller_phone}</a>
                 </p>
                 <p class="lcard-date">{formatDate(l.created_at)}</p>
+                {l.ig_posted_at && (
+                  <p class="lcard-posted-at">✓ Posted to IG {formatDate(l.ig_posted_at)}</p>
+                )}
+                {(igS || hasClicks) && (
+                  <div class="lcard-stats">
+                    {igS && (
+                      <>
+                        <span class="stat-chip stat-ig">Likes {igS.likes}</span>
+                        <span class="stat-chip stat-ig">Comments {igS.comments}</span>
+                        {igS.views > 0 && (
+                          <span class="stat-chip stat-views">Views {igS.views.toLocaleString('en-ZA')}</span>
+                        )}
+                        {igS.interactions > 0 && (
+                          <span class="stat-chip stat-views">Actions {igS.interactions.toLocaleString('en-ZA')}</span>
+                        )}
+                        {hasClicks && <span class="stat-divider">·</span>}
+                      </>
+                    )}
+                    {clk.whatsapp > 0 && <span class="stat-chip stat-wa">WA {clk.whatsapp}</span>}
+                    {clk.call     > 0 && <span class="stat-chip stat-contact">Call {clk.call}</span>}
+                    {clk.email    > 0 && <span class="stat-chip stat-contact">Email {clk.email}</span>}
+                    {clk.portal   > 0 && <span class="stat-chip stat-portal">Portal {clk.portal}</span>}
+                  </div>
+                )}
               </div>
               <div class="lcard-actions">
                 <a href={`/admin/listings/${l.id}`} class="btn btn-edit">Edit</a>
@@ -312,6 +432,14 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
                   <>
                     <a href={`/listings/${l.slug}/`} target="_blank" class="btn btn-view">View →</a>
                     <button class="btn btn-sold" data-action="sold" data-id={l.id}>Mark Sold</button>
+                    {igConnected && (
+                      <>
+                        <button class="btn btn-preview" data-action="preview" data-id={l.id}>Preview Caption</button>
+                        <button class={`btn ${l.ig_posted_at ? 'btn-repost' : 'btn-post'}`} data-action="post" data-id={l.id}>
+                          {l.ig_posted_at ? 'Repost' : 'Post to IG'}
+                        </button>
+                      </>
+                    )}
                   </>
                 )}
                 {l.status === 'pending' && l.slug && (
@@ -348,6 +476,23 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
       }
     </div>
   )}
+
+  <!-- IG CAPTION PREVIEW MODAL -->
+  <div id="preview-modal" class="modal-backdrop" hidden>
+    <div class="modal modal-ig">
+      <p class="modal-title">Caption Preview</p>
+      <p id="modal-photo-count" class="modal-meta"></p>
+      <textarea id="modal-caption" class="modal-caption" rows="14" spellcheck="false"></textarea>
+      <div class="modal-actions">
+        <button id="modal-cancel"    class="btn btn-edit">Cancel</button>
+        <button id="modal-rehashtag" class="btn btn-edit" style="margin-right:auto">↺ New hashtags</button>
+        <button id="modal-confirm"   class="btn btn-post">Post Now</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST -->
+  <div id="toast" class="toast" hidden></div>
 
 </AdminLayout>
 
@@ -407,6 +552,30 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
   .source-opt input { accent-color: #111111; width: 14px; height: 14px; cursor: pointer; }
   .modal-actions { display: flex; gap: 0.5rem; justify-content: flex-end; }
 
+  /* IG CAPTION MODAL */
+  .modal-ig { max-width: 480px; display: flex; flex-direction: column; gap: 0.875rem; }
+  .modal-ig .modal-title { margin-bottom: 0; }
+  .modal-meta { font-size: 0.72rem; color: #9CA3AF; margin-top: -0.5rem; }
+  .modal-caption {
+    font-size: 0.78rem; color: #374151; line-height: 1.6;
+    background: #F9FAFB; border: 1.5px solid #E5E7EB; border-radius: 0.5rem;
+    padding: 0.875rem 1rem; word-break: break-word;
+    width: 100%; box-sizing: border-box; resize: vertical;
+    font-family: inherit; outline: none;
+  }
+  .modal-caption:focus { border-color: #111111; }
+
+  /* TOAST */
+  .toast {
+    position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 100;
+    background: #111111; color: white; font-size: 0.8rem; font-weight: 600;
+    padding: 0.75rem 1.25rem; border-radius: 0.625rem;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.2); transition: opacity 0.3s;
+  }
+  .toast[hidden] { display: none; }
+  .toast-ok  { background: #166534; }
+  .toast-err { background: #991B1B; }
+
   /* FILTER BAR */
   .filter-bar {
     background: white; border: 1.5px solid #E5E7EB; border-radius: 0.75rem;
@@ -440,6 +609,13 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
     letter-spacing: 0.04em;
   }
   .af-clear:hover { background: #E5E7EB; color: #111111; }
+  .af-posted-toggle {
+    font-size: 0.7rem; font-weight: 700; color: #6B7280;
+    text-decoration: none; border: 1.5px solid #E5E7EB; border-radius: 0.5rem;
+    padding: 0.35rem 0.7rem; transition: all 0.15s; white-space: nowrap;
+  }
+  .af-posted-toggle:hover { border-color: #111111; color: #111111; }
+  .af-posted-toggle.active { background: #111111; color: #fff; border-color: #111111; }
 
   /* GROUPS */
   .group { margin-bottom: 2rem; }
@@ -502,6 +678,21 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
   .lcard-seller a { color: #9CA3AF; text-decoration: none; }
   .lcard-seller a:hover { color: #F5A623; }
   .lcard-date { font-size: 0.65rem; color: #D1D5DB; }
+  .lcard-posted-at { font-size: 0.68rem; color: #166534; font-weight: 600; margin-top: 0.2rem; }
+
+  /* IG / CLICK STAT CHIPS */
+  .lcard-stats { display: flex; align-items: center; gap: 0.3rem; flex-wrap: wrap; margin-top: 0.5rem; }
+  .stat-chip {
+    font-size: 0.62rem; font-weight: 700; padding: 0.12rem 0.45rem; border-radius: 9999px;
+    display: inline-flex; align-items: center; gap: 0.2rem; line-height: 1.5;
+    background: #F3F4F6; color: #6B7280;
+  }
+  .stat-ig      { background: #FDF2F8; color: #9D174D; }
+  .stat-views   { background: #F0F4FF; color: #3730A3; }
+  .stat-wa      { background: #F0FDF4; color: #166534; }
+  .stat-contact { background: #F0F9FF; color: #0369A1; }
+  .stat-portal  { background: #EFF6FF; color: #1D4ED8; }
+  .stat-divider { font-size: 0.65rem; color: #D1D5DB; }
 
   /* ACTIONS */
   .lcard-actions {
@@ -531,6 +722,15 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
 
   .btn-view    { background: white; color: #9CA3AF; border-color: #E5E7EB; }
   .btn-view:hover    { color: #111111; border-color: #111111; }
+
+  .btn-preview { background: white; color: #6B7280; border-color: #E5E7EB; }
+  .btn-preview:hover { color: #111111; border-color: #111111; }
+
+  .btn-post    { background: #111111; color: white; border-color: #111111; }
+  .btn-post:hover:not(:disabled) { background: #374151; border-color: #374151; }
+
+  .btn-repost  { background: white; color: #6B7280; border-color: #E5E7EB; }
+  .btn-repost:hover:not(:disabled) { background: #F9FAFB; border-color: #9CA3AF; color: #374151; }
 
   /* PAGINATION */
   .pagination {
@@ -809,6 +1009,14 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
     const action = btn.dataset.action!;
     const id = btn.dataset.id!;
 
+    // ── IG publishing actions ──
+    if (action === 'preview') { await openPreview(Number(id), btn); return; }
+    if (action === 'post') {
+      if (!confirm('Post this listing to Instagram now?')) return;
+      await doPost(Number(id), btn);
+      return;
+    }
+
     if (action === 'delete') {
       if (!confirm('Delete this listing permanently?')) return;
     }
@@ -856,4 +1064,156 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
       alert('Network error — try again.');
     }
   });
+
+  // ── Instagram publishing ───────────────────────────────────────────────────
+  let pendingListingId: number | null = null;
+
+  const igModal        = document.getElementById('preview-modal')!;
+  const modalCaption   = document.getElementById('modal-caption') as HTMLTextAreaElement;
+  const modalMeta      = document.getElementById('modal-photo-count')!;
+  const modalCancel    = document.getElementById('modal-cancel')!;
+  const modalRehashtag = document.getElementById('modal-rehashtag') as HTMLButtonElement;
+  const modalConfirm   = document.getElementById('modal-confirm') as HTMLButtonElement;
+  const toast          = document.getElementById('toast')!;
+
+  function showToast(msg: string, type: 'ok' | 'err') {
+    toast.textContent = msg;
+    toast.className = `toast toast-${type}`;
+    toast.hidden = false;
+    setTimeout(() => { toast.hidden = true; }, 3500);
+  }
+
+  const CTA_MARKER = '📲 Link in bio to view full listing';
+
+  // Close modal
+  modalCancel.addEventListener('click', () => { igModal.hidden = true; pendingListingId = null; });
+  igModal.addEventListener('click', (e) => { if (e.target === igModal) { igModal.hidden = true; pendingListingId = null; } });
+
+  async function openPreview(id: number, btn: HTMLButtonElement) {
+    btn.disabled = true;
+    btn.textContent = 'Generating…';
+    modalCaption.value = 'Generating hashtags with AI…';
+    modalCaption.disabled = true;
+    modalConfirm.disabled = true;
+    modalMeta.textContent = '';
+    pendingListingId = id;
+    igModal.hidden = false;
+    try {
+      const res  = await fetch('/api/admin/instagram/post', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ listingId: id, previewOnly: true }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        igModal.hidden = true;
+        pendingListingId = null;
+        showToast(data.error ?? 'Failed to load preview', 'err');
+        return;
+      }
+      modalCaption.value    = data.caption;
+      modalCaption.disabled = false;
+      modalConfirm.disabled = false;
+      modalMeta.textContent = `${data.photoCount} photo${data.photoCount !== 1 ? 's' : ''} will be posted as ${data.photoCount > 1 ? 'a carousel' : 'a single image'}`;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Preview Caption';
+    }
+  }
+
+  // Regenerate hashtags — keep the body the user may have edited, swap only the hashtag block
+  modalRehashtag.addEventListener('click', async () => {
+    if (!pendingListingId) return;
+    modalRehashtag.disabled = true;
+    modalRehashtag.textContent = '…';
+    let success = false;
+    try {
+      const res  = await fetch('/api/admin/instagram/post', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ listingId: pendingListingId, previewOnly: true }),
+      });
+      const data = await res.json();
+      if (!res.ok) { showToast(data.error ?? 'Failed to regenerate', 'err'); return; }
+
+      // Extract new hashtags (everything after the CTA line)
+      const ctaIdx = data.caption.indexOf(CTA_MARKER);
+      const newHashtags = ctaIdx !== -1 ? data.caption.slice(ctaIdx + CTA_MARKER.length).trimStart() : '';
+
+      // Replace only the hashtag portion in the current textarea
+      const current = modalCaption.value;
+      const bodyEnd = current.indexOf(CTA_MARKER);
+      if (bodyEnd !== -1) {
+        modalCaption.value = current.slice(0, bodyEnd + CTA_MARKER.length) + (newHashtags ? '\n\n' + newHashtags : '');
+      } else {
+        modalCaption.value = current.trimEnd() + '\n\n' + newHashtags;
+      }
+      success = true;
+    } finally {
+      modalRehashtag.disabled = false;
+      modalRehashtag.textContent = success ? '✓ Updated!' : '↺ New hashtags';
+      if (success) setTimeout(() => { modalRehashtag.textContent = '↺ New hashtags'; }, 1500);
+    }
+  });
+
+  // Confirm from modal — pass whatever caption is currently in the textarea
+  modalConfirm.addEventListener('click', async () => {
+    if (!pendingListingId) return;
+    const id      = pendingListingId;
+    const caption = modalCaption.value;
+    igModal.hidden = true;
+    pendingListingId = null;
+    const btn = document.querySelector<HTMLButtonElement>(`[data-action="post"][data-id="${id}"]`);
+    await doPost(id, btn, caption);
+  });
+
+  function markPosted(id: number, btn: HTMLButtonElement | null) {
+    const cardBody = document.querySelector(`#card-${id} .lcard-body`);
+    if (cardBody && !cardBody.querySelector('.lcard-posted-at')) {
+      const today = new Intl.DateTimeFormat('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date());
+      const p = document.createElement('p');
+      p.className = 'lcard-posted-at';
+      p.textContent = `✓ Posted to IG ${today}`;
+      const stats = cardBody.querySelector('.lcard-stats');
+      if (stats) cardBody.insertBefore(p, stats); else cardBody.appendChild(p);
+    }
+    if (btn) { btn.className = 'btn btn-repost'; btn.textContent = 'Repost'; btn.disabled = false; }
+  }
+
+  async function pollPosted(id: number, btn: HTMLButtonElement | null, deadline: number) {
+    if (Date.now() > deadline) {
+      showToast('Post timed out — check Instagram to confirm', 'err');
+      if (btn) { btn.disabled = false; btn.textContent = 'Repost'; }
+      return;
+    }
+    const res = await fetch(`/api/admin/instagram/post-status?id=${id}`).catch(() => null);
+    if (res?.ok) {
+      const data = await res.json();
+      if (data.posted) { showToast('Posted to Instagram!', 'ok'); markPosted(id, btn); return; }
+    }
+    setTimeout(() => pollPosted(id, btn, deadline), 4000);
+  }
+
+  async function doPost(id: number, btn: HTMLButtonElement | null, caption?: string) {
+    if (btn) { btn.disabled = true; btn.textContent = 'Posting…'; }
+
+    try {
+      const res  = await fetch('/api/admin/instagram/post', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ listingId: id, ...(caption ? { caption } : {}) }),
+      });
+      const data = await res.json();
+      if (res.status === 202 || res.ok) {
+        // Background job started — poll until ig_posted_at is stamped (2 min timeout)
+        pollPosted(id, btn, Date.now() + 120_000);
+      } else {
+        showToast(data.error ?? 'Post failed', 'err');
+        if (btn) { btn.disabled = false; btn.textContent = btn.classList.contains('btn-repost') ? 'Repost' : 'Post to IG'; }
+      }
+    } catch {
+      showToast('Network error', 'err');
+      if (btn) { btn.disabled = false; btn.textContent = 'Post to IG'; }
+    }
+  }
 </script>
