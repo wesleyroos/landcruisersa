@@ -7,7 +7,7 @@ import { eq } from 'drizzle-orm';
 
 const UPDATABLE_FIELDS = [
   'status', 'listing_type', 'featured', 'title', 'model', 'year', 'price', 'mileage',
-  'province', 'new_or_used', 'transmission', 'colour', 'description',
+  'province', 'new_or_used', 'transmission', 'fuel_type', 'colour', 'description',
   'mods', 'seller_name', 'seller_email', 'seller_phone',
 ];
 

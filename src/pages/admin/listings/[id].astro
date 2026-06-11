@@ -141,15 +141,26 @@ ${listing.description ? listing.description.slice(0, 200).trim() + (listing.desc
 
           <div class="field-row">
             <div class="field">
+              <label>Fuel Type</label>
+              <select name="fuel_type">
+                <option value=""        selected={!listing.fuel_type}>— Unknown —</option>
+                <option value="Diesel"  selected={listing.fuel_type === 'Diesel'}>Diesel</option>
+                <option value="Petrol"  selected={listing.fuel_type === 'Petrol'}>Petrol</option>
+                <option value="Hybrid"  selected={listing.fuel_type === 'Hybrid'}>Hybrid</option>
+                <option value="Electric" selected={listing.fuel_type === 'Electric'}>Electric</option>
+              </select>
+            </div>
+            <div class="field">
               <label>Colour</label>
               <input type="text" name="colour" value={listing.colour} />
             </div>
-            <div class="field">
-              <label>Province</label>
-              <select name="province">
-                {PROVINCES.map(p => <option value={p} selected={listing.province === p}>{p}</option>)}
-              </select>
-            </div>
+          </div>
+
+          <div class="field">
+            <label>Province</label>
+            <select name="province">
+              {PROVINCES.map(p => <option value={p} selected={listing.province === p}>{p}</option>)}
+            </select>
           </div>
 
           <div class="field-row" id="sale-fields" style={listing.listing_type === 'show_off' ? 'display:none' : ''}>

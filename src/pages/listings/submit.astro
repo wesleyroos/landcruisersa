@@ -210,9 +210,21 @@ import Base from '@/layouts/Base.astro';
         </div>
       </div>
 
-      <div class="field">
-        <label for="f-colour">Colour *</label>
-        <input id="f-colour" type="text" autocomplete="off" placeholder="e.g. White" />
+      <div class="field-row">
+        <div class="field">
+          <label for="f-fuel-type">Fuel Type</label>
+          <select id="f-fuel-type">
+            <option value="">Select</option>
+            <option value="Diesel">Diesel</option>
+            <option value="Petrol">Petrol</option>
+            <option value="Hybrid">Hybrid</option>
+            <option value="Electric">Electric</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="f-colour">Colour *</label>
+          <input id="f-colour" type="text" autocomplete="off" placeholder="e.g. White" />
+        </div>
       </div>
 
       <!-- SHOW OFF ONLY -->
@@ -979,6 +991,7 @@ import Base from '@/layouts/Base.astro';
       province: (document.getElementById('f-province') as HTMLSelectElement).value,
       new_or_used: (document.getElementById('f-new-or-used') as HTMLSelectElement).value,
       transmission: (document.getElementById('f-transmission') as HTMLSelectElement).value,
+      fuel_type: (document.getElementById('f-fuel-type') as HTMLSelectElement).value || null,
       colour: (document.getElementById('f-colour') as HTMLInputElement).value.trim(),
       description: (document.getElementById('f-description') as HTMLTextAreaElement).value.trim(),
       mods: (document.getElementById('f-mods') as HTMLTextAreaElement).value.trim(),

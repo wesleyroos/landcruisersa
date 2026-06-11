@@ -17,7 +17,7 @@ export const POST: APIRoute = async ({ request }) => {
   const {
     listing_type = 'for_sale',
     title, model, year, price, mileage,
-    province, new_or_used, transmission, colour,
+    province, new_or_used, transmission, fuel_type, colour,
     description, mods, photos,
     seller_name, seller_email, seller_phone,
   } = body;
@@ -44,6 +44,7 @@ export const POST: APIRoute = async ({ request }) => {
     province,
     new_or_used: new_or_used || 'Used',
     transmission,
+    fuel_type: fuel_type || null,
     colour,
     description,
     mods: mods || null,
