@@ -8,6 +8,18 @@ import Base from '@/layouts/Base.astro';
   description="List your Land Cruiser for sale or show off your build to the Land Cruiser SA community."
 >
 
+<div class="ig-value-banner">
+  <div class="ig-value-inner">
+    <div class="ig-value-icon">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1112.63 8 4 4 0 0116 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
+    </div>
+    <div class="ig-value-text">
+      <p class="ig-value-head">Reach 18,800 Land Cruiser buyers on Instagram</p>
+      <p class="ig-value-sub">Every listing submitted here gets posted to our Instagram following — 18.8k people who specifically follow Land Cruisers in South Africa. Free.</p>
+    </div>
+  </div>
+</div>
+
 <div class="wiz-outer">
 
   <!-- STICKY HEADER BAR -->
@@ -273,6 +285,48 @@ import Base from '@/layouts/Base.astro';
 </Base>
 
 <style>
+  /* ── IG VALUE BANNER ────────────────────────────── */
+  .ig-value-banner {
+    background: #111111;
+    padding: 1.125rem 1.5rem;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+  .ig-value-inner {
+    max-width: 560px;
+    margin: 0 auto;
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+  .ig-value-icon {
+    flex-shrink: 0;
+    width: 44px;
+    height: 44px;
+    border-radius: 0.625rem;
+    background: rgba(245,166,35,0.12);
+    border: 1px solid rgba(245,166,35,0.25);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #F5A623;
+  }
+  .ig-value-text { flex: 1; }
+  .ig-value-head {
+    font-family: var(--font-heading);
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 0.875rem;
+    color: white;
+    letter-spacing: 0.04em;
+    margin-bottom: 0.25rem;
+    line-height: 1.2;
+  }
+  .ig-value-sub {
+    font-size: 0.78rem;
+    color: rgba(255,255,255,0.5);
+    line-height: 1.5;
+  }
+
   /* ── LAYOUT ─────────────────────────────────────── */
   .wiz-outer {
     min-height: 100vh;
