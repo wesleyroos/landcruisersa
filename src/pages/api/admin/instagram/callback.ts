@@ -21,13 +21,13 @@ export const GET: APIRoute = async ({ url }) => {
   const state = url.searchParams.get('state');
   const error = url.searchParams.get('error');
 
-  if (error) return go('/admin/instagram?error=denied');
-  if (!code || !state) return go('/admin/instagram?error=missing_params');
-  if (!APP_ID || !APP_SECRET || !REDIRECT_URI) return go('/admin/instagram?error=not_configured');
+  if (error) return go('/admin/settings?error=denied');
+  if (!code || !state) return go('/admin/settings?error=missing_params');
+  if (!APP_ID || !APP_SECRET || !REDIRECT_URI) return go('/admin/settings?error=not_configured');
 
   try {
     const valid = await verifyAndClearOAuthState(state);
-    if (!valid) return go('/admin/instagram?error=invalid_state');
+    if (!valid) return go('/admin/settings?error=invalid_state');
 
     const shortToken = await exchangeCodeForToken(code, APP_ID, APP_SECRET, REDIRECT_URI);
     const longToken  = await exchangeForLongLivedToken(shortToken, APP_SECRET);
@@ -35,9 +35,9 @@ export const GET: APIRoute = async ({ url }) => {
 
     await saveCredentials({ userId: id, accessToken: longToken, username });
 
-    return go('/admin/instagram?connected=1');
+    return go('/admin/settings?connected=1');
   } catch (err) {
     console.error('[IG callback]', err);
-    return go('/admin/instagram?error=token_exchange');
+    return go('/admin/settings?error=token_exchange');
   }
 };

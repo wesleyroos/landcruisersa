@@ -50,17 +50,6 @@ if (fProvince) postedToggleParams.set('province', fProvince);
 if (fType)     postedToggleParams.set('type',     fType);
 const postedToggleUrl = '/admin/instagram' + (postedToggleParams.toString() ? '?' + postedToggleParams.toString() : '');
 
-const urlError   = Astro.url.searchParams.get('error');
-const urlSuccess = Astro.url.searchParams.get('connected');
-
-const errorMessages: Record<string, string> = {
-  denied:         'You denied the Instagram authorisation.',
-  missing_params: 'OAuth callback was missing required parameters.',
-  invalid_state:  'OAuth state mismatch — please try again.',
-  token_exchange: 'Failed to exchange the authorisation code for a token.',
-  not_configured: 'Instagram credentials are not configured on the server.',
-};
-
 // ─── IG media stats (posted view only) ───────────────────────────────────────
 // Step 1: fetch media list, match to listings by timestamp (±2 min window)
 // Step 2: for each match, fetch insights (impressions, reach) — requires
@@ -151,50 +140,13 @@ function formatPrice(n: number) {
 }
 ---
 
-<AdminLayout title="Instagram" activePage="instagram">
+<AdminLayout title="Publishing" activePage="instagram">
 
-  <!-- CONNECTION CARD -->
-  <div class="section">
-    <div class={`conn-card ${connected ? 'conn-card-ok' : 'conn-card-off'}`}>
-      <div class="conn-icon">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
-          <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/>
-          <circle cx="12" cy="12" r="4"/>
-          <circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/>
-        </svg>
-      </div>
-      <div class="conn-body">
-        {connected ? (
-          <>
-            <p class="conn-title">Connected as <strong>@{creds!.username}</strong></p>
-            <p class="conn-sub">Long-lived token · refresh monthly to keep it alive</p>
-          </>
-        ) : (
-          <>
-            <p class="conn-title">Not connected</p>
-            <p class="conn-sub">Connect your Instagram account to start posting</p>
-          </>
-        )}
-      </div>
-      <div class="conn-actions">
-        {connected ? (
-          <>
-            <button id="refresh-token-btn" class="btn btn-outline">Refresh Token</button>
-            <button id="disconnect-btn"    class="btn btn-danger">Disconnect</button>
-          </>
-        ) : (
-          <a href="/api/admin/instagram/connect" class="btn btn-ig">Connect Instagram</a>
-        )}
-      </div>
+  {!connected && (
+    <div class="not-connected">
+      <p>Instagram is not connected. <a href="/admin/settings">Go to Settings →</a></p>
     </div>
-
-    {urlSuccess && (
-      <div class="alert alert-ok">Instagram connected successfully.</div>
-    )}
-    {urlError && (
-      <div class="alert alert-err">{errorMessages[urlError] ?? 'Something went wrong.'}</div>
-    )}
-  </div>
+  )}
 
   <!-- FILTER BAR -->
   {connected && (
@@ -294,25 +246,13 @@ function formatPrice(n: number) {
                   <div class="lcard-stats">
                     {igS && (
                       <>
-                        <span class="stat-chip stat-ig" title="Likes">
-                          <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 21.593c-5.63-5.539-11-10.297-11-14.402 0-3.791 3.068-5.191 5.281-5.191 1.312 0 4.151.501 5.719 4.457 1.59-3.968 4.464-4.447 5.726-4.447 2.54 0 5.274 1.621 5.274 5.181 0 4.069-5.136 8.625-11 14.402z"/></svg>
-                          {igS.likes}
-                        </span>
-                        <span class="stat-chip stat-ig" title="Comments">
-                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
-                          {igS.comments}
-                        </span>
+                        <span class="stat-chip stat-ig">Likes {igS.likes}</span>
+                        <span class="stat-chip stat-ig">Comments {igS.comments}</span>
                         {igS.reach > 0 && (
-                          <span class="stat-chip stat-reach" title="Reach — unique accounts that saw this post">
-                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 010 20M12 2a15.3 15.3 0 000 20"/></svg>
-                            {igS.reach.toLocaleString('en-ZA')}
-                          </span>
+                          <span class="stat-chip stat-reach">Reach {igS.reach.toLocaleString('en-ZA')}</span>
                         )}
                         {igS.interactions > 0 && (
-                          <span class="stat-chip stat-reach" title="Total interactions (likes + comments + saves + shares)">
-                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 2H7L2 12l5 10h10l5-10z"/></svg>
-                            {igS.interactions.toLocaleString('en-ZA')}
-                          </span>
+                          <span class="stat-chip stat-reach">Actions {igS.interactions.toLocaleString('en-ZA')}</span>
                         )}
                         {hasClicks && <span class="stat-divider">·</span>}
                       </>
@@ -361,30 +301,13 @@ function formatPrice(n: number) {
 <style>
   .section { margin-bottom: 2rem; }
 
-  /* ── Connection card ── */
-  .conn-card {
-    border: 1.5px solid #E5E7EB; border-radius: 0.875rem;
-    padding: 1.25rem 1.5rem; display: flex; align-items: center; gap: 1.25rem; flex-wrap: wrap;
+  /* ── Not connected ── */
+  .not-connected {
+    font-size: 0.875rem; color: #6B7280;
+    padding: 1.25rem; background: #F9FAFB; border: 1.5px solid #E5E7EB;
+    border-radius: 0.75rem; margin-bottom: 0.5rem;
   }
-  .conn-card-ok  { border-color: #111111; }
-  .conn-card-off { border-color: #E5E7EB; }
-
-  .conn-icon { color: #111111; flex-shrink: 0; }
-  .conn-card-off .conn-icon { color: #9CA3AF; }
-
-  .conn-body { flex: 1; min-width: 0; }
-  .conn-title { font-size: 0.9rem; font-weight: 700; color: #111111; }
-  .conn-sub   { font-size: 0.72rem; color: #9CA3AF; margin-top: 0.15rem; }
-
-  .conn-actions { display: flex; gap: 0.5rem; flex-shrink: 0; flex-wrap: wrap; }
-
-  /* ── Alerts ── */
-  .alert {
-    margin-top: 0.75rem; border-radius: 0.5rem; padding: 0.625rem 1rem;
-    font-size: 0.8rem; font-weight: 600;
-  }
-  .alert-ok  { background: #DCFCE7; color: #166534; }
-  .alert-err { background: #FEF2F2; color: #991B1B; }
+  .not-connected a { color: #111; font-weight: 700; text-decoration: underline; }
 
   /* ── Section heading ── */
   .section-head {
@@ -721,30 +644,6 @@ function formatPrice(n: number) {
       if (btn) { btn.disabled = false; btn.textContent = 'Post to Instagram'; }
     }
   }
-
-  // Refresh token
-  document.getElementById('refresh-token-btn')?.addEventListener('click', async function () {
-    const btn = this as HTMLButtonElement;
-    btn.disabled = true;
-    btn.textContent = 'Refreshing…';
-    try {
-      const res  = await fetch('/api/admin/instagram/refresh-token', { method: 'POST' });
-      const data = await res.json();
-      showToast(res.ok ? 'Token refreshed.' : (data.error ?? 'Refresh failed'), res.ok ? 'ok' : 'err');
-    } finally {
-      btn.disabled = false;
-      btn.textContent = 'Refresh Token';
-    }
-  });
-
-  // Disconnect
-  document.getElementById('disconnect-btn')?.addEventListener('click', async function () {
-    if (!confirm('Disconnect Instagram? You\'ll need to re-authorise to post again.')) return;
-    const btn = this as HTMLButtonElement;
-    btn.disabled = true;
-    await fetch('/api/admin/instagram/disconnect', { method: 'POST' });
-    location.reload();
-  });
 
   // Filter selects — navigate to filtered URL on change
   document.querySelectorAll<HTMLSelectElement>('[data-filter]').forEach(sel => {
