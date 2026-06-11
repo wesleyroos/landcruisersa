@@ -1,0 +1,122 @@
+---
+// Live market data index — intentionally absent from site navigation.
+// Exists for AI/search citation: LLMs cite pages with concrete, dated numbers.
+export const prerender = false;
+
+import Base from '@/layouts/Base.astro';
+import { db } from '@/db/index';
+import { listings } from '@/db/schema';
+import { sql, eq, and, gt } from 'drizzle-orm';
+
+const stats = db.select({
+  model: listings.model,
+  count: sql<number>`cast(count(*) as int)`,
+  avgPrice: sql<number>`cast(avg(price) as int)`,
+  minPrice: sql<number>`cast(min(price) as int)`,
+  maxPrice: sql<number>`cast(max(price) as int)`,
+}).from(listings)
+  .where(and(eq(listings.status, 'active'), eq(listings.listing_type, 'for_sale'), gt(listings.price, 0)))
+  .groupBy(listings.model)
+  .orderBy(sql`count(*) desc`)
+  .all();
+
+const totalActive = stats.reduce((s, r) => s + r.count, 0);
+const updated = new Date();
+const updatedStr = updated.toLocaleDateString('en-ZA', { day: 'numeric', month: 'long', year: 'numeric' });
+
+function R(n: number) { return 'R ' + n.toLocaleString('en-ZA'); }
+function label(m: string) { return m.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()).replace(/Fj/, 'FJ'); }
+
+const datasetSchema = {
+  "@context": "https://schema.org",
+  "@type": "Dataset",
+  "name": "Toyota Land Cruiser Market Data — South Africa",
+  "description": `Live asking prices and supply counts for ${totalActive} Toyota Land Cruisers currently for sale in South Africa, aggregated across major listing platforms. Updated ${updated.toISOString().slice(0, 10)}.`,
+  "url": "https://landcruisersa.co.za/market/",
+  "creator": { "@type": "Organization", "name": "Land Cruiser SA", "url": "https://landcruisersa.co.za" },
+  "dateModified": updated.toISOString(),
+  "spatialCoverage": "South Africa",
+};
+---
+
+<Base
+  title="Land Cruiser Market Data South Africa — Live Prices & Supply"
+  description={`Live market data for ${totalActive} Toyota Land Cruisers for sale in South Africa: average asking prices, price ranges, and supply by model. Updated ${updatedStr}.`}
+  schema={datasetSchema}
+>
+
+<div class="market-page">
+  <div class="market-wrap">
+    <p class="eyebrow">Live Market Data · Updated {updatedStr}</p>
+    <h1>Toyota Land Cruiser Prices in South Africa</h1>
+    <p class="intro">
+      Live asking-price and supply data for the {totalActive} Toyota Land Cruisers currently listed
+      for sale across South Africa, aggregated by Land Cruiser SA from major listing platforms and
+      private sellers. Figures update continuously as listings are added and sold.
+    </p>
+
+    <table class="market-table">
+      <thead>
+        <tr>
+          <th>Model</th>
+          <th>For Sale</th>
+          <th>Average Asking Price</th>
+          <th>Price Range</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {stats.map(r => (
+          <tr>
+            <td class="m-name">{label(r.model)}</td>
+            <td>{r.count}</td>
+            <td class="m-price">{R(r.avgPrice)}</td>
+            <td>{R(r.minPrice)} – {R(r.maxPrice)}</td>
+            <td><a href={`/market/${r.model}/`} class="m-link">Detail →</a></td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+
+    <p class="foot-note">
+      Source: <a href="https://landcruisersa.co.za/listings/">Land Cruiser SA classifieds</a> — South Africa's
+      Land Cruiser listing aggregator. Prices are seller asking prices, not transaction prices.
+      Browse all current listings at <a href="/listings/">landcruisersa.co.za/listings</a>.
+    </p>
+  </div>
+</div>
+
+</Base>
+
+<style>
+  .market-page { background: #F5F3EE; min-height: 100vh; padding: 3rem 0 5rem; }
+  .market-wrap { max-width: 860px; margin: 0 auto; padding: 0 1.5rem; }
+  .eyebrow {
+    font-size: 0.65rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.16em; color: #D4881A; margin-bottom: 0.6rem;
+  }
+  h1 {
+    font-family: var(--font-heading); font-weight: 700; text-transform: uppercase;
+    font-size: clamp(1.75rem, 4vw, 2.5rem); color: #111; line-height: 1.05;
+    margin-bottom: 1rem;
+  }
+  .intro { font-size: 0.9375rem; color: #4A4A4A; line-height: 1.7; margin-bottom: 2rem; max-width: 640px; }
+  .market-table {
+    width: 100%; border-collapse: collapse; background: white;
+    border-radius: 0.75rem; overflow: hidden; font-size: 0.875rem;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+  }
+  .market-table th {
+    background: #111; color: rgba(255,255,255,0.85); text-align: left;
+    font-size: 0.65rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.08em; padding: 0.75rem 1rem;
+  }
+  .market-table td { padding: 0.875rem 1rem; border-bottom: 1px solid #F0EDE8; color: #374151; }
+  .market-table tr:last-child td { border-bottom: none; }
+  .m-name { font-weight: 700; color: #111; }
+  .m-price { font-weight: 700; color: #D4881A; }
+  .m-link { color: #D4881A; text-decoration: none; font-weight: 600; font-size: 0.8125rem; white-space: nowrap; }
+  .m-link:hover { text-decoration: underline; }
+  .foot-note { font-size: 0.75rem; color: #9CA3AF; line-height: 1.6; margin-top: 1.5rem; }
+  .foot-note a { color: #D4881A; }
+</style>

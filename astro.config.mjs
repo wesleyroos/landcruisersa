@@ -39,6 +39,17 @@ export default defineConfig({
         'https://landcruisersa.co.za/listings/model/300-series/',
         'https://landcruisersa.co.za/listings/model/prado/',
         'https://landcruisersa.co.za/listings/model/fj-cruiser/',
+        // Live market data pages (AI/search citation layer)
+        'https://landcruisersa.co.za/market/',
+        'https://landcruisersa.co.za/market/70-series/',
+        'https://landcruisersa.co.za/market/76-series/',
+        'https://landcruisersa.co.za/market/79-series/',
+        'https://landcruisersa.co.za/market/100-series/',
+        'https://landcruisersa.co.za/market/200-series/',
+        'https://landcruisersa.co.za/market/300-series/',
+        'https://landcruisersa.co.za/market/prado-150/',
+        'https://landcruisersa.co.za/market/prado-250/',
+        'https://landcruisersa.co.za/market/fj-cruiser/',
       ],
       // Keep admin pages out of the sitemap
       filter: (page) => !page.includes('/admin/'),

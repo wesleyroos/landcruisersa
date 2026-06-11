@@ -125,18 +125,45 @@ function fmtPerListing(views: number, supply: number): string {
   return v.toFixed(2); // small values stay visible instead of rounding to 0
 }
 
-const demandRows = viewsByModel
-  .filter(r => r.model)
-  .map(r => {
-    const supply = activeByModel.get(r.model!) ?? 0;
-    return {
-      model: r.model!,
-      views: r.count,
-      supply,
-      perListing: fmtPerListing(r.count, supply),
-    };
+// Union of every model with views OR active supply — a model with stock but
+// zero views is itself a signal, so it must appear.
+const modelViews = new Map(viewsByModel.filter(r => r.model).map(r => [r.model!, r.count]));
+const allModels = new Set([...modelViews.keys(), ...activeByModel.keys()]);
+const demandRows = [...allModels]
+  .map(model => {
+    const views = modelViews.get(model) ?? 0;
+    const supply = activeByModel.get(model) ?? 0;
+    return { model, views, supply, perListing: fmtPerListing(views, supply) };
   })
-  .sort((a, b) => b.views - a.views);
+  .sort((a, b) => b.views - a.views || b.supply - a.supply);
+
+// ─── Seller contact clicks (private listings: whatsapp / call / email) ───────
+
+const CONTACT_KINDS = ['whatsapp', 'call', 'email'];
+const contactClicks = db.select({
+  listing_slug: clickEvents.listing_slug,
+  listing_title: clickEvents.listing_title,
+  source: clickEvents.source,
+  count: sql<number>`cast(count(*) as int)`,
+}).from(clickEvents)
+  .where(sql`source IN ('whatsapp', 'call', 'email')`)
+  .groupBy(clickEvents.listing_slug, clickEvents.source)
+  .all();
+
+const contactTotals: Record<string, number> = { whatsapp: 0, call: 0, email: 0 };
+const contactByListing = new Map<string, { title: string | null; whatsapp: number; call: number; email: number; total: number }>();
+for (const r of contactClicks) {
+  contactTotals[r.source] = (contactTotals[r.source] ?? 0) + r.count;
+  const row = contactByListing.get(r.listing_slug) ?? { title: r.listing_title, whatsapp: 0, call: 0, email: 0, total: 0 };
+  row[r.source as 'whatsapp' | 'call' | 'email'] += r.count;
+  row.total += r.count;
+  contactByListing.set(r.listing_slug, row);
+}
+const contactRows = [...contactByListing.entries()]
+  .map(([slug, v]) => ({ slug, ...v }))
+  .sort((a, b) => b.total - a.total)
+  .slice(0, 15);
+const totalContactClicks = contactTotals.whatsapp + contactTotals.call + contactTotals.email;
 
 // ─── Partner clicks ───────────────────────────────────────────────────────────
 
@@ -179,6 +206,9 @@ const TRAFFIC_LABEL: Record<string, string> = {
 };
 
 const igViews = viewsBySource.find(r => r.source === 'ig')?.count ?? 0;
+
+const activeListingCount = (db.select({ n: sql<number>`count(*)` }).from(listings).where(eq(listings.status, 'active')).get())?.n ?? 0;
+const totalListingCount = (db.select({ n: sql<number>`count(*)` }).from(listings).get())?.n ?? 0;
 ---
 
 <AdminLayout title="Insights" activePage="insights">
@@ -186,6 +216,11 @@ const igViews = viewsBySource.find(r => r.source === 'ig')?.count ?? 0;
 
     <!-- ── KPI STRIP ──────────────────────────────────────── -->
     <div class="kpi-strip">
+      <div class="kpi">
+        <p class="kpi-value">{activeListingCount}</p>
+        <p class="kpi-label">Active Listings</p>
+        <p class="kpi-sub">{totalListingCount} total incl. sold &amp; pending</p>
+      </div>
       <div class="kpi">
         <span class="kpi-dir dir-in">↓ In</span>
         <p class="kpi-value">{totalVisits}</p>
@@ -211,6 +246,12 @@ const igViews = viewsBySource.find(r => r.source === 'ig')?.count ?? 0;
       </div>
       <div class="kpi">
         <span class="kpi-dir dir-out">↑ Out</span>
+        <p class="kpi-value">{contactTotals.whatsapp}</p>
+        <p class="kpi-label">WhatsApp Clicks</p>
+        <p class="kpi-sub">seller WhatsApp taps on private listings</p>
+      </div>
+      <div class="kpi">
+        <span class="kpi-dir dir-out">↑ Out</span>
         <p class="kpi-value">{totalPartnerClicks}</p>
         <p class="kpi-label">Partner Clicks</p>
         <p class="kpi-sub">clicked through to a partner</p>
@@ -229,6 +270,7 @@ const igViews = viewsBySource.find(r => r.source === 'ig')?.count ?? 0;
         <div class="card-head">
           <h2 class="card-title">Campaign Traffic</h2>
           <span class="badge">{totalVisits}</span>
+          <span class="info" data-tip="People arriving via a tracked link — your IG bio (?utm_source=ig), ChatGPT citations, or any link you tag with utm_source. Landing Pages shows the exact page each one arrived on.">?</span>
         </div>
         {totalVisits === 0 ? (
           <p class="empty">No campaign clicks yet. IG bio link: <code>landcruisersa.co.za/listings/?utm_source=ig</code></p>
@@ -274,6 +316,7 @@ const igViews = viewsBySource.find(r => r.source === 'ig')?.count ?? 0;
         <div class="card-head">
           <h2 class="card-title">Demand by Model</h2>
           <span class="badge-sub">which models buyers want vs how many are for sale</span>
+          <span class="info" data-tip="Views = buyer interest in that model. Supply = how many are listed. Views per Listing = interest per available car: a high number means many buyers chasing few cars — source those models, feature them, post them to IG. A model with supply but zero views is overstocked or overpriced.">?</span>
         </div>
         {demandRows.length === 0 ? (
           <p class="empty">No view data yet.</p>
@@ -311,6 +354,7 @@ const igViews = viewsBySource.find(r => r.source === 'ig')?.count ?? 0;
       <div class="card-head">
         <h2 class="card-title">Listing Performance</h2>
         <span class="badge">{totalViews} views · {totalClicks} click-outs</span>
+        <span class="info" data-tip="Each listing's funnel: Views = page opens. Click-outs = the visitor took the action (opened AutoTrader, tapped WhatsApp, called, emailed). CTR = click-outs ÷ views — listings with high views but low CTR look appealing in the feed but lose people on the detail page (price or photos usually).">?</span>
         {totalClicks > 0 && (
           <span class="chip-row chip-row-inline">
             {clicksBySource.map(r => (
@@ -349,13 +393,57 @@ const igViews = viewsBySource.find(r => r.source === 'ig')?.count ?? 0;
       )}
     </section>
 
-    <!-- ── ROW: PARTNERS + TRAINING LEADS ─────────────────── -->
+    <!-- ── ROW: SELLER CONTACTS + PARTNERS ────────────────── -->
     <div class="grid-2">
+
+      <section class="card">
+        <div class="card-head">
+          <h2 class="card-title">Seller Contact Clicks</h2>
+          <span class="badge">{totalContactClicks}</span>
+          <span class="info" data-tip="Buyers contacting sellers on private (own) listings — WhatsApp taps, phone calls, and emails. This is the listing-conversion metric: it's the action a listing exists to produce.">?</span>
+        </div>
+        {totalContactClicks === 0 ? (
+          <p class="empty">No seller contact clicks yet.</p>
+        ) : (
+          <div>
+            <div class="card-body" style="padding-bottom:0.75rem">
+              <div class="chip-row">
+                <span class="stat-chip">WhatsApp <strong>{contactTotals.whatsapp}</strong></span>
+                <span class="stat-chip">Call <strong>{contactTotals.call}</strong></span>
+                <span class="stat-chip">Email <strong>{contactTotals.email}</strong></span>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Listing</th>
+                    <th class="num-c">WhatsApp</th>
+                    <th class="num-c">Call</th>
+                    <th class="num-c">Email</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {contactRows.map(r => (
+                    <tr>
+                      <td><a href={`/listings/${r.slug}/`} target="_blank">{r.title ?? r.slug}</a></td>
+                      <td class="num-c" style="font-weight:700">{r.whatsapp}</td>
+                      <td class="num-c">{r.call}</td>
+                      <td class="num-c">{r.email}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </section>
 
       <section class="card">
         <div class="card-head">
           <h2 class="card-title">Partner Clicks</h2>
           <span class="badge">{totalPartnerClicks}</span>
+          <span class="info" data-tip="Outbound clicks from partner pages to the partner's website, email, or Instagram. Months of this data is what turns partners into paying advertisers.">?</span>
         </div>
         {totalPartnerClicks === 0 ? (
           <p class="empty">No partner clicks tracked yet.</p>
@@ -387,7 +475,10 @@ const igViews = viewsBySource.find(r => r.source === 'ig')?.count ?? 0;
         )}
       </section>
 
-      <section class="card">
+    </div>
+
+    <!-- ── TRAINING LEADS ─────────────────────────────────── -->
+    <section class="card">
         <div class="card-head">
           <h2 class="card-title">Training Enquiries</h2>
           <span class="badge">{leads.length}</span>
@@ -423,8 +514,6 @@ const igViews = viewsBySource.find(r => r.source === 'ig')?.count ?? 0;
         )}
       </section>
 
-    </div>
-
   </div>
 </AdminLayout>
 
@@ -436,8 +525,8 @@ const igViews = viewsBySource.find(r => r.source === 'ig')?.count ?? 0;
     display: grid; gap: 0.75rem;
     grid-template-columns: repeat(2, 1fr);
   }
-  @media (min-width: 640px)  { .kpi-strip { grid-template-columns: repeat(3, 1fr); } }
-  @media (min-width: 1024px) { .kpi-strip { grid-template-columns: repeat(6, 1fr); } }
+  @media (min-width: 640px)  { .kpi-strip { grid-template-columns: repeat(4, 1fr); } }
+  @media (min-width: 1024px) { .kpi-strip { grid-template-columns: repeat(4, 1fr); } }
   .kpi {
     background: white; border: 1px solid #E5E7EB; border-radius: 0.75rem;
     padding: 0.875rem 1.125rem; position: relative;
@@ -445,6 +534,26 @@ const igViews = viewsBySource.find(r => r.source === 'ig')?.count ?? 0;
   .kpi-value { font-size: 1.625rem; font-weight: 800; color: #111; line-height: 1.1; }
   .kpi-label { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #9CA3AF; margin-top: 0.2rem; }
   .kpi-sub { font-size: 0.62rem; color: #C4C9D0; margin-top: 0.3rem; line-height: 1.35; }
+
+  /* Hover tooltips */
+  .info {
+    width: 16px; height: 16px; border-radius: 9999px; flex-shrink: 0;
+    background: #F3F4F6; border: 1px solid #E5E7EB; color: #9CA3AF;
+    font-size: 0.6rem; font-weight: 700;
+    display: inline-flex; align-items: center; justify-content: center;
+    cursor: help; position: relative;
+  }
+  .info:hover { background: #111; color: white; border-color: #111; }
+  .info::after {
+    content: attr(data-tip);
+    position: absolute; top: calc(100% + 8px); left: 50%; transform: translateX(-50%);
+    width: 280px; background: #111; color: rgba(255,255,255,0.9);
+    font-size: 0.7rem; font-weight: 400; line-height: 1.55;
+    padding: 0.625rem 0.875rem; border-radius: 0.5rem;
+    opacity: 0; pointer-events: none; transition: opacity 0.12s;
+    z-index: 60; box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+  }
+  .info:hover::after { opacity: 1; }
   .card-note {
     font-size: 0.7rem; color: #9CA3AF; line-height: 1.5;
     padding: 0.75rem 1rem; border-top: 1px solid #F3F4F6; background: #FAFAF9;

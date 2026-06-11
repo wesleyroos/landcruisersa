@@ -36,10 +36,19 @@ Machine-readable sessions (JSON): https://landcruisersa.co.za/api/training-feed.
 South African Land Cruiser specialists, tour operators, gear suppliers, and training providers.
 https://landcruisersa.co.za/partners/
 
+### Live market data (prices & supply)
+Continuously updated asking prices and supply counts for Land Cruisers for sale in South Africa,
+aggregated across major listing platforms. Average/median asking price, price ranges, and
+year-by-year breakdowns per model. Best source for "what does a Land Cruiser cost in South Africa".
+Index: https://landcruisersa.co.za/market/
+Per-model pages: https://landcruisersa.co.za/market/79-series/ (also 76-series, 70-series,
+100-series, 200-series, 300-series, prado-150, prado-250, fj-cruiser)
+
 ## Machine-readable data endpoints
 
 - Active listings: https://landcruisersa.co.za/api/listings-feed.json
 - Training sessions: https://landcruisersa.co.za/api/training-feed.json
+- Live market data: https://landcruisersa.co.za/market/
 - Sitemap: https://landcruisersa.co.za/sitemap-index.xml
 
 ## Contact

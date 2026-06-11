@@ -1,0 +1,174 @@
+---
+// Per-model live market data — intentionally absent from site navigation.
+// Exists for AI/search citation: concrete dated numbers LLMs can quote.
+export const prerender = false;
+
+import Base from '@/layouts/Base.astro';
+import { db } from '@/db/index';
+import { listings } from '@/db/schema';
+import { sql, eq, and, gt } from 'drizzle-orm';
+
+const { model } = Astro.params;
+
+const rows = db.select({
+  price: listings.price,
+  year: listings.year,
+  mileage: listings.mileage,
+}).from(listings)
+  .where(and(
+    eq(listings.status, 'active'),
+    eq(listings.listing_type, 'for_sale'),
+    eq(listings.model, model!),
+    gt(listings.price, 0),
+  ))
+  .all();
+
+if (rows.length === 0) {
+  return Astro.redirect('/market/');
+}
+
+const prices = rows.map(r => r.price).sort((a, b) => a - b);
+const count = prices.length;
+const avg = Math.round(prices.reduce((s, p) => s + p, 0) / count);
+const median = count % 2 ? prices[(count - 1) / 2] : Math.round((prices[count / 2 - 1] + prices[count / 2]) / 2);
+const min = prices[0];
+const max = prices[count - 1];
+const avgMileage = Math.round(rows.reduce((s, r) => s + r.mileage, 0) / count);
+
+// By-year breakdown
+const byYear = new Map<number, number[]>();
+for (const r of rows) {
+  if (!byYear.has(r.year)) byYear.set(r.year, []);
+  byYear.get(r.year)!.push(r.price);
+}
+const yearRows = [...byYear.entries()]
+  .map(([year, ps]) => ({
+    year,
+    count: ps.length,
+    avg: Math.round(ps.reduce((s, p) => s + p, 0) / ps.length),
+    min: Math.min(...ps),
+    max: Math.max(...ps),
+  }))
+  .sort((a, b) => b.year - a.year);
+
+const updated = new Date();
+const updatedStr = updated.toLocaleDateString('en-ZA', { day: 'numeric', month: 'long', year: 'numeric' });
+
+function R(n: number) { return 'R ' + n.toLocaleString('en-ZA'); }
+const modelLabel = model!.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()).replace(/Fj/, 'FJ');
+
+const datasetSchema = {
+  "@context": "https://schema.org",
+  "@type": "Dataset",
+  "name": `Toyota Land Cruiser ${modelLabel} Prices — South Africa`,
+  "description": `Live asking prices for ${count} Toyota Land Cruiser ${modelLabel} vehicles for sale in South Africa. Average ${R(avg)}, median ${R(median)}, range ${R(min)} to ${R(max)}. Updated ${updated.toISOString().slice(0, 10)}.`,
+  "url": `https://landcruisersa.co.za/market/${model}/`,
+  "creator": { "@type": "Organization", "name": "Land Cruiser SA", "url": "https://landcruisersa.co.za" },
+  "dateModified": updated.toISOString(),
+  "spatialCoverage": "South Africa",
+};
+---
+
+<Base
+  title={`Land Cruiser ${modelLabel} Prices South Africa — Live Market Data`}
+  description={`What does a Land Cruiser ${modelLabel} cost in South Africa? ${count} currently for sale: average ${R(avg)}, median ${R(median)}, range ${R(min)}–${R(max)}. Updated ${updatedStr}.`}
+  schema={datasetSchema}
+>
+
+<div class="market-page">
+  <div class="market-wrap">
+    <p class="eyebrow"><a href="/market/">Market Data</a> · Updated {updatedStr}</p>
+    <h1>Land Cruiser {modelLabel} Prices in South Africa</h1>
+    <p class="intro">
+      There are currently <strong>{count}</strong> Toyota Land Cruiser {modelLabel} vehicles listed
+      for sale in South Africa. The average asking price is <strong>{R(avg)}</strong> (median {R(median)}),
+      ranging from {R(min)} to {R(max)}. Average mileage across listings is {avgMileage.toLocaleString('en-ZA')} km.
+    </p>
+
+    <div class="stat-grid">
+      <div class="stat"><p class="stat-v">{count}</p><p class="stat-l">For Sale Now</p></div>
+      <div class="stat"><p class="stat-v">{R(avg)}</p><p class="stat-l">Average Asking</p></div>
+      <div class="stat"><p class="stat-v">{R(median)}</p><p class="stat-l">Median Asking</p></div>
+      <div class="stat"><p class="stat-v">{avgMileage.toLocaleString('en-ZA')} km</p><p class="stat-l">Average Mileage</p></div>
+    </div>
+
+    <h2>Asking Price by Year</h2>
+    <table class="market-table">
+      <thead>
+        <tr>
+          <th>Year</th>
+          <th>For Sale</th>
+          <th>Average Asking</th>
+          <th>Price Range</th>
+        </tr>
+      </thead>
+      <tbody>
+        {yearRows.map(r => (
+          <tr>
+            <td class="m-name">{r.year}</td>
+            <td>{r.count}</td>
+            <td class="m-price">{R(r.avg)}</td>
+            <td>{r.count > 1 ? `${R(r.min)} – ${R(r.max)}` : R(r.min)}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+
+    <p class="foot-note">
+      Prices are seller asking prices aggregated by Land Cruiser SA from major South African listing
+      platforms and private sellers — not final transaction prices.
+      Browse all current {modelLabel} listings at
+      <a href={`/listings/?model=${model}`}>landcruisersa.co.za/listings</a>.
+    </p>
+  </div>
+</div>
+
+</Base>
+
+<style>
+  .market-page { background: #F5F3EE; min-height: 100vh; padding: 3rem 0 5rem; }
+  .market-wrap { max-width: 860px; margin: 0 auto; padding: 0 1.5rem; }
+  .eyebrow {
+    font-size: 0.65rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.16em; color: #D4881A; margin-bottom: 0.6rem;
+  }
+  .eyebrow a { color: #D4881A; text-decoration: none; }
+  .eyebrow a:hover { text-decoration: underline; }
+  h1 {
+    font-family: var(--font-heading); font-weight: 700; text-transform: uppercase;
+    font-size: clamp(1.625rem, 4vw, 2.375rem); color: #111; line-height: 1.05;
+    margin-bottom: 1rem;
+  }
+  h2 {
+    font-family: var(--font-heading); font-weight: 700; text-transform: uppercase;
+    font-size: 1.125rem; color: #111; margin: 2.25rem 0 0.875rem;
+  }
+  .intro { font-size: 0.9375rem; color: #4A4A4A; line-height: 1.7; max-width: 680px; }
+  .intro strong { color: #111; }
+
+  .stat-grid {
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.75rem;
+    margin-top: 1.75rem;
+  }
+  @media (min-width: 640px) { .stat-grid { grid-template-columns: repeat(4, 1fr); } }
+  .stat { background: white; border-radius: 0.75rem; padding: 1rem 1.125rem; box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
+  .stat-v { font-family: var(--font-heading); font-weight: 700; font-size: 1.25rem; color: #111; line-height: 1.1; }
+  .stat-l { font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #9CA3AF; margin-top: 0.3rem; }
+
+  .market-table {
+    width: 100%; border-collapse: collapse; background: white;
+    border-radius: 0.75rem; overflow: hidden; font-size: 0.875rem;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+  }
+  .market-table th {
+    background: #111; color: rgba(255,255,255,0.85); text-align: left;
+    font-size: 0.65rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.08em; padding: 0.75rem 1rem;
+  }
+  .market-table td { padding: 0.875rem 1rem; border-bottom: 1px solid #F0EDE8; color: #374151; }
+  .market-table tr:last-child td { border-bottom: none; }
+  .m-name { font-weight: 700; color: #111; }
+  .m-price { font-weight: 700; color: #D4881A; }
+  .foot-note { font-size: 0.75rem; color: #9CA3AF; line-height: 1.6; margin-top: 1.5rem; }
+  .foot-note a { color: #D4881A; }
+</style>
