@@ -217,4 +217,79 @@ export const PARTNERS: Partner[] = [
       },
     ],
   },
+  {
+    slug: '4x4-megaworld',
+    name: '4x4 Mega World',
+    category: 'Gear',
+    location: 'Nationwide — Cape Town, Johannesburg, Pretoria, KZN & more',
+    tagline: "South Africa's Largest 4x4 Accessories Retailer & Africa's Sole ARB Distributor",
+    description: "4x4 Mega World is South Africa's biggest specialist 4x4 accessories chain — stocking ARB, Old Man Emu, Engel, REDARC, and more across 25+ branches nationwide, with expert fitment centres at every store.",
+    longDescription: `4x4 Mega World is South Africa's largest specialist 4x4 accessories retailer and Africa's sole authorised distributor for ARB — a distinction that matters enormously for Land Cruiser owners. ARB's bull bars, air lockers, Old Man Emu suspension systems, and rooftop tents are among the most trusted names in the Toyota overlanding world, and 4x4 Mega World is the only place in Africa to buy them direct.
+
+Founded over 25 years ago and headquartered in Boksburg, Gauteng, the company has grown into a national network of 25+ stores — a combination of company branches and franchises stretching from Cape Town to Polokwane, covering every major province. The model means you're rarely more than an hour from a fully stocked branch with a professional fitment centre on site.
+
+**Built for Land Cruiser Owners**
+
+If you drive a Land Cruiser, 4x4 Mega World is set up for you. Their ARB range covers purpose-built bull bars and rear step bars for the 79 Series, 200 Series, and 300 Series — all engineered with winch mounting provisions, airbag compatibility, and factory-fit tolerances. Old Man Emu suspension kits (springs, Nitrocharger Sport shocks, and BP-51 remote reservoir dampers) are available for nearly every Land Cruiser model, dialling in everything from a mild lift for improved road posture to a full expedition setup with 60–80mm of travel.
+
+Their rooftop tent range includes the ARB Esperance (their own premium hardshell with a stargazing moon roof), the Alu-Cab Gen 3-R, and the Desert RT1 range. All hardshells, all sub-60-second setup times, all designed for the overlander who doesn't want to wrestle with poles at the end of a long day on corrugated track.
+
+**Recovery, Electrical & Power**
+
+4x4 Mega World are also the sole Sub-Saharan Africa distributor for T-Max winches and recovery equipment, Engel refrigerators, REDARC dual battery and power management systems, and HardKorr solar and lighting products. For Land Cruiser builds aimed at multi-week off-grid travel, this means one stop covers your entire electrical and recovery spec.
+
+**Locations Across South Africa**
+
+Branches and franchises are spread across the country: Cape Town (Paarden Eiland, Somerset West), George, Johannesburg (Bryanston, Strijdom Park, Edenvale, Alberton), Pretoria (Centurion, Montana Park, Menlyn), Vanderbijlpark, Hillcrest (KZN), Port Elizabeth/Walmer, Bloemfontein, Klerksdorp, Rustenburg, Harrismith, and Polokwane — with further distribution points in Mozambique and Botswana.
+
+Standard trading hours across all branches are Monday to Friday 08:00–17:00 and Saturday 08:00–13:00.
+
+**MegaFinance & MegaXplore**
+
+For builds that run into serious budget, MegaFinance offers in-house financing through an NCR-registered partner — just a 10% deposit at branch to get started. The MegaXplore adventure club comes with membership benefits including training and branch discounts for regular customers.`,
+    email: 'support@oldmanemu.co.za',
+    website: 'https://www.4x4megaworldonline.com',
+    instagram: '4x4_megaworld',
+    hero: 'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/partners/4x4-megaworld/4x4-megaworld-hero.jpg',
+    images: [
+      'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/partners/4x4-megaworld/4x4-megaworld-arb-range.jpg',
+      'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/partners/4x4-megaworld/4x4-megaworld-suspension.jpg',
+      'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/partners/4x4-megaworld/4x4-megaworld-rooftop-tents.jpg',
+      'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/partners/4x4-megaworld/4x4-megaworld-fitment.jpg',
+    ],
+    rating: 4.4,
+    reviewCount: 847,
+    highlights: [
+      "Africa's Sole ARB Distributor",
+      '25+ Stores Nationwide',
+      'Expert Fitment Centres',
+      'OME · Engel · REDARC · HardKorr',
+    ],
+    services: [
+      {
+        title: 'ARB Protection Systems',
+        description: 'Factory-fit ARB bull bars, winch bumpers, rear step bars, rock sliders, and side rails for Land Cruiser 70, 200, and 300 Series — all with winch mounting provisions and airbag compatibility.',
+      },
+      {
+        title: 'Old Man Emu Suspension',
+        description: 'Complete OME lift kits for Land Cruiser including springs, Nitrocharger Sport shocks, and BP-51 remote reservoir dampers. From mild road improvement to full expedition setups with 60–80mm lift.',
+      },
+      {
+        title: 'Rooftop Tents & Awnings',
+        description: 'Full ARB Esperance range, Alu-Cab Gen 3-R, Desert RT1 hardshells, plus 270° awnings and camping accessories. Everything needed to set up a complete rooftop camp in under five minutes.',
+      },
+      {
+        title: 'Recovery & Winch Systems',
+        description: 'ARB and T-Max electric winches (synthetic and steel rope), ARB twin and single air compressors, snatch blocks, recovery straps, traction boards, and comprehensive recovery kits.',
+      },
+      {
+        title: 'Power & Electrical Systems',
+        description: 'REDARC dual battery management and DC-DC chargers, HardKorr solar panels and lighting, auxiliary fuel tanks, and full 12V system integration for off-grid Land Cruiser builds.',
+      },
+      {
+        title: 'Expert Fitment Centre',
+        description: 'Professional installation of all products at every branch — bull bars, suspension upgrades, winch fitting, canopy and RTT mounting, dual battery wiring, and auxiliary fuel tanks. Trained technicians, parts and labour in one place.',
+      },
+    ],
+  },
 ];
