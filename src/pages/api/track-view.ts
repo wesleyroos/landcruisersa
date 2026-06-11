@@ -9,7 +9,7 @@ const BOT_UA = /bot|crawl|spider|slurp|facebookexternalhit|whatsapp|telegram|pre
 
 export const POST: APIRoute = async ({ request }) => {
   const ua = request.headers.get('user-agent') ?? '';
-  if (BOT_UA.test(ua)) return new Response('', { status: 204 });
+  if (BOT_UA.test(ua)) return new Response(null, { status: 204 });
 
   let body: { listing_slug?: string; utm_source?: string };
   try { body = await request.json(); } catch {
@@ -21,7 +21,7 @@ export const POST: APIRoute = async ({ request }) => {
 
   // Look up the listing server-side — never trust client-sent title/model/price
   const listing = db.select().from(listings).where(eq(listings.slug, listing_slug)).get();
-  if (!listing) return new Response('', { status: 204 });
+  if (!listing) return new Response(null, { status: 204 });
 
   try {
     db.insert(viewEvents).values({
@@ -36,5 +36,5 @@ export const POST: APIRoute = async ({ request }) => {
     console.error('[track-view] DB insert failed:', err);
   }
 
-  return new Response('', { status: 204 });
+  return new Response(null, { status: 204 });
 };

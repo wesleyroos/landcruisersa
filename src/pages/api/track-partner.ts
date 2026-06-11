@@ -11,7 +11,7 @@ const BOT_UA = /bot|crawl|spider|slurp|facebookexternalhit|whatsapp|telegram|pre
 
 export const POST: APIRoute = async ({ request }) => {
   const ua = request.headers.get('user-agent') ?? '';
-  if (BOT_UA.test(ua)) return new Response('', { status: 204 });
+  if (BOT_UA.test(ua)) return new Response(null, { status: 204 });
 
   let body: { partner_slug?: string; kind?: string };
   try { body = await request.json(); } catch {
@@ -33,5 +33,5 @@ export const POST: APIRoute = async ({ request }) => {
     console.error('[track-partner] DB insert failed:', err);
   }
 
-  return new Response('', { status: 204 });
+  return new Response(null, { status: 204 });
 };
