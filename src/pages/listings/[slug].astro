@@ -437,6 +437,23 @@ const vehicleSchema: Record<string, unknown> = {
   </div>
 )}
 
+<script define:vars={{ _viewSlug: listing.slug }}>
+  // Track one view per listing per session — refreshes don't inflate counts
+  try {
+    const seenKey = 'lcsa_viewed_' + _viewSlug;
+    if (!sessionStorage.getItem(seenKey)) {
+      sessionStorage.setItem(seenKey, '1');
+      const utm = new URLSearchParams(location.search).get('utm_source')
+        || sessionStorage.getItem('lcsa_utm')
+        || null;
+      navigator.sendBeacon('/api/track-view', JSON.stringify({
+        listing_slug: _viewSlug,
+        utm_source: utm,
+      }));
+    }
+  } catch {}
+</script>
+
 {isExternal && (
   <script define:vars={{ _slug: listing.slug, _title: listing.title, _source: listing.source }}>
     document.querySelectorAll('[data-track-external]').forEach(function(a) {

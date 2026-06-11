@@ -90,6 +90,29 @@ db.exec(`
   )
 `);
 
+db.exec(`
+  CREATE TABLE IF NOT EXISTS view_events (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    listing_slug  TEXT    NOT NULL,
+    listing_title TEXT,
+    model         TEXT,
+    price         INTEGER,
+    utm_source    TEXT,
+    created_at    INTEGER NOT NULL
+  )
+`);
+db.exec(`CREATE INDEX IF NOT EXISTS view_events_slug ON view_events (listing_slug)`);
+db.exec(`CREATE INDEX IF NOT EXISTS view_events_created ON view_events (created_at)`);
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS partner_clicks (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    partner_slug TEXT    NOT NULL,
+    kind         TEXT    NOT NULL,
+    created_at   INTEGER NOT NULL
+  )
+`);
+
 // Unique index for aggregator dedup — safe to run repeatedly
 db.exec(`
   CREATE UNIQUE INDEX IF NOT EXISTS listings_source_source_id

@@ -3,8 +3,9 @@ export const prerender = false;
 
 import AdminLayout from '@/layouts/AdminLayout.astro';
 import { db } from '@/db/index';
-import { trainingLeads, clickEvents } from '@/db/schema';
-import { sql, desc } from 'drizzle-orm';
+import { trainingLeads, clickEvents, viewEvents, partnerClicks, listings } from '@/db/schema';
+import { sql, desc, eq, and } from 'drizzle-orm';
+import { PARTNERS } from '@/data/partners';
 
 const cookie = Astro.cookies.get('lcsa_admin');
 const adminSecret = import.meta.env.ADMIN_SECRET ?? process.env.ADMIN_SECRET ?? '';
@@ -31,6 +32,99 @@ const clicksByListing = db.select({
 
 const totalClicks = clicksBySource.reduce((s, r) => s + r.count, 0);
 
+// ─── Listing views ────────────────────────────────────────────────────────────
+
+const viewsBySource = db.select({
+  source: sql<string>`COALESCE(utm_source, 'direct')`,
+  count: sql<number>`cast(count(*) as int)`,
+}).from(viewEvents).groupBy(sql`COALESCE(utm_source, 'direct')`).all();
+
+const totalViews = viewsBySource.reduce((s, r) => s + r.count, 0);
+
+const viewsByListing = db.select({
+  listing_slug: viewEvents.listing_slug,
+  listing_title: viewEvents.listing_title,
+  count: sql<number>`cast(count(*) as int)`,
+}).from(viewEvents)
+  .groupBy(viewEvents.listing_slug)
+  .orderBy(sql`count(*) desc`)
+  .limit(20)
+  .all();
+
+// Outbound clicks per slug (all-time) for view→click conversion
+const clicksPerSlug = new Map(
+  db.select({
+    listing_slug: clickEvents.listing_slug,
+    count: sql<number>`cast(count(*) as int)`,
+  }).from(clickEvents).groupBy(clickEvents.listing_slug).all()
+    .map(r => [r.listing_slug, r.count])
+);
+
+// ─── Demand by model: views vs supply ─────────────────────────────────────────
+
+const viewsByModel = db.select({
+  model: viewEvents.model,
+  count: sql<number>`cast(count(*) as int)`,
+}).from(viewEvents).groupBy(viewEvents.model).all();
+
+const activeByModel = new Map(
+  db.select({
+    model: listings.model,
+    count: sql<number>`cast(count(*) as int)`,
+  }).from(listings).where(eq(listings.status, 'active')).groupBy(listings.model).all()
+    .map(r => [r.model, r.count])
+);
+
+const demandRows = viewsByModel
+  .filter(r => r.model)
+  .map(r => {
+    const supply = activeByModel.get(r.model!) ?? 0;
+    return {
+      model: r.model!,
+      views: r.count,
+      supply,
+      perListing: supply > 0 ? Math.round((r.count / supply) * 10) / 10 : null,
+    };
+  })
+  .sort((a, b) => b.views - a.views);
+
+// ─── Instagram traffic, daily (last 14 days) ─────────────────────────────────
+
+const igDaily = db.select({
+  day: sql<string>`date(created_at, 'unixepoch')`,
+  count: sql<number>`cast(count(*) as int)`,
+}).from(viewEvents)
+  .where(and(
+    eq(viewEvents.utm_source, 'ig'),
+    sql`created_at > unixepoch('now', '-14 days')`,
+  ))
+  .groupBy(sql`date(created_at, 'unixepoch')`)
+  .orderBy(sql`date(created_at, 'unixepoch')`)
+  .all();
+
+const igDailyMax = Math.max(1, ...igDaily.map(r => r.count));
+
+// ─── Partner clicks ───────────────────────────────────────────────────────────
+
+const partnerClickRows = db.select({
+  partner_slug: partnerClicks.partner_slug,
+  kind: partnerClicks.kind,
+  count: sql<number>`cast(count(*) as int)`,
+}).from(partnerClicks).groupBy(partnerClicks.partner_slug, partnerClicks.kind).all();
+
+const PARTNER_NAME = new Map(PARTNERS.map(p => [p.slug, p.name]));
+const partnerTotals = new Map<string, { website: number; email: number; instagram: number; total: number }>();
+for (const r of partnerClickRows) {
+  const row = partnerTotals.get(r.partner_slug) ?? { website: 0, email: 0, instagram: 0, total: 0 };
+  row[r.kind as 'website' | 'email' | 'instagram'] += r.count;
+  row.total += r.count;
+  partnerTotals.set(r.partner_slug, row);
+}
+const partnerRows = [...partnerTotals.entries()]
+  .map(([slug, counts]) => ({ slug, name: PARTNER_NAME.get(slug) ?? slug, ...counts }))
+  .sort((a, b) => b.total - a.total);
+const totalPartnerClicks = partnerRows.reduce((s, r) => s + r.total, 0);
+
 function fmt(d: Date | null) {
   if (!d) return '—';
   return new Intl.DateTimeFormat('en-ZA', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(d);
@@ -42,10 +136,161 @@ const SOURCE_LABEL: Record<string, string> = {
   adios: 'Adios',
   wbb: 'WeBuy Bakkies',
 };
+
+const TRAFFIC_LABEL: Record<string, string> = {
+  ig: 'Instagram',
+  direct: 'Direct / Other',
+};
 ---
 
 <AdminLayout title="Insights" activePage="insights">
   <div class="insights-wrap">
+
+    <!-- ── LISTING VIEWS ──────────────────────────────────── -->
+    <section class="card">
+      <div class="card-head">
+        <h2 class="card-title">Listing Views</h2>
+        <span class="badge">{totalViews} total</span>
+      </div>
+
+      {totalViews === 0 ? (
+        <p class="empty">No views tracked yet — data starts collecting from the next deploy.</p>
+      ) : (
+        <div class="clicks-layout">
+          <div>
+            <p class="sub-label">By Traffic Source</p>
+            <div class="source-grid">
+              {viewsBySource.map(r => (
+                <div class="source-card">
+                  <p class="source-name">{TRAFFIC_LABEL[r.source] ?? r.source}</p>
+                  <p class="source-count">{r.count}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {igDaily.length > 0 && (
+            <div>
+              <p class="sub-label">Instagram Traffic — Last 14 Days</p>
+              <div class="bar-chart">
+                {igDaily.map(r => (
+                  <div class="bar-row">
+                    <span class="bar-day">{r.day.slice(5)}</span>
+                    <div class="bar-track">
+                      <div class="bar-fill" style={`width:${Math.round((r.count / igDailyMax) * 100)}%`}></div>
+                    </div>
+                    <span class="bar-count">{r.count}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div>
+            <p class="sub-label">Top Viewed Listings</p>
+            <div class="table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Listing</th>
+                    <th style="text-align:right">Views</th>
+                    <th style="text-align:right">Click-outs</th>
+                    <th style="text-align:right">CTR</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {viewsByListing.map(r => {
+                    const clicks = clicksPerSlug.get(r.listing_slug) ?? 0;
+                    return (
+                      <tr>
+                        <td>
+                          <a href={`/listings/${r.listing_slug}/`} target="_blank">
+                            {r.listing_title ?? r.listing_slug}
+                          </a>
+                        </td>
+                        <td style="text-align:right;font-weight:700">{r.count}</td>
+                        <td style="text-align:right">{clicks}</td>
+                        <td style="text-align:right;color:#9CA3AF">{r.count > 0 ? Math.round((clicks / r.count) * 100) + '%' : '—'}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+    </section>
+
+    <!-- ── DEMAND BY MODEL ────────────────────────────────── -->
+    {demandRows.length > 0 && (
+      <section class="card">
+        <div class="card-head">
+          <h2 class="card-title">Demand by Model</h2>
+          <span class="badge-sub">views per active listing = where demand outstrips supply</span>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Model</th>
+                <th style="text-align:right">Views</th>
+                <th style="text-align:right">Active Listings</th>
+                <th style="text-align:right">Views / Listing</th>
+              </tr>
+            </thead>
+            <tbody>
+              {demandRows.map(r => (
+                <tr>
+                  <td style="font-weight:600">{r.model.replace(/-/g, ' ').toUpperCase()}</td>
+                  <td style="text-align:right;font-weight:700">{r.views}</td>
+                  <td style="text-align:right">{r.supply}</td>
+                  <td style="text-align:right;color:#D4881A;font-weight:700">{r.perListing ?? '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    )}
+
+    <!-- ── PARTNER CLICKS ─────────────────────────────────── -->
+    <section class="card">
+      <div class="card-head">
+        <h2 class="card-title">Partner Clicks</h2>
+        <span class="badge">{totalPartnerClicks} total</span>
+      </div>
+      {totalPartnerClicks === 0 ? (
+        <p class="empty">No partner clicks tracked yet.</p>
+      ) : (
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Partner</th>
+                <th style="text-align:right">Website</th>
+                <th style="text-align:right">Email</th>
+                <th style="text-align:right">Instagram</th>
+                <th style="text-align:right">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {partnerRows.map(r => (
+                <tr>
+                  <td>
+                    <a href={`/partners/${r.slug}/`} target="_blank">{r.name}</a>
+                  </td>
+                  <td style="text-align:right">{r.website}</td>
+                  <td style="text-align:right">{r.email}</td>
+                  <td style="text-align:right">{r.instagram}</td>
+                  <td style="text-align:right;font-weight:700">{r.total}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
 
     <!-- ── TRAINING LEADS ─────────────────────────────────── -->
     <section class="card">
@@ -193,4 +438,13 @@ const SOURCE_LABEL: Record<string, string> = {
   }
   .source-name { font-size: 0.75rem; font-weight: 600; color: #6B7280; margin-bottom: 0.25rem; }
   .source-count { font-size: 1.5rem; font-weight: 800; color: #111; }
+
+  .badge-sub { font-size: 0.7rem; color: #9CA3AF; }
+
+  .bar-chart { display: flex; flex-direction: column; gap: 0.375rem; max-width: 480px; }
+  .bar-row { display: flex; align-items: center; gap: 0.625rem; }
+  .bar-day { font-size: 0.6875rem; color: #9CA3AF; width: 40px; flex-shrink: 0; font-variant-numeric: tabular-nums; }
+  .bar-track { flex: 1; height: 16px; background: #F3F4F6; border-radius: 4px; overflow: hidden; }
+  .bar-fill { height: 100%; background: #F5A623; border-radius: 4px; min-width: 2px; }
+  .bar-count { font-size: 0.75rem; font-weight: 700; color: #111; width: 32px; text-align: right; flex-shrink: 0; }
 </style>

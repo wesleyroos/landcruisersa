@@ -57,6 +57,23 @@ export const trainingLeads = sqliteTable('training_leads', {
   created_at:   integer('created_at', { mode: 'timestamp' }).notNull(),
 });
 
+export const viewEvents = sqliteTable('view_events', {
+  id:            integer('id').primaryKey({ autoIncrement: true }),
+  listing_slug:  text('listing_slug').notNull(),
+  listing_title: text('listing_title'),
+  model:         text('model'),                 // denormalised for demand-by-model aggregation
+  price:         integer('price'),              // denormalised for price-band aggregation
+  utm_source:    text('utm_source'),            // 'ig' | null (direct/other)
+  created_at:    integer('created_at', { mode: 'timestamp' }).notNull(),
+});
+
+export const partnerClicks = sqliteTable('partner_clicks', {
+  id:           integer('id').primaryKey({ autoIncrement: true }),
+  partner_slug: text('partner_slug').notNull(),
+  kind:         text('kind').notNull(), // 'website' | 'email' | 'instagram'
+  created_at:   integer('created_at', { mode: 'timestamp' }).notNull(),
+});
+
 export const clickEvents = sqliteTable('click_events', {
   id:            integer('id').primaryKey({ autoIncrement: true }),
   listing_slug:  text('listing_slug').notNull(),

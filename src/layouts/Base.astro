@@ -82,6 +82,14 @@ const ogImage = new URL(image, SITE.url).href;
       gtag('js', new Date());
       gtag('config', 'G-BSFMBFSSLN');
     </script>
+
+    <!-- Persist UTM source for session-level attribution (e.g. link-in-bio → listing view) -->
+    <script>
+      try {
+        const utm = new URLSearchParams(location.search).get('utm_source');
+        if (utm) sessionStorage.setItem('lcsa_utm', utm.toLowerCase().slice(0, 32));
+      } catch {}
+    </script>
   </head>
   <body class="min-h-screen flex flex-col">
     <Nav />
