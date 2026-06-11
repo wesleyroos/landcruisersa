@@ -150,7 +150,8 @@ interface WbcVehicle {
   VehicleStatus?: string;
   Description?: string;
   Colour?: string;
-  Transmission?: string;
+  Transmission?: string; // get-car payloads
+  Gearbox?: string;      // search payloads
   StockNumber?: string;
   DealerKey?: string;
   Status?: string;
@@ -171,7 +172,7 @@ function normalizeWbc(v: WbcVehicle): NormalizedListing {
     ...(v.Images?.external ?? []),
   ].slice(0, 20);
 
-  const transmissionRaw = (v.Transmission ?? '').toLowerCase();
+  const transmissionRaw = (v.Transmission ?? v.Gearbox ?? '').toLowerCase();
   const transmission: 'manual' | 'automatic' = transmissionRaw.includes('manual') ? 'manual' : 'automatic';
   const mileage = Number(v.Mileage ?? 0);
   const title = [v.Year, v.Make, v.Model, v.Variant].filter(Boolean).join(' ');
@@ -198,11 +199,17 @@ function normalizeWbc(v: WbcVehicle): NormalizedListing {
 
 // ─── Adapter ─────────────────────────────────────────────────────────────────
 
+// Search results carry the full vehicle record (Gearbox, Images, Description…),
+// so discover() caches normalized listings and fetchListing() reads the cache.
+// This matters: the gateway shares one small rate-limit bucket across endpoints
+// (~50 req/window) — per-listing get-car calls for 200+ vehicles always 429.
+const cache = new Map<string, NormalizedListing>();
+
 export const WbcAdapter: SourceAdapter = {
   source: SOURCE,
 
   async discover(): Promise<DiscoveredRef[]> {
-    const seen = new Set<string>();
+    cache.clear();
     const refs: DiscoveredRef[] = [];
 
     for (const q of SEARCH_QUERIES) {
@@ -210,8 +217,8 @@ export const WbcAdapter: SourceAdapter = {
       let matched = 0;
       for (const v of vehicles) {
         if (!isLandCruiser(v) || !v.StockNumber || v.Status !== 'For Sale') continue;
-        if (seen.has(v.StockNumber)) continue;
-        seen.add(v.StockNumber);
+        if (cache.has(v.StockNumber)) continue;
+        cache.set(v.StockNumber, normalizeWbc(v));
         matched++;
         refs.push({
           source: SOURCE,
@@ -226,15 +233,23 @@ export const WbcAdapter: SourceAdapter = {
   },
 
   async fetchListing(ref: DiscoveredRef): Promise<NormalizedListing | null> {
+    // Populated by discover() — no per-listing API call
+    const cached = cache.get(ref.source_id);
+    if (cached) return cached;
+
+    // Fallback for callers outside a discover() run (rate-limited: ~50/window)
     let res: Response | null = null;
     for (let attempt = 0; attempt < 2; attempt++) {
       const token = await getPowToken();
-      // politeFetch paces requests (0.8–2s jitter) and backs off on 429/5xx —
-      // get-car rate-limits hard when hit back-to-back
-      res = await politeFetch(
-        `${GATEWAY}/website-elastic-backend/api/get-car/${ref.source_id.toUpperCase()}`,
-        { headers: { 'x-proof-of-work-token': token, 'Accept': 'application/json' } }
-      );
+      try {
+        res = await politeFetch(
+          `${GATEWAY}/website-elastic-backend/api/get-car/${ref.source_id.toUpperCase()}`,
+          { headers: { 'x-proof-of-work-token': token, 'Accept': 'application/json' } }
+        );
+      } catch (err) {
+        console.error(`[wbc] get-car ${ref.source_id} network error:`, String(err));
+        return null;
+      }
       if (res.status !== 401 && res.status !== 403) break;
       _powToken = null; // token rejected — force a fresh challenge and retry once
     }

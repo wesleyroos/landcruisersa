@@ -101,7 +101,12 @@ async function apiGet(page: Page, qs: string): Promise<{ meta?: { total: number 
 
 async function launchSession(): Promise<{ browser: Browser; page: Page }> {
   // Headed real Chrome — headless (old and new) gets served the CF challenge.
-  const browser = await chromium.launch({ channel: 'chrome', headless: false });
+  // The window is parked offscreen so scheduled runs don't interrupt the user.
+  const browser = await chromium.launch({
+    channel: 'chrome',
+    headless: false,
+    args: ['--window-position=-32000,-32000'],
+  });
   const page = await browser.newPage();
   await page.goto('https://www.cars.co.za/usedcars/Toyota/Land-Cruiser-79/', {
     waitUntil: 'domcontentloaded',
