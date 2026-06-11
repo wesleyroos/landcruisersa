@@ -6,6 +6,7 @@ import { db } from '@/db/index';
 import { trainingLeads, clickEvents, viewEvents, visitEvents, partnerClicks, listings } from '@/db/schema';
 import { sql, desc, eq, and } from 'drizzle-orm';
 import { PARTNERS } from '@/data/partners';
+import type { SQL } from 'drizzle-orm';
 
 const cookie = Astro.cookies.get('lcsa_admin');
 const adminSecret = import.meta.env.ADMIN_SECRET ?? process.env.ADMIN_SECRET ?? '';
@@ -13,159 +14,34 @@ if (!cookie || cookie.value !== adminSecret) {
   return Astro.redirect('/admin/login');
 }
 
+// ─── Period selection ─────────────────────────────────────────────────────────
+
+const period = Astro.url.searchParams.get('period') ?? '30d';
+const VALID_PERIODS = ['today', '7d', '30d', '90d', '6m', '12m'] as const;
+type Period = typeof VALID_PERIODS[number];
+const validPeriod: Period = (VALID_PERIODS as readonly string[]).includes(period) ? period as Period : '30d';
+
+const pWhere: SQL = (() => {
+  if (validPeriod === 'today') return sql`date(created_at, 'unixepoch') = date('now')`;
+  if (validPeriod === '7d')   return sql`created_at >= unixepoch('now', '-7 days')`;
+  if (validPeriod === '90d')  return sql`created_at >= unixepoch('now', '-90 days')`;
+  if (validPeriod === '6m')   return sql`created_at >= unixepoch('now', '-180 days')`;
+  if (validPeriod === '12m')  return sql`created_at >= unixepoch('now', '-365 days')`;
+  return sql`created_at >= unixepoch('now', '-30 days')`;
+})();
+
+const PERIOD_LABEL: Record<string, string> = {
+  today: 'today', '7d': 'last 7 days', '30d': 'last 30 days',
+  '90d': 'last 90 days', '6m': 'last 6 months', '12m': 'last 12 months',
+};
+const periodLabel = PERIOD_LABEL[validPeriod] ?? 'last 30 days';
+
+// ─── Static "at a glance" queries (always all-time) ──────────────────────────
+
 const leads = db.select().from(trainingLeads).orderBy(desc(trainingLeads.created_at)).all();
 
-// ─── Outbound clicks ──────────────────────────────────────────────────────────
-
-const clicksBySource = db.select({
-  source: clickEvents.source,
-  count: sql<number>`cast(count(*) as int)`,
-}).from(clickEvents).groupBy(clickEvents.source).all();
-
-const totalClicks = clicksBySource.reduce((s, r) => s + r.count, 0);
-
-const clicksPerSlug = new Map(
-  db.select({
-    listing_slug: clickEvents.listing_slug,
-    listing_title: clickEvents.listing_title,
-    count: sql<number>`cast(count(*) as int)`,
-  }).from(clickEvents).groupBy(clickEvents.listing_slug).all()
-    .map(r => [r.listing_slug, { title: r.listing_title, count: r.count }])
-);
-
-// ─── Campaign link clicks (sessions arriving with a utm_source) ──────────────
-
-const visitsBySource = db.select({
-  source: visitEvents.utm_source,
-  count: sql<number>`cast(count(*) as int)`,
-}).from(visitEvents).groupBy(visitEvents.utm_source).all();
-
-const totalVisits = visitsBySource.reduce((s, r) => s + r.count, 0);
-
-const visitsDaily = db.select({
-  day: sql<string>`date(created_at, 'unixepoch')`,
-  count: sql<number>`cast(count(*) as int)`,
-}).from(visitEvents)
-  .where(sql`created_at > unixepoch('now', '-14 days')`)
-  .groupBy(sql`date(created_at, 'unixepoch')`)
-  .orderBy(sql`date(created_at, 'unixepoch')`)
-  .all();
-
-const visitsDailyMax = Math.max(1, ...visitsDaily.map(r => r.count));
-
-const visitLandings = db.select({
-  source: visitEvents.utm_source,
-  path: visitEvents.landing_path,
-  count: sql<number>`cast(count(*) as int)`,
-}).from(visitEvents)
-  .groupBy(visitEvents.utm_source, visitEvents.landing_path)
-  .orderBy(sql`count(*) desc`)
-  .limit(12)
-  .all();
-
-// ─── Listing views ────────────────────────────────────────────────────────────
-
-const viewsBySource = db.select({
-  source: sql<string>`COALESCE(utm_source, 'direct')`,
-  count: sql<number>`cast(count(*) as int)`,
-}).from(viewEvents).groupBy(sql`COALESCE(utm_source, 'direct')`).all();
-
-const totalViews = viewsBySource.reduce((s, r) => s + r.count, 0);
-
-const viewsByListing = db.select({
-  listing_slug: viewEvents.listing_slug,
-  listing_title: viewEvents.listing_title,
-  count: sql<number>`cast(count(*) as int)`,
-}).from(viewEvents)
-  .groupBy(viewEvents.listing_slug)
-  .orderBy(sql`count(*) desc`)
-  .all();
-
-// ─── Combined listing performance: views + clicks in one table ───────────────
-// Union of everything that was viewed or clicked; clicks predate view tracking
-// so some rows have clicks but no views.
-
-type PerfRow = { slug: string; title: string | null; views: number; clicks: number };
-const perfMap = new Map<string, PerfRow>();
-for (const v of viewsByListing) {
-  perfMap.set(v.listing_slug, { slug: v.listing_slug, title: v.listing_title, views: v.count, clicks: 0 });
-}
-for (const [slug, c] of clicksPerSlug) {
-  const row = perfMap.get(slug);
-  if (row) {
-    row.clicks = c.count;
-  } else {
-    perfMap.set(slug, { slug, title: c.title, views: 0, clicks: c.count });
-  }
-}
-const perfRows = [...perfMap.values()]
-  .sort((a, b) => b.views - a.views || b.clicks - a.clicks)
-  .slice(0, 25);
-
-// ─── Demand by model: views vs supply ─────────────────────────────────────────
-
-const viewsByModel = db.select({
-  model: viewEvents.model,
-  count: sql<number>`cast(count(*) as int)`,
-}).from(viewEvents).groupBy(viewEvents.model).all();
-
-const activeByModel = new Map(
-  db.select({
-    model: listings.model,
-    count: sql<number>`cast(count(*) as int)`,
-  }).from(listings).where(eq(listings.status, 'active')).groupBy(listings.model).all()
-    .map(r => [r.model, r.count])
-);
-
-function fmtPerListing(views: number, supply: number): string {
-  if (supply === 0) return '—';
-  const v = views / supply;
-  if (v >= 10) return String(Math.round(v));
-  if (v >= 1) return v.toFixed(1);
-  return v.toFixed(2); // small values stay visible instead of rounding to 0
-}
-
-// Union of every model with views OR active supply — a model with stock but
-// zero views is itself a signal, so it must appear.
-const modelViews = new Map(viewsByModel.filter(r => r.model).map(r => [r.model!, r.count]));
-const allModels = new Set([...modelViews.keys(), ...activeByModel.keys()]);
-const demandRows = [...allModels]
-  .map(model => {
-    const views = modelViews.get(model) ?? 0;
-    const supply = activeByModel.get(model) ?? 0;
-    return { model, views, supply, perListing: fmtPerListing(views, supply) };
-  })
-  .sort((a, b) => b.views - a.views || b.supply - a.supply);
-
-// ─── Seller contact clicks (private listings: whatsapp / call / email) ───────
-
-const CONTACT_KINDS = ['whatsapp', 'call', 'email'];
-const contactClicks = db.select({
-  listing_slug: clickEvents.listing_slug,
-  listing_title: clickEvents.listing_title,
-  source: clickEvents.source,
-  count: sql<number>`cast(count(*) as int)`,
-}).from(clickEvents)
-  .where(sql`source IN ('whatsapp', 'call', 'email')`)
-  .groupBy(clickEvents.listing_slug, clickEvents.source)
-  .all();
-
-const contactTotals: Record<string, number> = { whatsapp: 0, call: 0, email: 0 };
-const contactByListing = new Map<string, { title: string | null; whatsapp: number; call: number; email: number; total: number }>();
-for (const r of contactClicks) {
-  contactTotals[r.source] = (contactTotals[r.source] ?? 0) + r.count;
-  const row = contactByListing.get(r.listing_slug) ?? { title: r.listing_title, whatsapp: 0, call: 0, email: 0, total: 0 };
-  row[r.source as 'whatsapp' | 'call' | 'email'] += r.count;
-  row.total += r.count;
-  contactByListing.set(r.listing_slug, row);
-}
-const contactRows = [...contactByListing.entries()]
-  .map(([slug, v]) => ({ slug, ...v }))
-  .sort((a, b) => b.total - a.total)
-  .slice(0, 15);
-const totalContactClicks = contactTotals.whatsapp + contactTotals.call + contactTotals.email;
-
-// ─── Partner clicks ───────────────────────────────────────────────────────────
+const activeListingCount = (db.select({ n: sql<number>`count(*)` }).from(listings).where(eq(listings.status, 'active')).get())?.n ?? 0;
+const totalListingCount  = (db.select({ n: sql<number>`count(*)` }).from(listings).get())?.n ?? 0;
 
 const partnerClickRows = db.select({
   partner_slug: partnerClicks.partner_slug,
@@ -186,7 +62,40 @@ const partnerRows = [...partnerTotals.entries()]
   .sort((a, b) => b.total - a.total);
 const totalPartnerClicks = partnerRows.reduce((s, r) => s + r.total, 0);
 
-// ─── Listings growth ─────────────────────────────────────────────────────────
+// ─── All-time demand by model ─────────────────────────────────────────────────
+
+const viewsByModel = db.select({
+  model: viewEvents.model,
+  count: sql<number>`cast(count(*) as int)`,
+}).from(viewEvents).groupBy(viewEvents.model).all();
+
+const activeByModel = new Map(
+  db.select({
+    model: listings.model,
+    count: sql<number>`cast(count(*) as int)`,
+  }).from(listings).where(eq(listings.status, 'active')).groupBy(listings.model).all()
+    .map(r => [r.model, r.count])
+);
+
+function fmtPerListing(views: number, supply: number): string {
+  if (supply === 0) return '—';
+  const v = views / supply;
+  if (v >= 10) return String(Math.round(v));
+  if (v >= 1) return v.toFixed(1);
+  return v.toFixed(2);
+}
+
+const modelViews = new Map(viewsByModel.filter(r => r.model).map(r => [r.model!, r.count]));
+const allModels = new Set([...modelViews.keys(), ...activeByModel.keys()]);
+const demandRows = [...allModels]
+  .map(model => {
+    const views = modelViews.get(model) ?? 0;
+    const supply = activeByModel.get(model) ?? 0;
+    return { model, views, supply, perListing: fmtPerListing(views, supply) };
+  })
+  .sort((a, b) => b.views - a.views || b.supply - a.supply);
+
+// ─── Listings growth (all-time) ───────────────────────────────────────────────
 
 const listingsPerDay = db.select({
   day: sql<string>`date(created_at, 'unixepoch')`,
@@ -196,7 +105,6 @@ const listingsPerDay = db.select({
   .orderBy(sql`date(created_at, 'unixepoch')`)
   .all();
 
-// Compute running cumulative total
 let running = 0;
 const listingsGrowth = listingsPerDay.map(r => {
   running += r.count;
@@ -204,108 +112,243 @@ const listingsGrowth = listingsPerDay.map(r => {
 });
 
 const maxDailyCount = Math.max(1, ...listingsGrowth.map(r => r.count));
-const maxTotal = Math.max(1, ...listingsGrowth.map(r => r.total));
 
-// ─── Formatting helpers ───────────────────────────────────────────────────────
+// ─── Period-filtered activity queries ────────────────────────────────────────
+
+// New listings in period
+const newListingsP = (db.select({ n: sql<number>`cast(count(*) as int)` })
+  .from(listings).where(pWhere).get())?.n ?? 0;
+
+// Campaign visits in period
+const visitsBySourceP = db.select({
+  source: visitEvents.utm_source,
+  count: sql<number>`cast(count(*) as int)`,
+}).from(visitEvents).where(pWhere).groupBy(visitEvents.utm_source).all();
+const totalVisitsP = visitsBySourceP.reduce((s, r) => s + r.count, 0);
+
+const visitLandingsP = db.select({
+  source: visitEvents.utm_source,
+  path: visitEvents.landing_path,
+  count: sql<number>`cast(count(*) as int)`,
+}).from(visitEvents)
+  .where(pWhere)
+  .groupBy(visitEvents.utm_source, visitEvents.landing_path)
+  .orderBy(sql`count(*) desc`)
+  .limit(12).all();
+
+// Bar chart buckets — daily for short periods, weekly for 90d, monthly for 6m/12m
+const useDailyBuckets  = ['today', '7d', '30d'].includes(validPeriod);
+const useWeeklyBuckets = validPeriod === '90d';
+
+const visitsBuckets = useDailyBuckets
+  ? db.select({ bucket: sql<string>`date(created_at, 'unixepoch')`, count: sql<number>`cast(count(*) as int)` })
+      .from(visitEvents).where(pWhere)
+      .groupBy(sql`date(created_at, 'unixepoch')`).orderBy(sql`date(created_at, 'unixepoch')`).all()
+  : useWeeklyBuckets
+  ? db.select({ bucket: sql<string>`strftime('%Y-W%W', datetime(created_at, 'unixepoch'))`, count: sql<number>`cast(count(*) as int)` })
+      .from(visitEvents).where(pWhere)
+      .groupBy(sql`strftime('%Y-W%W', datetime(created_at, 'unixepoch'))`).orderBy(sql`strftime('%Y-W%W', datetime(created_at, 'unixepoch'))`).all()
+  : db.select({ bucket: sql<string>`strftime('%Y-%m', datetime(created_at, 'unixepoch'))`, count: sql<number>`cast(count(*) as int)` })
+      .from(visitEvents).where(pWhere)
+      .groupBy(sql`strftime('%Y-%m', datetime(created_at, 'unixepoch'))`).orderBy(sql`strftime('%Y-%m', datetime(created_at, 'unixepoch'))`).all();
+const visitsBucketsMax = Math.max(1, ...visitsBuckets.map(r => r.count));
+
+function bucketLabel(b: string): string {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(b)) return b.slice(5);
+  if (/^\d{4}-W\d{2}$/.test(b))      return b.slice(5);
+  if (/^\d{4}-\d{2}$/.test(b)) {
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return months[parseInt(b.slice(5)) - 1] ?? b.slice(5);
+  }
+  return b;
+}
+
+// Listing views in period
+const viewsBySourceP = db.select({
+  source: sql<string>`COALESCE(utm_source, 'direct')`,
+  count: sql<number>`cast(count(*) as int)`,
+}).from(viewEvents).where(pWhere).groupBy(sql`COALESCE(utm_source, 'direct')`).all();
+const totalViewsP = viewsBySourceP.reduce((s, r) => s + r.count, 0);
+const igViewsP    = viewsBySourceP.find(r => r.source === 'ig')?.count ?? 0;
+
+// Listing performance in period (views + clicks)
+type PerfRow = { slug: string; title: string | null; views: number; clicks: number };
+
+const viewsByListingP = db.select({
+  listing_slug: viewEvents.listing_slug,
+  listing_title: viewEvents.listing_title,
+  count: sql<number>`cast(count(*) as int)`,
+}).from(viewEvents).where(pWhere).groupBy(viewEvents.listing_slug).orderBy(sql`count(*) desc`).all();
+
+const allClicksBySourceP = db.select({
+  source: clickEvents.source,
+  count: sql<number>`cast(count(*) as int)`,
+}).from(clickEvents).where(pWhere).groupBy(clickEvents.source).all();
+const totalClicksP = allClicksBySourceP.reduce((s, r) => s + r.count, 0);
+
+const clicksPerSlugP = new Map(
+  db.select({
+    listing_slug: clickEvents.listing_slug,
+    listing_title: clickEvents.listing_title,
+    count: sql<number>`cast(count(*) as int)`,
+  }).from(clickEvents).where(pWhere).groupBy(clickEvents.listing_slug).all()
+    .map(r => [r.listing_slug, { title: r.listing_title, count: r.count }])
+);
+
+const perfMapP = new Map<string, PerfRow>();
+for (const v of viewsByListingP) {
+  perfMapP.set(v.listing_slug, { slug: v.listing_slug, title: v.listing_title, views: v.count, clicks: 0 });
+}
+for (const [slug, c] of clicksPerSlugP) {
+  const row = perfMapP.get(slug);
+  if (row) row.clicks = c.count;
+  else perfMapP.set(slug, { slug, title: c.title, views: 0, clicks: c.count });
+}
+const perfRowsP = [...perfMapP.values()]
+  .sort((a, b) => b.views - a.views || b.clicks - a.clicks)
+  .slice(0, 25);
+
+// Contact clicks in period
+const contactClicksP = db.select({
+  listing_slug: clickEvents.listing_slug,
+  listing_title: clickEvents.listing_title,
+  source: clickEvents.source,
+  count: sql<number>`cast(count(*) as int)`,
+}).from(clickEvents)
+  .where(and(pWhere, sql`source IN ('whatsapp', 'call', 'email')`))
+  .groupBy(clickEvents.listing_slug, clickEvents.source)
+  .all();
+
+const contactTotalsP: Record<string, number> = { whatsapp: 0, call: 0, email: 0 };
+const contactByListingP = new Map<string, { title: string | null; whatsapp: number; call: number; email: number; total: number }>();
+for (const r of contactClicksP) {
+  contactTotalsP[r.source] = (contactTotalsP[r.source] ?? 0) + r.count;
+  const row = contactByListingP.get(r.listing_slug) ?? { title: r.listing_title, whatsapp: 0, call: 0, email: 0, total: 0 };
+  row[r.source as 'whatsapp' | 'call' | 'email'] += r.count;
+  row.total += r.count;
+  contactByListingP.set(r.listing_slug, row);
+}
+const contactRowsP = [...contactByListingP.entries()]
+  .map(([slug, v]) => ({ slug, ...v }))
+  .sort((a, b) => b.total - a.total)
+  .slice(0, 15);
+const totalContactClicksP = contactTotalsP.whatsapp + contactTotalsP.call + contactTotalsP.email;
+
+// ─── Misc helpers ─────────────────────────────────────────────────────────────
 
 function fmt(d: Date | null) {
   if (!d) return '—';
   return new Intl.DateTimeFormat('en-ZA', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(d);
 }
 
-const SOURCE_LABEL: Record<string, string> = {
-  autotrader: 'AutoTrader',
-  wbc: 'WeBuyCars',
-  adios: 'Adios',
-  wbb: 'WeBuy Bakkies',
-};
-
 const TRAFFIC_LABEL: Record<string, string> = {
   ig: 'Instagram',
   direct: 'Direct / Other',
 };
 
-const igViews = viewsBySource.find(r => r.source === 'ig')?.count ?? 0;
-
-const activeListingCount = (db.select({ n: sql<number>`count(*)` }).from(listings).where(eq(listings.status, 'active')).get())?.n ?? 0;
-const totalListingCount = (db.select({ n: sql<number>`count(*)` }).from(listings).get())?.n ?? 0;
+const SOURCE_LABEL: Record<string, string> = {
+  autotrader: 'AutoTrader', wbc: 'WeBuyCars', adios: 'Adios', wbb: 'WeBuy Bakkies',
+};
 ---
 
 <AdminLayout title="Insights" activePage="insights">
   <div class="insights-wrap">
 
-    <!-- ── KPI STRIP ──────────────────────────────────────── -->
-    <div class="kpi-strip">
+    <!-- ── STATIC "AT A GLANCE" ──────────────────────────────── -->
+    <div class="section-label">At a Glance</div>
+    <div class="kpi-strip kpi-strip-3">
       <div class="kpi">
         <p class="kpi-value">{activeListingCount}</p>
         <p class="kpi-label">Active Listings</p>
         <p class="kpi-sub">{totalListingCount} total incl. sold &amp; pending</p>
       </div>
       <div class="kpi">
-        <span class="kpi-dir dir-in">↓ In</span>
-        <p class="kpi-value">{totalVisits}</p>
-        <p class="kpi-label">Campaign Link Clicks</p>
-        <p class="kpi-sub">people who arrived via a tracked link (IG bio, ChatGPT…)</p>
-      </div>
-      <div class="kpi">
-        <p class="kpi-value">{totalViews}</p>
-        <p class="kpi-label">Listing Views</p>
-        <p class="kpi-sub">listing pages opened, all traffic</p>
-      </div>
-      <div class="kpi">
-        <span class="kpi-dir dir-in">↓ In</span>
-        <p class="kpi-value">{igViews}</p>
-        <p class="kpi-label">Views from IG</p>
-        <p class="kpi-sub">listings opened by IG link visitors — step 2 of the funnel</p>
-      </div>
-      <div class="kpi">
-        <span class="kpi-dir dir-out">↑ Out</span>
-        <p class="kpi-value">{totalClicks}</p>
-        <p class="kpi-label">Outbound Listing Clicks</p>
-        <p class="kpi-sub">clicked through to AutoTrader, WhatsApp etc.</p>
-      </div>
-      <div class="kpi">
-        <span class="kpi-dir dir-out">↑ Out</span>
-        <p class="kpi-value">{contactTotals.whatsapp}</p>
-        <p class="kpi-label">WhatsApp Clicks</p>
-        <p class="kpi-sub">seller WhatsApp taps on private listings</p>
-      </div>
-      <div class="kpi">
         <span class="kpi-dir dir-out">↑ Out</span>
         <p class="kpi-value">{totalPartnerClicks}</p>
         <p class="kpi-label">Partner Clicks</p>
-        <p class="kpi-sub">clicked through to a partner</p>
+        <p class="kpi-sub">clicked through to a partner, all time</p>
       </div>
       <div class="kpi">
         <p class="kpi-value">{leads.length}</p>
         <p class="kpi-label">Training Leads</p>
-        <p class="kpi-sub">4x4 training enquiries</p>
+        <p class="kpi-sub">4x4 training enquiries, all time</p>
       </div>
     </div>
 
-    <!-- ── ROW: CAMPAIGN TRAFFIC + DEMAND ─────────────────── -->
+    <!-- ── ACTIVITY SECTION HEADER + PERIOD TABS ─────────────── -->
+    <div class="activity-header">
+      <span class="section-label" style="margin:0">Activity</span>
+      <div class="period-tabs">
+        {(['today', '7d', '30d', '90d', '6m', '12m'] as const).map(p => (
+          <a href={`?period=${p}`} class={`ptab${validPeriod === p ? ' ptab-active' : ''}`}>
+            {p === 'today' ? 'Today' : p}
+          </a>
+        ))}
+      </div>
+    </div>
+
+    <!-- ── ACTIVITY KPI STRIP ─────────────────────────────────── -->
+    <div class="kpi-strip kpi-strip-6">
+      <div class="kpi">
+        <p class="kpi-value">{newListingsP}</p>
+        <p class="kpi-label">New Listings</p>
+        <p class="kpi-sub">submitted {periodLabel}</p>
+      </div>
+      <div class="kpi">
+        <span class="kpi-dir dir-in">↓ In</span>
+        <p class="kpi-value">{totalVisitsP}</p>
+        <p class="kpi-label">Campaign Clicks</p>
+        <p class="kpi-sub">arrived via tracked link</p>
+      </div>
+      <div class="kpi">
+        <p class="kpi-value">{totalViewsP}</p>
+        <p class="kpi-label">Listing Views</p>
+        <p class="kpi-sub">all traffic</p>
+      </div>
+      <div class="kpi">
+        <span class="kpi-dir dir-in">↓ In</span>
+        <p class="kpi-value">{igViewsP}</p>
+        <p class="kpi-label">Views from IG</p>
+        <p class="kpi-sub">IG link → listing page</p>
+      </div>
+      <div class="kpi">
+        <span class="kpi-dir dir-out">↑ Out</span>
+        <p class="kpi-value">{totalContactClicksP}</p>
+        <p class="kpi-label">Contact Clicks</p>
+        <p class="kpi-sub">WA + call + email on own listings</p>
+      </div>
+      <div class="kpi">
+        <span class="kpi-dir dir-out">↑ Out</span>
+        <p class="kpi-value">{totalClicksP}</p>
+        <p class="kpi-label">Outbound Clicks</p>
+        <p class="kpi-sub">AutoTrader, WBC, etc.</p>
+      </div>
+    </div>
+
+    <!-- ── ROW: CAMPAIGN TRAFFIC + DEMAND BY MODEL ──────────── -->
     <div class="grid-2">
 
       <section class="card">
         <div class="card-head">
           <h2 class="card-title">Campaign Traffic</h2>
-          <span class="badge">{totalVisits}</span>
-          <span class="info" data-tip="People arriving via a tracked link — your IG bio (?utm_source=ig), ChatGPT citations, or any link you tag with utm_source. Landing Pages shows the exact page each one arrived on.">?</span>
+          <span class="badge">{totalVisitsP}</span>
+          <span class="badge-sub">{periodLabel}</span>
+          <span class="info" data-tip="People arriving via a tracked link — IG bio (?utm_source=ig), ChatGPT citations, or any utm_source-tagged link. Landing Pages shows where each one landed.">?</span>
         </div>
-        {totalVisits === 0 ? (
-          <p class="empty">No campaign clicks yet. IG bio link: <code>landcruisersa.co.za/listings/?utm_source=ig</code></p>
+        {totalVisitsP === 0 ? (
+          <p class="empty">No campaign clicks in {periodLabel}. IG bio link: <code>landcruisersa.co.za/listings/?utm_source=ig</code></p>
         ) : (
           <div class="card-body">
             <div class="chip-row">
-              {visitsBySource.map(r => (
+              {visitsBySourceP.map(r => (
                 <span class="stat-chip">{TRAFFIC_LABEL[r.source] ?? r.source} <strong>{r.count}</strong></span>
               ))}
             </div>
-            {visitLandings.length > 0 && (
+            {visitLandingsP.length > 0 && (
               <div>
                 <p class="mini-label">Landing Pages</p>
                 <div class="landing-list">
-                  {visitLandings.map(r => (
+                  {visitLandingsP.map(r => (
                     <div class="landing-row">
                       <span class="landing-src">{TRAFFIC_LABEL[r.source] ?? r.source}</span>
                       <a href={r.path ?? '/'} target="_blank" class="landing-path">{r.path ?? '/'}</a>
@@ -315,13 +358,13 @@ const totalListingCount = (db.select({ n: sql<number>`count(*)` }).from(listings
                 </div>
               </div>
             )}
-            {visitsDaily.length > 0 && (
+            {visitsBuckets.length > 0 && (
               <div class="bar-chart">
-                {visitsDaily.map(r => (
+                {visitsBuckets.map(r => (
                   <div class="bar-row">
-                    <span class="bar-day">{r.day.slice(5)}</span>
+                    <span class="bar-day">{bucketLabel(r.bucket)}</span>
                     <div class="bar-track">
-                      <div class="bar-fill" style={`width:${Math.round((r.count / visitsDailyMax) * 100)}%`}></div>
+                      <div class="bar-fill" style={`width:${Math.round((r.count / visitsBucketsMax) * 100)}%`}></div>
                     </div>
                     <span class="bar-count">{r.count}</span>
                   </div>
@@ -335,8 +378,8 @@ const totalListingCount = (db.select({ n: sql<number>`count(*)` }).from(listings
       <section class="card">
         <div class="card-head">
           <h2 class="card-title">Demand by Model</h2>
-          <span class="badge-sub">which models buyers want vs how many are for sale</span>
-          <span class="info" data-tip="Views = buyer interest in that model. Supply = how many are listed. Views per Listing = interest per available car: a high number means many buyers chasing few cars — source those models, feature them, post them to IG. A model with supply but zero views is overstocked or overpriced.">?</span>
+          <span class="badge-sub">all-time views vs. current supply</span>
+          <span class="info" data-tip="Views = buyer interest in that model. Supply = active listings. Views per Listing = interest per car available: high = lots of buyers chasing few cars. Model with stock but zero views = overstocked or overpriced.">?</span>
         </div>
         {demandRows.length === 0 ? (
           <p class="empty">No view data yet.</p>
@@ -348,7 +391,7 @@ const totalListingCount = (db.select({ n: sql<number>`count(*)` }).from(listings
                   <th>Model</th>
                   <th class="num-c">Views</th>
                   <th class="num-c">Supply</th>
-                  <th class="num-c">Views per Listing</th>
+                  <th class="num-c">Views/Listing</th>
                 </tr>
               </thead>
               <tbody>
@@ -362,29 +405,30 @@ const totalListingCount = (db.select({ n: sql<number>`count(*)` }).from(listings
                 ))}
               </tbody>
             </table>
-            <p class="card-note">Views per Listing = buyer interest per available car. A high number means lots of buyers chasing few cars — those are the models to source, feature, or post to IG.</p>
+            <p class="card-note">High Views/Listing = lots of buyers per available car — source, feature, or post those models.</p>
           </div>
         )}
       </section>
 
     </div>
 
-    <!-- ── LISTING PERFORMANCE (views + clicks combined) ──── -->
+    <!-- ── LISTING PERFORMANCE (period-filtered) ────────────── -->
     <section class="card">
       <div class="card-head">
         <h2 class="card-title">Listing Performance</h2>
-        <span class="badge">{totalViews} views · {totalClicks} click-outs</span>
-        <span class="info" data-tip="Each listing's funnel: Views = page opens. Click-outs = the visitor took the action (opened AutoTrader, tapped WhatsApp, called, emailed). CTR = click-outs ÷ views — listings with high views but low CTR look appealing in the feed but lose people on the detail page (price or photos usually).">?</span>
-        {totalClicks > 0 && (
+        <span class="badge">{totalViewsP} views · {totalClicksP} click-outs</span>
+        <span class="badge-sub">{periodLabel}</span>
+        <span class="info" data-tip="Views = page opens. Click-outs = WA tap, call, email, or AutoTrader link. CTR = click-outs ÷ views. High views + low CTR = people are interested but not converting on the detail page.">?</span>
+        {totalClicksP > 0 && (
           <span class="chip-row chip-row-inline">
-            {clicksBySource.map(r => (
+            {allClicksBySourceP.map(r => (
               <span class="stat-chip">{SOURCE_LABEL[r.source] ?? r.source} <strong>{r.count}</strong></span>
             ))}
           </span>
         )}
       </div>
-      {perfRows.length === 0 ? (
-        <p class="empty">No listing activity tracked yet.</p>
+      {perfRowsP.length === 0 ? (
+        <p class="empty">No listing activity in {periodLabel}.</p>
       ) : (
         <div class="table-wrap">
           <table class="data-table">
@@ -397,11 +441,9 @@ const totalListingCount = (db.select({ n: sql<number>`count(*)` }).from(listings
               </tr>
             </thead>
             <tbody>
-              {perfRows.map(r => (
+              {perfRowsP.map(r => (
                 <tr>
-                  <td>
-                    <a href={`/listings/${r.slug}/`} target="_blank">{r.title ?? r.slug}</a>
-                  </td>
+                  <td><a href={`/listings/${r.slug}/`} target="_blank">{r.title ?? r.slug}</a></td>
                   <td class="num-c" style="font-weight:700">{r.views}</td>
                   <td class="num-c">{r.clicks}</td>
                   <td class="num-c" style="color:#9CA3AF">{r.views > 0 ? Math.round((r.clicks / r.views) * 100) + '%' : '—'}</td>
@@ -413,24 +455,25 @@ const totalListingCount = (db.select({ n: sql<number>`count(*)` }).from(listings
       )}
     </section>
 
-    <!-- ── ROW: SELLER CONTACTS + PARTNERS ────────────────── -->
+    <!-- ── ROW: SELLER CONTACTS (period) + PARTNERS (all-time) ─ -->
     <div class="grid-2">
 
       <section class="card">
         <div class="card-head">
           <h2 class="card-title">Seller Contact Clicks</h2>
-          <span class="badge">{totalContactClicks}</span>
-          <span class="info" data-tip="Buyers contacting sellers on private (own) listings — WhatsApp taps, phone calls, and emails. This is the listing-conversion metric: it's the action a listing exists to produce.">?</span>
+          <span class="badge">{totalContactClicksP}</span>
+          <span class="badge-sub">{periodLabel}</span>
+          <span class="info" data-tip="Buyers contacting sellers on private listings — WA, call, email. This is the listing-conversion metric.">?</span>
         </div>
-        {totalContactClicks === 0 ? (
-          <p class="empty">No seller contact clicks yet.</p>
+        {totalContactClicksP === 0 ? (
+          <p class="empty">No seller contact clicks in {periodLabel}.</p>
         ) : (
           <div>
             <div class="card-body" style="padding-bottom:0.75rem">
               <div class="chip-row">
-                <span class="stat-chip">WhatsApp <strong>{contactTotals.whatsapp}</strong></span>
-                <span class="stat-chip">Call <strong>{contactTotals.call}</strong></span>
-                <span class="stat-chip">Email <strong>{contactTotals.email}</strong></span>
+                <span class="stat-chip">WhatsApp <strong>{contactTotalsP.whatsapp}</strong></span>
+                <span class="stat-chip">Call <strong>{contactTotalsP.call}</strong></span>
+                <span class="stat-chip">Email <strong>{contactTotalsP.email}</strong></span>
               </div>
             </div>
             <div class="table-wrap">
@@ -438,13 +481,13 @@ const totalListingCount = (db.select({ n: sql<number>`count(*)` }).from(listings
                 <thead>
                   <tr>
                     <th>Listing</th>
-                    <th class="num-c">WhatsApp</th>
+                    <th class="num-c">WA</th>
                     <th class="num-c">Call</th>
                     <th class="num-c">Email</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {contactRows.map(r => (
+                  {contactRowsP.map(r => (
                     <tr>
                       <td><a href={`/listings/${r.slug}/`} target="_blank">{r.title ?? r.slug}</a></td>
                       <td class="num-c" style="font-weight:700">{r.whatsapp}</td>
@@ -463,7 +506,8 @@ const totalListingCount = (db.select({ n: sql<number>`count(*)` }).from(listings
         <div class="card-head">
           <h2 class="card-title">Partner Clicks</h2>
           <span class="badge">{totalPartnerClicks}</span>
-          <span class="info" data-tip="Outbound clicks from partner pages to the partner's website, email, or Instagram. Months of this data is what turns partners into paying advertisers.">?</span>
+          <span class="badge-sub">all time</span>
+          <span class="info" data-tip="Outbound clicks from partner pages to the partner's website, email, or Instagram. This data builds the case for paid partner placements.">?</span>
         </div>
         {totalPartnerClicks === 0 ? (
           <p class="empty">No partner clicks tracked yet.</p>
@@ -497,44 +541,7 @@ const totalListingCount = (db.select({ n: sql<number>`count(*)` }).from(listings
 
     </div>
 
-    <!-- ── TRAINING LEADS ─────────────────────────────────── -->
-    <section class="card">
-        <div class="card-head">
-          <h2 class="card-title">Training Enquiries</h2>
-          <span class="badge">{leads.length}</span>
-        </div>
-        {leads.length === 0 ? (
-          <p class="empty">No enquiries yet.</p>
-        ) : (
-          <div class="table-wrap">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Name</th>
-                  <th>Contact</th>
-                  <th>Message</th>
-                </tr>
-              </thead>
-              <tbody>
-                {leads.map(l => (
-                  <tr>
-                    <td class="nowrap">{fmt(l.created_at)}</td>
-                    <td class="nowrap">{l.name}</td>
-                    <td>
-                      <a href={`mailto:${l.email}`}>{l.email}</a>
-                      <span class="sub-line">{l.phone}{l.location ? ` · ${l.location}` : ''}</span>
-                    </td>
-                    <td class="msg">{l.message ?? '—'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
-
-    <!-- ── LISTINGS GROWTH ──────────────────────────────────── -->
+    <!-- ── LISTINGS GROWTH (all-time) ───────────────────────── -->
     {listingsGrowth.length > 0 && (
       <section class="card">
         <div class="card-head">
@@ -543,8 +550,6 @@ const totalListingCount = (db.select({ n: sql<number>`count(*)` }).from(listings
           <span class="badge-sub">{activeListingCount} active</span>
         </div>
         <div class="growth-body">
-
-          <!-- Cumulative interactive canvas chart -->
           <div class="growth-chart-wrap">
             <p class="mini-label">Cumulative total — hover to explore</p>
             <div class="growth-canvas-outer">
@@ -552,8 +557,6 @@ const totalListingCount = (db.select({ n: sql<number>`count(*)` }).from(listings
               <div id="growth-tooltip" class="growth-tooltip" style="display:none"></div>
             </div>
           </div>
-
-          <!-- Daily additions bar chart (last 30 days) -->
           <div class="growth-bars-wrap">
             <p class="mini-label">New listings per day (last 30 days)</p>
             <div class="bar-chart">
@@ -568,10 +571,46 @@ const totalListingCount = (db.select({ n: sql<number>`count(*)` }).from(listings
               ))}
             </div>
           </div>
-
         </div>
       </section>
     )}
+
+    <!-- ── TRAINING LEADS ────────────────────────────────────── -->
+    <section class="card">
+      <div class="card-head">
+        <h2 class="card-title">Training Enquiries</h2>
+        <span class="badge">{leads.length}</span>
+      </div>
+      {leads.length === 0 ? (
+        <p class="empty">No enquiries yet.</p>
+      ) : (
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Name</th>
+                <th>Contact</th>
+                <th>Message</th>
+              </tr>
+            </thead>
+            <tbody>
+              {leads.map(l => (
+                <tr>
+                  <td class="nowrap">{fmt(l.created_at)}</td>
+                  <td class="nowrap">{l.name}</td>
+                  <td>
+                    <a href={`mailto:${l.email}`}>{l.email}</a>
+                    <span class="sub-line">{l.phone}{l.location ? ` · ${l.location}` : ''}</span>
+                  </td>
+                  <td class="msg">{l.message ?? '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
 
   </div>
 </AdminLayout>
@@ -579,22 +618,53 @@ const totalListingCount = (db.select({ n: sql<number>`count(*)` }).from(listings
 <style>
   .insights-wrap { display: flex; flex-direction: column; gap: 1.25rem; }
 
-  /* KPI strip */
-  .kpi-strip {
-    display: grid; gap: 0.75rem;
-    grid-template-columns: repeat(2, 1fr);
+  /* Section labels */
+  .section-label {
+    font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.14em;
+    color: #9CA3AF; margin-bottom: -0.25rem;
   }
-  @media (min-width: 640px)  { .kpi-strip { grid-template-columns: repeat(4, 1fr); } }
-  @media (min-width: 1024px) { .kpi-strip { grid-template-columns: repeat(4, 1fr); } }
+
+  /* Activity header: label + period tabs */
+  .activity-header {
+    display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
+    margin-bottom: -0.25rem;
+  }
+  .period-tabs {
+    display: flex; gap: 0.25rem; flex-wrap: wrap;
+  }
+  .ptab {
+    font-size: 0.68rem; font-weight: 700; text-decoration: none;
+    padding: 0.25rem 0.625rem; border-radius: 9999px;
+    border: 1.5px solid #E5E7EB; color: #6B7280;
+    transition: border-color 0.15s, color 0.15s, background 0.15s;
+  }
+  .ptab:hover { border-color: #111; color: #111; }
+  .ptab-active { background: #111; color: white; border-color: #111; }
+
+  /* KPI strips */
+  .kpi-strip { display: grid; gap: 0.75rem; }
+  .kpi-strip-3 { grid-template-columns: repeat(3, 1fr); }
+  .kpi-strip-6 { grid-template-columns: repeat(2, 1fr); }
+  @media (min-width: 640px)  { .kpi-strip-6 { grid-template-columns: repeat(3, 1fr); } }
+  @media (min-width: 1024px) { .kpi-strip-6 { grid-template-columns: repeat(6, 1fr); } }
+  @media (max-width: 639px)  { .kpi-strip-3 { grid-template-columns: repeat(2, 1fr); } }
+
   .kpi {
     background: white; border: 1px solid #E5E7EB; border-radius: 0.75rem;
     padding: 0.875rem 1.125rem; position: relative;
   }
   .kpi-value { font-size: 1.625rem; font-weight: 800; color: #111; line-height: 1.1; }
   .kpi-label { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #9CA3AF; margin-top: 0.2rem; }
-  .kpi-sub { font-size: 0.62rem; color: #C4C9D0; margin-top: 0.3rem; line-height: 1.35; }
+  .kpi-sub   { font-size: 0.62rem; color: #C4C9D0; margin-top: 0.3rem; line-height: 1.35; }
+  .kpi-dir {
+    position: absolute; top: 0.625rem; right: 0.75rem;
+    font-size: 0.6rem; font-weight: 700; letter-spacing: 0.04em;
+    padding: 0.125rem 0.45rem; border-radius: 9999px;
+  }
+  .dir-in  { background: #F0FDF4; color: #16A34A; border: 1px solid #BBF7D0; }
+  .dir-out { background: #EFF6FF; color: #2563EB; border: 1px solid #BFDBFE; }
 
-  /* Hover tooltips */
+  /* Tooltip */
   .info {
     width: 16px; height: 16px; border-radius: 9999px; flex-shrink: 0;
     background: #F3F4F6; border: 1px solid #E5E7EB; color: #9CA3AF;
@@ -613,38 +683,23 @@ const totalListingCount = (db.select({ n: sql<number>`count(*)` }).from(listings
     z-index: 60; box-shadow: 0 8px 24px rgba(0,0,0,0.25);
   }
   .info:hover::after { opacity: 1; }
-  .card-note {
-    font-size: 0.7rem; color: #9CA3AF; line-height: 1.5;
-    padding: 0.75rem 1rem; border-top: 1px solid #F3F4F6; background: #FAFAF9;
-  }
-  .kpi-dir {
-    position: absolute; top: 0.625rem; right: 0.75rem;
-    font-size: 0.6rem; font-weight: 700; letter-spacing: 0.04em;
-    padding: 0.125rem 0.45rem; border-radius: 9999px;
-  }
-  .dir-in  { background: #F0FDF4; color: #16A34A; border: 1px solid #BBF7D0; }
-  .dir-out { background: #EFF6FF; color: #2563EB; border: 1px solid #BFDBFE; }
 
-  /* Two-column row */
+  /* Cards */
   .grid-2 { display: grid; gap: 1.25rem; grid-template-columns: 1fr; align-items: start; }
   @media (min-width: 1024px) { .grid-2 { grid-template-columns: 1fr 1fr; } }
 
-  .card {
-    background: white; border: 1px solid #E5E7EB; border-radius: 0.75rem; overflow: hidden;
-  }
+  .card { background: white; border: 1px solid #E5E7EB; border-radius: 0.75rem; overflow: hidden; }
   .card-head {
     display: flex; align-items: center; gap: 0.625rem; flex-wrap: wrap;
     padding: 0.875rem 1.25rem; border-bottom: 1px solid #F3F4F6;
   }
-  .card-title { font-size: 0.875rem; font-weight: 700; color: #111; }
-  .card-body { padding: 1rem 1.25rem; display: flex; flex-direction: column; gap: 1rem; }
-  .badge {
-    background: #F5A623; color: #111; font-size: 0.65rem; font-weight: 700;
-    letter-spacing: 0.04em; padding: 0.2rem 0.5rem; border-radius: 9999px; white-space: nowrap;
-  }
-  .badge-sub { font-size: 0.65rem; color: #9CA3AF; }
-  .empty { padding: 1.25rem; color: #9CA3AF; font-size: 0.8125rem; }
-  .empty code { font-size: 0.75rem; background: #F3F4F6; padding: 0.1rem 0.3rem; border-radius: 0.25rem; }
+  .card-title  { font-size: 0.875rem; font-weight: 700; color: #111; }
+  .card-body   { padding: 1rem 1.25rem; display: flex; flex-direction: column; gap: 1rem; }
+  .card-note   { font-size: 0.7rem; color: #9CA3AF; line-height: 1.5; padding: 0.75rem 1rem; border-top: 1px solid #F3F4F6; background: #FAFAF9; }
+  .badge       { background: #F5A623; color: #111; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.04em; padding: 0.2rem 0.5rem; border-radius: 9999px; white-space: nowrap; }
+  .badge-sub   { font-size: 0.65rem; color: #9CA3AF; }
+  .empty       { padding: 1.25rem; color: #9CA3AF; font-size: 0.8125rem; }
+  .empty code  { font-size: 0.75rem; background: #F3F4F6; padding: 0.1rem 0.3rem; border-radius: 0.25rem; }
 
   /* Stat chips */
   .chip-row { display: flex; flex-wrap: wrap; gap: 0.5rem; }
@@ -652,84 +707,61 @@ const totalListingCount = (db.select({ n: sql<number>`count(*)` }).from(listings
   .stat-chip {
     display: inline-flex; align-items: center; gap: 0.375rem;
     background: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 9999px;
-    font-size: 0.7rem; font-weight: 600; color: #6B7280;
-    padding: 0.25rem 0.625rem;
+    font-size: 0.7rem; font-weight: 600; color: #6B7280; padding: 0.25rem 0.625rem;
   }
   .stat-chip strong { color: #111; font-weight: 800; }
 
   /* Tables */
-  .table-wrap { overflow-x: auto; max-height: 420px; overflow-y: auto; }
-  .data-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+  .table-wrap   { overflow-x: auto; max-height: 420px; overflow-y: auto; }
+  .data-table   { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
   .data-table th {
     background: #F9FAFB; text-align: left; padding: 0.5rem 1rem;
     font-size: 0.625rem; font-weight: 700; text-transform: uppercase;
     letter-spacing: 0.08em; color: #6B7280; white-space: nowrap;
-    border-bottom: 1px solid #E5E7EB;
-    position: sticky; top: 0;
+    border-bottom: 1px solid #E5E7EB; position: sticky; top: 0;
   }
-  .data-table td {
-    padding: 0.5rem 1rem; border-bottom: 1px solid #F3F4F6;
-    color: #374151; vertical-align: top;
-  }
+  .data-table td { padding: 0.5rem 1rem; border-bottom: 1px solid #F3F4F6; color: #374151; vertical-align: top; }
   .data-table tr:last-child td { border-bottom: none; }
   .data-table a { color: #111; }
   .data-table a:hover { color: #F5A623; }
-  .num { text-align: right; }
+  .num   { text-align: right; }
   .num-c { text-align: center; }
 
   /* Landing pages */
-  .mini-label {
-    font-size: 0.625rem; font-weight: 700; text-transform: uppercase;
-    letter-spacing: 0.08em; color: #9CA3AF; margin-bottom: 0.5rem;
-  }
+  .mini-label { font-size: 0.625rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #9CA3AF; margin-bottom: 0.5rem; }
   .landing-list { display: flex; flex-direction: column; gap: 0.25rem; }
-  .landing-row {
-    display: flex; align-items: center; gap: 0.625rem;
-    font-size: 0.75rem; padding: 0.25rem 0;
-  }
-  .landing-src {
-    flex-shrink: 0; font-size: 0.65rem; font-weight: 700; color: #6B7280;
-    background: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 9999px;
-    padding: 0.1rem 0.5rem;
-  }
-  .landing-path {
-    flex: 1; min-width: 0; color: #374151; text-decoration: none;
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  }
+  .landing-row  { display: flex; align-items: center; gap: 0.625rem; font-size: 0.75rem; padding: 0.25rem 0; }
+  .landing-src  { flex-shrink: 0; font-size: 0.65rem; font-weight: 700; color: #6B7280; background: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 9999px; padding: 0.1rem 0.5rem; }
+  .landing-path { flex: 1; min-width: 0; color: #374151; text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .landing-path:hover { color: #F5A623; }
   .landing-count { flex-shrink: 0; font-weight: 700; color: #111; }
-  .nowrap { white-space: nowrap; }
-  .msg { max-width: 220px; white-space: pre-wrap; font-size: 0.72rem; color: #6B7280; }
+
+  .nowrap   { white-space: nowrap; }
+  .msg      { max-width: 220px; white-space: pre-wrap; font-size: 0.72rem; color: #6B7280; }
   .sub-line { display: block; font-size: 0.68rem; color: #9CA3AF; margin-top: 0.1rem; }
 
+  /* Bar chart */
+  .bar-chart { display: flex; flex-direction: column; gap: 0.3rem; }
+  .bar-row   { display: flex; align-items: center; gap: 0.625rem; }
+  .bar-day   { font-size: 0.65rem; color: #9CA3AF; width: 38px; flex-shrink: 0; font-variant-numeric: tabular-nums; }
+  .bar-track { flex: 1; height: 14px; background: #F3F4F6; border-radius: 4px; overflow: hidden; }
+  .bar-fill  { height: 100%; background: #F5A623; border-radius: 4px; min-width: 2px; }
+  .bar-count { font-size: 0.72rem; font-weight: 700; color: #111; width: 30px; text-align: right; flex-shrink: 0; }
+
   /* Listings growth */
-  .growth-body {
-    display: grid; grid-template-columns: 1fr; gap: 1.5rem;
-    padding: 1.25rem;
-  }
-  @media (min-width: 900px) {
-    .growth-body { grid-template-columns: 1fr 1fr; }
-  }
-  .growth-chart-wrap { display: flex; flex-direction: column; gap: 0.5rem; }
-  .growth-bars-wrap  { display: flex; flex-direction: column; gap: 0.5rem; }
+  .growth-body { display: grid; grid-template-columns: 1fr; gap: 1.5rem; padding: 1.25rem; }
+  @media (min-width: 900px) { .growth-body { grid-template-columns: 1fr 1fr; } }
+  .growth-chart-wrap  { display: flex; flex-direction: column; gap: 0.5rem; }
+  .growth-bars-wrap   { display: flex; flex-direction: column; gap: 0.5rem; }
   .growth-canvas-outer { position: relative; }
   .growth-canvas { width: 100%; height: 120px; display: block; cursor: crosshair; }
   .growth-tooltip {
     position: absolute; pointer-events: none;
     background: #111; color: white; border-radius: 0.5rem;
     padding: 0.5rem 0.75rem; font-size: 0.72rem; line-height: 1.6;
-    white-space: nowrap; box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-    z-index: 10;
+    white-space: nowrap; box-shadow: 0 4px 12px rgba(0,0,0,0.2); z-index: 10;
   }
   .growth-tooltip strong { color: #F5A623; }
-
-  /* Bar chart */
-  .bar-chart { display: flex; flex-direction: column; gap: 0.3rem; }
-  .bar-row { display: flex; align-items: center; gap: 0.625rem; }
-  .bar-day { font-size: 0.65rem; color: #9CA3AF; width: 38px; flex-shrink: 0; font-variant-numeric: tabular-nums; }
-  .bar-track { flex: 1; height: 14px; background: #F3F4F6; border-radius: 4px; overflow: hidden; }
-  .bar-fill { height: 100%; background: #F5A623; border-radius: 4px; min-width: 2px; }
-  .bar-count { font-size: 0.72rem; font-weight: 700; color: #111; width: 30px; text-align: right; flex-shrink: 0; }
 </style>
 
 <script define:vars={{ listingsGrowth }}>
@@ -741,7 +773,6 @@ const totalListingCount = (db.select({ n: sql<number>`count(*)` }).from(listings
   const data = listingsGrowth;
   const n = data.length;
   const maxTotal = data[n - 1].total;
-
   const PAD = { top: 12, right: 16, bottom: 28, left: 8 };
 
   function draw(hoverIdx) {
@@ -759,69 +790,36 @@ const totalListingCount = (db.select({ n: sql<number>`count(*)` }).from(listings
     function xOf(i) { return PAD.left + (i / (n - 1)) * cW; }
     function yOf(v) { return PAD.top + (1 - v / maxTotal) * cH; }
 
-    // Grid lines (3 horizontal)
-    ctx.strokeStyle = '#F3F4F6';
-    ctx.lineWidth = 1;
+    ctx.strokeStyle = '#F3F4F6'; ctx.lineWidth = 1;
     [0.25, 0.5, 0.75, 1].forEach(f => {
       const y = PAD.top + (1 - f) * cH;
       ctx.beginPath(); ctx.moveTo(PAD.left, y); ctx.lineTo(PAD.left + cW, y); ctx.stroke();
     });
 
-    // X-axis labels (start, mid, end)
-    ctx.fillStyle = '#9CA3AF';
-    ctx.font = '9px system-ui, sans-serif';
-    ctx.textAlign = 'left';
-    ctx.fillText(data[0].day.slice(0, 7), PAD.left, H - 6);
-    ctx.textAlign = 'center';
-    ctx.fillText(data[Math.floor(n / 2)].day.slice(0, 7), W / 2, H - 6);
-    ctx.textAlign = 'right';
-    ctx.fillText(data[n - 1].day.slice(0, 7), PAD.left + cW, H - 6);
+    ctx.fillStyle = '#9CA3AF'; ctx.font = '9px system-ui, sans-serif';
+    ctx.textAlign = 'left';   ctx.fillText(data[0].day.slice(0, 7), PAD.left, H - 6);
+    ctx.textAlign = 'center'; ctx.fillText(data[Math.floor(n / 2)].day.slice(0, 7), W / 2, H - 6);
+    ctx.textAlign = 'right';  ctx.fillText(data[n - 1].day.slice(0, 7), PAD.left + cW, H - 6);
 
-    // Area fill
     ctx.beginPath();
     ctx.moveTo(xOf(0), yOf(data[0].total));
     data.forEach((d, i) => ctx.lineTo(xOf(i), yOf(d.total)));
-    ctx.lineTo(xOf(n - 1), PAD.top + cH);
-    ctx.lineTo(xOf(0), PAD.top + cH);
-    ctx.closePath();
-    ctx.fillStyle = 'rgba(245,166,35,0.12)';
-    ctx.fill();
+    ctx.lineTo(xOf(n - 1), PAD.top + cH); ctx.lineTo(xOf(0), PAD.top + cH); ctx.closePath();
+    ctx.fillStyle = 'rgba(245,166,35,0.12)'; ctx.fill();
 
-    // Line
     ctx.beginPath();
-    data.forEach((d, i) => {
-      if (i === 0) ctx.moveTo(xOf(i), yOf(d.total));
-      else ctx.lineTo(xOf(i), yOf(d.total));
-    });
-    ctx.strokeStyle = '#F5A623';
-    ctx.lineWidth = 2;
-    ctx.lineJoin = 'round';
-    ctx.stroke();
+    data.forEach((d, i) => { if (i === 0) ctx.moveTo(xOf(i), yOf(d.total)); else ctx.lineTo(xOf(i), yOf(d.total)); });
+    ctx.strokeStyle = '#F5A623'; ctx.lineWidth = 2; ctx.lineJoin = 'round'; ctx.stroke();
 
-    // Hover state
     if (hoverIdx >= 0) {
       const d = data[hoverIdx];
-      const x = xOf(hoverIdx);
-      const y = yOf(d.total);
-
-      // Vertical guide
-      ctx.beginPath();
-      ctx.moveTo(x, PAD.top);
-      ctx.lineTo(x, PAD.top + cH);
-      ctx.strokeStyle = 'rgba(0,0,0,0.12)';
-      ctx.lineWidth = 1;
-      ctx.setLineDash([3, 3]);
-      ctx.stroke();
-      ctx.setLineDash([]);
-
-      // Dot
-      ctx.beginPath();
-      ctx.arc(x, y, 5, 0, Math.PI * 2);
-      ctx.fillStyle = '#F5A623';
-      ctx.fill();
-      ctx.strokeStyle = 'white';
-      ctx.lineWidth = 2;
-      ctx.stroke();
+      const x = xOf(hoverIdx); const y = yOf(d.total);
+      ctx.beginPath(); ctx.moveTo(x, PAD.top); ctx.lineTo(x, PAD.top + cH);
+      ctx.strokeStyle = 'rgba(0,0,0,0.12)'; ctx.lineWidth = 1;
+      ctx.setLineDash([3, 3]); ctx.stroke(); ctx.setLineDash([]);
+      ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2);
+      ctx.fillStyle = '#F5A623'; ctx.fill();
+      ctx.strokeStyle = 'white'; ctx.lineWidth = 2; ctx.stroke();
     }
   }
 
@@ -830,12 +828,9 @@ const totalListingCount = (db.select({ n: sql<number>`count(*)` }).from(listings
     const d = data[hoverIdx];
     tooltip.innerHTML = `<strong>${d.day}</strong><br>+${d.count} new · <strong>${d.total}</strong> total`;
     tooltip.style.display = 'block';
-    const cRect = canvas.parentElement.getBoundingClientRect();
     const tW = tooltip.offsetWidth;
     const W = canvas.clientWidth;
-    const PAD_L = PAD.left;
-    const cW = W - PAD_L - PAD.right;
-    const x = PAD_L + (hoverIdx / (n - 1)) * cW;
+    const x = PAD.left + (hoverIdx / (n - 1)) * (W - PAD.left - PAD.right);
     let left = x + 10;
     if (left + tW > W - 8) left = x - tW - 10;
     tooltip.style.left = left + 'px';
@@ -846,25 +841,12 @@ const totalListingCount = (db.select({ n: sql<number>`count(*)` }).from(listings
     const rect = canvas.getBoundingClientRect();
     const x = clientX - rect.left - PAD.left;
     const cW = canvas.clientWidth - PAD.left - PAD.right;
-    const ratio = Math.max(0, Math.min(1, x / cW));
-    return Math.round(ratio * (n - 1));
+    return Math.round(Math.max(0, Math.min(1, x / cW)) * (n - 1));
   }
 
   let hoverIdx = -1;
-
-  canvas.addEventListener('mousemove', e => {
-    hoverIdx = indexFromX(e.clientX);
-    draw(hoverIdx);
-    positionTooltip(hoverIdx, e.clientX);
-  });
-
-  canvas.addEventListener('mouseleave', () => {
-    hoverIdx = -1;
-    draw(-1);
-    tooltip.style.display = 'none';
-  });
-
-  // Initial draw + redraw on resize
+  canvas.addEventListener('mousemove', e => { hoverIdx = indexFromX(e.clientX); draw(hoverIdx); positionTooltip(hoverIdx, e.clientX); });
+  canvas.addEventListener('mouseleave', () => { hoverIdx = -1; draw(-1); tooltip.style.display = 'none'; });
   draw(-1);
   window.addEventListener('resize', () => draw(hoverIdx));
 })();
