@@ -419,36 +419,24 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
                     {clk.portal   > 0 && <span class="stat-chip stat-portal">Portal {clk.portal}</span>}
                   </div>
                 )}
+                <div class="action-links">
+                  <a href={`/admin/listings/${l.id}`} class="action-link">Edit</a>
+                  {l.slug && <a href={`/listings/${l.slug}/`} target="_blank" class="action-link">View ↗</a>}
+                  {l.status === 'active'  && <button class="action-link" data-action="sold" data-id={l.id}>Mark Sold</button>}
+                  {l.status === 'pending' && <button class="action-link action-link-danger" data-action="delete" data-id={l.id}>Delete</button>}
+                  {l.status === 'sold'    && <button class="action-link" data-action="reactivate" data-id={l.id}>Reactivate</button>}
+                </div>
               </div>
-              <div class="lcard-actions">
-                <a href={`/admin/listings/${l.id}`} class="btn btn-edit">Edit</a>
-                {l.status === 'pending' && (
-                  <>
-                    <button class="btn btn-approve" data-action="approve" data-id={l.id}>✓ Approve</button>
-                    <button class="btn btn-reject"  data-action="delete"  data-id={l.id}>✗ Delete</button>
-                  </>
-                )}
-                {l.status === 'active' && (
-                  <>
-                    <a href={`/listings/${l.slug}/`} target="_blank" class="btn btn-view">View →</a>
-                    <button class="btn btn-sold" data-action="sold" data-id={l.id}>Mark Sold</button>
-                    {igConnected && (
-                      <button class={`btn ${l.ig_posted_at ? 'btn-repost' : 'btn-post'}`} data-action="post" data-id={l.id}>
+              {(l.status === 'pending' || (l.status === 'active' && igConnected)) && (
+                <div class="lcard-cta">
+                  {l.status === 'pending'
+                    ? <button class="btn btn-approve" data-action="approve" data-id={l.id}>✓ Approve</button>
+                    : <button class={`btn ${l.ig_posted_at ? 'btn-repost' : 'btn-post'}`} data-action="post" data-id={l.id}>
                         {l.ig_posted_at ? 'Repost' : 'Post to IG'}
                       </button>
-                    )}
-                  </>
-                )}
-                {l.status === 'pending' && l.slug && (
-                  <a href={`/listings/${l.slug}/`} target="_blank" class="btn btn-view">View →</a>
-                )}
-                {l.status === 'sold' && (
-                  <>
-                    <a href={`/listings/${l.slug}/`} target="_blank" class="btn btn-view">View →</a>
-                    <button class="btn btn-approve" data-action="reactivate" data-id={l.id}>↩ Reactivate</button>
-                  </>
-                )}
-              </div>
+                  }
+                </div>
+              )}
             </div>
           );
         })}
@@ -691,13 +679,22 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
   .stat-portal  { background: #EFF6FF; color: #1D4ED8; }
   .stat-divider { font-size: 0.65rem; color: #D1D5DB; }
 
-  /* ACTIONS — compact 2-column grid; a lone odd button spans the full row */
-  .lcard-actions {
-    display: grid; grid-template-columns: 1fr 1fr; gap: 0.375rem;
-    padding: 0.875rem; border-left: 1.5px solid #F3F4F6;
-    align-content: center; flex-shrink: 0; min-width: 190px;
+  /* ACTIONS — quiet text links in the body, one primary CTA on the right */
+  .action-links { display: flex; align-items: center; margin-top: 0.6rem; }
+  .action-link {
+    font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em;
+    color: #9CA3AF; text-decoration: none; background: none; border: none; padding: 0;
+    cursor: pointer; font-family: inherit; transition: color 0.15s; line-height: 1.5;
   }
-  .lcard-actions > :last-child:nth-child(odd) { grid-column: 1 / -1; }
+  .action-link:hover { color: #111111; }
+  .action-link:disabled { opacity: 0.4; cursor: not-allowed; }
+  .action-link-danger:hover { color: #991B1B; }
+  .action-link + .action-link::before { content: '·'; color: #E5E7EB; margin: 0 0.625rem; font-weight: 400; }
+
+  .lcard-cta {
+    display: flex; align-items: center; padding: 0.875rem 1.125rem;
+    flex-shrink: 0;
+  }
   .btn {
     font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em;
     padding: 0.45rem 0.75rem; border-radius: 0.375rem; cursor: pointer;
@@ -711,15 +708,6 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
 
   .btn-approve { background: #F5A623; color: #111111; border-color: #F5A623; }
   .btn-approve:hover { background: #D4881A; border-color: #D4881A; }
-
-  .btn-reject  { background: white; color: #9CA3AF; border-color: #E5E7EB; }
-  .btn-reject:hover  { background: #FEF2F2; color: #991B1B; border-color: #FECACA; }
-
-  .btn-sold    { background: #111111; color: white; border-color: #111111; }
-  .btn-sold:hover    { background: #374151; border-color: #374151; }
-
-  .btn-view    { background: white; color: #9CA3AF; border-color: #E5E7EB; }
-  .btn-view:hover    { color: #111111; border-color: #111111; }
 
   .btn-post    { background: #111111; color: white; border-color: #111111; }
   .btn-post:hover:not(:disabled) { background: #374151; border-color: #374151; }
@@ -745,7 +733,8 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
   @media (max-width: 640px) {
     .lcard { grid-template-columns: 80px 1fr; }
     .lcard-thumb, .lcard-thumb-empty { width: 80px; }
-    .lcard-actions { grid-column: 1 / -1; border-left: none; border-top: 1.5px solid #F3F4F6; padding: 0.625rem 0.875rem; }
+    .lcard-cta { grid-column: 1 / -1; border-top: 1.5px solid #F3F4F6; padding: 0.625rem 0.875rem; }
+    .lcard-cta .btn { width: 100%; }
   }
 </style>
 
