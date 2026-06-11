@@ -50,13 +50,22 @@ const categoryColors: Record<string, string> = {
           class="partner-card group bg-white border border-[#DDD9D3] rounded-2xl overflow-hidden hover:border-[#F5A623] hover:shadow-lg transition-all duration-200"
           data-category={p.category}
         >
-          <div class="hero-img-wrap">
-            <img
-              src={p.hero}
-              alt={p.name}
-              class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-              loading="lazy"
-            />
+          <div class={`hero-img-wrap ${p.logo ? 'logo-card' : ''}`}>
+            {p.logo ? (
+              <img
+                src={p.logo}
+                alt={`${p.name} logo`}
+                class="partner-logo"
+                loading="lazy"
+              />
+            ) : (
+              <img
+                src={p.hero}
+                alt={p.name}
+                class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                loading="lazy"
+              />
+            )}
             <div class="category-chip">{p.category}</div>
           </div>
           <div class="p-5">
@@ -109,6 +118,25 @@ const categoryColors: Record<string, string> = {
     aspect-ratio: 16 / 9;
     overflow: hidden;
     background: #F5F3EE;
+  }
+  .logo-card {
+    background: #F5F3EE;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.75rem 2.5rem;
+  }
+  .partner-logo {
+    max-width: 70%;
+    max-height: 65%;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    transition: opacity 0.2s, transform 0.5s;
+  }
+  .group:hover .partner-logo {
+    opacity: 0.8;
+    transform: scale(1.04);
   }
   .category-chip {
     position: absolute;

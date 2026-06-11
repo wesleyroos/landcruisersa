@@ -9,6 +9,7 @@ export interface Partner {
   email?: string;
   website?: string;
   instagram?: string;
+  logo?: string;
   hero: string;
   images: string[];
   rating: number;
@@ -28,6 +29,7 @@ export const PARTNERS: Partner[] = [
     longDescription: `Paul Marsh is a legendary figure in the overlanding world, with over 35 years of hands-on experience building and preparing Toyota Land Cruisers for the most demanding expeditions on earth. A Camel Trophy veteran, Paul has led expeditions from Siberia to the Taklamakan Desert, and completed an 18-month, 70,000 km journey across Africa in the 1980s.\n\nToday, Paul Marsh 4x4 builds custom Land Cruisers for private overlanders, expedition operators, and corporate clients — vehicles that are purpose-built for the African bush and beyond. Every build combines Paul's mechanical engineering background with decades of hard-won field experience.`,
     email: 'info@paulmarsh4x4.com',
     website: 'https://paulmarsh4x4.com',
+    logo: 'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/partners/paul-marsh/paul-marsh-logo.jpg',
     hero: 'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/partners/paul-marsh/paul-marsh-expedition-27.jpg',
     images: [
       'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/partners/paul-marsh/paul-marsh-ruaha-tanzania.jpg',
@@ -69,6 +71,7 @@ export const PARTNERS: Partner[] = [
     email: 'info@manjaroindustries.co.za',
     website: 'https://manjaroindustries.co.za',
     instagram: 'manjaroindustries',
+    logo: 'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/partners/manjaro/manjaro-logo.jpg',
     hero: 'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/partners/manjaro/manjaro-hero-camping.jpg',
     images: [
       'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/partners/manjaro/manjaro-storage-system.jpg',
@@ -108,6 +111,7 @@ export const PARTNERS: Partner[] = [
     longDescription: `Routes Rediscovered was founded by Mark Bland — a South African with deep roots in hospitality, culinary arts, and adventure travel. The company designs and operates premium overlanding expeditions and self-drive safaris across 14+ African countries, from the dunes of Namibia to the gorillas of Rwanda.\n\nWhether you want a fully hosted expedition with expert guides and luxury camping, or a carefully planned self-drive route with 24/7 backup support, Routes Rediscovered delivers an experience that goes far beyond the typical safari. Winners of the TripAdvisor Certificate of Excellence and a member of the African Travel Association.`,
     email: 'hello@routesrediscovered.co.za',
     website: 'https://routesrediscovered.co.za',
+    logo: 'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/partners/routes-rediscovered/routes-rediscovered-logo.png',
     hero: 'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/partners/routes-rediscovered/routes-rediscovered-hero.webp',
     images: [
       'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/partners/routes-rediscovered/routes-rediscovered-sossusvlei.webp',
@@ -189,6 +193,7 @@ export const PARTNERS: Partner[] = [
     email: 'info@iglcoatings.africa',
     website: 'https://iglcoatings.africa/',
     instagram: 'iglcoatings.africa',
+    logo: 'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/partners/igl/igl-logo.png',
     hero: 'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/partners/igl/igl-lc200-bushveld.webp',
     images: [
       'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/partners/igl/igl-troopy-coast.webp',
@@ -250,6 +255,7 @@ For builds that run into serious budget, MegaFinance offers in-house financing t
     email: 'support@oldmanemu.co.za',
     website: 'https://www.4x4megaworldonline.com',
     instagram: '4x4_megaworld',
+    logo: 'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/partners/4x4-megaworld/4x4-megaworld-logo.png',
     hero: 'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/partners/4x4-megaworld/4x4-megaworld-hero.jpg',
     images: [
       'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/partners/4x4-megaworld/4x4-megaworld-arb-range.jpg',
