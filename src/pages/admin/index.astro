@@ -433,12 +433,9 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
                     <a href={`/listings/${l.slug}/`} target="_blank" class="btn btn-view">View →</a>
                     <button class="btn btn-sold" data-action="sold" data-id={l.id}>Mark Sold</button>
                     {igConnected && (
-                      <>
-                        <button class="btn btn-preview" data-action="preview" data-id={l.id}>Preview Caption</button>
-                        <button class={`btn ${l.ig_posted_at ? 'btn-repost' : 'btn-post'}`} data-action="post" data-id={l.id}>
-                          {l.ig_posted_at ? 'Repost' : 'Post to IG'}
-                        </button>
-                      </>
+                      <button class={`btn ${l.ig_posted_at ? 'btn-repost' : 'btn-post'}`} data-action="post" data-id={l.id}>
+                        {l.ig_posted_at ? 'Repost' : 'Post to IG'}
+                      </button>
                     )}
                   </>
                 )}
@@ -694,12 +691,13 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
   .stat-portal  { background: #EFF6FF; color: #1D4ED8; }
   .stat-divider { font-size: 0.65rem; color: #D1D5DB; }
 
-  /* ACTIONS */
+  /* ACTIONS — compact 2-column grid; a lone odd button spans the full row */
   .lcard-actions {
-    display: flex; flex-direction: column; gap: 0.375rem;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 0.375rem;
     padding: 0.875rem; border-left: 1.5px solid #F3F4F6;
-    justify-content: center; flex-shrink: 0; min-width: 112px;
+    align-content: center; flex-shrink: 0; min-width: 190px;
   }
+  .lcard-actions > :last-child:nth-child(odd) { grid-column: 1 / -1; }
   .btn {
     font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em;
     padding: 0.45rem 0.75rem; border-radius: 0.375rem; cursor: pointer;
@@ -722,9 +720,6 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
 
   .btn-view    { background: white; color: #9CA3AF; border-color: #E5E7EB; }
   .btn-view:hover    { color: #111111; border-color: #111111; }
-
-  .btn-preview { background: white; color: #6B7280; border-color: #E5E7EB; }
-  .btn-preview:hover { color: #111111; border-color: #111111; }
 
   .btn-post    { background: #111111; color: white; border-color: #111111; }
   .btn-post:hover:not(:disabled) { background: #374151; border-color: #374151; }
@@ -750,7 +745,7 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
   @media (max-width: 640px) {
     .lcard { grid-template-columns: 80px 1fr; }
     .lcard-thumb, .lcard-thumb-empty { width: 80px; }
-    .lcard-actions { grid-column: 1 / -1; flex-direction: row; flex-wrap: wrap; border-left: none; border-top: 1.5px solid #F3F4F6; padding: 0.625rem 0.875rem; }
+    .lcard-actions { grid-column: 1 / -1; border-left: none; border-top: 1.5px solid #F3F4F6; padding: 0.625rem 0.875rem; }
   }
 </style>
 
@@ -1009,13 +1004,8 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
     const action = btn.dataset.action!;
     const id = btn.dataset.id!;
 
-    // ── IG publishing actions ──
-    if (action === 'preview') { await openPreview(Number(id), btn); return; }
-    if (action === 'post') {
-      if (!confirm('Post this listing to Instagram now?')) return;
-      await doPost(Number(id), btn);
-      return;
-    }
+    // ── IG publishing — Post always goes through the caption preview modal ──
+    if (action === 'post') { await openPreview(Number(id), btn); return; }
 
     if (action === 'delete') {
       if (!confirm('Delete this listing permanently?')) return;
@@ -1090,6 +1080,7 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
   igModal.addEventListener('click', (e) => { if (e.target === igModal) { igModal.hidden = true; pendingListingId = null; } });
 
   async function openPreview(id: number, btn: HTMLButtonElement) {
+    const originalLabel = btn.textContent;
     btn.disabled = true;
     btn.textContent = 'Generating…';
     modalCaption.value = 'Generating hashtags with AI…';
@@ -1117,7 +1108,7 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
       modalMeta.textContent = `${data.photoCount} photo${data.photoCount !== 1 ? 's' : ''} will be posted as ${data.photoCount > 1 ? 'a carousel' : 'a single image'}`;
     } finally {
       btn.disabled = false;
-      btn.textContent = 'Preview Caption';
+      btn.textContent = originalLabel;
     }
   }
 
