@@ -62,8 +62,11 @@ const errorMessages: Record<string, string> = {
 };
 
 // ─── IG media stats (posted view only) ───────────────────────────────────────
-// Match IG media to our listings by timestamp (±2 min window)
-type IgStats = { likes: number; comments: number };
+// Step 1: fetch media list, match to listings by timestamp (±2 min window)
+// Step 2: for each match, fetch insights (impressions, reach) — requires
+//         instagram_business_manage_insights scope. Degrades gracefully if not yet
+//         available (token pre-dates scope addition; just reconnect to get it).
+type IgStats = { likes: number; comments: number; reach: number; impressions: number };
 const igMediaStats = new Map<number, IgStats>(); // keyed by listing.id
 
 if (fPosted && connected && creds) {
@@ -75,6 +78,8 @@ if (fPosted && connected && creds) {
     );
     const json = await res.json();
     if (Array.isArray(json.data)) {
+      // Match media items to our listings
+      const matched: Array<{ listingId: number; mediaId: string; likes: number; comments: number }> = [];
       for (const item of json.data) {
         const igMs = new Date(item.timestamp).getTime();
         for (const l of active) {
@@ -83,13 +88,28 @@ if (fPosted && connected && creds) {
             ? l.ig_posted_at.getTime()
             : (l.ig_posted_at as unknown as number) * 1000;
           if (Math.abs(igMs - ourMs) < 2 * 60 * 1000) {
-            igMediaStats.set(l.id, {
-              likes:    item.like_count    ?? 0,
-              comments: item.comments_count ?? 0,
-            });
+            matched.push({ listingId: l.id, mediaId: item.id, likes: item.like_count ?? 0, comments: item.comments_count ?? 0 });
           }
         }
       }
+
+      // Fetch insights in parallel for each matched post
+      await Promise.all(matched.map(async (m) => {
+        let reach = 0, impressions = 0;
+        try {
+          const ir = await fetch(
+            `https://graph.instagram.com/v21.0/${m.mediaId}/insights` +
+            `?metric=impressions,reach&access_token=${creds!.accessToken}`
+          );
+          const ij = await ir.json();
+          if (Array.isArray(ij.data)) {
+            const get = (name: string) => ij.data.find((d: any) => d.name === name)?.values?.[0]?.value ?? 0;
+            impressions = get('impressions');
+            reach       = get('reach');
+          }
+        } catch { /* scope not yet available — shows 0 */ }
+        igMediaStats.set(m.listingId, { likes: m.likes, comments: m.comments, reach, impressions });
+      }));
     }
   } catch { /* IG unavailable — show cards without stats */ }
 }
@@ -271,14 +291,26 @@ function formatPrice(n: number) {
                   <div class="lcard-stats">
                     {igS && (
                       <>
-                        <span class="stat-chip stat-ig">
+                        <span class="stat-chip stat-ig" title="Likes">
                           <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 21.593c-5.63-5.539-11-10.297-11-14.402 0-3.791 3.068-5.191 5.281-5.191 1.312 0 4.151.501 5.719 4.457 1.59-3.968 4.464-4.447 5.726-4.447 2.54 0 5.274 1.621 5.274 5.181 0 4.069-5.136 8.625-11 14.402z"/></svg>
                           {igS.likes}
                         </span>
-                        <span class="stat-chip stat-ig">
+                        <span class="stat-chip stat-ig" title="Comments">
                           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
                           {igS.comments}
                         </span>
+                        {igS.reach > 0 && (
+                          <span class="stat-chip stat-reach" title="Reach">
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 010 20M12 2a15.3 15.3 0 000 20"/></svg>
+                            {igS.reach.toLocaleString('en-ZA')}
+                          </span>
+                        )}
+                        {igS.impressions > 0 && (
+                          <span class="stat-chip stat-reach" title="Impressions">
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                            {igS.impressions.toLocaleString('en-ZA')}
+                          </span>
+                        )}
                         {hasClicks && <span class="stat-divider">·</span>}
                       </>
                     )}
@@ -432,6 +464,7 @@ function formatPrice(n: number) {
     background: #F3F4F6; color: #6B7280;
   }
   .stat-ig      { background: #FDF2F8; color: #9D174D; }
+  .stat-reach   { background: #F0F4FF; color: #3730A3; }
   .stat-wa      { background: #F0FDF4; color: #166534; }
   .stat-contact { background: #F0F9FF; color: #0369A1; }
   .stat-portal  { background: #EFF6FF; color: #1D4ED8; }

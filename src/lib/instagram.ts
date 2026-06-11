@@ -84,7 +84,7 @@ export function buildOAuthUrl(appId: string, redirectUri: string, state: string)
   return `${IG_AUTH_URL}?${new URLSearchParams({
     client_id:     appId,
     redirect_uri:  redirectUri,
-    scope:         'instagram_business_basic,instagram_business_content_publish',
+    scope:         'instagram_business_basic,instagram_business_content_publish,instagram_business_manage_insights',
     response_type: 'code',
     state,
   })}`;
