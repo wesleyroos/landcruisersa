@@ -99,13 +99,16 @@ if (fPosted && connected && creds) {
         try {
           const ir = await fetch(
             `https://graph.instagram.com/v21.0/${m.mediaId}/insights` +
-            `?metric=impressions,reach&access_token=${creds!.accessToken}`
+            `?metric=impressions,reach&period=lifetime&access_token=${creds!.accessToken}`
           );
           const ij = await ir.json();
           if (Array.isArray(ij.data)) {
-            const get = (name: string) => ij.data.find((d: any) => d.name === name)?.values?.[0]?.value ?? 0;
-            impressions = get('impressions');
-            reach       = get('reach');
+            for (const d of ij.data) {
+              // API returns either values[0].value or a top-level value depending on version
+              const val = d.values?.[0]?.value ?? d.value ?? 0;
+              if (d.name === 'impressions') impressions = val;
+              if (d.name === 'reach')       reach       = val;
+            }
           }
         } catch { /* scope not yet available — shows 0 */ }
         igMediaStats.set(m.listingId, { likes: m.likes, comments: m.comments, reach, impressions });
