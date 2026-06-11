@@ -15,22 +15,23 @@ if (!cookie || cookie.value !== adminSecret) {
 
 const leads = db.select().from(trainingLeads).orderBy(desc(trainingLeads.created_at)).all();
 
+// ─── Outbound clicks ──────────────────────────────────────────────────────────
+
 const clicksBySource = db.select({
   source: clickEvents.source,
   count: sql<number>`cast(count(*) as int)`,
 }).from(clickEvents).groupBy(clickEvents.source).all();
 
-const clicksByListing = db.select({
-  listing_slug: clickEvents.listing_slug,
-  listing_title: clickEvents.listing_title,
-  count: sql<number>`cast(count(*) as int)`,
-}).from(clickEvents)
-  .groupBy(clickEvents.listing_slug)
-  .orderBy(sql`count(*) desc`)
-  .limit(30)
-  .all();
-
 const totalClicks = clicksBySource.reduce((s, r) => s + r.count, 0);
+
+const clicksPerSlug = new Map(
+  db.select({
+    listing_slug: clickEvents.listing_slug,
+    listing_title: clickEvents.listing_title,
+    count: sql<number>`cast(count(*) as int)`,
+  }).from(clickEvents).groupBy(clickEvents.listing_slug).all()
+    .map(r => [r.listing_slug, { title: r.listing_title, count: r.count }])
+);
 
 // ─── Campaign link clicks (sessions arriving with a utm_source) ──────────────
 
@@ -68,17 +69,28 @@ const viewsByListing = db.select({
 }).from(viewEvents)
   .groupBy(viewEvents.listing_slug)
   .orderBy(sql`count(*) desc`)
-  .limit(20)
   .all();
 
-// Outbound clicks per slug (all-time) for view→click conversion
-const clicksPerSlug = new Map(
-  db.select({
-    listing_slug: clickEvents.listing_slug,
-    count: sql<number>`cast(count(*) as int)`,
-  }).from(clickEvents).groupBy(clickEvents.listing_slug).all()
-    .map(r => [r.listing_slug, r.count])
-);
+// ─── Combined listing performance: views + clicks in one table ───────────────
+// Union of everything that was viewed or clicked; clicks predate view tracking
+// so some rows have clicks but no views.
+
+type PerfRow = { slug: string; title: string | null; views: number; clicks: number };
+const perfMap = new Map<string, PerfRow>();
+for (const v of viewsByListing) {
+  perfMap.set(v.listing_slug, { slug: v.listing_slug, title: v.listing_title, views: v.count, clicks: 0 });
+}
+for (const [slug, c] of clicksPerSlug) {
+  const row = perfMap.get(slug);
+  if (row) {
+    row.clicks = c.count;
+  } else {
+    perfMap.set(slug, { slug, title: c.title, views: 0, clicks: c.count });
+  }
+}
+const perfRows = [...perfMap.values()]
+  .sort((a, b) => b.views - a.views || b.clicks - a.clicks)
+  .slice(0, 25);
 
 // ─── Demand by model: views vs supply ─────────────────────────────────────────
 
@@ -108,22 +120,6 @@ const demandRows = viewsByModel
   })
   .sort((a, b) => b.views - a.views);
 
-// ─── Instagram traffic, daily (last 14 days) ─────────────────────────────────
-
-const igDaily = db.select({
-  day: sql<string>`date(created_at, 'unixepoch')`,
-  count: sql<number>`cast(count(*) as int)`,
-}).from(viewEvents)
-  .where(and(
-    eq(viewEvents.utm_source, 'ig'),
-    sql`created_at > unixepoch('now', '-14 days')`,
-  ))
-  .groupBy(sql`date(created_at, 'unixepoch')`)
-  .orderBy(sql`date(created_at, 'unixepoch')`)
-  .all();
-
-const igDailyMax = Math.max(1, ...igDaily.map(r => r.count));
-
 // ─── Partner clicks ───────────────────────────────────────────────────────────
 
 const partnerClickRows = db.select({
@@ -145,6 +141,8 @@ const partnerRows = [...partnerTotals.entries()]
   .sort((a, b) => b.total - a.total);
 const totalPartnerClicks = partnerRows.reduce((s, r) => s + r.total, 0);
 
+// ─── Formatting helpers ───────────────────────────────────────────────────────
+
 function fmt(d: Date | null) {
   if (!d) return '—';
   return new Intl.DateTimeFormat('en-ZA', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(d);
@@ -161,36 +159,59 @@ const TRAFFIC_LABEL: Record<string, string> = {
   ig: 'Instagram',
   direct: 'Direct / Other',
 };
+
+const igViews = viewsBySource.find(r => r.source === 'ig')?.count ?? 0;
 ---
 
 <AdminLayout title="Insights" activePage="insights">
   <div class="insights-wrap">
 
-    <!-- ── CAMPAIGN LINK CLICKS ───────────────────────────── -->
-    <section class="card">
-      <div class="card-head">
-        <h2 class="card-title">Campaign Link Clicks</h2>
-        <span class="badge">{totalVisits} total</span>
-        <span class="badge-sub">people arriving via a tracked link, e.g. ?utm_source=ig in your IG bio</span>
+    <!-- ── KPI STRIP ──────────────────────────────────────── -->
+    <div class="kpi-strip">
+      <div class="kpi">
+        <p class="kpi-value">{totalVisits}</p>
+        <p class="kpi-label">IG Link Clicks</p>
       </div>
-      {totalVisits === 0 ? (
-        <p class="empty">No campaign clicks yet. Make sure the IG bio link is <code>https://landcruisersa.co.za/listings/?utm_source=ig</code></p>
-      ) : (
-        <div class="clicks-layout">
-          <div>
-            <p class="sub-label">By Campaign</p>
-            <div class="source-grid">
+      <div class="kpi">
+        <p class="kpi-value">{totalViews}</p>
+        <p class="kpi-label">Listing Views</p>
+      </div>
+      <div class="kpi">
+        <p class="kpi-value">{igViews}</p>
+        <p class="kpi-label">Views from IG</p>
+      </div>
+      <div class="kpi">
+        <p class="kpi-value">{totalClicks}</p>
+        <p class="kpi-label">Outbound Clicks</p>
+      </div>
+      <div class="kpi">
+        <p class="kpi-value">{totalPartnerClicks}</p>
+        <p class="kpi-label">Partner Clicks</p>
+      </div>
+      <div class="kpi">
+        <p class="kpi-value">{leads.length}</p>
+        <p class="kpi-label">Training Leads</p>
+      </div>
+    </div>
+
+    <!-- ── ROW: CAMPAIGN TRAFFIC + DEMAND ─────────────────── -->
+    <div class="grid-2">
+
+      <section class="card">
+        <div class="card-head">
+          <h2 class="card-title">Campaign Traffic</h2>
+          <span class="badge">{totalVisits}</span>
+        </div>
+        {totalVisits === 0 ? (
+          <p class="empty">No campaign clicks yet. IG bio link: <code>landcruisersa.co.za/listings/?utm_source=ig</code></p>
+        ) : (
+          <div class="card-body">
+            <div class="chip-row">
               {visitsBySource.map(r => (
-                <div class="source-card">
-                  <p class="source-name">{TRAFFIC_LABEL[r.source] ?? r.source}</p>
-                  <p class="source-count">{r.count}</p>
-                </div>
+                <span class="stat-chip">{TRAFFIC_LABEL[r.source] ?? r.source} <strong>{r.count}</strong></span>
               ))}
             </div>
-          </div>
-          {visitsDaily.length > 0 && (
-            <div>
-              <p class="sub-label">Clicks Per Day — Last 14 Days</p>
+            {visitsDaily.length > 0 && (
               <div class="bar-chart">
                 {visitsDaily.map(r => (
                   <div class="bar-row">
@@ -202,150 +223,81 @@ const TRAFFIC_LABEL: Record<string, string> = {
                   </div>
                 ))}
               </div>
-            </div>
-          )}
-        </div>
-      )}
-    </section>
-
-    <!-- ── LISTING VIEWS ──────────────────────────────────── -->
-    <section class="card">
-      <div class="card-head">
-        <h2 class="card-title">Listing Views</h2>
-        <span class="badge">{totalViews} total</span>
-      </div>
-
-      {totalViews === 0 ? (
-        <p class="empty">No views tracked yet — data starts collecting from the next deploy.</p>
-      ) : (
-        <div class="clicks-layout">
-          <div>
-            <p class="sub-label">By Traffic Source</p>
-            <div class="source-grid">
-              {viewsBySource.map(r => (
-                <div class="source-card">
-                  <p class="source-name">{TRAFFIC_LABEL[r.source] ?? r.source}</p>
-                  <p class="source-count">{r.count}</p>
-                </div>
-              ))}
-            </div>
+            )}
           </div>
+        )}
+      </section>
 
-          {igDaily.length > 0 && (
-            <div>
-              <p class="sub-label">Instagram Traffic — Last 14 Days</p>
-              <div class="bar-chart">
-                {igDaily.map(r => (
-                  <div class="bar-row">
-                    <span class="bar-day">{r.day.slice(5)}</span>
-                    <div class="bar-track">
-                      <div class="bar-fill" style={`width:${Math.round((r.count / igDailyMax) * 100)}%`}></div>
-                    </div>
-                    <span class="bar-count">{r.count}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div>
-            <p class="sub-label">Top Viewed Listings</p>
-            <div class="table-wrap">
-              <table class="data-table">
-                <thead>
-                  <tr>
-                    <th>Listing</th>
-                    <th style="text-align:right">Views</th>
-                    <th style="text-align:right">Click-outs</th>
-                    <th style="text-align:right">CTR</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {viewsByListing.map(r => {
-                    const clicks = clicksPerSlug.get(r.listing_slug) ?? 0;
-                    return (
-                      <tr>
-                        <td>
-                          <a href={`/listings/${r.listing_slug}/`} target="_blank">
-                            {r.listing_title ?? r.listing_slug}
-                          </a>
-                        </td>
-                        <td style="text-align:right;font-weight:700">{r.count}</td>
-                        <td style="text-align:right">{clicks}</td>
-                        <td style="text-align:right;color:#9CA3AF">{r.count > 0 ? Math.round((clicks / r.count) * 100) + '%' : '—'}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
-    </section>
-
-    <!-- ── DEMAND BY MODEL ────────────────────────────────── -->
-    {demandRows.length > 0 && (
       <section class="card">
         <div class="card-head">
           <h2 class="card-title">Demand by Model</h2>
-          <span class="badge-sub">views per active listing = where demand outstrips supply</span>
+          <span class="badge-sub">views ÷ active supply</span>
         </div>
-        <div class="table-wrap">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>Model</th>
-                <th style="text-align:right">Views</th>
-                <th style="text-align:right">Active Listings</th>
-                <th style="text-align:right">Views / Listing</th>
-              </tr>
-            </thead>
-            <tbody>
-              {demandRows.map(r => (
+        {demandRows.length === 0 ? (
+          <p class="empty">No view data yet.</p>
+        ) : (
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
                 <tr>
-                  <td style="font-weight:600">{r.model.replace(/-/g, ' ').toUpperCase()}</td>
-                  <td style="text-align:right;font-weight:700">{r.views}</td>
-                  <td style="text-align:right">{r.supply}</td>
-                  <td style="text-align:right;color:#D4881A;font-weight:700">{r.perListing ?? '—'}</td>
+                  <th>Model</th>
+                  <th class="num">Views</th>
+                  <th class="num">Supply</th>
+                  <th class="num">V/L</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {demandRows.map(r => (
+                  <tr>
+                    <td style="font-weight:600">{r.model.replace(/-/g, ' ').toUpperCase()}</td>
+                    <td class="num" style="font-weight:700">{r.views}</td>
+                    <td class="num">{r.supply}</td>
+                    <td class="num" style="color:#D4881A;font-weight:700">{r.perListing ?? '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
-    )}
 
-    <!-- ── PARTNER CLICKS ─────────────────────────────────── -->
+    </div>
+
+    <!-- ── LISTING PERFORMANCE (views + clicks combined) ──── -->
     <section class="card">
       <div class="card-head">
-        <h2 class="card-title">Partner Clicks</h2>
-        <span class="badge">{totalPartnerClicks} total</span>
+        <h2 class="card-title">Listing Performance</h2>
+        <span class="badge">{totalViews} views · {totalClicks} click-outs</span>
+        {totalClicks > 0 && (
+          <span class="chip-row chip-row-inline">
+            {clicksBySource.map(r => (
+              <span class="stat-chip">{SOURCE_LABEL[r.source] ?? r.source} <strong>{r.count}</strong></span>
+            ))}
+          </span>
+        )}
       </div>
-      {totalPartnerClicks === 0 ? (
-        <p class="empty">No partner clicks tracked yet.</p>
+      {perfRows.length === 0 ? (
+        <p class="empty">No listing activity tracked yet.</p>
       ) : (
         <div class="table-wrap">
           <table class="data-table">
             <thead>
               <tr>
-                <th>Partner</th>
-                <th style="text-align:right">Website</th>
-                <th style="text-align:right">Email</th>
-                <th style="text-align:right">Instagram</th>
-                <th style="text-align:right">Total</th>
+                <th>Listing</th>
+                <th class="num">Views</th>
+                <th class="num">Click-outs</th>
+                <th class="num">CTR</th>
               </tr>
             </thead>
             <tbody>
-              {partnerRows.map(r => (
+              {perfRows.map(r => (
                 <tr>
                   <td>
-                    <a href={`/partners/${r.slug}/`} target="_blank">{r.name}</a>
+                    <a href={`/listings/${r.slug}/`} target="_blank">{r.title ?? r.slug}</a>
                   </td>
-                  <td style="text-align:right">{r.website}</td>
-                  <td style="text-align:right">{r.email}</td>
-                  <td style="text-align:right">{r.instagram}</td>
-                  <td style="text-align:right;font-weight:700">{r.total}</td>
+                  <td class="num" style="font-weight:700">{r.views}</td>
+                  <td class="num">{r.clicks}</td>
+                  <td class="num" style="color:#9CA3AF">{r.views > 0 ? Math.round((r.clicks / r.views) * 100) + '%' : '—'}</td>
                 </tr>
               ))}
             </tbody>
@@ -354,159 +306,161 @@ const TRAFFIC_LABEL: Record<string, string> = {
       )}
     </section>
 
-    <!-- ── TRAINING LEADS ─────────────────────────────────── -->
-    <section class="card">
-      <div class="card-head">
-        <h2 class="card-title">Training Enquiries</h2>
-        <span class="badge">{leads.length}</span>
-      </div>
+    <!-- ── ROW: PARTNERS + TRAINING LEADS ─────────────────── -->
+    <div class="grid-2">
 
-      {leads.length === 0 ? (
-        <p class="empty">No enquiries yet.</p>
-      ) : (
-        <div class="table-wrap">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Name</th>
-                <th>Email</th>
-                <th>Phone</th>
-                <th>Land Cruiser</th>
-                <th>Location</th>
-                <th>Message</th>
-              </tr>
-            </thead>
-            <tbody>
-              {leads.map(l => (
+      <section class="card">
+        <div class="card-head">
+          <h2 class="card-title">Partner Clicks</h2>
+          <span class="badge">{totalPartnerClicks}</span>
+        </div>
+        {totalPartnerClicks === 0 ? (
+          <p class="empty">No partner clicks tracked yet.</p>
+        ) : (
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
                 <tr>
-                  <td class="nowrap">{fmt(l.created_at)}</td>
-                  <td class="nowrap">{l.name}</td>
-                  <td><a href={`mailto:${l.email}`}>{l.email}</a></td>
-                  <td class="nowrap">{l.phone}</td>
-                  <td>{l.land_cruiser ?? '—'}</td>
-                  <td>{l.location ?? '—'}</td>
-                  <td class="msg">{l.message ?? '—'}</td>
+                  <th>Partner</th>
+                  <th class="num">Web</th>
+                  <th class="num">Email</th>
+                  <th class="num">IG</th>
+                  <th class="num">Total</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </section>
-
-    <!-- ── CLICK EVENTS ───────────────────────────────────── -->
-    <section class="card">
-      <div class="card-head">
-        <h2 class="card-title">Outbound Listing Clicks</h2>
-        <span class="badge">{totalClicks} total</span>
-      </div>
-
-      {totalClicks === 0 ? (
-        <p class="empty">No clicks tracked yet.</p>
-      ) : (
-        <div class="clicks-layout">
-          <div>
-            <p class="sub-label">By Source</p>
-            <div class="source-grid">
-              {clicksBySource.map(r => (
-                <div class="source-card">
-                  <p class="source-name">{SOURCE_LABEL[r.source] ?? r.source}</p>
-                  <p class="source-count">{r.count}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <p class="sub-label">Top Listings Clicked</p>
-            <div class="table-wrap">
-              <table class="data-table">
-                <thead>
+              </thead>
+              <tbody>
+                {partnerRows.map(r => (
                   <tr>
-                    <th>Listing</th>
-                    <th style="text-align:right">Clicks</th>
+                    <td><a href={`/partners/${r.slug}/`} target="_blank">{r.name}</a></td>
+                    <td class="num">{r.website}</td>
+                    <td class="num">{r.email}</td>
+                    <td class="num">{r.instagram}</td>
+                    <td class="num" style="font-weight:700">{r.total}</td>
                   </tr>
-                </thead>
-                <tbody>
-                  {clicksByListing.map(r => (
-                    <tr>
-                      <td>
-                        <a href={`/listings/${r.listing_slug}/`} target="_blank">
-                          {r.listing_title ?? r.listing_slug}
-                        </a>
-                      </td>
-                      <td style="text-align:right;font-weight:700">{r.count}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                ))}
+              </tbody>
+            </table>
           </div>
+        )}
+      </section>
+
+      <section class="card">
+        <div class="card-head">
+          <h2 class="card-title">Training Enquiries</h2>
+          <span class="badge">{leads.length}</span>
         </div>
-      )}
-    </section>
+        {leads.length === 0 ? (
+          <p class="empty">No enquiries yet.</p>
+        ) : (
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Name</th>
+                  <th>Contact</th>
+                  <th>Message</th>
+                </tr>
+              </thead>
+              <tbody>
+                {leads.map(l => (
+                  <tr>
+                    <td class="nowrap">{fmt(l.created_at)}</td>
+                    <td class="nowrap">{l.name}</td>
+                    <td>
+                      <a href={`mailto:${l.email}`}>{l.email}</a>
+                      <span class="sub-line">{l.phone}{l.location ? ` · ${l.location}` : ''}</span>
+                    </td>
+                    <td class="msg">{l.message ?? '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+    </div>
 
   </div>
 </AdminLayout>
 
 <style>
-  .insights-wrap { display: flex; flex-direction: column; gap: 2rem; }
+  .insights-wrap { display: flex; flex-direction: column; gap: 1.25rem; }
+
+  /* KPI strip */
+  .kpi-strip {
+    display: grid; gap: 0.75rem;
+    grid-template-columns: repeat(2, 1fr);
+  }
+  @media (min-width: 640px)  { .kpi-strip { grid-template-columns: repeat(3, 1fr); } }
+  @media (min-width: 1024px) { .kpi-strip { grid-template-columns: repeat(6, 1fr); } }
+  .kpi {
+    background: white; border: 1px solid #E5E7EB; border-radius: 0.75rem;
+    padding: 0.875rem 1.125rem;
+  }
+  .kpi-value { font-size: 1.625rem; font-weight: 800; color: #111; line-height: 1.1; }
+  .kpi-label { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #9CA3AF; margin-top: 0.2rem; }
+
+  /* Two-column row */
+  .grid-2 { display: grid; gap: 1.25rem; grid-template-columns: 1fr; align-items: start; }
+  @media (min-width: 1024px) { .grid-2 { grid-template-columns: 1fr 1fr; } }
 
   .card {
     background: white; border: 1px solid #E5E7EB; border-radius: 0.75rem; overflow: hidden;
   }
   .card-head {
-    display: flex; align-items: center; gap: 0.75rem;
-    padding: 1.25rem 1.5rem; border-bottom: 1px solid #F3F4F6;
+    display: flex; align-items: center; gap: 0.625rem; flex-wrap: wrap;
+    padding: 0.875rem 1.25rem; border-bottom: 1px solid #F3F4F6;
   }
-  .card-title { font-size: 0.9375rem; font-weight: 700; color: #111; }
+  .card-title { font-size: 0.875rem; font-weight: 700; color: #111; }
+  .card-body { padding: 1rem 1.25rem; display: flex; flex-direction: column; gap: 1rem; }
   .badge {
-    background: #F5A623; color: #111; font-size: 0.6875rem; font-weight: 700;
-    letter-spacing: 0.06em; padding: 0.2rem 0.5rem; border-radius: 9999px;
+    background: #F5A623; color: #111; font-size: 0.65rem; font-weight: 700;
+    letter-spacing: 0.04em; padding: 0.2rem 0.5rem; border-radius: 9999px; white-space: nowrap;
   }
-  .empty { padding: 1.5rem; color: #9CA3AF; font-size: 0.875rem; }
+  .badge-sub { font-size: 0.65rem; color: #9CA3AF; }
+  .empty { padding: 1.25rem; color: #9CA3AF; font-size: 0.8125rem; }
+  .empty code { font-size: 0.75rem; background: #F3F4F6; padding: 0.1rem 0.3rem; border-radius: 0.25rem; }
 
-  .table-wrap { overflow-x: auto; }
-  .data-table {
-    width: 100%; border-collapse: collapse; font-size: 0.8125rem;
+  /* Stat chips */
+  .chip-row { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .chip-row-inline { margin-left: auto; }
+  .stat-chip {
+    display: inline-flex; align-items: center; gap: 0.375rem;
+    background: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 9999px;
+    font-size: 0.7rem; font-weight: 600; color: #6B7280;
+    padding: 0.25rem 0.625rem;
   }
+  .stat-chip strong { color: #111; font-weight: 800; }
+
+  /* Tables */
+  .table-wrap { overflow-x: auto; max-height: 420px; overflow-y: auto; }
+  .data-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
   .data-table th {
-    background: #F9FAFB; text-align: left; padding: 0.625rem 1rem;
-    font-size: 0.6875rem; font-weight: 700; text-transform: uppercase;
+    background: #F9FAFB; text-align: left; padding: 0.5rem 1rem;
+    font-size: 0.625rem; font-weight: 700; text-transform: uppercase;
     letter-spacing: 0.08em; color: #6B7280; white-space: nowrap;
     border-bottom: 1px solid #E5E7EB;
+    position: sticky; top: 0;
   }
   .data-table td {
-    padding: 0.75rem 1rem; border-bottom: 1px solid #F3F4F6;
+    padding: 0.5rem 1rem; border-bottom: 1px solid #F3F4F6;
     color: #374151; vertical-align: top;
   }
   .data-table tr:last-child td { border-bottom: none; }
   .data-table a { color: #111; }
   .data-table a:hover { color: #F5A623; }
+  .num { text-align: right; }
   .nowrap { white-space: nowrap; }
-  .msg { max-width: 280px; white-space: pre-wrap; font-size: 0.75rem; color: #6B7280; }
+  .msg { max-width: 220px; white-space: pre-wrap; font-size: 0.72rem; color: #6B7280; }
+  .sub-line { display: block; font-size: 0.68rem; color: #9CA3AF; margin-top: 0.1rem; }
 
-  .clicks-layout { padding: 1.5rem; display: flex; flex-direction: column; gap: 2rem; }
-
-  .sub-label {
-    font-size: 0.6875rem; font-weight: 700; text-transform: uppercase;
-    letter-spacing: 0.08em; color: #9CA3AF; margin-bottom: 0.75rem;
-  }
-  .source-grid { display: flex; flex-wrap: wrap; gap: 0.75rem; }
-  .source-card {
-    background: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 0.5rem;
-    padding: 0.875rem 1.25rem; min-width: 140px;
-  }
-  .source-name { font-size: 0.75rem; font-weight: 600; color: #6B7280; margin-bottom: 0.25rem; }
-  .source-count { font-size: 1.5rem; font-weight: 800; color: #111; }
-
-  .badge-sub { font-size: 0.7rem; color: #9CA3AF; }
-
-  .bar-chart { display: flex; flex-direction: column; gap: 0.375rem; max-width: 480px; }
+  /* Bar chart */
+  .bar-chart { display: flex; flex-direction: column; gap: 0.3rem; }
   .bar-row { display: flex; align-items: center; gap: 0.625rem; }
-  .bar-day { font-size: 0.6875rem; color: #9CA3AF; width: 40px; flex-shrink: 0; font-variant-numeric: tabular-nums; }
-  .bar-track { flex: 1; height: 16px; background: #F3F4F6; border-radius: 4px; overflow: hidden; }
+  .bar-day { font-size: 0.65rem; color: #9CA3AF; width: 38px; flex-shrink: 0; font-variant-numeric: tabular-nums; }
+  .bar-track { flex: 1; height: 14px; background: #F3F4F6; border-radius: 4px; overflow: hidden; }
   .bar-fill { height: 100%; background: #F5A623; border-radius: 4px; min-width: 2px; }
-  .bar-count { font-size: 0.75rem; font-weight: 700; color: #111; width: 32px; text-align: right; flex-shrink: 0; }
+  .bar-count { font-size: 0.72rem; font-weight: 700; color: #111; width: 30px; text-align: right; flex-shrink: 0; }
 </style>
