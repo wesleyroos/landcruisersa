@@ -283,45 +283,6 @@ const totalListingCount = (db.select({ n: sql<number>`count(*)` }).from(listings
       </div>
     </div>
 
-    <!-- ── LISTINGS GROWTH ──────────────────────────────────── -->
-    {listingsGrowth.length > 0 && (
-      <section class="card">
-        <div class="card-head">
-          <h2 class="card-title">Listings Growth</h2>
-          <span class="badge">{totalListingCount} total</span>
-          <span class="badge-sub">{activeListingCount} active</span>
-        </div>
-        <div class="growth-body">
-
-          <!-- Cumulative interactive canvas chart -->
-          <div class="growth-chart-wrap">
-            <p class="mini-label">Cumulative total — hover to explore</p>
-            <div class="growth-canvas-outer">
-              <canvas id="growth-canvas" class="growth-canvas"></canvas>
-              <div id="growth-tooltip" class="growth-tooltip" style="display:none"></div>
-            </div>
-          </div>
-
-          <!-- Daily additions bar chart (last 30 days) -->
-          <div class="growth-bars-wrap">
-            <p class="mini-label">New listings per day (last 30 days)</p>
-            <div class="bar-chart">
-              {listingsGrowth.slice(-30).map(r => (
-                <div class="bar-row">
-                  <span class="bar-day">{r.day.slice(5)}</span>
-                  <div class="bar-track">
-                    <div class="bar-fill" style={`width:${Math.round((r.count / maxDailyCount) * 100)}%`}></div>
-                  </div>
-                  <span class="bar-count">{r.count}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-        </div>
-      </section>
-    )}
-
     <!-- ── ROW: CAMPAIGN TRAFFIC + DEMAND ─────────────────── -->
     <div class="grid-2">
 
@@ -572,6 +533,45 @@ const totalListingCount = (db.select({ n: sql<number>`count(*)` }).from(listings
           </div>
         )}
       </section>
+
+    <!-- ── LISTINGS GROWTH ──────────────────────────────────── -->
+    {listingsGrowth.length > 0 && (
+      <section class="card">
+        <div class="card-head">
+          <h2 class="card-title">Listings Growth</h2>
+          <span class="badge">{totalListingCount} total</span>
+          <span class="badge-sub">{activeListingCount} active</span>
+        </div>
+        <div class="growth-body">
+
+          <!-- Cumulative interactive canvas chart -->
+          <div class="growth-chart-wrap">
+            <p class="mini-label">Cumulative total — hover to explore</p>
+            <div class="growth-canvas-outer">
+              <canvas id="growth-canvas" class="growth-canvas"></canvas>
+              <div id="growth-tooltip" class="growth-tooltip" style="display:none"></div>
+            </div>
+          </div>
+
+          <!-- Daily additions bar chart (last 30 days) -->
+          <div class="growth-bars-wrap">
+            <p class="mini-label">New listings per day (last 30 days)</p>
+            <div class="bar-chart">
+              {listingsGrowth.slice(-30).map(r => (
+                <div class="bar-row">
+                  <span class="bar-day">{r.day.slice(5)}</span>
+                  <div class="bar-track">
+                    <div class="bar-fill" style={`width:${Math.round((r.count / maxDailyCount) * 100)}%`}></div>
+                  </div>
+                  <span class="bar-count">{r.count}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+        </div>
+      </section>
+    )}
 
   </div>
 </AdminLayout>
