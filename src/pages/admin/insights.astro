@@ -107,6 +107,14 @@ const activeByModel = new Map(
     .map(r => [r.model, r.count])
 );
 
+function fmtPerListing(views: number, supply: number): string {
+  if (supply === 0) return '—';
+  const v = views / supply;
+  if (v >= 10) return String(Math.round(v));
+  if (v >= 1) return v.toFixed(1);
+  return v.toFixed(2); // small values stay visible instead of rounding to 0
+}
+
 const demandRows = viewsByModel
   .filter(r => r.model)
   .map(r => {
@@ -115,7 +123,7 @@ const demandRows = viewsByModel
       model: r.model!,
       views: r.count,
       supply,
-      perListing: supply > 0 ? Math.round((r.count / supply) * 10) / 10 : null,
+      perListing: fmtPerListing(r.count, supply),
     };
   })
   .sort((a, b) => b.views - a.views);
@@ -252,7 +260,7 @@ const igViews = viewsBySource.find(r => r.source === 'ig')?.count ?? 0;
                     <td style="font-weight:600">{r.model.replace(/-/g, ' ').toUpperCase()}</td>
                     <td class="num" style="font-weight:700">{r.views}</td>
                     <td class="num">{r.supply}</td>
-                    <td class="num" style="color:#D4881A;font-weight:700">{r.perListing ?? '—'}</td>
+                    <td class="num" style="color:#D4881A;font-weight:700">{r.perListing}</td>
                   </tr>
                 ))}
               </tbody>
