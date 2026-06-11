@@ -53,6 +53,16 @@ const visitsDaily = db.select({
 
 const visitsDailyMax = Math.max(1, ...visitsDaily.map(r => r.count));
 
+const visitLandings = db.select({
+  source: visitEvents.utm_source,
+  path: visitEvents.landing_path,
+  count: sql<number>`cast(count(*) as int)`,
+}).from(visitEvents)
+  .groupBy(visitEvents.utm_source, visitEvents.landing_path)
+  .orderBy(sql`count(*) desc`)
+  .limit(12)
+  .all();
+
 // ─── Listing views ────────────────────────────────────────────────────────────
 
 const viewsBySource = db.select({
@@ -177,22 +187,26 @@ const igViews = viewsBySource.find(r => r.source === 'ig')?.count ?? 0;
     <!-- ── KPI STRIP ──────────────────────────────────────── -->
     <div class="kpi-strip">
       <div class="kpi">
+        <span class="kpi-dir dir-in">↓ In</span>
         <p class="kpi-value">{totalVisits}</p>
-        <p class="kpi-label">IG Link Clicks</p>
+        <p class="kpi-label">Campaign Link Clicks</p>
       </div>
       <div class="kpi">
         <p class="kpi-value">{totalViews}</p>
         <p class="kpi-label">Listing Views</p>
       </div>
       <div class="kpi">
+        <span class="kpi-dir dir-in">↓ In</span>
         <p class="kpi-value">{igViews}</p>
         <p class="kpi-label">Views from IG</p>
       </div>
       <div class="kpi">
+        <span class="kpi-dir dir-out">↑ Out</span>
         <p class="kpi-value">{totalClicks}</p>
-        <p class="kpi-label">Outbound Clicks</p>
+        <p class="kpi-label">Outbound Listing Clicks</p>
       </div>
       <div class="kpi">
+        <span class="kpi-dir dir-out">↑ Out</span>
         <p class="kpi-value">{totalPartnerClicks}</p>
         <p class="kpi-label">Partner Clicks</p>
       </div>
@@ -219,6 +233,20 @@ const igViews = viewsBySource.find(r => r.source === 'ig')?.count ?? 0;
                 <span class="stat-chip">{TRAFFIC_LABEL[r.source] ?? r.source} <strong>{r.count}</strong></span>
               ))}
             </div>
+            {visitLandings.length > 0 && (
+              <div>
+                <p class="mini-label">Landing Pages</p>
+                <div class="landing-list">
+                  {visitLandings.map(r => (
+                    <div class="landing-row">
+                      <span class="landing-src">{TRAFFIC_LABEL[r.source] ?? r.source}</span>
+                      <a href={r.path ?? '/'} target="_blank" class="landing-path">{r.path ?? '/'}</a>
+                      <span class="landing-count">{r.count}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             {visitsDaily.length > 0 && (
               <div class="bar-chart">
                 {visitsDaily.map(r => (
@@ -249,18 +277,18 @@ const igViews = viewsBySource.find(r => r.source === 'ig')?.count ?? 0;
               <thead>
                 <tr>
                   <th>Model</th>
-                  <th class="num">Views</th>
-                  <th class="num">Supply</th>
-                  <th class="num">V/L</th>
+                  <th class="num-c">Views</th>
+                  <th class="num-c">Supply</th>
+                  <th class="num-c">Views per Listing</th>
                 </tr>
               </thead>
               <tbody>
                 {demandRows.map(r => (
                   <tr>
                     <td style="font-weight:600">{r.model.replace(/-/g, ' ').toUpperCase()}</td>
-                    <td class="num" style="font-weight:700">{r.views}</td>
-                    <td class="num">{r.supply}</td>
-                    <td class="num" style="color:#D4881A;font-weight:700">{r.perListing}</td>
+                    <td class="num-c" style="font-weight:700">{r.views}</td>
+                    <td class="num-c">{r.supply}</td>
+                    <td class="num-c" style="color:#D4881A;font-weight:700">{r.perListing}</td>
                   </tr>
                 ))}
               </tbody>
@@ -292,9 +320,9 @@ const igViews = viewsBySource.find(r => r.source === 'ig')?.count ?? 0;
             <thead>
               <tr>
                 <th>Listing</th>
-                <th class="num">Views</th>
-                <th class="num">Click-outs</th>
-                <th class="num">CTR</th>
+                <th class="num-c">Views</th>
+                <th class="num-c">Click-outs</th>
+                <th class="num-c">CTR</th>
               </tr>
             </thead>
             <tbody>
@@ -303,9 +331,9 @@ const igViews = viewsBySource.find(r => r.source === 'ig')?.count ?? 0;
                   <td>
                     <a href={`/listings/${r.slug}/`} target="_blank">{r.title ?? r.slug}</a>
                   </td>
-                  <td class="num" style="font-weight:700">{r.views}</td>
-                  <td class="num">{r.clicks}</td>
-                  <td class="num" style="color:#9CA3AF">{r.views > 0 ? Math.round((r.clicks / r.views) * 100) + '%' : '—'}</td>
+                  <td class="num-c" style="font-weight:700">{r.views}</td>
+                  <td class="num-c">{r.clicks}</td>
+                  <td class="num-c" style="color:#9CA3AF">{r.views > 0 ? Math.round((r.clicks / r.views) * 100) + '%' : '—'}</td>
                 </tr>
               ))}
             </tbody>
@@ -405,10 +433,17 @@ const igViews = viewsBySource.find(r => r.source === 'ig')?.count ?? 0;
   @media (min-width: 1024px) { .kpi-strip { grid-template-columns: repeat(6, 1fr); } }
   .kpi {
     background: white; border: 1px solid #E5E7EB; border-radius: 0.75rem;
-    padding: 0.875rem 1.125rem;
+    padding: 0.875rem 1.125rem; position: relative;
   }
   .kpi-value { font-size: 1.625rem; font-weight: 800; color: #111; line-height: 1.1; }
   .kpi-label { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #9CA3AF; margin-top: 0.2rem; }
+  .kpi-dir {
+    position: absolute; top: 0.625rem; right: 0.75rem;
+    font-size: 0.6rem; font-weight: 700; letter-spacing: 0.04em;
+    padding: 0.125rem 0.45rem; border-radius: 9999px;
+  }
+  .dir-in  { background: #F0FDF4; color: #16A34A; border: 1px solid #BBF7D0; }
+  .dir-out { background: #EFF6FF; color: #2563EB; border: 1px solid #BFDBFE; }
 
   /* Two-column row */
   .grid-2 { display: grid; gap: 1.25rem; grid-template-columns: 1fr; align-items: start; }
@@ -460,6 +495,29 @@ const igViews = viewsBySource.find(r => r.source === 'ig')?.count ?? 0;
   .data-table a { color: #111; }
   .data-table a:hover { color: #F5A623; }
   .num { text-align: right; }
+  .num-c { text-align: center; }
+
+  /* Landing pages */
+  .mini-label {
+    font-size: 0.625rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.08em; color: #9CA3AF; margin-bottom: 0.5rem;
+  }
+  .landing-list { display: flex; flex-direction: column; gap: 0.25rem; }
+  .landing-row {
+    display: flex; align-items: center; gap: 0.625rem;
+    font-size: 0.75rem; padding: 0.25rem 0;
+  }
+  .landing-src {
+    flex-shrink: 0; font-size: 0.65rem; font-weight: 700; color: #6B7280;
+    background: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 9999px;
+    padding: 0.1rem 0.5rem;
+  }
+  .landing-path {
+    flex: 1; min-width: 0; color: #374151; text-decoration: none;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .landing-path:hover { color: #F5A623; }
+  .landing-count { flex-shrink: 0; font-weight: 700; color: #111; }
   .nowrap { white-space: nowrap; }
   .msg { max-width: 220px; white-space: pre-wrap; font-size: 0.72rem; color: #6B7280; }
   .sub-line { display: block; font-size: 0.68rem; color: #9CA3AF; margin-top: 0.1rem; }
