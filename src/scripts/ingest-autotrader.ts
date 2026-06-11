@@ -1,5 +1,6 @@
 import { AutoTraderAdapter } from '../lib/sources/autotrader.ts';
 import { isSourceEnabled } from '../lib/sources/registry.ts';
+import { reportRun } from '../lib/sources/report.ts';
 
 const SITE_URL = process.env.SITE_URL ?? 'https://landcruisersa.fly.dev';
 const TOKEN = process.env.INGEST_TOKEN ?? '';
@@ -37,6 +38,7 @@ async function ingest() {
       '[LCSA] AutoTrader ingest: zero results (scraper may be broken)',
       'AutoTrader discover() returned 0 results. The scraper may be blocked or the API changed.\n\nNo changes were made to the DB.',
     );
+    await reportRun('autotrader', { found: 0, ok: false, note: 'discovery returned zero results' });
     process.exit(1);
   }
 
@@ -93,6 +95,7 @@ async function ingest() {
   }
 
   console.log(`[autotrader] done — created: ${created}, updated: ${updated}, skipped: ${skipped}`);
+  await reportRun('autotrader', { found: refs.length, created, updated, skipped });
 }
 
 ingest().catch(async (err) => {

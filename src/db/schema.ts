@@ -88,3 +88,17 @@ export const clickEvents = sqliteTable('click_events', {
   source:        text('source').notNull(), // 'autotrader' | 'wbc' | 'adios' | 'wbb'
   created_at:    integer('created_at', { mode: 'timestamp' }).notNull(),
 });
+
+// Scraper health — one row per ingest run, reported by the ingest scripts
+export const ingestRuns = sqliteTable('ingest_runs', {
+  id:      integer('id').primaryKey({ autoIncrement: true }),
+  source:  text('source').notNull(),
+  found:   integer('found').notNull().default(0),   // refs discovered on the source site
+  created: integer('created').notNull().default(0),
+  updated: integer('updated').notNull().default(0),
+  skipped: integer('skipped').notNull().default(0), // fetch failures + cross-source duplicates
+  removed: integer('removed').notNull().default(0),
+  ok:      integer('ok', { mode: 'boolean' }).notNull().default(true),
+  note:    text('note'),
+  run_at:  integer('run_at', { mode: 'timestamp' }).notNull(),
+});

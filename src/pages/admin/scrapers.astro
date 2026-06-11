@@ -1,0 +1,233 @@
+---
+export const prerender = false;
+
+import AdminLayout from '@/layouts/AdminLayout.astro';
+import { db } from '@/db/index';
+import { listings, ingestRuns } from '@/db/schema';
+import { desc, eq, sql } from 'drizzle-orm';
+
+const SOURCES: { key: string; label: string }[] = [
+  { key: 'autotrader', label: 'AutoTrader' },
+  { key: 'wbc',        label: 'WeBuyCars' },
+  { key: 'carsza',     label: 'Cars.co.za' },
+  { key: 'adios',      label: 'Adios' },
+  { key: 'wbb',        label: 'We Buy Bakkies' },
+];
+
+const MODELS = [
+  '79-series', '76-series', '78-series', '70-series', '80-series', '100-series',
+  '200-series', '300-series', 'prado-150', 'prado-250', 'fj-cruiser', 'land-cruiser-fj', 'other',
+];
+
+// ── Last runs per source (latest 6 each) ─────────────────────────────────────
+const allRuns = db.select().from(ingestRuns).orderBy(desc(ingestRuns.run_at)).limit(120).all();
+const runsBySource = new Map<string, typeof allRuns>();
+for (const r of allRuns) {
+  const list = runsBySource.get(r.source) ?? [];
+  if (list.length < 6) { list.push(r); runsBySource.set(r.source, list); }
+}
+
+// ── Active listings per source × model ───────────────────────────────────────
+const counts = db.select({
+  source: listings.source,
+  model:  listings.model,
+  n:      sql<number>`count(*)`,
+}).from(listings)
+  .where(eq(listings.status, 'active'))
+  .groupBy(listings.source, listings.model)
+  .all();
+
+const matrix = new Map<string, Map<string, number>>(); // source → model → n
+const modelTotals = new Map<string, number>();
+for (const c of counts) {
+  if (!matrix.has(c.source)) matrix.set(c.source, new Map());
+  matrix.get(c.source)!.set(c.model, c.n);
+  modelTotals.set(c.model, (modelTotals.get(c.model) ?? 0) + c.n);
+}
+const sourceTotals = new Map<string, number>();
+for (const [src, models] of matrix) {
+  sourceTotals.set(src, [...models.values()].reduce((a, b) => a + b, 0));
+}
+
+// Coverage anomaly: source carries decent stock overall but has ZERO of a model
+// that other sources hold plenty of — the exact failure mode that hid WBC 79s.
+function isAnomaly(source: string, model: string): boolean {
+  const own = matrix.get(source)?.get(model) ?? 0;
+  if (own > 0) return false;
+  const others = (modelTotals.get(model) ?? 0);
+  const ownTotal = sourceTotals.get(source) ?? 0;
+  return ownTotal >= 25 && others >= 15;
+}
+
+// ── Health verdict per source ────────────────────────────────────────────────
+const now = Date.now();
+type Health = { state: 'ok' | 'warn' | 'down'; reason: string };
+function healthFor(key: string): Health {
+  const runs = runsBySource.get(key) ?? [];
+  if (runs.length === 0) return { state: 'warn', reason: 'No runs recorded yet' };
+  const last = runs[0];
+  const ageH = (now - last.run_at.getTime()) / 3_600_000;
+  if (!last.ok) return { state: 'down', reason: last.note ?? 'Last run failed' };
+  if (ageH > 48) return { state: 'warn', reason: `Last run ${Math.round(ageH)}h ago` };
+  if (runs.length > 1 && runs[1].found > 0) {
+    const drop = (runs[1].found - last.found) / runs[1].found;
+    if (drop > 0.4) return { state: 'warn', reason: `Found dropped ${Math.round(drop * 100)}% vs previous run` };
+  }
+  if (last.found > 0 && last.created + last.updated === 0 && last.skipped >= last.found * 0.9) {
+    return { state: 'warn', reason: 'Nearly all fetches skipped — per-listing fetch may be broken' };
+  }
+  return { state: 'ok', reason: '' };
+}
+
+function ago(d: Date): string {
+  const mins = Math.round((now - d.getTime()) / 60_000);
+  if (mins < 60) return `${mins}m ago`;
+  const h = Math.round(mins / 60);
+  if (h < 48) return `${h}h ago`;
+  return `${Math.round(h / 24)}d ago`;
+}
+function fmtModel(m: string): string {
+  return m.replaceAll('-', ' ').replace('series', '').trim().toUpperCase() || m;
+}
+---
+
+<AdminLayout title="Scrapers" activePage="scrapers">
+
+  <!-- SOURCE HEALTH CARDS -->
+  <div class="health-grid">
+    {SOURCES.map(({ key, label }) => {
+      const h = healthFor(key);
+      const runs = runsBySource.get(key) ?? [];
+      const last = runs[0];
+      return (
+        <div class={`hcard hcard-${h.state}`}>
+          <div class="hcard-top">
+            <span class={`dot dot-${h.state}`}></span>
+            <span class="hcard-name">{label}</span>
+            <span class="hcard-active">{sourceTotals.get(key) ?? 0} active</span>
+          </div>
+          {last ? (
+            <>
+              <p class="hcard-last">
+                Last run {ago(last.run_at)} — found {last.found},
+                +{last.created} new, {last.updated} updated, {last.skipped} skipped{last.removed > 0 ? `, ${last.removed} removed` : ''}
+              </p>
+              {h.reason && <p class={`hcard-reason reason-${h.state}`}>{h.reason}</p>}
+              <div class="run-history">
+                {runs.slice(0, 6).map(r => (
+                  <span class={`run-pill${r.ok ? '' : ' run-fail'}`} title={`${r.run_at.toLocaleString('en-ZA')} — found ${r.found}`}>
+                    {r.found}
+                  </span>
+                ))}
+              </div>
+            </>
+          ) : (
+            <p class="hcard-last">No ingest runs recorded yet — stats appear after the next run.</p>
+          )}
+        </div>
+      );
+    })}
+  </div>
+
+  <!-- COVERAGE MATRIX -->
+  <div class="section">
+    <p class="section-head">Coverage — active listings by source &times; model</p>
+    <p class="section-sub">
+      Red cells: the source carries stock overall but has <strong>zero</strong> of a model other
+      sources hold plenty of — usually means its scraper isn't seeing that model.
+    </p>
+    <div class="matrix-wrap">
+      <table class="matrix">
+        <thead>
+          <tr>
+            <th></th>
+            {MODELS.map(m => <th>{fmtModel(m)}</th>)}
+            <th class="col-total">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {SOURCES.map(({ key, label }) => (
+            <tr>
+              <td class="row-label">{label}</td>
+              {MODELS.map(m => {
+                const n = matrix.get(key)?.get(m) ?? 0;
+                const bad = isAnomaly(key, m);
+                return <td class={`cell${n === 0 ? ' cell-zero' : ''}${bad ? ' cell-bad' : ''}`}>{n || '—'}</td>;
+              })}
+              <td class="col-total">{sourceTotals.get(key) ?? 0}</td>
+            </tr>
+          ))}
+          <tr class="row-totals">
+            <td class="row-label">All sources</td>
+            {MODELS.map(m => <td class="cell">{modelTotals.get(m) ?? 0}</td>)}
+            <td class="col-total">{[...sourceTotals.values()].reduce((a, b) => a + b, 0)}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- HOW IT WORKS -->
+  <div class="section">
+    <p class="section-head">How scraping health is measured</p>
+    <ul class="explain">
+      <li><strong>Found</strong> — how many Land Cruiser listings the scraper discovered on the source site this run. A sudden drop means the source changed their site/API or is blocking us.</li>
+      <li><strong>Skipped</strong> — listings discovered but not saved: per-listing fetch failures (blocking, rate limits) or cross-source duplicates. Near-100% skipped with 0 created/updated means the fetcher is broken even though discovery works.</li>
+      <li><strong>Zero-model anomalies</strong> — the red cells above. This is exactly how the missing WBC 79-series would have been caught automatically.</li>
+      <li>Each ingest script reports its run here automatically; failures (zero results) report too, so a silent scraper shows up as a red card, not an empty page.</li>
+    </ul>
+  </div>
+
+</AdminLayout>
+
+<style>
+  .health-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 0.625rem; margin-bottom: 1.5rem; }
+  .hcard { border: 1.5px solid #E5E7EB; border-radius: 0.75rem; padding: 0.875rem 1rem; }
+  .hcard-down { border-color: #FECACA; background: #FFF8F8; }
+  .hcard-warn { border-color: #FDE68A; background: #FFFDF5; }
+
+  .hcard-top { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.4rem; }
+  .dot { width: 8px; height: 8px; border-radius: 9999px; flex-shrink: 0; }
+  .dot-ok   { background: #16A34A; }
+  .dot-warn { background: #F5A623; }
+  .dot-down { background: #DC2626; }
+  .hcard-name { font-size: 0.8rem; font-weight: 700; color: #111111; }
+  .hcard-active { margin-left: auto; font-size: 0.65rem; font-weight: 700; color: #9CA3AF; }
+
+  .hcard-last { font-size: 0.7rem; color: #6B7280; line-height: 1.5; }
+  .hcard-reason { font-size: 0.7rem; font-weight: 700; margin-top: 0.3rem; }
+  .reason-warn { color: #B45309; }
+  .reason-down { color: #991B1B; }
+
+  .run-history { display: flex; gap: 0.25rem; margin-top: 0.5rem; }
+  .run-pill {
+    font-size: 0.6rem; font-weight: 700; color: #6B7280; background: #F3F4F6;
+    padding: 0.1rem 0.4rem; border-radius: 9999px; font-variant-numeric: tabular-nums;
+  }
+  .run-fail { background: #FEE2E2; color: #991B1B; }
+
+  .section { margin-bottom: 2rem; }
+  .section-head {
+    font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.14em;
+    color: #9CA3AF; margin-bottom: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1.5px solid #F3F4F6;
+  }
+  .section-sub { font-size: 0.72rem; color: #9CA3AF; margin-bottom: 0.75rem; }
+
+  .matrix-wrap { overflow-x: auto; }
+  .matrix { border-collapse: collapse; font-size: 0.7rem; width: 100%; }
+  .matrix th {
+    font-size: 0.58rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+    color: #9CA3AF; padding: 0.4rem 0.5rem; text-align: center; white-space: nowrap;
+  }
+  .matrix td { padding: 0.4rem 0.5rem; text-align: center; border-top: 1px solid #F3F4F6; font-variant-numeric: tabular-nums; }
+  .row-label { font-weight: 700; color: #111111; text-align: left !important; white-space: nowrap; }
+  .cell-zero { color: #D1D5DB; }
+  .cell-bad { background: #FEE2E2; color: #991B1B !important; font-weight: 700; border-radius: 0.25rem; }
+  .col-total { font-weight: 700; color: #111111; }
+  .row-totals td { border-top: 1.5px solid #E5E7EB; color: #6B7280; }
+  .row-totals .cell { font-weight: 600; }
+
+  .explain { font-size: 0.75rem; color: #6B7280; line-height: 1.7; padding-left: 1.1rem; }
+  .explain li { margin-bottom: 0.4rem; }
+  .explain strong { color: #374151; }
+</style>

@@ -1,4 +1,5 @@
 import { createHash } from 'crypto';
+import { politeFetch } from './http.ts';
 import { normalizeModel, normalizeProvince } from './normalize.ts';
 import type { DiscoveredRef, NormalizedListing, LivenessResult, SourceAdapter } from './types.ts';
 
@@ -64,27 +65,79 @@ async function getPowToken(): Promise<string> {
   );
   const { token } = await valRes.json() as { token: string };
   _powToken = token;
-  _powExpiry = Date.now() + 10 * 60 * 1000; // treat as valid for 10 min
+  // The token is a short-lived JWT (observed exp − iat = 60s). Read the real
+  // expiry from the payload and refresh 10s early; fall back to 45s.
+  try {
+    const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
+    _powExpiry = payload.exp * 1000 - 10_000;
+  } catch {
+    _powExpiry = Date.now() + 45_000;
+  }
   return token;
 }
 
-// ─── Sitemap-based discovery ─────────────────────────────────────────────────
+// ─── Search-based discovery ──────────────────────────────────────────────────
+// The public sitemap only carries a fraction of WBC's inventory (~8k of a much
+// larger pool) and silently misses whole model groups — e.g. every Land
+// Cruiser 79 (discovered 2026-06-11). The website's own search endpoint sees
+// everything, so discovery paginates that instead. It needs the same
+// proof-of-work token as get-car.
 
-async function fetchSitemapIds(): Promise<string[]> {
-  const ids: string[] = [];
-  for (let i = 1; i <= 9; i++) {
-    const res = await fetch(`${BASE}/sitemap-listings-${i}.xml`, {
-      headers: { 'User-Agent': 'Mozilla/5.0' },
+const SEARCH_QUERIES = ['Toyota Land Cruiser', 'Toyota Prado', 'Toyota FJ Cruiser'];
+const SEARCH_PAGE = 24; // server caps page size at 24 regardless of `size`
+
+// Full body shape required — the endpoint 400s on missing keys
+function searchBody(q: string, to: number) {
+  return {
+    to, size: SEARCH_PAGE, type: null, filter_type: 'all', subcategory: null, q,
+    Make: null, Roadworthy: null, Auctions: [], Model: null, Variant: null,
+    Province: null, DealerKey: null, FuelType: null,
+    Fuel_Consumption_Gte: 0, Fuel_Consumption_Lte: 0, BodyType: null, Gearbox: null,
+    AxleConfiguration: null, Colour: null, Seats: null, FinanceGrade: null,
+    Priced_Amount_Gte: 0, Priced_Amount_Lte: 0,
+    MonthlyInstallment_Amount_Gte: 0, MonthlyInstallment_Amount_Lte: 0,
+    auctionDate: null, auctionEndDate: null, auctionEndHour: null, auctionDurationInSeconds: null,
+    Kilometers_Gte: 0, Kilometers_Lte: 0, Year_Gte: null, Year_Lte: null,
+    Priced_Amount_Sort: '', Bid_Amount_Sort: '', Kilometers_Sort: '', Year_Sort: '',
+    Fuel_Consumption_Sort: '', Auction_Date_Sort: '', Auction_Lot_Sort: '', Year: null,
+    Price_Update_Date_Sort: '', Online_Auction_Date_Sort: '', Online_Auction_In_Progress: '',
+    VehicleStatus: null, BestPrice: null, StockFlag: null, StockTag: null,
+    InspectionCondition: null, Dekra: null,
+  };
+}
+
+async function searchVehicles(q: string): Promise<WbcVehicle[]> {
+  const out: WbcVehicle[] = [];
+  let to = 0;
+  let total = Infinity;
+  while (to < total) {
+    // Re-resolve each page — the PoW token only lives ~60s and pagination can outlast it
+    const token = await getPowToken();
+    const res = await fetch(`${GATEWAY}/website-elastic-backend/api/search`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent': 'Mozilla/5.0',
+        'x-proof-of-work-token': token,
+        'x-calling-service': 'WeBuyCars Website',
+        'Origin': BASE,
+        'Referer': `${BASE}/`,
+      },
+      body: JSON.stringify(searchBody(q, to)),
     });
-    if (!res.ok) break;
-    const xml = await res.text();
-    const matches = xml.matchAll(/<loc>https:\/\/www\.webuycars\.co\.za\/buy-a-car\/([^<]+)<\/loc>/g);
-    for (const m of matches) {
-      const id = m[1].trim();
-      if (id) ids.push(id);
+    if (!res.ok) {
+      console.error(`[wbc] search "${q}" at ${to} failed: ${res.status}`);
+      break;
     }
+    const json = await res.json() as { total?: { value: number }; data?: WbcVehicle[] };
+    total = json.total?.value ?? 0;
+    const batch = json.data ?? [];
+    if (batch.length === 0) break;
+    out.push(...batch);
+    to += batch.length;
+    await new Promise(r => setTimeout(r, 400 + Math.random() * 300));
   }
-  return ids;
+  return out;
 }
 
 interface WbcVehicle {
@@ -104,16 +157,6 @@ interface WbcVehicle {
   FuelType?: string;
   Variant?: string;
   Images?: { other?: string[]; external?: string[] };
-}
-
-async function batchGetVehicles(ids: string[]): Promise<WbcVehicle[]> {
-  const res = await fetch(`${GATEWAY}/website-elastic-backend/api/get-vehicles`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'User-Agent': 'Mozilla/5.0' },
-    body: JSON.stringify({ stockNumbers: ids }),
-  });
-  if (!res.ok) return [];
-  return await res.json() as WbcVehicle[];
 }
 
 function isLandCruiser(v: WbcVehicle): boolean {
@@ -159,34 +202,46 @@ export const WbcAdapter: SourceAdapter = {
   source: SOURCE,
 
   async discover(): Promise<DiscoveredRef[]> {
-    const allIds = await fetchSitemapIds();
+    const seen = new Set<string>();
     const refs: DiscoveredRef[] = [];
-    const BATCH = 100;
 
-    for (let i = 0; i < allIds.length; i += BATCH) {
-      const batch = allIds.slice(i, i + BATCH);
-      const vehicles = await batchGetVehicles(batch);
+    for (const q of SEARCH_QUERIES) {
+      const vehicles = await searchVehicles(q);
+      let matched = 0;
       for (const v of vehicles) {
         if (!isLandCruiser(v) || !v.StockNumber || v.Status !== 'For Sale') continue;
+        if (seen.has(v.StockNumber)) continue;
+        seen.add(v.StockNumber);
+        matched++;
         refs.push({
           source: SOURCE,
           source_id: v.StockNumber,
           source_url: `${BASE}/buy-a-car/${v.StockNumber}`,
         });
       }
-      await new Promise(r => setTimeout(r, 500 + Math.random() * 500));
+      console.log(`[wbc] "${q}": ${vehicles.length} hits, ${matched} new LC refs`);
     }
 
     return refs;
   },
 
   async fetchListing(ref: DiscoveredRef): Promise<NormalizedListing | null> {
-    const token = await getPowToken();
-    const res = await fetch(
-      `${GATEWAY}/website-elastic-backend/api/get-car/${ref.source_id.toUpperCase()}`,
-      { headers: { 'x-proof-of-work-token': token, 'Accept': 'application/json', 'User-Agent': 'Mozilla/5.0' } }
-    );
-    if (!res.ok) return null;
+    let res: Response | null = null;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const token = await getPowToken();
+      // politeFetch paces requests (0.8–2s jitter) and backs off on 429/5xx —
+      // get-car rate-limits hard when hit back-to-back
+      res = await politeFetch(
+        `${GATEWAY}/website-elastic-backend/api/get-car/${ref.source_id.toUpperCase()}`,
+        { headers: { 'x-proof-of-work-token': token, 'Accept': 'application/json' } }
+      );
+      if (res.status !== 401 && res.status !== 403) break;
+      _powToken = null; // token rejected — force a fresh challenge and retry once
+    }
+    if (!res?.ok) {
+      console.error(`[wbc] get-car ${ref.source_id} failed: ${res?.status}`);
+      return null;
+    }
     const body = await res.json() as { result?: boolean; data?: WbcVehicle };
     if (!body.result || !body.data) return null;
     const v = body.data;

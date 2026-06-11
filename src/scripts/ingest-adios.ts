@@ -1,5 +1,6 @@
 import { AdiosAdapter } from '../lib/sources/adios.ts';
 import { isSourceEnabled } from '../lib/sources/registry.ts';
+import { reportRun } from '../lib/sources/report.ts';
 
 const SITE_URL = process.env.SITE_URL ?? 'https://landcruisersa.fly.dev';
 const TOKEN = process.env.INGEST_TOKEN ?? '';
@@ -36,6 +37,7 @@ async function ingest() {
       '[LCSA] Adios ingest: zero results (scraper may be broken)',
       'Adios discover() returned 0 results. The API may have changed.\n\nNo changes were made to the DB.',
     );
+    await reportRun('adios', { found: 0, ok: false, note: 'discovery returned zero results' });
     process.exit(1);
   }
 
@@ -68,6 +70,7 @@ async function ingest() {
   }
 
   console.log(`[adios] done — created: ${created}, updated: ${updated}, skipped: ${skipped}`);
+  await reportRun('adios', { found: refs.length, created, updated, skipped });
 }
 
 ingest().catch(async (err) => {

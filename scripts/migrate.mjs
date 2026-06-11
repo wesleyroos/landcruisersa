@@ -123,6 +123,23 @@ db.exec(`
   )
 `);
 
+// Scraper health — one row per ingest run, reported by the ingest scripts
+db.exec(`
+  CREATE TABLE IF NOT EXISTS ingest_runs (
+    id      INTEGER PRIMARY KEY AUTOINCREMENT,
+    source  TEXT    NOT NULL,
+    found   INTEGER NOT NULL DEFAULT 0,
+    created INTEGER NOT NULL DEFAULT 0,
+    updated INTEGER NOT NULL DEFAULT 0,
+    skipped INTEGER NOT NULL DEFAULT 0,
+    removed INTEGER NOT NULL DEFAULT 0,
+    ok      INTEGER NOT NULL DEFAULT 1,
+    note    TEXT,
+    run_at  INTEGER NOT NULL
+  )
+`);
+db.exec(`CREATE INDEX IF NOT EXISTS ingest_runs_source ON ingest_runs (source, run_at)`);
+
 // Unique index for aggregator dedup — safe to run repeatedly
 db.exec(`
   CREATE UNIQUE INDEX IF NOT EXISTS listings_source_source_id

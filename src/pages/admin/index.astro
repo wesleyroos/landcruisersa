@@ -266,6 +266,7 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
           <label class="source-opt"><input type="checkbox" name="source" value="wbc" checked /> WBC</label>
           <label class="source-opt"><input type="checkbox" name="source" value="adios" checked /> Adios</label>
           <label class="source-opt"><input type="checkbox" name="source" value="wbb" checked /> We Buy Bakkies</label>
+          <label class="source-opt"><input type="checkbox" name="source" value="carsza" checked /> Cars.co.za</label>
         </div>
         <div class="modal-actions">
           <button id="ingest-cancel-btn" class="btn btn-edit">Cancel</button>
@@ -284,6 +285,7 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
         <option value="wbc"        selected={fSource==='wbc'}>WBC</option>
         <option value="adios"      selected={fSource==='adios'}>Adios</option>
         <option value="wbb"        selected={fSource==='wbb'}>We Buy Bakkies</option>
+        <option value="carsza"     selected={fSource==='carsza'}>Cars.co.za</option>
         <option value="own"        selected={fSource==='own'}>Own</option>
       </select>
       <select class={`af-sel${fModel    ? ' active' : ''}`} data-filter="model">
@@ -871,7 +873,7 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
               sourceResults[currentSource] = { created: 0, updated: 0, ok: Boolean(ev.ok) };
             }
           } else if (ev.type === 'done') {
-            const LABELS: Record<string, string> = { autotrader: 'AT', wbc: 'WBC', adios: 'Adios', wbb: 'WBB' };
+            const LABELS: Record<string, string> = { autotrader: 'AT', wbc: 'WBC', adios: 'Adios', wbb: 'WBB', carsza: 'Cars.co.za' };
             const summary = Object.entries(sourceResults)
               .map(([src, r]) => `${LABELS[src] ?? src.toUpperCase()} +${r.created} new`)
               .join(' · ');

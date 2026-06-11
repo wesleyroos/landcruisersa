@@ -1,5 +1,6 @@
 import { WbbAdapter } from '../lib/sources/wbb.ts';
 import { isSourceEnabled } from '../lib/sources/registry.ts';
+import { reportRun } from '../lib/sources/report.ts';
 
 const SITE_URL = process.env.SITE_URL ?? 'https://landcruisersa.fly.dev';
 const TOKEN    = process.env.INGEST_TOKEN ?? '';
@@ -14,6 +15,7 @@ async function ingest() {
 
   if (refs.length === 0) {
     console.error('[wbb] zero results — sitemap may have changed');
+    await reportRun('wbb', { found: 0, ok: false, note: 'discovery returned zero results' });
     process.exit(1);
   }
 
@@ -42,6 +44,7 @@ async function ingest() {
   }
 
   console.log(`[wbb] done — created: ${created}, updated: ${updated}, skipped: ${skipped}`);
+  await reportRun('wbb', { found: refs.length, created, updated, skipped });
 }
 
 ingest().catch(err => { console.error('[wbb] fatal:', err); process.exit(1); });

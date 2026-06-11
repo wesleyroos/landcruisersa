@@ -16,6 +16,7 @@ const ALL_SCRIPTS: Record<string, string> = {
   wbc:        'src/scripts/ingest-wbc.ts',
   adios:      'src/scripts/ingest-adios.ts',
   wbb:        'src/scripts/ingest-wbb.ts',
+  carsza:     'src/scripts/ingest-carsza.ts',
 };
 
 function runScript(

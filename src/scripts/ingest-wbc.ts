@@ -1,5 +1,6 @@
 import { WbcAdapter } from '../lib/sources/wbc.ts';
 import { isSourceEnabled } from '../lib/sources/registry.ts';
+import { reportRun } from '../lib/sources/report.ts';
 
 const SITE_URL = process.env.SITE_URL ?? 'https://landcruisersa.fly.dev';
 const TOKEN = process.env.INGEST_TOKEN ?? '';
@@ -27,7 +28,7 @@ async function ingest() {
   }
   if (!TOKEN) throw new Error('INGEST_TOKEN not set');
 
-  console.log('[wbc] discovering listings via sitemaps…');
+  console.log('[wbc] discovering listings via search API…');
   const refs = await WbcAdapter.discover();
   console.log(`[wbc] found ${refs.length} Land Cruiser refs`);
 
@@ -36,6 +37,7 @@ async function ingest() {
       '[LCSA] WBC ingest: zero results (scraper may be broken)',
       'WeBuyCars discover() returned 0 Land Cruiser results. The sitemap or API may have changed.\n\nNo changes were made to the DB.',
     );
+    await reportRun('wbc', { found: 0, ok: false, note: 'discovery returned zero results' });
     process.exit(1);
   }
 
@@ -68,6 +70,7 @@ async function ingest() {
   }
 
   console.log(`[wbc] done — created: ${created}, updated: ${updated}, skipped: ${skipped}`);
+  await reportRun('wbc', { found: refs.length, created, updated, skipped });
 }
 
 ingest().catch(async (err) => {

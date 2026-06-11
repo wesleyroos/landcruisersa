@@ -104,6 +104,12 @@ const { title = 'Admin', activePage = 'listings' } = Astro.props;
           </svg>
           Listings
         </a>
+        <a href="/admin/scrapers" class={`nav-link ${activePage === 'scrapers' ? 'active' : ''}`}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+          </svg>
+          Scrapers
+        </a>
         <a href="/admin/insights" class={`nav-link ${activePage === 'insights' ? 'active' : ''}`}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <line x1="18" y1="20" x2="18" y2="10"/>

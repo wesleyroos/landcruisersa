@@ -3,7 +3,7 @@ export const prerender = false;
 import type { APIRoute } from 'astro';
 import { db } from '@/db/index';
 import { listings } from '@/db/schema';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, ne } from 'drizzle-orm';
 
 function slugify(str: string) {
   return str
@@ -83,6 +83,32 @@ export const POST: APIRoute = async ({ request }) => {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     });
+  }
+
+  // Cross-source dedupe: the same physical car often appears on multiple
+  // portals (e.g. a WeBuyCars unit on both webuycars.co.za and cars.co.za).
+  // Skip creating when another source already carries an active listing with
+  // identical year, model, price and mileage. Zero price/mileage is excluded —
+  // too many legitimate listings share those.
+  if (Number(price) > 0 && Number(mileage) > 0) {
+    const dup = await db.select({ id: listings.id, slug: listings.slug })
+      .from(listings)
+      .where(and(
+        eq(listings.status, 'active'),
+        eq(listings.year, Number(year)),
+        eq(listings.model, String(model)),
+        eq(listings.price, Number(price)),
+        eq(listings.mileage, Number(mileage)),
+        ne(listings.source, String(source)),
+      ))
+      .limit(1);
+
+    if (dup.length > 0) {
+      return new Response(JSON.stringify({ ok: true, action: 'skipped_duplicate', slug: dup[0].slug }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
   }
 
   const slug = `${base}-${String(source_id).slice(-8)}`;
