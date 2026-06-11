@@ -15,6 +15,8 @@ const posts = defineCollection({
     featured: z.boolean().default(false),
     draft: z.boolean().default(false),
     tags: z.array(z.string()).default([]),
+    // Optional Q&A pairs — rendered as FAQPage JSON-LD for AI/search citation
+    faqs: z.array(z.object({ q: z.string(), a: z.string() })).default([]),
   }),
 });
 

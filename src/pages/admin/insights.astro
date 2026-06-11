@@ -190,29 +190,35 @@ const igViews = viewsBySource.find(r => r.source === 'ig')?.count ?? 0;
         <span class="kpi-dir dir-in">↓ In</span>
         <p class="kpi-value">{totalVisits}</p>
         <p class="kpi-label">Campaign Link Clicks</p>
+        <p class="kpi-sub">people who arrived via a tracked link (IG bio, ChatGPT…)</p>
       </div>
       <div class="kpi">
         <p class="kpi-value">{totalViews}</p>
         <p class="kpi-label">Listing Views</p>
+        <p class="kpi-sub">listing pages opened, all traffic</p>
       </div>
       <div class="kpi">
         <span class="kpi-dir dir-in">↓ In</span>
         <p class="kpi-value">{igViews}</p>
         <p class="kpi-label">Views from IG</p>
+        <p class="kpi-sub">listings opened by IG link visitors — step 2 of the funnel</p>
       </div>
       <div class="kpi">
         <span class="kpi-dir dir-out">↑ Out</span>
         <p class="kpi-value">{totalClicks}</p>
         <p class="kpi-label">Outbound Listing Clicks</p>
+        <p class="kpi-sub">clicked through to AutoTrader, WhatsApp etc.</p>
       </div>
       <div class="kpi">
         <span class="kpi-dir dir-out">↑ Out</span>
         <p class="kpi-value">{totalPartnerClicks}</p>
         <p class="kpi-label">Partner Clicks</p>
+        <p class="kpi-sub">clicked through to a partner</p>
       </div>
       <div class="kpi">
         <p class="kpi-value">{leads.length}</p>
         <p class="kpi-label">Training Leads</p>
+        <p class="kpi-sub">4x4 training enquiries</p>
       </div>
     </div>
 
@@ -267,7 +273,7 @@ const igViews = viewsBySource.find(r => r.source === 'ig')?.count ?? 0;
       <section class="card">
         <div class="card-head">
           <h2 class="card-title">Demand by Model</h2>
-          <span class="badge-sub">views ÷ active supply</span>
+          <span class="badge-sub">which models buyers want vs how many are for sale</span>
         </div>
         {demandRows.length === 0 ? (
           <p class="empty">No view data yet.</p>
@@ -293,6 +299,7 @@ const igViews = viewsBySource.find(r => r.source === 'ig')?.count ?? 0;
                 ))}
               </tbody>
             </table>
+            <p class="card-note">Views per Listing = buyer interest per available car. A high number means lots of buyers chasing few cars — those are the models to source, feature, or post to IG.</p>
           </div>
         )}
       </section>
@@ -437,6 +444,11 @@ const igViews = viewsBySource.find(r => r.source === 'ig')?.count ?? 0;
   }
   .kpi-value { font-size: 1.625rem; font-weight: 800; color: #111; line-height: 1.1; }
   .kpi-label { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #9CA3AF; margin-top: 0.2rem; }
+  .kpi-sub { font-size: 0.62rem; color: #C4C9D0; margin-top: 0.3rem; line-height: 1.35; }
+  .card-note {
+    font-size: 0.7rem; color: #9CA3AF; line-height: 1.5;
+    padding: 0.75rem 1rem; border-top: 1px solid #F3F4F6; background: #FAFAF9;
+  }
   .kpi-dir {
     position: absolute; top: 0.625rem; right: 0.75rem;
     font-size: 0.6rem; font-weight: 700; letter-spacing: 0.04em;
