@@ -4,7 +4,7 @@ export const prerender = false;
 import AdminLayout from '@/layouts/AdminLayout.astro';
 import { getCredentials } from '@/lib/instagram';
 import { db } from '@/db/index';
-import { listings } from '@/db/schema';
+import { listings, clickEvents } from '@/db/schema';
 import { desc, eq, and, gte, lte, sql, isNotNull, isNull } from 'drizzle-orm';
 import type { Listing } from '@/db/schema';
 import type { SQL } from 'drizzle-orm';
@@ -60,6 +60,62 @@ const errorMessages: Record<string, string> = {
   token_exchange: 'Failed to exchange the authorisation code for a token.',
   not_configured: 'Instagram credentials are not configured on the server.',
 };
+
+// ─── IG media stats (posted view only) ───────────────────────────────────────
+// Match IG media to our listings by timestamp (±2 min window)
+type IgStats = { likes: number; comments: number };
+const igMediaStats = new Map<number, IgStats>(); // keyed by listing.id
+
+if (fPosted && connected && creds) {
+  try {
+    const res = await fetch(
+      `https://graph.instagram.com/v21.0/${creds!.userId}/media` +
+      `?fields=id,timestamp,like_count,comments_count&limit=100` +
+      `&access_token=${creds!.accessToken}`
+    );
+    const json = await res.json();
+    if (Array.isArray(json.data)) {
+      for (const item of json.data) {
+        const igMs = new Date(item.timestamp).getTime();
+        for (const l of active) {
+          if (!l.ig_posted_at) continue;
+          const ourMs = l.ig_posted_at instanceof Date
+            ? l.ig_posted_at.getTime()
+            : (l.ig_posted_at as unknown as number) * 1000;
+          if (Math.abs(igMs - ourMs) < 2 * 60 * 1000) {
+            igMediaStats.set(l.id, {
+              likes:    item.like_count    ?? 0,
+              comments: item.comments_count ?? 0,
+            });
+          }
+        }
+      }
+    }
+  } catch { /* IG unavailable — show cards without stats */ }
+}
+
+// ─── Outbound clicks per listing ─────────────────────────────────────────────
+type ClickCounts = { whatsapp: number; call: number; email: number; portal: number };
+const listingClicks = new Map<string, ClickCounts>();
+
+if (fPosted) {
+  const rows = db.select({
+    slug:   clickEvents.listing_slug,
+    source: clickEvents.source,
+    count:  sql<number>`cast(count(*) as int)`,
+  }).from(clickEvents)
+    .groupBy(clickEvents.listing_slug, clickEvents.source)
+    .all();
+
+  for (const r of rows) {
+    const c = listingClicks.get(r.slug) ?? { whatsapp: 0, call: 0, email: 0, portal: 0 };
+    if (r.source === 'whatsapp') c.whatsapp += r.count;
+    else if (r.source === 'call') c.call += r.count;
+    else if (r.source === 'email') c.email += r.count;
+    else c.portal += r.count;
+    listingClicks.set(r.slug, c);
+  }
+}
 
 function firstPhoto(photos: string): string | null {
   try { return JSON.parse(photos)[0] ?? null; } catch { return null; }
@@ -189,6 +245,9 @@ function formatPrice(n: number) {
         {active.map((l: Listing) => {
           const photo = firstPhoto(l.photos);
           const count = photoCount(l.photos);
+          const igS = fPosted ? igMediaStats.get(l.id) : undefined;
+          const clk = fPosted ? (listingClicks.get(l.slug) ?? { whatsapp: 0, call: 0, email: 0, portal: 0 }) : undefined;
+          const hasClicks = clk && (clk.whatsapp + clk.call + clk.email + clk.portal > 0);
           return (
             <div class={`lcard${l.ig_posted_at ? ' lcard-posted' : ''}`} data-id={l.id}>
               <div class="lcard-thumb-wrap">
@@ -207,6 +266,27 @@ function formatPrice(n: number) {
                 </p>
                 {l.ig_posted_at && (
                   <p class="lcard-posted-at">Posted {new Intl.DateTimeFormat('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' }).format(l.ig_posted_at)}</p>
+                )}
+                {(igS || hasClicks) && (
+                  <div class="lcard-stats">
+                    {igS && (
+                      <>
+                        <span class="stat-chip stat-ig">
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 21.593c-5.63-5.539-11-10.297-11-14.402 0-3.791 3.068-5.191 5.281-5.191 1.312 0 4.151.501 5.719 4.457 1.59-3.968 4.464-4.447 5.726-4.447 2.54 0 5.274 1.621 5.274 5.181 0 4.069-5.136 8.625-11 14.402z"/></svg>
+                          {igS.likes}
+                        </span>
+                        <span class="stat-chip stat-ig">
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+                          {igS.comments}
+                        </span>
+                        {hasClicks && <span class="stat-divider">·</span>}
+                      </>
+                    )}
+                    {clk && clk.whatsapp > 0 && <span class="stat-chip stat-wa">WA {clk.whatsapp}</span>}
+                    {clk && clk.call     > 0 && <span class="stat-chip stat-contact">Call {clk.call}</span>}
+                    {clk && clk.email    > 0 && <span class="stat-chip stat-contact">Email {clk.email}</span>}
+                    {clk && clk.portal   > 0 && <span class="stat-chip stat-portal">Portal {clk.portal}</span>}
+                  </div>
                 )}
               </div>
               <div class="lcard-action">
@@ -344,6 +424,18 @@ function formatPrice(n: number) {
     padding: 0.15rem 0.45rem; border-radius: 9999px; letter-spacing: 0.04em;
   }
   .lcard-posted-at { font-size: 0.68rem; color: #166534; font-weight: 600; margin-top: 0.2rem; }
+
+  .lcard-stats { display: flex; align-items: center; gap: 0.3rem; flex-wrap: wrap; margin-top: 0.5rem; }
+  .stat-chip {
+    font-size: 0.62rem; font-weight: 700; padding: 0.12rem 0.45rem; border-radius: 9999px;
+    display: inline-flex; align-items: center; gap: 0.2rem; line-height: 1.5;
+    background: #F3F4F6; color: #6B7280;
+  }
+  .stat-ig      { background: #FDF2F8; color: #9D174D; }
+  .stat-wa      { background: #F0FDF4; color: #166534; }
+  .stat-contact { background: #F0F9FF; color: #0369A1; }
+  .stat-portal  { background: #EFF6FF; color: #1D4ED8; }
+  .stat-divider { font-size: 0.65rem; color: #D1D5DB; }
 
   /* ── Modal ── */
   .modal-backdrop {
