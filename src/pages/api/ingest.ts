@@ -2,7 +2,7 @@ export const prerender = false;
 
 import type { APIRoute } from 'astro';
 import { db } from '@/db/index';
-import { listings } from '@/db/schema';
+import { listings, priceEvents } from '@/db/schema';
 import { and, eq, ne } from 'drizzle-orm';
 
 function slugify(str: string) {
@@ -49,12 +49,24 @@ export const POST: APIRoute = async ({ request }) => {
   const base = slugify(`${year}-${title}`);
 
   // Upsert by (source, source_id) — update if exists, insert if new
-  const existing = await db.select({ id: listings.id, slug: listings.slug })
+  const existing = await db.select({ id: listings.id, slug: listings.slug, price: listings.price, model: listings.model })
     .from(listings)
     .where(and(eq(listings.source, String(source)), eq(listings.source_id, String(source_id))))
     .limit(1);
 
   if (existing.length > 0) {
+    // Record observed price changes — fuels price-trend content and price-drop surfacing
+    const newPrice = Number(price ?? 0);
+    if (newPrice > 0 && existing[0].price > 0 && newPrice !== existing[0].price) {
+      await db.insert(priceEvents).values({
+        listing_id:  existing[0].id,
+        slug:        existing[0].slug,
+        model:       String(model ?? existing[0].model),
+        old_price:   existing[0].price,
+        new_price:   newPrice,
+        recorded_at: new Date(),
+      });
+    }
     await db.update(listings).set({
       title: String(title),
       model: String(model),

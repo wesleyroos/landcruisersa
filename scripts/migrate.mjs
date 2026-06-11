@@ -140,6 +140,21 @@ db.exec(`
 `);
 db.exec(`CREATE INDEX IF NOT EXISTS ingest_runs_source ON ingest_runs (source, run_at)`);
 
+// Price changes observed at ingest — fuels price-trend pages and price-drop surfacing
+db.exec(`
+  CREATE TABLE IF NOT EXISTS price_events (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    listing_id  INTEGER NOT NULL,
+    slug        TEXT    NOT NULL,
+    model       TEXT    NOT NULL,
+    old_price   INTEGER NOT NULL,
+    new_price   INTEGER NOT NULL,
+    recorded_at INTEGER NOT NULL
+  )
+`);
+db.exec(`CREATE INDEX IF NOT EXISTS price_events_model ON price_events (model, recorded_at)`);
+db.exec(`CREATE INDEX IF NOT EXISTS price_events_slug ON price_events (slug)`);
+
 // Unique index for aggregator dedup — safe to run repeatedly
 db.exec(`
   CREATE UNIQUE INDEX IF NOT EXISTS listings_source_source_id

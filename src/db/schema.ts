@@ -102,3 +102,15 @@ export const ingestRuns = sqliteTable('ingest_runs', {
   note:    text('note'),
   run_at:  integer('run_at', { mode: 'timestamp' }).notNull(),
 });
+
+// Price changes observed by the aggregator — fuels price-trend content and
+// "price drop" surfacing. One row per observed change, captured at ingest.
+export const priceEvents = sqliteTable('price_events', {
+  id:          integer('id').primaryKey({ autoIncrement: true }),
+  listing_id:  integer('listing_id').notNull(),
+  slug:        text('slug').notNull(),
+  model:       text('model').notNull(),
+  old_price:   integer('old_price').notNull(),
+  new_price:   integer('new_price').notNull(),
+  recorded_at: integer('recorded_at', { mode: 'timestamp' }).notNull(),
+});
