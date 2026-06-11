@@ -293,42 +293,12 @@ const totalListingCount = (db.select({ n: sql<number>`count(*)` }).from(listings
         </div>
         <div class="growth-body">
 
-          <!-- Cumulative SVG line chart -->
+          <!-- Cumulative interactive canvas chart -->
           <div class="growth-chart-wrap">
-            <p class="mini-label">Cumulative total</p>
-            <div class="growth-svg-outer">
-              <svg
-                viewBox={`0 0 ${listingsGrowth.length * 10} 60`}
-                preserveAspectRatio="none"
-                class="growth-svg"
-              >
-                <polyline
-                  points={listingsGrowth.map((r, i) =>
-                    `${i * 10 + 5},${60 - Math.round((r.total / maxTotal) * 56)}`
-                  ).join(' ')}
-                  fill="none"
-                  stroke="#F5A623"
-                  stroke-width="2"
-                  stroke-linejoin="round"
-                  stroke-linecap="round"
-                />
-                {/* Filled area under the line */}
-                <polygon
-                  points={[
-                    `5,60`,
-                    ...listingsGrowth.map((r, i) =>
-                      `${i * 10 + 5},${60 - Math.round((r.total / maxTotal) * 56)}`
-                    ),
-                    `${(listingsGrowth.length - 1) * 10 + 5},60`,
-                  ].join(' ')}
-                  fill="rgba(245,166,35,0.12)"
-                />
-              </svg>
-              <div class="growth-svg-labels">
-                <span>{listingsGrowth[0]?.day.slice(0, 7)}</span>
-                <span>{listingsGrowth[Math.floor(listingsGrowth.length / 2)]?.day.slice(0, 7)}</span>
-                <span>{listingsGrowth[listingsGrowth.length - 1]?.day.slice(0, 7)}</span>
-              </div>
+            <p class="mini-label">Cumulative total — hover to explore</p>
+            <div class="growth-canvas-outer">
+              <canvas id="growth-canvas" class="growth-canvas"></canvas>
+              <div id="growth-tooltip" class="growth-tooltip" style="display:none"></div>
             </div>
           </div>
 
@@ -742,15 +712,16 @@ const totalListingCount = (db.select({ n: sql<number>`count(*)` }).from(listings
   }
   .growth-chart-wrap { display: flex; flex-direction: column; gap: 0.5rem; }
   .growth-bars-wrap  { display: flex; flex-direction: column; gap: 0.5rem; }
-  .growth-svg-outer  { display: flex; flex-direction: column; gap: 0.25rem; }
-  .growth-svg {
-    width: 100%; height: 80px; display: block;
-    border-bottom: 1px solid #F3F4F6;
+  .growth-canvas-outer { position: relative; }
+  .growth-canvas { width: 100%; height: 120px; display: block; cursor: crosshair; }
+  .growth-tooltip {
+    position: absolute; pointer-events: none;
+    background: #111; color: white; border-radius: 0.5rem;
+    padding: 0.5rem 0.75rem; font-size: 0.72rem; line-height: 1.6;
+    white-space: nowrap; box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    z-index: 10;
   }
-  .growth-svg-labels {
-    display: flex; justify-content: space-between;
-    font-size: 0.6rem; color: #9CA3AF; font-variant-numeric: tabular-nums;
-  }
+  .growth-tooltip strong { color: #F5A623; }
 
   /* Bar chart */
   .bar-chart { display: flex; flex-direction: column; gap: 0.3rem; }
@@ -760,3 +731,141 @@ const totalListingCount = (db.select({ n: sql<number>`count(*)` }).from(listings
   .bar-fill { height: 100%; background: #F5A623; border-radius: 4px; min-width: 2px; }
   .bar-count { font-size: 0.72rem; font-weight: 700; color: #111; width: 30px; text-align: right; flex-shrink: 0; }
 </style>
+
+<script define:vars={{ listingsGrowth }}>
+(function () {
+  const canvas = document.getElementById('growth-canvas');
+  const tooltip = document.getElementById('growth-tooltip');
+  if (!canvas || !listingsGrowth.length) return;
+
+  const data = listingsGrowth;
+  const n = data.length;
+  const maxTotal = data[n - 1].total;
+
+  const PAD = { top: 12, right: 16, bottom: 28, left: 8 };
+
+  function draw(hoverIdx) {
+    const W = canvas.clientWidth;
+    const H = canvas.clientHeight;
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = W * dpr;
+    canvas.height = H * dpr;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+
+    const cW = W - PAD.left - PAD.right;
+    const cH = H - PAD.top - PAD.bottom;
+
+    function xOf(i) { return PAD.left + (i / (n - 1)) * cW; }
+    function yOf(v) { return PAD.top + (1 - v / maxTotal) * cH; }
+
+    // Grid lines (3 horizontal)
+    ctx.strokeStyle = '#F3F4F6';
+    ctx.lineWidth = 1;
+    [0.25, 0.5, 0.75, 1].forEach(f => {
+      const y = PAD.top + (1 - f) * cH;
+      ctx.beginPath(); ctx.moveTo(PAD.left, y); ctx.lineTo(PAD.left + cW, y); ctx.stroke();
+    });
+
+    // X-axis labels (start, mid, end)
+    ctx.fillStyle = '#9CA3AF';
+    ctx.font = '9px system-ui, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(data[0].day.slice(0, 7), PAD.left, H - 6);
+    ctx.textAlign = 'center';
+    ctx.fillText(data[Math.floor(n / 2)].day.slice(0, 7), W / 2, H - 6);
+    ctx.textAlign = 'right';
+    ctx.fillText(data[n - 1].day.slice(0, 7), PAD.left + cW, H - 6);
+
+    // Area fill
+    ctx.beginPath();
+    ctx.moveTo(xOf(0), yOf(data[0].total));
+    data.forEach((d, i) => ctx.lineTo(xOf(i), yOf(d.total)));
+    ctx.lineTo(xOf(n - 1), PAD.top + cH);
+    ctx.lineTo(xOf(0), PAD.top + cH);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(245,166,35,0.12)';
+    ctx.fill();
+
+    // Line
+    ctx.beginPath();
+    data.forEach((d, i) => {
+      if (i === 0) ctx.moveTo(xOf(i), yOf(d.total));
+      else ctx.lineTo(xOf(i), yOf(d.total));
+    });
+    ctx.strokeStyle = '#F5A623';
+    ctx.lineWidth = 2;
+    ctx.lineJoin = 'round';
+    ctx.stroke();
+
+    // Hover state
+    if (hoverIdx >= 0) {
+      const d = data[hoverIdx];
+      const x = xOf(hoverIdx);
+      const y = yOf(d.total);
+
+      // Vertical guide
+      ctx.beginPath();
+      ctx.moveTo(x, PAD.top);
+      ctx.lineTo(x, PAD.top + cH);
+      ctx.strokeStyle = 'rgba(0,0,0,0.12)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([3, 3]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Dot
+      ctx.beginPath();
+      ctx.arc(x, y, 5, 0, Math.PI * 2);
+      ctx.fillStyle = '#F5A623';
+      ctx.fill();
+      ctx.strokeStyle = 'white';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+  }
+
+  function positionTooltip(hoverIdx, mouseX) {
+    if (hoverIdx < 0) { tooltip.style.display = 'none'; return; }
+    const d = data[hoverIdx];
+    tooltip.innerHTML = `<strong>${d.day}</strong><br>+${d.count} new · <strong>${d.total}</strong> total`;
+    tooltip.style.display = 'block';
+    const cRect = canvas.parentElement.getBoundingClientRect();
+    const tW = tooltip.offsetWidth;
+    const W = canvas.clientWidth;
+    const PAD_L = PAD.left;
+    const cW = W - PAD_L - PAD.right;
+    const x = PAD_L + (hoverIdx / (n - 1)) * cW;
+    let left = x + 10;
+    if (left + tW > W - 8) left = x - tW - 10;
+    tooltip.style.left = left + 'px';
+    tooltip.style.top = '8px';
+  }
+
+  function indexFromX(clientX) {
+    const rect = canvas.getBoundingClientRect();
+    const x = clientX - rect.left - PAD.left;
+    const cW = canvas.clientWidth - PAD.left - PAD.right;
+    const ratio = Math.max(0, Math.min(1, x / cW));
+    return Math.round(ratio * (n - 1));
+  }
+
+  let hoverIdx = -1;
+
+  canvas.addEventListener('mousemove', e => {
+    hoverIdx = indexFromX(e.clientX);
+    draw(hoverIdx);
+    positionTooltip(hoverIdx, e.clientX);
+  });
+
+  canvas.addEventListener('mouseleave', () => {
+    hoverIdx = -1;
+    draw(-1);
+    tooltip.style.display = 'none';
+  });
+
+  // Initial draw + redraw on resize
+  draw(-1);
+  window.addEventListener('resize', () => draw(hoverIdx));
+})();
+</script>
