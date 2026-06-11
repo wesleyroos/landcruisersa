@@ -153,6 +153,7 @@ export const PARTNERS: Partner[] = [
     longDescription: `The Toyota Gazoo Racing Driving Academy is South Africa's premier manufacturer-backed 4x4 training programme. Held at Zwartkops Raceway and the De Wildt off-road facility, the academy offers full-day courses that cover everything from off-road vehicle dynamics and terrain reading to advanced winching and self-recovery techniques.\n\nWith a maximum of 8 drivers per course and expert Toyota-trained instructors, you'll spend 70% of the day on practical terrain — steep ascents, rock crawling, mud, sand, and water crossings. Every participant leaves with a certificate, TAD cap, and the skills to handle whatever the African bush throws at them. R4,250 per person, VAT included, with breakfast and lunch provided.`,
     email: 'info@tad-sa.co.za',
     website: 'https://landcruisersa.co.za/training/',
+    logo: 'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/training/tad-logo.png',
     hero: 'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/partners/toyota-gazoo/toyota-gazoo-hero.webp',
     images: [
       'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/partners/toyota-gazoo/toyota-gazoo-mud.webp',
@@ -260,7 +261,7 @@ For builds that run into serious budget, MegaFinance offers in-house financing t
     images: [
       'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/partners/4x4-megaworld/4x4-megaworld-arb-range.jpg',
       'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/partners/4x4-megaworld/4x4-megaworld-suspension.jpg',
-      'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/partners/4x4-megaworld/4x4-megaworld-rooftop-tents.jpg',
+      'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/partners/4x4-megaworld/4x4-megaworld-rooftop-tents.webp',
       'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/partners/4x4-megaworld/4x4-megaworld-fitment.jpg',
     ],
     rating: 4.4,
