@@ -93,7 +93,12 @@ const demandRows = [...allModels]
     const supply = activeByModel.get(model) ?? 0;
     return { model, views, supply, perListing: fmtPerListing(views, supply) };
   })
-  .sort((a, b) => b.views - a.views || b.supply - a.supply);
+  .sort((a, b) => {
+    // Sort by views/listing descending; models with no supply go to bottom
+    const aRate = a.supply > 0 ? a.views / a.supply : -1;
+    const bRate = b.supply > 0 ? b.views / b.supply : -1;
+    return bRate - aRate;
+  });
 
 // ─── Listings growth (all-time) ───────────────────────────────────────────────
 
