@@ -420,14 +420,8 @@ const vehicleSchema: Record<string, unknown> = {
 {!isSold && !isShowOff && (
   <div class="mobile-cta" id="mobile-cta">
     <div class="mobile-cta-price">
-      {isExternal ? (
-        <span class="mobile-cta-label">{portalName} Listing</span>
-      ) : (
-        <>
-          <span class="mobile-cta-label">Asking Price</span>
-          <span class="mobile-cta-value">{formatPrice(listing.price)}</span>
-        </>
-      )}
+      <span class="mobile-cta-label">Asking Price</span>
+      <span class="mobile-cta-value">{listing.price > 0 ? formatPrice(listing.price) : 'POA'}</span>
     </div>
     {isExternal ? (
       <a href={listing.source_url!} target="_blank" rel="noopener" class="mobile-cta-btn mobile-cta-wa" data-track-external>View on {portalName}</a>
