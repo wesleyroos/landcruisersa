@@ -66,7 +66,7 @@ const errorMessages: Record<string, string> = {
 // Step 2: for each match, fetch insights (impressions, reach) — requires
 //         instagram_business_manage_insights scope. Degrades gracefully if not yet
 //         available (token pre-dates scope addition; just reconnect to get it).
-type IgStats = { likes: number; comments: number; reach: number; impressions: number };
+type IgStats = { likes: number; comments: number; reach: number; interactions: number };
 const igMediaStats = new Map<number, IgStats>(); // keyed by listing.id
 
 if (fPosted && connected && creds) {
@@ -95,23 +95,23 @@ if (fPosted && connected && creds) {
 
       // Fetch insights in parallel for each matched post
       await Promise.all(matched.map(async (m) => {
-        let reach = 0, impressions = 0;
+        let reach = 0, interactions = 0;
         try {
+          // impressions deprecated Apr 2025 — use reach + total_interactions
           const ir = await fetch(
             `https://graph.instagram.com/v21.0/${m.mediaId}/insights` +
-            `?metric=impressions,reach&period=lifetime&access_token=${creds!.accessToken}`
+            `?metric=reach,total_interactions&period=lifetime&access_token=${creds!.accessToken}`
           );
           const ij = await ir.json();
           if (Array.isArray(ij.data)) {
             for (const d of ij.data) {
-              // API returns either values[0].value or a top-level value depending on version
               const val = d.values?.[0]?.value ?? d.value ?? 0;
-              if (d.name === 'impressions') impressions = val;
-              if (d.name === 'reach')       reach       = val;
+              if (d.name === 'reach')              reach        = val;
+              if (d.name === 'total_interactions') interactions = val;
             }
           }
         } catch { /* scope not yet available — shows 0 */ }
-        igMediaStats.set(m.listingId, { likes: m.likes, comments: m.comments, reach, impressions });
+        igMediaStats.set(m.listingId, { likes: m.likes, comments: m.comments, reach, interactions });
       }));
     }
   } catch { /* IG unavailable — show cards without stats */ }
@@ -303,15 +303,15 @@ function formatPrice(n: number) {
                           {igS.comments}
                         </span>
                         {igS.reach > 0 && (
-                          <span class="stat-chip stat-reach" title="Reach">
+                          <span class="stat-chip stat-reach" title="Reach — unique accounts that saw this post">
                             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 010 20M12 2a15.3 15.3 0 000 20"/></svg>
                             {igS.reach.toLocaleString('en-ZA')}
                           </span>
                         )}
-                        {igS.impressions > 0 && (
-                          <span class="stat-chip stat-reach" title="Impressions">
-                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                            {igS.impressions.toLocaleString('en-ZA')}
+                        {igS.interactions > 0 && (
+                          <span class="stat-chip stat-reach" title="Total interactions (likes + comments + saves + shares)">
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 2H7L2 12l5 10h10l5-10z"/></svg>
+                            {igS.interactions.toLocaleString('en-ZA')}
                           </span>
                         )}
                         {hasClicks && <span class="stat-divider">·</span>}
