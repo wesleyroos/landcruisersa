@@ -117,11 +117,11 @@ if (fPosted && connected && creds) {
   } catch { /* IG unavailable — show cards without stats */ }
 }
 
-// ─── Outbound clicks per listing ─────────────────────────────────────────────
+// ─── Outbound clicks per listing (all views) ─────────────────────────────────
 type ClickCounts = { whatsapp: number; call: number; email: number; portal: number };
 const listingClicks = new Map<string, ClickCounts>();
 
-if (fPosted) {
+{
   const rows = db.select({
     slug:   clickEvents.listing_slug,
     source: clickEvents.source,
@@ -138,7 +138,7 @@ if (fPosted) {
     else c.portal += r.count;
     listingClicks.set(r.slug, c);
   }
-}
+};
 
 function firstPhoto(photos: string): string | null {
   try { return JSON.parse(photos)[0] ?? null; } catch { return null; }
@@ -269,8 +269,8 @@ function formatPrice(n: number) {
           const photo = firstPhoto(l.photos);
           const count = photoCount(l.photos);
           const igS = fPosted ? igMediaStats.get(l.id) : undefined;
-          const clk = fPosted ? (listingClicks.get(l.slug) ?? { whatsapp: 0, call: 0, email: 0, portal: 0 }) : undefined;
-          const hasClicks = clk && (clk.whatsapp + clk.call + clk.email + clk.portal > 0);
+          const clk = listingClicks.get(l.slug) ?? { whatsapp: 0, call: 0, email: 0, portal: 0 };
+          const hasClicks = clk.whatsapp + clk.call + clk.email + clk.portal > 0;
           return (
             <div class={`lcard${l.ig_posted_at ? ' lcard-posted' : ''}`} data-id={l.id}>
               <div class="lcard-thumb-wrap">
@@ -317,10 +317,10 @@ function formatPrice(n: number) {
                         {hasClicks && <span class="stat-divider">·</span>}
                       </>
                     )}
-                    {clk && clk.whatsapp > 0 && <span class="stat-chip stat-wa">WA {clk.whatsapp}</span>}
-                    {clk && clk.call     > 0 && <span class="stat-chip stat-contact">Call {clk.call}</span>}
-                    {clk && clk.email    > 0 && <span class="stat-chip stat-contact">Email {clk.email}</span>}
-                    {clk && clk.portal   > 0 && <span class="stat-chip stat-portal">Portal {clk.portal}</span>}
+                    {clk.whatsapp > 0 && <span class="stat-chip stat-wa">WA {clk.whatsapp}</span>}
+                    {clk.call     > 0 && <span class="stat-chip stat-contact">Call {clk.call}</span>}
+                    {clk.email    > 0 && <span class="stat-chip stat-contact">Email {clk.email}</span>}
+                    {clk.portal   > 0 && <span class="stat-chip stat-portal">Portal {clk.portal}</span>}
                   </div>
                 )}
               </div>
