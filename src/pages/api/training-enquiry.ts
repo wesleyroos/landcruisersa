@@ -14,6 +14,7 @@ export const POST: APIRoute = async ({ request }) => {
   const trainingRecipients = [
     'info@tad-sa.co.za',
     'wesley@landcruisersa.co.za',
+    'wesley@grodigital.co.za',
     'salve@tad-sa.co.za',
     'paul@tad-sa.co.za',
   ];
