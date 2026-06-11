@@ -14,7 +14,7 @@ const MODEL_MAP: [RegExp, string][] = [
   [/70[\s-]?series|lc70|land.?cruiser.?70/i,         '70-series'],
   [/300[\s-]?series|lc300|land.?cruiser.?300/i,      '300-series'],
   [/200[\s-]?series|lc200|land.?cruiser.?200/i,      '200-series'],
-  [/100[\s-]?series|lc100|land.?cruiser.?100/i,      '100-series'],
+  [/10[05][\s-]?series|lc10[05]|land.?cruiser.?10[05]/i, '100-series'], // 105 = solid-axle 100
   [/80[\s-]?series|lc80|land.?cruiser.?80/i,         '80-series'],
   [/land.?cruiser.?fj(?!\s*cruiser)/i,               'land-cruiser-fj'],
   [/fj[\s-]?cruiser/i,                               'fj-cruiser'],

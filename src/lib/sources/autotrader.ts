@@ -8,11 +8,17 @@ const BASE = 'https://www.autotrader.co.za';
 // All Land Cruiser model slugs on AutoTrader SA
 const SEARCH_URLS = [
   `${BASE}/cars-for-sale/toyota/land-cruiser-79`,
+  `${BASE}/cars-for-sale/toyota/land-cruiser-78`,
   `${BASE}/cars-for-sale/toyota/land-cruiser-76`,
+  `${BASE}/cars-for-sale/toyota/land-cruiser-70`,
+  `${BASE}/cars-for-sale/toyota/land-cruiser-80`,
+  `${BASE}/cars-for-sale/toyota/land-cruiser-100`,
+  `${BASE}/cars-for-sale/toyota/land-cruiser-105`,
   `${BASE}/cars-for-sale/toyota/land-cruiser-200`,
   `${BASE}/cars-for-sale/toyota/land-cruiser-300`,
   `${BASE}/cars-for-sale/toyota/land-cruiser`,
   `${BASE}/cars-for-sale/toyota/land-cruiser-prado`,
+  `${BASE}/cars-for-sale/toyota/land-cruiser-fj`,
   `${BASE}/cars-for-sale/toyota/fj-cruiser`,
 ];
 
