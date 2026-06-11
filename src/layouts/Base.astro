@@ -83,11 +83,22 @@ const ogImage = new URL(image, SITE.url).href;
       gtag('config', 'G-BSFMBFSSLN');
     </script>
 
-    <!-- Persist UTM source for session-level attribution (e.g. link-in-bio → listing view) -->
+    <!-- Persist UTM source for session-level attribution (e.g. link-in-bio → listing view),
+         and log the campaign link click itself — once per session -->
     <script>
       try {
         const utm = new URLSearchParams(location.search).get('utm_source');
-        if (utm) sessionStorage.setItem('lcsa_utm', utm.toLowerCase().slice(0, 32));
+        if (utm) {
+          const v = utm.toLowerCase().slice(0, 32);
+          sessionStorage.setItem('lcsa_utm', v);
+          if (!sessionStorage.getItem('lcsa_visit_sent')) {
+            sessionStorage.setItem('lcsa_visit_sent', '1');
+            navigator.sendBeacon('/api/track-visit', JSON.stringify({
+              utm_source: v,
+              landing_path: location.pathname,
+            }));
+          }
+        }
       } catch {}
     </script>
   </head>

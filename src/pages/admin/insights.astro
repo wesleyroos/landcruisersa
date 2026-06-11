@@ -3,7 +3,7 @@ export const prerender = false;
 
 import AdminLayout from '@/layouts/AdminLayout.astro';
 import { db } from '@/db/index';
-import { trainingLeads, clickEvents, viewEvents, partnerClicks, listings } from '@/db/schema';
+import { trainingLeads, clickEvents, viewEvents, visitEvents, partnerClicks, listings } from '@/db/schema';
 import { sql, desc, eq, and } from 'drizzle-orm';
 import { PARTNERS } from '@/data/partners';
 
@@ -31,6 +31,26 @@ const clicksByListing = db.select({
   .all();
 
 const totalClicks = clicksBySource.reduce((s, r) => s + r.count, 0);
+
+// ─── Campaign link clicks (sessions arriving with a utm_source) ──────────────
+
+const visitsBySource = db.select({
+  source: visitEvents.utm_source,
+  count: sql<number>`cast(count(*) as int)`,
+}).from(visitEvents).groupBy(visitEvents.utm_source).all();
+
+const totalVisits = visitsBySource.reduce((s, r) => s + r.count, 0);
+
+const visitsDaily = db.select({
+  day: sql<string>`date(created_at, 'unixepoch')`,
+  count: sql<number>`cast(count(*) as int)`,
+}).from(visitEvents)
+  .where(sql`created_at > unixepoch('now', '-14 days')`)
+  .groupBy(sql`date(created_at, 'unixepoch')`)
+  .orderBy(sql`date(created_at, 'unixepoch')`)
+  .all();
+
+const visitsDailyMax = Math.max(1, ...visitsDaily.map(r => r.count));
 
 // ─── Listing views ────────────────────────────────────────────────────────────
 
@@ -145,6 +165,48 @@ const TRAFFIC_LABEL: Record<string, string> = {
 
 <AdminLayout title="Insights" activePage="insights">
   <div class="insights-wrap">
+
+    <!-- ── CAMPAIGN LINK CLICKS ───────────────────────────── -->
+    <section class="card">
+      <div class="card-head">
+        <h2 class="card-title">Campaign Link Clicks</h2>
+        <span class="badge">{totalVisits} total</span>
+        <span class="badge-sub">people arriving via a tracked link, e.g. ?utm_source=ig in your IG bio</span>
+      </div>
+      {totalVisits === 0 ? (
+        <p class="empty">No campaign clicks yet. Make sure the IG bio link is <code>https://landcruisersa.co.za/listings/?utm_source=ig</code></p>
+      ) : (
+        <div class="clicks-layout">
+          <div>
+            <p class="sub-label">By Campaign</p>
+            <div class="source-grid">
+              {visitsBySource.map(r => (
+                <div class="source-card">
+                  <p class="source-name">{TRAFFIC_LABEL[r.source] ?? r.source}</p>
+                  <p class="source-count">{r.count}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+          {visitsDaily.length > 0 && (
+            <div>
+              <p class="sub-label">Clicks Per Day — Last 14 Days</p>
+              <div class="bar-chart">
+                {visitsDaily.map(r => (
+                  <div class="bar-row">
+                    <span class="bar-day">{r.day.slice(5)}</span>
+                    <div class="bar-track">
+                      <div class="bar-fill" style={`width:${Math.round((r.count / visitsDailyMax) * 100)}%`}></div>
+                    </div>
+                    <span class="bar-count">{r.count}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </section>
 
     <!-- ── LISTING VIEWS ──────────────────────────────────── -->
     <section class="card">

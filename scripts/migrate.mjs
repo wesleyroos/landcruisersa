@@ -105,6 +105,16 @@ db.exec(`CREATE INDEX IF NOT EXISTS view_events_slug ON view_events (listing_slu
 db.exec(`CREATE INDEX IF NOT EXISTS view_events_created ON view_events (created_at)`);
 
 db.exec(`
+  CREATE TABLE IF NOT EXISTS visit_events (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    utm_source   TEXT    NOT NULL,
+    landing_path TEXT,
+    created_at   INTEGER NOT NULL
+  )
+`);
+db.exec(`CREATE INDEX IF NOT EXISTS visit_events_created ON visit_events (created_at)`);
+
+db.exec(`
   CREATE TABLE IF NOT EXISTS partner_clicks (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
     partner_slug TEXT    NOT NULL,

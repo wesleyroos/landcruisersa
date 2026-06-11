@@ -67,6 +67,13 @@ export const viewEvents = sqliteTable('view_events', {
   created_at:    integer('created_at', { mode: 'timestamp' }).notNull(),
 });
 
+export const visitEvents = sqliteTable('visit_events', {
+  id:           integer('id').primaryKey({ autoIncrement: true }),
+  utm_source:   text('utm_source').notNull(),  // 'ig' etc — one row per campaign session
+  landing_path: text('landing_path'),
+  created_at:   integer('created_at', { mode: 'timestamp' }).notNull(),
+});
+
 export const partnerClicks = sqliteTable('partner_clicks', {
   id:           integer('id').primaryKey({ autoIncrement: true }),
   partner_slug: text('partner_slug').notNull(),

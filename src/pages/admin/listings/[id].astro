@@ -230,7 +230,7 @@ ${listing.description ? listing.description.slice(0, 200).trim() + (listing.desc
             </div>
           ))}
         </div>
-        <button id="save-order-btn" class="btn-save-order hidden">Save Order</button>
+        <p id="order-status" class="order-status hidden"></p>
 
         <div class="upload-zone" id="upload-zone">
           <input type="file" id="upload-input" accept="image/jpeg,image/png,image/webp" multiple hidden />
@@ -252,6 +252,17 @@ ${listing.description ? listing.description.slice(0, 200).trim() + (listing.desc
 
     </div>
 
+  </div>
+
+  <!-- PHOTO LIGHTBOX -->
+  <div id="admin-lb" class="alb" aria-hidden="true">
+    <button class="alb-close" id="alb-close" aria-label="Close">✕</button>
+    <button class="alb-arrow alb-prev" id="alb-prev" aria-label="Previous">‹</button>
+    <div class="alb-img-wrap">
+      <img id="alb-img" src="" alt="" />
+      <p id="alb-counter" class="alb-counter"></p>
+    </div>
+    <button class="alb-arrow alb-next" id="alb-next" aria-label="Next">›</button>
   </div>
 
 </AdminLayout>
@@ -361,6 +372,42 @@ ${listing.description ? listing.description.slice(0, 200).trim() + (listing.desc
     min-width: 1.25rem; height: 1.25rem; padding: 0 0.3rem;
     border-radius: 9999px; display: flex; align-items: center; justify-content: center;
   }
+  .order-status {
+    margin-top: 0.625rem; font-size: 0.75rem; font-weight: 600;
+    color: #6B7280; transition: color 0.15s;
+  }
+  .order-status.saved { color: #16A34A; }
+  .order-status.error { color: #DC2626; }
+
+  /* Photo lightbox */
+  .alb {
+    position: fixed; inset: 0; z-index: 1000;
+    background: rgba(0,0,0,0.92);
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; pointer-events: none; transition: opacity 0.15s;
+  }
+  .alb.open { opacity: 1; pointer-events: all; }
+  .alb-img-wrap {
+    display: flex; flex-direction: column; align-items: center; gap: 0.625rem;
+    max-width: 90vw; max-height: 90vh;
+  }
+  .alb-img-wrap img {
+    max-width: 90vw; max-height: 85vh;
+    object-fit: contain; border-radius: 0.5rem; user-select: none;
+  }
+  .alb-counter { color: rgba(255,255,255,0.5); font-size: 0.75rem; }
+  .alb-close, .alb-arrow {
+    position: absolute; background: rgba(255,255,255,0.1); border: none;
+    color: white; cursor: pointer; border-radius: 9999px;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s;
+  }
+  .alb-close:hover, .alb-arrow:hover { background: rgba(255,255,255,0.25); }
+  .alb-close { top: 1.25rem; right: 1.25rem; width: 2.5rem; height: 2.5rem; font-size: 1rem; }
+  .alb-arrow { top: 50%; transform: translateY(-50%); width: 3rem; height: 3rem; font-size: 2rem; line-height: 1; padding-bottom: 0.25rem; }
+  .alb-prev { left: 1.25rem; }
+  .alb-next { right: 1.25rem; }
+
   .btn-save-order {
     margin-top: 0.625rem; width: 100%; background: #F5A623; color: #111;
     border: none; border-radius: 0.5rem; padding: 0.6rem 1rem;
@@ -476,7 +523,7 @@ ${listing.description ? listing.description.slice(0, 200).trim() + (listing.desc
 
   // ---- Photos section ----
   const grid = document.getElementById('photo-grid');
-  const saveOrderBtn = document.getElementById('save-order-btn');
+  const orderStatus = document.getElementById('order-status');
   const noPhotosMsg = document.getElementById('no-photos-msg');
   const photoHint = document.getElementById('photo-hint');
   const uploadZone = document.getElementById('upload-zone');
@@ -490,23 +537,35 @@ ${listing.description ? listing.description.slice(0, 200).trim() + (listing.desc
     photoHint.style.display = wraps.length > 1 ? '' : 'none';
   }
 
-  async function savePhotos(btnEl, successText) {
-    const photos = [...grid.querySelectorAll('.photo-wrap')].map(el => el.dataset.src);
-    btnEl.disabled = true;
-    const prev = btnEl.textContent;
-    btnEl.textContent = 'Saving…';
-    const res = await fetch(`/api/listings/${listingId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ photos }),
-    });
-    if (res.ok) {
-      btnEl.textContent = successText ?? 'Saved!';
-      setTimeout(() => { btnEl.classList.add('hidden'); btnEl.textContent = prev; btnEl.disabled = false; }, 2000);
-    } else {
-      btnEl.textContent = 'Error — try again';
-      btnEl.disabled = false;
-    }
+  // Auto-save the photo order, debounced so rapid drags collapse into one request
+  let orderSaveTimer = null;
+  let orderStatusTimer = null;
+
+  function queueOrderSave() {
+    clearTimeout(orderSaveTimer);
+    clearTimeout(orderStatusTimer);
+    orderStatus.classList.remove('hidden', 'saved', 'error');
+    orderStatus.textContent = 'Saving order…';
+    orderSaveTimer = setTimeout(async () => {
+      const photos = [...grid.querySelectorAll('.photo-wrap')].map(el => el.dataset.src);
+      try {
+        const res = await fetch(`/api/listings/${listingId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ photos }),
+        });
+        if (res.ok) {
+          orderStatus.textContent = '✓ Order saved';
+          orderStatus.classList.add('saved');
+          orderStatusTimer = setTimeout(() => orderStatus.classList.add('hidden'), 2000);
+        } else {
+          throw new Error();
+        }
+      } catch {
+        orderStatus.textContent = 'Save failed — drag again to retry';
+        orderStatus.classList.add('error');
+      }
+    }, 500);
   }
 
   function makePhotoWrap(src) {
@@ -569,15 +628,53 @@ ${listing.description ? listing.description.slice(0, 200).trim() + (listing.desc
     const si = all.indexOf(dragSrc), ti = all.indexOf(target);
     grid.insertBefore(dragSrc, si < ti ? target.nextSibling : target);
     refreshPhotoMeta();
-    saveOrderBtn.classList.remove('hidden');
+    queueOrderSave();
   });
 
-  saveOrderBtn.addEventListener('click', () => savePhotos(saveOrderBtn, 'Saved!'));
+  // ---- Lightbox ----
+  const alb = document.getElementById('admin-lb');
+  const albImg = document.getElementById('alb-img');
+  const albCounter = document.getElementById('alb-counter');
+  let albIndex = 0;
 
-  // Delete a photo
+  function albPhotos() {
+    return [...grid.querySelectorAll('.photo-wrap')].map(el => el.dataset.src);
+  }
+  function albOpen(i) {
+    const photos = albPhotos();
+    if (!photos.length) return;
+    albIndex = ((i % photos.length) + photos.length) % photos.length;
+    albImg.src = photos[albIndex];
+    albCounter.textContent = `${albIndex + 1} / ${photos.length}`;
+    alb.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+  function albClose() {
+    alb.classList.remove('open');
+    document.body.style.overflow = '';
+  }
+  document.getElementById('alb-close').addEventListener('click', albClose);
+  document.getElementById('alb-prev').addEventListener('click', () => albOpen(albIndex - 1));
+  document.getElementById('alb-next').addEventListener('click', () => albOpen(albIndex + 1));
+  alb.addEventListener('click', (e) => { if (e.target === alb) albClose(); });
+  document.addEventListener('keydown', (e) => {
+    if (!alb.classList.contains('open')) return;
+    if (e.key === 'Escape') albClose();
+    if (e.key === 'ArrowLeft') albOpen(albIndex - 1);
+    if (e.key === 'ArrowRight') albOpen(albIndex + 1);
+  });
+
+  // Delete a photo, or open the lightbox when clicking the photo itself
   grid.addEventListener('click', async (e) => {
     const btn = e.target.closest('.photo-delete');
-    if (!btn) return;
+    if (!btn) {
+      const wrap = e.target.closest('.photo-wrap');
+      if (wrap) {
+        const all = [...grid.querySelectorAll('.photo-wrap')];
+        albOpen(all.indexOf(wrap));
+      }
+      return;
+    }
     const wrap = btn.closest('.photo-wrap');
     wrap.remove();
     refreshPhotoMeta();
