@@ -1,5 +1,5 @@
 /**
- * Uploads WP media RTT images to R2 for the RTT article.
+ * Uploads RTT article images to R2.
  * Run: node --env-file=.env scripts/upload-rtt-images.mjs
  */
 
@@ -21,16 +21,16 @@ const PUBLIC_URL = process.env.R2_PUBLIC_URL;
 
 const IMAGES = [
   {
-    localPath: 'public/images/wp-media/25009820_546431939028373_8890019670594158592_n.jpg',
-    filename: 'best-rooftop-tent-for-a-land-cruiser-alucab-lc79.jpg',
+    localPath: '/tmp/rtt-upload-gen3r-sunset.jpg',
+    filename: 'best-rooftop-tent-for-a-land-cruiser-gen3r-sunset.jpg',
   },
   {
-    localPath: 'public/images/wp-media/gen-3-tent-cut-out-1.jpg',
-    filename: 'best-rooftop-tent-for-a-land-cruiser-gen3r.jpg',
+    localPath: '/tmp/rtt-upload-gen3r-table-mountain.jpg',
+    filename: 'best-rooftop-tent-for-a-land-cruiser-gen3r-table-mountain.jpg',
   },
   {
-    localPath: 'public/images/wp-media/rooftop-tents-getaway-magazine-10.jpg',
-    filename: 'best-rooftop-tent-for-a-land-cruiser-tentco-softshell.jpg',
+    localPath: '/tmp/rtt-upload-tentco-prado.webp',
+    filename: 'best-rooftop-tent-for-a-land-cruiser-tentco-prado.webp',
   },
 ];
 
