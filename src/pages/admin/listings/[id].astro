@@ -208,19 +208,26 @@ ${listing.description ? listing.description.slice(0, 200).trim() + (listing.desc
     <div class="edit-photos-col">
       <div class="card">
         <h2 class="card-heading">Photos</h2>
-        {photos.length === 0 && <p class="no-photos">No photos uploaded.</p>}
-        {photos.length > 1 && <p class="photo-hint">Drag to reorder. First photo is the cover.</p>}
+        <p class="no-photos" id="no-photos-msg" style={photos.length > 0 ? 'display:none' : ''}>No photos uploaded.</p>
+        <p class="photo-hint" id="photo-hint" style={photos.length > 1 ? '' : 'display:none'}>Drag to reorder. First photo is the cover.</p>
         <div class="photo-grid" id="photo-grid">
           {photos.map((src, i) => (
             <div class="photo-wrap" draggable="true" data-src={src}>
               <span class="photo-num">{i + 1}</span>
               <img src={src} alt={`Photo ${i + 1}`} loading="lazy" />
+              <button class="photo-delete" type="button" title="Remove photo">✕</button>
             </div>
           ))}
         </div>
-        {photos.length > 1 && (
-          <button id="save-order-btn" class="btn-save-order hidden">Save Order</button>
-        )}
+        <button id="save-order-btn" class="btn-save-order hidden">Save Order</button>
+
+        <div class="upload-zone" id="upload-zone">
+          <input type="file" id="upload-input" accept="image/jpeg,image/png,image/webp" multiple hidden />
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          <span class="upload-label">Drop photos here or <u>click to browse</u></span>
+          <span class="upload-hint">JPEG, PNG or WebP · max 10 MB each</span>
+        </div>
+        <div id="upload-status"></div>
       </div>
 
       <!-- IG Caption -->
@@ -353,6 +360,32 @@ ${listing.description ? listing.description.slice(0, 200).trim() + (listing.desc
   .btn-save-order:disabled { opacity: 0.5; cursor: not-allowed; }
   .no-photos { font-size: 0.875rem; color: #9CA3AF; }
 
+  /* DELETE BUTTON */
+  .photo-delete {
+    position: absolute; top: 0.3rem; right: 0.3rem; z-index: 2;
+    background: rgba(0,0,0,0.6); color: white; border: none;
+    width: 1.4rem; height: 1.4rem; border-radius: 9999px;
+    font-size: 0.6rem; line-height: 1; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; transition: opacity 0.15s;
+  }
+  .photo-wrap:hover .photo-delete { opacity: 1; }
+  .photo-delete:hover { background: rgba(220,38,38,0.85); }
+
+  /* UPLOAD ZONE */
+  .upload-zone {
+    margin-top: 0.75rem; border: 1.5px dashed #DDD9D3; border-radius: 0.625rem;
+    padding: 1.25rem 1rem; display: flex; flex-direction: column;
+    align-items: center; gap: 0.4rem; cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+    text-align: center;
+  }
+  .upload-zone:hover, .upload-zone.drag-active { border-color: #F5A623; background: rgba(245,166,35,0.04); }
+  .upload-label { font-size: 0.8rem; color: #374151; }
+  .upload-label u { color: #F5A623; text-decoration-color: #F5A623; }
+  .upload-hint { font-size: 0.7rem; color: #9CA3AF; }
+  #upload-status { font-size: 0.75rem; color: #6B7280; margin-top: 0.4rem; min-height: 1.1rem; }
+
   /* IG CAPTION */
   .ig-card { margin-top: 1rem; }
   .ig-card-header {
@@ -430,60 +463,145 @@ ${listing.description ? listing.description.slice(0, 200).trim() + (listing.desc
     saveBtn.textContent = 'Save Changes';
   });
 
-  // Photo drag-and-drop reordering
+  // ---- Photos section ----
   const grid = document.getElementById('photo-grid');
   const saveOrderBtn = document.getElementById('save-order-btn');
-  if (grid && saveOrderBtn) {
-    let dragSrc = null;
+  const noPhotosMsg = document.getElementById('no-photos-msg');
+  const photoHint = document.getElementById('photo-hint');
+  const uploadZone = document.getElementById('upload-zone');
+  const uploadInput = document.getElementById('upload-input');
+  const uploadStatus = document.getElementById('upload-status');
 
-    grid.addEventListener('dragstart', (e) => {
-      dragSrc = e.target.closest('.photo-wrap');
-      if (!dragSrc) return;
-      setTimeout(() => dragSrc.classList.add('dragging'), 0);
-      e.dataTransfer.effectAllowed = 'move';
+  function refreshPhotoMeta() {
+    const wraps = grid.querySelectorAll('.photo-wrap');
+    wraps.forEach((el, i) => el.querySelector('.photo-num').textContent = String(i + 1));
+    noPhotosMsg.style.display = wraps.length === 0 ? '' : 'none';
+    photoHint.style.display = wraps.length > 1 ? '' : 'none';
+  }
+
+  async function savePhotos(btnEl, successText) {
+    const photos = [...grid.querySelectorAll('.photo-wrap')].map(el => el.dataset.src);
+    btnEl.disabled = true;
+    const prev = btnEl.textContent;
+    btnEl.textContent = 'Saving…';
+    const res = await fetch(`/api/listings/${listingId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ photos }),
     });
+    if (res.ok) {
+      btnEl.textContent = successText ?? 'Saved!';
+      setTimeout(() => { btnEl.classList.add('hidden'); btnEl.textContent = prev; btnEl.disabled = false; }, 2000);
+    } else {
+      btnEl.textContent = 'Error — try again';
+      btnEl.disabled = false;
+    }
+  }
 
-    grid.addEventListener('dragend', () => {
-      grid.querySelectorAll('.photo-wrap').forEach(el => el.classList.remove('dragging', 'drag-over'));
+  function makePhotoWrap(src) {
+    const wrap = document.createElement('div');
+    wrap.className = 'photo-wrap';
+    wrap.draggable = true;
+    wrap.dataset.src = src;
+    wrap.innerHTML = `<span class="photo-num"></span><img src="${src}" alt="" loading="lazy" /><button class="photo-delete" type="button" title="Remove photo">✕</button>`;
+    return wrap;
+  }
+
+  // Drag-and-drop reordering
+  let dragSrc = null;
+
+  grid.addEventListener('dragstart', (e) => {
+    dragSrc = e.target.closest('.photo-wrap');
+    if (!dragSrc) return;
+    setTimeout(() => dragSrc.classList.add('dragging'), 0);
+    e.dataTransfer.effectAllowed = 'move';
+  });
+
+  grid.addEventListener('dragend', () => {
+    grid.querySelectorAll('.photo-wrap').forEach(el => el.classList.remove('dragging', 'drag-over'));
+  });
+
+  grid.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    const target = e.target.closest('.photo-wrap');
+    grid.querySelectorAll('.photo-wrap').forEach(el => el.classList.remove('drag-over'));
+    if (target && target !== dragSrc) target.classList.add('drag-over');
+  });
+
+  grid.addEventListener('drop', (e) => {
+    e.preventDefault();
+    const target = e.target.closest('.photo-wrap');
+    if (!target || target === dragSrc) return;
+    target.classList.remove('drag-over');
+    const all = [...grid.querySelectorAll('.photo-wrap')];
+    const si = all.indexOf(dragSrc), ti = all.indexOf(target);
+    grid.insertBefore(dragSrc, si < ti ? target.nextSibling : target);
+    refreshPhotoMeta();
+    saveOrderBtn.classList.remove('hidden');
+  });
+
+  saveOrderBtn.addEventListener('click', () => savePhotos(saveOrderBtn, 'Saved!'));
+
+  // Delete a photo
+  grid.addEventListener('click', async (e) => {
+    const btn = e.target.closest('.photo-delete');
+    if (!btn) return;
+    const wrap = btn.closest('.photo-wrap');
+    wrap.remove();
+    refreshPhotoMeta();
+    // Immediately persist the deletion
+    const photos = [...grid.querySelectorAll('.photo-wrap')].map(el => el.dataset.src);
+    await fetch(`/api/listings/${listingId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ photos }),
     });
+  });
 
-    grid.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      const target = e.target.closest('.photo-wrap');
-      grid.querySelectorAll('.photo-wrap').forEach(el => el.classList.remove('drag-over'));
-      if (target && target !== dragSrc) target.classList.add('drag-over');
-    });
-
-    grid.addEventListener('drop', (e) => {
-      e.preventDefault();
-      const target = e.target.closest('.photo-wrap');
-      if (!target || target === dragSrc) return;
-      target.classList.remove('drag-over');
-      const all = [...grid.querySelectorAll('.photo-wrap')];
-      const si = all.indexOf(dragSrc), ti = all.indexOf(target);
-      grid.insertBefore(dragSrc, si < ti ? target.nextSibling : target);
-      grid.querySelectorAll('.photo-num').forEach((el, i) => el.textContent = String(i + 1));
-      saveOrderBtn.classList.remove('hidden');
-    });
-
-    saveOrderBtn.addEventListener('click', async () => {
+  // Upload
+  async function uploadFiles(files) {
+    if (!files.length) return;
+    uploadStatus.textContent = `Uploading ${files.length} photo${files.length > 1 ? 's' : ''}…`;
+    let done = 0;
+    for (const file of files) {
+      const fd = new FormData();
+      fd.append('file', file);
+      try {
+        const res = await fetch('/api/uploads', { method: 'POST', body: fd });
+        if (!res.ok) { uploadStatus.textContent = `Upload failed: ${file.name}`; continue; }
+        const { url } = await res.json();
+        const wrap = makePhotoWrap(url);
+        grid.appendChild(wrap);
+        done++;
+        refreshPhotoMeta();
+        uploadStatus.textContent = `Uploaded ${done} / ${files.length}…`;
+      } catch {
+        uploadStatus.textContent = `Upload failed: ${file.name}`;
+      }
+    }
+    if (done > 0) {
       const photos = [...grid.querySelectorAll('.photo-wrap')].map(el => el.dataset.src);
-      saveOrderBtn.disabled = true;
-      saveOrderBtn.textContent = 'Saving…';
-      const res = await fetch(`/api/listings/${listingId}`, {
+      await fetch(`/api/listings/${listingId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ photos }),
       });
-      if (res.ok) {
-        saveOrderBtn.textContent = 'Saved!';
-        setTimeout(() => { saveOrderBtn.classList.add('hidden'); saveOrderBtn.textContent = 'Save Order'; saveOrderBtn.disabled = false; }, 2000);
-      } else {
-        saveOrderBtn.textContent = 'Error — try again';
-        saveOrderBtn.disabled = false;
-      }
-    });
+      uploadStatus.textContent = `${done} photo${done > 1 ? 's' : ''} saved.`;
+    }
+    setTimeout(() => uploadStatus.textContent = '', 3000);
   }
+
+  uploadZone.addEventListener('click', () => uploadInput.click());
+  uploadInput.addEventListener('change', () => { uploadFiles([...uploadInput.files]); uploadInput.value = ''; });
+
+  uploadZone.addEventListener('dragover', (e) => { e.preventDefault(); uploadZone.classList.add('drag-active'); });
+  uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-active'));
+  uploadZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    uploadZone.classList.remove('drag-active');
+    const files = [...e.dataTransfer.files].filter(f => ['image/jpeg','image/png','image/webp'].includes(f.type));
+    uploadFiles(files);
+  });
 
   // IG Caption copy
   const copyBtn = document.getElementById('copy-caption-btn');
