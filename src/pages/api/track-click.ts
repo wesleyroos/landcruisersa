@@ -4,7 +4,7 @@ import type { APIRoute } from 'astro';
 import { db } from '@/db/index';
 import { clickEvents } from '@/db/schema';
 
-const VALID_SOURCES = ['autotrader', 'wbc', 'adios', 'wbb'];
+const VALID_SOURCES = ['autotrader', 'wbc', 'adios', 'wbb', 'whatsapp', 'call', 'email'];
 
 export const POST: APIRoute = async ({ request }) => {
   let body: { listing_slug?: string; listing_title?: string; source?: string };

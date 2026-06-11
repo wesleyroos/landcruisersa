@@ -44,6 +44,16 @@ const photos: string[] = (() => { try { return JSON.parse(listing.photos) ?? [];
 const mainPhoto = photos[0] ?? 'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/og-default.jpg';
 const gridPhotos = photos.slice(1, 5);
 
+function waPhone(phone: string): string {
+  const digits = phone.replace(/\D/g, '');
+  if (digits.startsWith('27') && digits.length >= 11) return digits;
+  if (digits.startsWith('0')) return '27' + digits.slice(1);
+  return '27' + digits;
+}
+function waUrl(phone: string, title: string): string {
+  return `https://wa.me/${waPhone(phone)}?text=${encodeURIComponent(`Hi, I saw your ${title} on Land Cruiser SA.`)}`;
+}
+
 function formatPrice(n: number) {
   return 'R ' + n.toLocaleString('en-ZA');
 }
@@ -144,9 +154,9 @@ const vehicleSchema: Record<string, unknown> = {
       )}
       {!isSold && !isExternal && !isShowOff && (
         <a
-          href={`https://wa.me/27${listing.seller_phone.replace(/^0/, '').replace(/\s/g, '')}?text=Hi, I saw your ${encodeURIComponent(listing.title)} on Land Cruiser SA.`}
+          href={waUrl(listing.seller_phone, listing.title)}
           target="_blank" rel="noopener"
-          class="wa-btn-header"
+          class="wa-btn-header" data-track-wa
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.126.554 4.122 1.526 5.855L.057 23.886a.5.5 0 00.606.619l6.222-1.638A11.94 11.94 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.9a9.89 9.89 0 01-5.033-1.371l-.36-.214-3.733.982.998-3.648-.235-.374A9.861 9.861 0 012.1 12c0-5.459 4.441-9.9 9.9-9.9 5.459 0 9.9 4.441 9.9 9.9 0 5.459-4.441 9.9-9.9 9.9z"/></svg>
           WhatsApp Seller
@@ -364,8 +374,8 @@ const vehicleSchema: Record<string, unknown> = {
               ) : (
                 <div class="cta-stack">
                   <a
-                    href={`https://wa.me/27${listing.seller_phone.replace(/^0/, '').replace(/\s/g, '')}?text=Hi, I saw your ${encodeURIComponent(listing.title)} on Land Cruiser SA.`}
-                    target="_blank" rel="noopener" class="cta-wa"
+                    href={waUrl(listing.seller_phone, listing.title)}
+                    target="_blank" rel="noopener" class="cta-wa" data-track-wa
                   >
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.126.554 4.122 1.526 5.855L.057 23.886a.5.5 0 00.606.619l6.222-1.638A11.94 11.94 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.9a9.89 9.89 0 01-5.033-1.371l-.36-.214-3.733.982.998-3.648-.235-.374A9.861 9.861 0 012.1 12c0-5.459 4.441-9.9 9.9-9.9 5.459 0 9.9 4.441 9.9 9.9 0 5.459-4.441 9.9-9.9 9.9z"/></svg>
                     WhatsApp Seller
@@ -426,7 +436,7 @@ const vehicleSchema: Record<string, unknown> = {
     {isExternal ? (
       <a href={listing.source_url!} target="_blank" rel="noopener" class="mobile-cta-btn mobile-cta-wa" data-track-external>View on {portalName}</a>
     ) : (
-      <a href={`https://wa.me/27${listing.seller_phone.replace(/^0/, '').replace(/\s/g, '')}?text=Hi, I saw your ${encodeURIComponent(listing.title)} on Land Cruiser SA.`} target="_blank" rel="noopener" class="mobile-cta-btn mobile-cta-wa">WhatsApp Seller</a>
+      <a href={waUrl(listing.seller_phone, listing.title)} target="_blank" rel="noopener" class="mobile-cta-btn mobile-cta-wa" data-track-wa>WhatsApp Seller</a>
     )}
   </div>
 )}
@@ -457,6 +467,22 @@ const vehicleSchema: Record<string, unknown> = {
             listing_slug: _slug,
             listing_title: _title,
             source: _source,
+          }));
+        } catch {}
+      });
+    });
+  </script>
+)}
+
+{!isExternal && !isShowOff && !isSold && (
+  <script define:vars={{ _slug: listing.slug, _title: listing.title }}>
+    document.querySelectorAll('[data-track-wa]').forEach(function(a) {
+      a.addEventListener('click', function() {
+        try {
+          navigator.sendBeacon('/api/track-click', JSON.stringify({
+            listing_slug: _slug,
+            listing_title: _title,
+            source: 'whatsapp',
           }));
         } catch {}
       });
