@@ -186,6 +186,26 @@ const partnerRows = [...partnerTotals.entries()]
   .sort((a, b) => b.total - a.total);
 const totalPartnerClicks = partnerRows.reduce((s, r) => s + r.total, 0);
 
+// ─── Listings growth ─────────────────────────────────────────────────────────
+
+const listingsPerDay = db.select({
+  day: sql<string>`date(created_at, 'unixepoch')`,
+  count: sql<number>`cast(count(*) as int)`,
+}).from(listings)
+  .groupBy(sql`date(created_at, 'unixepoch')`)
+  .orderBy(sql`date(created_at, 'unixepoch')`)
+  .all();
+
+// Compute running cumulative total
+let running = 0;
+const listingsGrowth = listingsPerDay.map(r => {
+  running += r.count;
+  return { day: r.day, count: r.count, total: running };
+});
+
+const maxDailyCount = Math.max(1, ...listingsGrowth.map(r => r.count));
+const maxTotal = Math.max(1, ...listingsGrowth.map(r => r.total));
+
 // ─── Formatting helpers ───────────────────────────────────────────────────────
 
 function fmt(d: Date | null) {
@@ -262,6 +282,75 @@ const totalListingCount = (db.select({ n: sql<number>`count(*)` }).from(listings
         <p class="kpi-sub">4x4 training enquiries</p>
       </div>
     </div>
+
+    <!-- ── LISTINGS GROWTH ──────────────────────────────────── -->
+    {listingsGrowth.length > 0 && (
+      <section class="card">
+        <div class="card-head">
+          <h2 class="card-title">Listings Growth</h2>
+          <span class="badge">{totalListingCount} total</span>
+          <span class="badge-sub">{activeListingCount} active</span>
+        </div>
+        <div class="growth-body">
+
+          <!-- Cumulative SVG line chart -->
+          <div class="growth-chart-wrap">
+            <p class="mini-label">Cumulative total</p>
+            <div class="growth-svg-outer">
+              <svg
+                viewBox={`0 0 ${listingsGrowth.length * 10} 60`}
+                preserveAspectRatio="none"
+                class="growth-svg"
+              >
+                <polyline
+                  points={listingsGrowth.map((r, i) =>
+                    `${i * 10 + 5},${60 - Math.round((r.total / maxTotal) * 56)}`
+                  ).join(' ')}
+                  fill="none"
+                  stroke="#F5A623"
+                  stroke-width="2"
+                  stroke-linejoin="round"
+                  stroke-linecap="round"
+                />
+                {/* Filled area under the line */}
+                <polygon
+                  points={[
+                    `5,60`,
+                    ...listingsGrowth.map((r, i) =>
+                      `${i * 10 + 5},${60 - Math.round((r.total / maxTotal) * 56)}`
+                    ),
+                    `${(listingsGrowth.length - 1) * 10 + 5},60`,
+                  ].join(' ')}
+                  fill="rgba(245,166,35,0.12)"
+                />
+              </svg>
+              <div class="growth-svg-labels">
+                <span>{listingsGrowth[0]?.day.slice(0, 7)}</span>
+                <span>{listingsGrowth[Math.floor(listingsGrowth.length / 2)]?.day.slice(0, 7)}</span>
+                <span>{listingsGrowth[listingsGrowth.length - 1]?.day.slice(0, 7)}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Daily additions bar chart (last 30 days) -->
+          <div class="growth-bars-wrap">
+            <p class="mini-label">New listings per day (last 30 days)</p>
+            <div class="bar-chart">
+              {listingsGrowth.slice(-30).map(r => (
+                <div class="bar-row">
+                  <span class="bar-day">{r.day.slice(5)}</span>
+                  <div class="bar-track">
+                    <div class="bar-fill" style={`width:${Math.round((r.count / maxDailyCount) * 100)}%`}></div>
+                  </div>
+                  <span class="bar-count">{r.count}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+        </div>
+      </section>
+    )}
 
     <!-- ── ROW: CAMPAIGN TRAFFIC + DEMAND ─────────────────── -->
     <div class="grid-2">
@@ -642,6 +731,26 @@ const totalListingCount = (db.select({ n: sql<number>`count(*)` }).from(listings
   .nowrap { white-space: nowrap; }
   .msg { max-width: 220px; white-space: pre-wrap; font-size: 0.72rem; color: #6B7280; }
   .sub-line { display: block; font-size: 0.68rem; color: #9CA3AF; margin-top: 0.1rem; }
+
+  /* Listings growth */
+  .growth-body {
+    display: grid; grid-template-columns: 1fr; gap: 1.5rem;
+    padding: 1.25rem;
+  }
+  @media (min-width: 900px) {
+    .growth-body { grid-template-columns: 1fr 1fr; }
+  }
+  .growth-chart-wrap { display: flex; flex-direction: column; gap: 0.5rem; }
+  .growth-bars-wrap  { display: flex; flex-direction: column; gap: 0.5rem; }
+  .growth-svg-outer  { display: flex; flex-direction: column; gap: 0.25rem; }
+  .growth-svg {
+    width: 100%; height: 80px; display: block;
+    border-bottom: 1px solid #F3F4F6;
+  }
+  .growth-svg-labels {
+    display: flex; justify-content: space-between;
+    font-size: 0.6rem; color: #9CA3AF; font-variant-numeric: tabular-nums;
+  }
 
   /* Bar chart */
   .bar-chart { display: flex; flex-direction: column; gap: 0.3rem; }
