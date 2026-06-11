@@ -52,6 +52,7 @@ for (const [src, models] of matrix) {
 // Coverage anomaly: source carries decent stock overall but has ZERO of a model
 // that other sources hold plenty of — the exact failure mode that hid WBC 79s.
 function isAnomaly(source: string, model: string): boolean {
+  if (model === 'other') return false; // catch-all bucket, not a real model
   const own = matrix.get(source)?.get(model) ?? 0;
   if (own > 0) return false;
   const others = (modelTotals.get(model) ?? 0);
