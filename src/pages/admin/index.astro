@@ -4,8 +4,8 @@ export const prerender = false;
 import AdminLayout from '@/layouts/AdminLayout.astro';
 import { getCredentials } from '@/lib/instagram';
 import { db } from '@/db/index';
-import { listings, clickEvents } from '@/db/schema';
-import { desc, eq, and, or, gte, lte, sql, like, isNotNull } from 'drizzle-orm';
+import { listings, clickEvents, priceEvents } from '@/db/schema';
+import { desc, eq, and, or, gte, lte, sql, like, isNotNull, inArray } from 'drizzle-orm';
 import type { Listing } from '@/db/schema';
 import type { SQL } from 'drizzle-orm';
 
@@ -20,12 +20,13 @@ const fPrice    = Astro.url.searchParams.get('price')    ?? '';
 const fProvince = Astro.url.searchParams.get('province') ?? '';
 const fType     = Astro.url.searchParams.get('type')     ?? '';
 const fPosted   = Astro.url.searchParams.get('posted')   === '1';
+const fDrops    = Astro.url.searchParams.get('drops')    === '1';
 const fQ        = (Astro.url.searchParams.get('q') ?? '').trim();
-const hasFilter = !!(fSource || fModel || fYear || fPrice || fProvince || fType || fPosted || fQ);
+const hasFilter = !!(fSource || fModel || fYear || fPrice || fProvince || fType || fPosted || fDrops || fQ);
 
 function buildFilterUrl(overrides: Record<string, string>) {
   const params = new URLSearchParams();
-  const base = { source: fSource, model: fModel, year: fYear, price: fPrice, province: fProvince, type: fType, posted: fPosted ? '1' : '', q: fQ, ...overrides };
+  const base = { source: fSource, model: fModel, year: fYear, price: fPrice, province: fProvince, type: fType, posted: fPosted ? '1' : '', drops: fDrops ? '1' : '', q: fQ, ...overrides };
   for (const [k, v] of Object.entries(base)) if (v) params.set(k, v);
   const s = params.toString();
   return `/admin${s ? '?' + s : ''}`;
@@ -40,6 +41,39 @@ const pendingCount = countMap['pending'] ?? 0;
 const activeCount  = countMap['active']  ?? 0;
 const soldCount    = countMap['sold']    ?? 0;
 const totalCount   = pendingCount + activeCount + soldCount;
+
+// ─── Price changes (last 30 days) — net movement per listing ─────────────────
+// Earliest recorded old_price in the window vs the listing's current price, so
+// consecutive cuts show as one honest total.
+const dropWindow = new Date(Date.now() - 30 * 24 * 3600 * 1000);
+const recentEvents = db.select({
+  slug:      priceEvents.slug,
+  old_price: priceEvents.old_price,
+}).from(priceEvents)
+  .where(gte(priceEvents.recorded_at, dropWindow))
+  .orderBy(priceEvents.recorded_at)
+  .all();
+
+const earliestOld = new Map<string, number>();
+for (const e of recentEvents) if (!earliestOld.has(e.slug)) earliestOld.set(e.slug, e.old_price);
+
+const priceChange = new Map<string, number>(); // slug → net change (negative = drop)
+if (earliestOld.size > 0) {
+  const rows = db.select({ slug: listings.slug, price: listings.price })
+    .from(listings)
+    .where(inArray(listings.slug, [...earliestOld.keys()]))
+    .all();
+  for (const r of rows) {
+    const old = earliestOld.get(r.slug)!;
+    if (r.price > 0 && old > 0 && r.price !== old) priceChange.set(r.slug, r.price - old);
+  }
+}
+const droppedSlugs = [...priceChange.entries()].filter(([, d]) => d < 0).map(([s]) => s);
+
+const droppedActiveCount = droppedSlugs.length
+  ? (db.select({ n: sql<number>`count(*)` }).from(listings)
+      .where(and(eq(listings.status, 'active'), inArray(listings.slug, droppedSlugs))).get())?.n ?? 0
+  : 0;
 
 // Build active WHERE clause with filters
 const activeConds: SQL[] = [eq(listings.status, 'active')];
@@ -58,6 +92,7 @@ if (fPrice) {
   if (pMax < 9999999) activeConds.push(lte(listings.price, pMax));
 }
 if (fPosted) activeConds.push(isNotNull(listings.ig_posted_at));
+if (fDrops) activeConds.push(droppedSlugs.length ? inArray(listings.slug, droppedSlugs) : sql`0 = 1`);
 if (fQ) {
   const pat = `%${fQ}%`;
   activeConds.push(or(
@@ -355,6 +390,9 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
       </select>
     </div>
     <div class="filter-meta">
+      <a href={buildFilterUrl({ drops: fDrops ? '' : '1', page: '' })} class={`af-posted-toggle af-drops-toggle${fDrops ? ' active' : ''}`}>
+        ▼ Price Drops ({droppedActiveCount})
+      </a>
       {igConnected && (
         <a href={buildFilterUrl({ posted: fPosted ? '' : '1', page: '' })} class={`af-posted-toggle${fPosted ? ' active' : ''}`}>
           ✓ Posted to IG ({postedCount})
@@ -406,6 +444,10 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
                   </span>
                   {l.listing_type === 'for_sale' && (
                     <span class="lcard-price">{formatPrice(l.price)}</span>
+                  )}
+                  {priceChange.has(l.slug) && (priceChange.get(l.slug)! < 0
+                    ? <span class="chg-chip chg-drop">▼ R{Math.abs(priceChange.get(l.slug)!).toLocaleString('en-ZA')}</span>
+                    : <span class="chg-chip chg-raise">▲ R{priceChange.get(l.slug)!.toLocaleString('en-ZA')}</span>
                   )}
                 </div>
                 <a href={`/admin/listings/${l.id}`} class="lcard-title">{l.title}</a>
@@ -679,6 +721,13 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
   .badge-show { background: #F3F4F6; color: #6B7280; }
 
   .lcard-price { font-size: 0.9375rem; font-weight: 700; color: #111111; }
+  .chg-chip {
+    font-size: 0.62rem; font-weight: 700; padding: 0.15rem 0.5rem; border-radius: 9999px;
+    white-space: nowrap; letter-spacing: 0.02em;
+  }
+  .chg-drop  { background: #F0FDF4; color: #166534; }
+  .chg-raise { background: #FAFAFA; color: #B91C1C; opacity: 0.8; }
+  .af-drops-toggle.active { background: #166534; border-color: #166534; }
 
   .lcard-title {
     display: block; font-size: 1rem; font-weight: 700; color: #111111;
