@@ -6,8 +6,8 @@ import { getCollection } from 'astro:content';
 import { SITE } from '@/data/site';
 import { PARTNERS } from '@/data/partners';
 import { db } from '@/db/index';
-import { listings } from '@/db/schema';
-import { eq, desc, and, not } from 'drizzle-orm';
+import { listings, priceEvents } from '@/db/schema';
+import { eq, desc, and, not, sql, gte } from 'drizzle-orm';
 
 const allPosts = await getCollection('posts', p => !p.data.draft);
 const posts = allPosts
@@ -34,6 +34,19 @@ const fillListings = pinnedListings.length < SLOTS
 
 const featuredListings = [...pinnedListings, ...fillListings];
 
+// Live hero stats — the first fold's claims stay true automatically
+const activeCount = (db.select({ n: sql<number>`count(*)` })
+  .from(listings).where(eq(listings.status, 'active')).get())?.n ?? 0;
+const modelCount = (db.select({ n: sql<number>`count(DISTINCT model)` })
+  .from(listings).where(and(eq(listings.status, 'active'), not(eq(listings.model, 'other')))).get())?.n ?? 0;
+const dropCount = (db.select({ n: sql<number>`count(DISTINCT slug)` })
+  .from(priceEvents)
+  .where(and(
+    gte(priceEvents.recorded_at, new Date(Date.now() - 30 * 24 * 3600 * 1000)),
+    sql`new_price < old_price`,
+  )).get())?.n ?? 0;
+const activeStr = activeCount.toLocaleString('en-ZA');
+
 function firstPhoto(photos: string) {
   try { return JSON.parse(photos)[0] ?? 'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/og-default.jpg'; } catch { return 'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/og-default.jpg'; }
 }
@@ -43,14 +56,14 @@ function formatPrice(n: number) {
 ---
 
 <Base
-  title="Land Cruiser SA — For People Who Love All Things Land Cruiser"
-  description="South Africa's home for Land Cruiser enthusiasts. Guides, builds, classifieds, 4x4 training, and gear — all in one place."
+  title="Land Cruiser SA — Every Land Cruiser For Sale in South Africa"
+  description={`Every Land Cruiser for sale in South Africa, in one place. ${activeStr} live listings aggregated from every major platform — prices tracked daily, drops flagged. Plus guides, builds and 4x4 training.`}
   schema={{
     "@context": "https://schema.org",
     "@type": "WebSite",
     "name": SITE.name,
     "url": SITE.url,
-    "description": "South Africa's home for Land Cruiser enthusiasts. Guides, builds, classifieds, 4x4 training, and gear — all in one place.",
+    "description": "Every Land Cruiser for sale in South Africa, in one place — live listings from every major platform with prices tracked daily. Plus guides, builds and 4x4 training.",
     "potentialAction": {
       "@type": "SearchAction",
       "target": `${SITE.url}/listings/?q={search_term_string}`,
@@ -64,11 +77,19 @@ function formatPrice(n: number) {
     <img src="https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/hero-bg.jpg" alt="" class="hero-img" fetchpriority="high" />
     <div class="hero-scrim"></div>
     <div class="hero-inner">
-      <p class="hero-eyebrow">South Africa's #1 Land Cruiser Community</p>
-      <h1 class="hero-heading">Built for the road<br/>less taken.</h1>
+      <p class="hero-eyebrow">South Africa's Land Cruiser Marketplace</p>
+      <h1 class="hero-heading">Every Land Cruiser<br/>for sale in SA.<br/>One place.</h1>
+      <p class="hero-tagline">Built for the road less taken.</p>
       <div class="hero-actions">
-        <a href="/useful-info/" class="btn-primary">Guides & Advice</a>
-        <a href="/listings/" class="btn-ghost">Browse Listings</a>
+        <a href="/listings/" class="btn-primary">Browse {activeStr} Cruisers</a>
+        <a href="/market/" class="btn-ghost">Live Market Data</a>
+      </div>
+      <div class="hero-stats">
+        <span class="hstat"><strong>{activeStr}</strong> live listings</span>
+        <span class="hstat-dot">·</span>
+        <span class="hstat"><strong>{dropCount}</strong> price drop{dropCount !== 1 ? 's' : ''} this month</span>
+        <span class="hstat-dot">·</span>
+        <span class="hstat"><strong>{modelCount}</strong> models tracked daily</span>
       </div>
     </div>
   </section>
@@ -297,10 +318,21 @@ function formatPrice(n: number) {
     font-family: var(--font-heading);
     font-weight: 700; text-transform: uppercase;
     color: white; line-height: 0.95;
-    font-size: clamp(3rem, 8vw, 5.5rem);
-    margin-bottom: 2rem;
+    font-size: clamp(2.5rem, 6.5vw, 4.5rem);
+    margin-bottom: 0.875rem;
+  }
+  .hero-tagline {
+    font-size: 0.9rem; color: rgba(255,255,255,0.65);
+    letter-spacing: 0.04em; margin-bottom: 1.75rem;
   }
   .hero-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; justify-content: center; }
+  .hero-stats {
+    display: flex; align-items: center; justify-content: center; gap: 0.75rem;
+    flex-wrap: wrap; margin-top: 1.75rem;
+    font-size: 0.78rem; color: rgba(255,255,255,0.7);
+  }
+  .hero-stats strong { color: #F5A623; font-weight: 700; }
+  .hstat-dot { color: rgba(255,255,255,0.3); }
 
   /* ─ BUTTONS ───────────────────────────────────── */
   .btn-primary {
