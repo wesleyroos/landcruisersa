@@ -5,7 +5,7 @@ import AdminLayout from '@/layouts/AdminLayout.astro';
 import { getCredentials } from '@/lib/instagram';
 import { db } from '@/db/index';
 import { listings, clickEvents } from '@/db/schema';
-import { desc, eq, and, gte, lte, sql, isNotNull } from 'drizzle-orm';
+import { desc, eq, and, or, gte, lte, sql, like, isNotNull } from 'drizzle-orm';
 import type { Listing } from '@/db/schema';
 import type { SQL } from 'drizzle-orm';
 
@@ -20,11 +20,12 @@ const fPrice    = Astro.url.searchParams.get('price')    ?? '';
 const fProvince = Astro.url.searchParams.get('province') ?? '';
 const fType     = Astro.url.searchParams.get('type')     ?? '';
 const fPosted   = Astro.url.searchParams.get('posted')   === '1';
-const hasFilter = !!(fSource || fModel || fYear || fPrice || fProvince || fType || fPosted);
+const fQ        = (Astro.url.searchParams.get('q') ?? '').trim();
+const hasFilter = !!(fSource || fModel || fYear || fPrice || fProvince || fType || fPosted || fQ);
 
 function buildFilterUrl(overrides: Record<string, string>) {
   const params = new URLSearchParams();
-  const base = { source: fSource, model: fModel, year: fYear, price: fPrice, province: fProvince, type: fType, posted: fPosted ? '1' : '', ...overrides };
+  const base = { source: fSource, model: fModel, year: fYear, price: fPrice, province: fProvince, type: fType, posted: fPosted ? '1' : '', q: fQ, ...overrides };
   for (const [k, v] of Object.entries(base)) if (v) params.set(k, v);
   const s = params.toString();
   return `/admin${s ? '?' + s : ''}`;
@@ -57,6 +58,14 @@ if (fPrice) {
   if (pMax < 9999999) activeConds.push(lte(listings.price, pMax));
 }
 if (fPosted) activeConds.push(isNotNull(listings.ig_posted_at));
+if (fQ) {
+  const pat = `%${fQ}%`;
+  activeConds.push(or(
+    like(listings.title, pat),
+    like(listings.slug, pat),
+    like(listings.seller_name, pat),
+  )!);
+}
 const activeWhere = and(...activeConds);
 
 // Filtered count for pagination
@@ -279,6 +288,14 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
   <!-- FILTER BAR -->
   <div class="filter-bar">
     <div class="filter-fields">
+      <input
+        type="search"
+        id="af-search"
+        class={`af-input${fQ ? ' active' : ''}`}
+        placeholder="Search title, seller…"
+        value={fQ}
+        autocomplete="off"
+      />
       <select class={`af-sel${fSource   ? ' active' : ''}`} data-filter="source">
         <option value="">All Sources</option>
         <option value="autotrader" selected={fSource==='autotrader'}>AutoTrader</option>
@@ -579,6 +596,15 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
     cursor: pointer; outline: none;
     transition: border-color 0.15s, background-color 0.15s, color 0.15s, box-shadow 0.15s;
   }
+  .af-input {
+    font-family: inherit; font-size: 0.72rem; font-weight: 600; color: #374151;
+    border: 1.5px solid #E5E7EB; border-radius: 0.5rem;
+    padding: 0.45rem 0.75rem; background: white; outline: none;
+    min-width: 180px; transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .af-input:focus { border-color: #F5A623; box-shadow: 0 0 0 3px rgba(245,166,35,0.12); }
+  .af-input.active { border-color: #F5A623; background-color: #FFFBF0; color: #78350F; }
+  .af-input::placeholder { color: #9CA3AF; font-weight: 500; }
   .af-sel:hover:not(.active) { border-color: #D1D5DB; }
   .af-sel:focus { border-color: #F5A623; box-shadow: 0 0 0 3px rgba(245,166,35,0.12); }
   .af-sel.active {
@@ -751,6 +777,18 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
       window.location.href = '/admin' + (params.toString() ? '?' + params.toString() : '');
     });
   });
+
+  // ── Search — navigate on Enter, or on clearing the field ────────────────
+  const searchInput = document.getElementById('af-search') as HTMLInputElement | null;
+  function applySearch() {
+    const params = new URLSearchParams(window.location.search);
+    params.delete('page');
+    const q = searchInput!.value.trim();
+    if (q) params.set('q', q); else params.delete('q');
+    window.location.href = '/admin' + (params.toString() ? '?' + params.toString() : '');
+  }
+  searchInput?.addEventListener('keydown', (e) => { if (e.key === 'Enter') applySearch(); });
+  searchInput?.addEventListener('search', () => { if (!searchInput.value) applySearch(); }); // ✕ clear button
 
   // ── Run-time helpers ───────────────────────────────────────────────────────
   function fmtTime(ms: number | null): string {
