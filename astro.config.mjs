@@ -50,6 +50,9 @@ export default defineConfig({
         'https://landcruisersa.co.za/market/prado-150/',
         'https://landcruisersa.co.za/market/prado-250/',
         'https://landcruisersa.co.za/market/fj-cruiser/',
+        'https://landcruisersa.co.za/market/78-series/',
+        'https://landcruisersa.co.za/market/80-series/',
+        'https://landcruisersa.co.za/market/land-cruiser-fj/',
       ],
       // Keep admin pages out of the sitemap
       filter: (page) => !page.includes('/admin/'),

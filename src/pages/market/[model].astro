@@ -5,8 +5,8 @@ export const prerender = false;
 
 import Base from '@/layouts/Base.astro';
 import { db } from '@/db/index';
-import { listings } from '@/db/schema';
-import { sql, eq, and, gt } from 'drizzle-orm';
+import { listings, priceEvents } from '@/db/schema';
+import { sql, eq, and, gt, gte, desc } from 'drizzle-orm';
 
 const { model } = Astro.params;
 
@@ -50,6 +50,29 @@ const yearRows = [...byYear.entries()]
     max: Math.max(...ps),
   }))
   .sort((a, b) => b.year - a.year);
+
+// Recent price movements (last 30 days) — observed by our aggregator across
+// all sources; unique data, nobody else publishes this for Land Cruisers in SA.
+const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 3600 * 1000);
+const movements = db.select({
+  slug:      priceEvents.slug,
+  old_price: priceEvents.old_price,
+  new_price: priceEvents.new_price,
+  at:        priceEvents.recorded_at,
+  title:     listings.title,
+  status:    listings.status,
+}).from(priceEvents)
+  .leftJoin(listings, eq(listings.slug, priceEvents.slug))
+  .where(and(eq(priceEvents.model, model!), gte(priceEvents.recorded_at, thirtyDaysAgo)))
+  .orderBy(desc(priceEvents.recorded_at))
+  .limit(12)
+  .all();
+
+const drops  = movements.filter(m => m.new_price < m.old_price);
+const raises = movements.filter(m => m.new_price > m.old_price);
+const medianDrop = drops.length
+  ? drops.map(m => m.old_price - m.new_price).sort((a, b) => a - b)[Math.floor(drops.length / 2)]
+  : 0;
 
 const updated = new Date();
 const updatedStr = updated.toLocaleDateString('en-ZA', { day: 'numeric', month: 'long', year: 'numeric' });
@@ -114,6 +137,48 @@ const datasetSchema = {
       </tbody>
     </table>
 
+    {movements.length > 0 && (
+      <>
+        <h2>Recent Price Movements (Last 30 Days)</h2>
+        <p class="intro">
+          Our aggregator observed <strong>{movements.length}</strong> asking-price change{movements.length !== 1 ? 's' : ''} on
+          {' '}{modelLabel} listings in the last 30 days{drops.length > 0 && (
+            <> — {drops.length} price drop{drops.length !== 1 ? 's' : ''}{medianDrop > 0 && <>, median reduction {R(medianDrop)}</>}</>
+          )}{raises.length > 0 && <>, {raises.length} increase{raises.length !== 1 ? 's' : ''}</>}.
+        </p>
+        <table class="market-table">
+          <thead>
+            <tr>
+              <th>Listing</th>
+              <th>Was</th>
+              <th>Now</th>
+              <th>Change</th>
+            </tr>
+          </thead>
+          <tbody>
+            {movements.map(m => {
+              const diff = m.new_price - m.old_price;
+              return (
+                <tr>
+                  <td class="m-name">
+                    {m.status === 'active'
+                      ? <a href={`/listings/${m.slug}/`}>{m.title ?? m.slug}</a>
+                      : (m.title ?? m.slug)
+                    }
+                  </td>
+                  <td class="m-was">{R(m.old_price)}</td>
+                  <td class="m-price">{R(m.new_price)}</td>
+                  <td class={diff < 0 ? 'm-drop' : 'm-raise'}>
+                    {diff < 0 ? '▼' : '▲'} {R(Math.abs(diff))}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </>
+    )}
+
     <p class="foot-note">
       Prices are seller asking prices aggregated by Land Cruiser SA from major South African listing
       platforms and private sellers — not final transaction prices.
@@ -168,7 +233,12 @@ const datasetSchema = {
   .market-table td { padding: 0.875rem 1rem; border-bottom: 1px solid #F0EDE8; color: #374151; }
   .market-table tr:last-child td { border-bottom: none; }
   .m-name { font-weight: 700; color: #111; }
+  .m-name a { color: #111; text-decoration: none; }
+  .m-name a:hover { color: #D4881A; }
   .m-price { font-weight: 700; color: #D4881A; }
+  .m-was { color: #9CA3AF; text-decoration: line-through; }
+  .m-drop { font-weight: 700; color: #166534; white-space: nowrap; }
+  .m-raise { font-weight: 700; color: #991B1B; white-space: nowrap; }
   .foot-note { font-size: 0.75rem; color: #9CA3AF; line-height: 1.6; margin-top: 1.5rem; }
   .foot-note a { color: #D4881A; }
 </style>
