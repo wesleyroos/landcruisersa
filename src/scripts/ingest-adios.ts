@@ -76,5 +76,6 @@ async function ingest() {
 ingest().catch(async (err) => {
   console.error('[adios] fatal error:', err);
   await sendAlert('[LCSA] Adios ingest error', String(err));
+  await reportRun('adios', { ok: false, note: String(err).slice(0, 200) });
   process.exit(1);
 });

@@ -80,7 +80,8 @@ async function ingest() {
   await reportRun('carsza', { found: refs.length, created, updated, skipped, removed });
 }
 
-ingest().catch(err => {
+ingest().catch(async err => {
   console.error('[carsza] fatal:', err);
+  await reportRun('carsza', { ok: false, note: String(err).slice(0, 200) });
   process.exit(1);
 });

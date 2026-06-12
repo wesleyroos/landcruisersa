@@ -101,5 +101,6 @@ async function ingest() {
 ingest().catch(async (err) => {
   console.error('[autotrader] fatal error:', err);
   await sendAlert('[LCSA] AutoTrader ingest error', String(err));
+  await reportRun('autotrader', { ok: false, note: String(err).slice(0, 200) });
   process.exit(1);
 });

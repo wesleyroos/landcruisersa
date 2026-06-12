@@ -76,5 +76,6 @@ async function ingest() {
 ingest().catch(async (err) => {
   console.error('[wbc] fatal error:', err);
   await sendAlert('[LCSA] WBC ingest error', String(err));
+  await reportRun('wbc', { ok: false, note: String(err).slice(0, 200) });
   process.exit(1);
 });

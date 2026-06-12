@@ -47,4 +47,8 @@ async function ingest() {
   await reportRun('wbb', { found: refs.length, created, updated, skipped });
 }
 
-ingest().catch(err => { console.error('[wbb] fatal:', err); process.exit(1); });
+ingest().catch(async err => {
+  console.error('[wbb] fatal:', err);
+  await reportRun('wbb', { ok: false, note: String(err).slice(0, 200) });
+  process.exit(1);
+});
