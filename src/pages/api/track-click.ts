@@ -1,12 +1,14 @@
 export const prerender = false;
 
 import type { APIRoute } from 'astro';
+import { isAdminSession } from '@/lib/track-guard';
 import { db } from '@/db/index';
 import { clickEvents } from '@/db/schema';
 
 const VALID_SOURCES = ['autotrader', 'wbc', 'adios', 'wbb', 'carsza', 'whatsapp', 'call', 'email'];
 
-export const POST: APIRoute = async ({ request }) => {
+export const POST: APIRoute = async ({ request , cookies }) => {
+  if (isAdminSession(cookies)) return new Response(null, { status: 204 });
   let body: { listing_slug?: string; listing_title?: string; source?: string };
   try { body = await request.json(); } catch {
     return new Response('', { status: 400 });

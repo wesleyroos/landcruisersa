@@ -1,13 +1,15 @@
 export const prerender = false;
 
 import type { APIRoute } from 'astro';
+import { isAdminSession } from '@/lib/track-guard';
 import { db } from '@/db/index';
 import { listings, viewEvents } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 
 const BOT_UA = /bot|crawl|spider|slurp|facebookexternalhit|whatsapp|telegram|preview|fetch|monitor|headless/i;
 
-export const POST: APIRoute = async ({ request }) => {
+export const POST: APIRoute = async ({ request , cookies }) => {
+  if (isAdminSession(cookies)) return new Response(null, { status: 204 });
   const ua = request.headers.get('user-agent') ?? '';
   if (BOT_UA.test(ua)) return new Response(null, { status: 204 });
 
