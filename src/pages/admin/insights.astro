@@ -290,6 +290,25 @@ const funnelRows = [...funnelMap.values()]
   .filter(r => r.views + r.portal + r.contact > 0)
   .sort((a, b) => b.views - a.views);
 
+// ─── IG post performance — outcomes since each post date ─────────────────────
+const igPosts = db.select({
+  id: listings.id,
+  slug: listings.slug,
+  title: listings.title,
+  model: listings.model,
+  posted_at: listings.ig_posted_at,
+}).from(listings).where(sql`ig_posted_at IS NOT NULL`).orderBy(sql`ig_posted_at DESC`).all();
+
+const igPostRows = igPosts.map(p => {
+  const since = Math.floor(p.posted_at!.getTime() / 1000);
+  const views = (db.get<{ n: number }>(sql`SELECT count(*) n FROM view_events WHERE listing_slug = ${p.slug} AND created_at >= ${since}`))?.n ?? 0;
+  const igViews = (db.get<{ n: number }>(sql`SELECT count(*) n FROM view_events WHERE listing_slug = ${p.slug} AND created_at >= ${since} AND utm_source = 'ig'`))?.n ?? 0;
+  const contacts = (db.get<{ n: number }>(sql`SELECT count(*) n FROM click_events WHERE listing_slug = ${p.slug} AND created_at >= ${since} AND source IN ('whatsapp','call','email')`))?.n ?? 0;
+  const portal = (db.get<{ n: number }>(sql`SELECT count(*) n FROM click_events WHERE listing_slug = ${p.slug} AND created_at >= ${since} AND source NOT IN ('whatsapp','call','email')`))?.n ?? 0;
+  const days = Math.max(0.1, (Date.now() - p.posted_at!.getTime()) / 86_400_000);
+  return { ...p, views, igViews, contacts, portal, days: Math.round(days * 10) / 10 };
+});
+
 // ─── Misc helpers ─────────────────────────────────────────────────────────────
 
 function fmt(d: Date | null) {
@@ -445,6 +464,48 @@ const SOURCE_LABEL: Record<string, string> = {
         </div>
       )}
     </section>
+
+    <!-- ── IG POST PERFORMANCE ───────────────────────────────── -->
+    {igPostRows.length > 0 && (
+      <section class="card">
+        <div class="card-head">
+          <h2 class="card-title">IG Post Performance</h2>
+          <span class="badge">{igPostRows.length}</span>
+          <span class="badge-sub">outcomes since each post date</span>
+          <span class="info" data-tip="What each Instagram post produced on-site AFTER it went up. From IG = visits that arrived via the bio link (utm_source=ig). Contacts = WhatsApp/call/email on that listing. This is the data that tunes the daily post suggestion.">?</span>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Posted Listing</th>
+                <th class="num-c">Days Live</th>
+                <th class="num-c">Views</th>
+                <th class="num-c">From IG</th>
+                <th class="num-c">Portal</th>
+                <th class="num-c">Contacts</th>
+              </tr>
+            </thead>
+            <tbody>
+              {igPostRows.map(r => (
+                <tr>
+                  <td>
+                    <a href={`/admin/listings/${r.id}`} style="font-weight:600;color:#111;text-decoration:none">{r.title}</a>
+                    <span style="display:block;font-size:0.65rem;color:#9CA3AF">{r.model.replace(/-/g, ' ').toUpperCase()} · posted {fmt(r.posted_at)}</span>
+                  </td>
+                  <td class="num-c">{r.days}</td>
+                  <td class="num-c" style="font-weight:700">{r.views}</td>
+                  <td class="num-c" style="color:#9D174D;font-weight:700">{r.igViews}</td>
+                  <td class="num-c">{r.portal}</td>
+                  <td class="num-c" style={r.contacts > 0 ? 'color:#166534;font-weight:700' : ''}>{r.contacts}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p class="card-note">Compare models: the segment whose posts drive the most From-IG views and contacts is what the audience converts on — the suggestion engine's weights get tuned to this every two weeks.</p>
+        </div>
+      </section>
+    )}
 
     <!-- ── ROW: CAMPAIGN TRAFFIC + DEMAND BY MODEL ──────────── -->
     <div class="grid-2">
