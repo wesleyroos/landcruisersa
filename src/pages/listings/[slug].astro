@@ -45,6 +45,16 @@ const photos: string[] = (() => { try { return JSON.parse(listing.photos) ?? [];
 const mainPhoto = photos[0] ?? 'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/og-default.jpg';
 const gridPhotos = photos.slice(1, 5);
 
+function maskPhone(phone: string): string {
+  const d = phone.trim();
+  return d.length > 4 ? d.slice(0, 3) + ' ··· ····' : '··· ····';
+}
+function maskEmail(email: string): string {
+  const [user, domain] = email.split('@');
+  if (!domain) return '·····';
+  return (user[0] ?? '·') + '····@' + (domain[0] ?? '·') + '····';
+}
+
 function waPhone(phone: string): string {
   const digits = phone.replace(/\D/g, '');
   if (digits.startsWith('27') && digits.length >= 11) return digits;
@@ -302,7 +312,6 @@ const vehicleSchema: Record<string, unknown> = {
                 ))}
               </div>
             )}
-            <p class="mp-foot">Compared across every major SA platform we track — AutoTrader, WeBuyCars, Cars.co.za and more. Asking prices, not sold prices.</p>
           </div>
         )}
 
@@ -405,14 +414,16 @@ const vehicleSchema: Record<string, unknown> = {
                   <>
                     <p class="seller-label">Private Seller</p>
                     <p class="seller-name">{listing.seller_name}</p>
-                    <a href={`tel:${listing.seller_phone.replace(/\s/g, '')}`} class="seller-contact" data-track-call>
+                    <button type="button" class="seller-contact reveal-contact" data-reveal="phone">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg>
-                      {listing.seller_phone}
-                    </a>
-                    <a href={`mailto:${listing.seller_email}`} class="seller-contact" data-track-email>
+                      <span class="reveal-masked">{maskPhone(listing.seller_phone)}</span>
+                      <span class="reveal-cta">Show number</span>
+                    </button>
+                    <button type="button" class="seller-contact reveal-contact" data-reveal="email">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>
-                      {listing.seller_email}
-                    </a>
+                      <span class="reveal-masked">{maskEmail(listing.seller_email)}</span>
+                      <span class="reveal-cta">Show email</span>
+                    </button>
                   </>
                 )}
               </div>
@@ -568,6 +579,39 @@ const vehicleSchema: Record<string, unknown> = {
             source: 'email',
           }));
         } catch {}
+      });
+    });
+
+    // Click-to-reveal contact — the value isn't in the page until requested,
+    // and the request itself is the tracked event
+    document.querySelectorAll('[data-reveal]').forEach(function(btn) {
+      btn.addEventListener('click', async function() {
+        const kind = btn.getAttribute('data-reveal');
+        btn.disabled = true;
+        try {
+          const res = await fetch('/api/listing-contact?slug=' + encodeURIComponent(_slug) + '&kind=' + kind);
+          if (!res.ok) { btn.disabled = false; return; }
+          const data = await res.json();
+          const a = document.createElement('a');
+          a.className = 'seller-contact';
+          if (kind === 'phone') {
+            a.href = 'tel:' + String(data.value).replace(/\s/g, '');
+            a.setAttribute('data-track-call', '');
+          } else {
+            a.href = 'mailto:' + data.value;
+            a.setAttribute('data-track-email', '');
+          }
+          a.textContent = data.value;
+          a.addEventListener('click', function() {
+            try {
+              navigator.sendBeacon('/api/track-click', JSON.stringify({
+                listing_slug: _slug, listing_title: _title,
+                source: kind === 'phone' ? 'call' : 'email',
+              }));
+            } catch {}
+          });
+          btn.replaceWith(a);
+        } catch { btn.disabled = false; }
       });
     });
   </script>
@@ -890,6 +934,16 @@ const vehicleSchema: Record<string, unknown> = {
   }
   .sim-meta { font-size: 0.7rem; color: rgba(255,255,255,0.35); margin-bottom: 0.625rem; }
   .sim-price { font-family: var(--font-heading); font-weight: 700; font-size: 1.25rem; color: #F5A623; }
+  /* CLICK-TO-REVEAL CONTACT */
+  .reveal-contact { background: none; border: none; padding: 0; cursor: pointer; font-family: inherit; font-size: inherit; }
+  .reveal-contact:disabled { opacity: 0.5; }
+  .reveal-masked { color: #9CA3AF; letter-spacing: 0.05em; }
+  .reveal-cta {
+    font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+    color: #D4881A; margin-left: 0.4rem;
+  }
+  .reveal-contact:hover .reveal-cta { text-decoration: underline; }
+
   /* MARKET POSITION */
   .mp-grid { display: grid; grid-template-columns: 1fr; gap: 0.875rem; margin-bottom: 0.5rem; }
   @media (min-width: 640px) { .mp-grid { grid-template-columns: repeat(3, 1fr); } }
