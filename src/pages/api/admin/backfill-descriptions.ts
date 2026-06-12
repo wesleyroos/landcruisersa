@@ -28,11 +28,25 @@ async function fetchAtDetails(sourceUrl: string): Promise<{ description: string;
     s.replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
      .replace(/&#x([0-9A-Fa-f]+);/g, (_: string, h: string) => String.fromCodePoint(parseInt(h, 16))).trim();
 
-  // AT splits description across multiple e-read-more-line spans; first 1-2 are often empty
+  // Legacy server-rendered markup: description across e-read-more-line spans
   const spans = [...html.matchAll(/<span[^>]*e-read-more-line[^>]*>([\s\S]*?)<\/span>/g)];
-  const description = spans.map(m => decode(m[1])).filter(Boolean).join('\n');
+  let description = spans.map(m => decode(m[1])).filter(Boolean).join('\n');
 
-  const colourMatch = html.match(/Colou?r<\/span>\s*<span[^>]*>([^<]+)<\/span>/);
+  // 2026 AT pages are JS shells — seller comments live in embedded JSON.
+  // Take the longest "description" value (dealer comments beat the short
+  // auto-generated JSON-LD blurb when both exist); ignore tiny marketing strings.
+  if (!description) {
+    const candidates = [...html.matchAll(/"description":\s*"((?:[^"\\]|\\.)*)"/g)]
+      .map(m => { try { return JSON.parse(`"${m[1]}"`) as string; } catch { return ''; } })
+      .filter(s => s.length >= 200);
+    if (candidates.length) {
+      description = candidates.sort((a, b) => b.length - a.length)[0].trim();
+    }
+  }
+
+  const colourMatch =
+    html.match(/Colou?r<\/span>\s*<span[^>]*>([^<]+)<\/span>/) ??
+    html.match(/"colou?r"\s*:\s*"([^"]{2,30})"/i);
   const colour = colourMatch ? colourMatch[1].trim() : '';
 
   return { description, colour };
