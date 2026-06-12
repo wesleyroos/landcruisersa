@@ -5,7 +5,7 @@ import { isAdminSession } from '@/lib/track-guard';
 import { db } from '@/db/index';
 import { clickEvents } from '@/db/schema';
 
-const VALID_SOURCES = ['autotrader', 'wbc', 'adios', 'wbb', 'carsza', 'whatsapp', 'call', 'email', 'reveal_number', 'reveal_email'];
+const VALID_SOURCES = ['autotrader', 'wbc', 'adios', 'wbb', 'carsza', 'whatsapp', 'call', 'email', 'reveal_number', 'reveal_email', 'finance_calc'];
 
 export const POST: APIRoute = async ({ request , cookies }) => {
   if (isAdminSession(cookies)) return new Response(null, { status: 204 });

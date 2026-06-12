@@ -336,6 +336,66 @@ const vehicleSchema: Record<string, unknown> = {
           </div>
         )}
 
+        <!-- Finance calculator -->
+        {!isShowOff && !isSold && listing.price > 0 && (
+          <div class="card fin-card" id="fin-card" data-price={listing.price}>
+            <h2 class="card-heading">Finance Estimate</h2>
+            <div class="fin-grid">
+              <div class="fin-inputs">
+                <label class="fin-label">
+                  Deposit
+                  <div class="fin-input-row">
+                    <span class="fin-prefix">R</span>
+                    <input type="number" id="fin-deposit" class="fin-input" min="0" step="5000" />
+                  </div>
+                  <span class="fin-hint" id="fin-deposit-pct"></span>
+                </label>
+                <label class="fin-label">
+                  Term
+                  <select id="fin-term" class="fin-input">
+                    <option value="24">24 months</option>
+                    <option value="36">36 months</option>
+                    <option value="48">48 months</option>
+                    <option value="60">60 months</option>
+                    <option value="72" selected>72 months</option>
+                    <option value="84">84 months</option>
+                  </select>
+                </label>
+                <label class="fin-label">
+                  Interest rate (p.a.)
+                  <div class="fin-input-row">
+                    <input type="number" id="fin-rate" class="fin-input" min="5" max="25" step="0.25" value="11.5" />
+                    <span class="fin-suffix">%</span>
+                  </div>
+                  <span class="fin-hint">linked to prime — adjust for your profile</span>
+                </label>
+                <label class="fin-label">
+                  Balloon payment
+                  <select id="fin-balloon" class="fin-input">
+                    <option value="0" selected>None</option>
+                    <option value="10">10%</option>
+                    <option value="20">20%</option>
+                    <option value="30">30%</option>
+                    <option value="35">35%</option>
+                  </select>
+                </label>
+              </div>
+              <div class="fin-result">
+                <p class="fin-monthly-label">Estimated monthly payment</p>
+                <p class="fin-monthly" id="fin-monthly">—</p>
+                <div class="fin-breakdown">
+                  <p><span>Amount financed</span><span id="fin-financed">—</span></p>
+                  <p><span>Total interest</span><span id="fin-interest">—</span></p>
+                  <p><span>Fees (initiation + service)</span><span id="fin-fees">—</span></p>
+                  <p id="fin-balloon-row" hidden><span>Balloon due at end</span><span id="fin-balloon-amt">—</span></p>
+                  <p class="fin-total"><span>Total repaid</span><span id="fin-total">—</span></p>
+                </div>
+              </div>
+            </div>
+            <p class="fin-note">Estimate only — includes the standard NCA initiation fee (R1 207.50) and monthly service fee (R69), excludes insurance and extras. Actual rates depend on your credit profile.</p>
+          </div>
+        )}
+
         <!-- Key specs table -->
         <div class="card">
           <h2 class="card-heading">Specifications</h2>
@@ -546,6 +606,81 @@ const vehicleSchema: Record<string, unknown> = {
   </script>
 )}
 
+<script define:vars={{ _slug: listing.slug, _title: listing.title }}>
+    // ── Finance calculator ───────────────────────────────────────────────────
+    (function () {
+      const card = document.getElementById('fin-card');
+      if (!card) return;
+      const price = Number(card.dataset.price);
+      const R = (n) => 'R ' + Math.round(n).toLocaleString('en-ZA');
+
+      const els = {
+        deposit: document.getElementById('fin-deposit'),
+        term: document.getElementById('fin-term'),
+        rate: document.getElementById('fin-rate'),
+        balloon: document.getElementById('fin-balloon'),
+        monthly: document.getElementById('fin-monthly'),
+        financed: document.getElementById('fin-financed'),
+        interest: document.getElementById('fin-interest'),
+        fees: document.getElementById('fin-fees'),
+        total: document.getElementById('fin-total'),
+        balloonRow: document.getElementById('fin-balloon-row'),
+        balloonAmt: document.getElementById('fin-balloon-amt'),
+        depositPct: document.getElementById('fin-deposit-pct'),
+      };
+
+      // NCA standard fees (incl. VAT)
+      const INITIATION = 1207.5;
+      const SERVICE = 69;
+
+      els.deposit.value = String(Math.round(price * 0.1 / 1000) * 1000);
+
+      let tracked = false;
+      function calc() {
+        const deposit = Math.min(Math.max(Number(els.deposit.value) || 0, 0), price);
+        const n = Number(els.term.value);
+        const annual = Math.min(Math.max(Number(els.rate.value) || 11.5, 5), 25);
+        const i = annual / 100 / 12;
+        const balloonAmt = price * (Number(els.balloon.value) / 100);
+
+        const principal = price - deposit + INITIATION;
+        // Payment with balloon as future value
+        const pmt = i > 0
+          ? (i * (principal - balloonAmt * Math.pow(1 + i, -n))) / (1 - Math.pow(1 + i, -n))
+          : (principal - balloonAmt) / n;
+        const monthly = pmt + SERVICE;
+
+        const totalPaid = monthly * n + deposit + balloonAmt;
+        const totalInterest = totalPaid - price - INITIATION - SERVICE * n;
+
+        els.monthly.innerHTML = R(monthly) + ' <em>p/m</em>';
+        els.financed.textContent = R(principal);
+        els.interest.textContent = R(Math.max(0, totalInterest));
+        els.fees.textContent = R(INITIATION + SERVICE * n);
+        els.total.textContent = R(totalPaid);
+        els.depositPct.textContent = price > 0 ? Math.round(deposit / price * 100) + '% of asking price' : '';
+        els.balloonRow.hidden = balloonAmt <= 0;
+        els.balloonAmt.textContent = R(balloonAmt);
+      }
+
+      ['input', 'change'].forEach(evt => {
+        [els.deposit, els.term, els.rate, els.balloon].forEach(el => el.addEventListener(evt, function () {
+          calc();
+          if (!tracked) {
+            tracked = true; // one demand-signal event per page view, on first interaction
+            try {
+              navigator.sendBeacon('/api/track-click', JSON.stringify({
+                listing_slug: _slug, listing_title: _title, source: 'finance_calc',
+              }));
+            } catch {}
+          }
+        }));
+      });
+
+      calc();
+    })();
+</script>
+
 {!isExternal && !isShowOff && !isSold && (
   <script define:vars={{ _slug: listing.slug, _title: listing.title }}>
     document.querySelectorAll('[data-track-wa]').forEach(function(a) {
@@ -614,6 +749,7 @@ const vehicleSchema: Record<string, unknown> = {
         } catch { btn.disabled = false; }
       });
     });
+
   </script>
 )}
 
@@ -934,6 +1070,29 @@ const vehicleSchema: Record<string, unknown> = {
   }
   .sim-meta { font-size: 0.7rem; color: rgba(255,255,255,0.35); margin-bottom: 0.625rem; }
   .sim-price { font-family: var(--font-heading); font-weight: 700; font-size: 1.25rem; color: #F5A623; }
+  /* FINANCE CALCULATOR */
+  .fin-grid { display: grid; grid-template-columns: 1fr; gap: 1.25rem; }
+  @media (min-width: 640px) { .fin-grid { grid-template-columns: 1fr 1fr; } }
+  .fin-inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; align-content: start; }
+  .fin-label { display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #6B7280; }
+  .fin-input-row { display: flex; align-items: center; gap: 0.35rem; }
+  .fin-prefix, .fin-suffix { font-size: 0.875rem; font-weight: 700; color: #9CA3AF; }
+  .fin-input {
+    width: 100%; font-family: inherit; font-size: 0.875rem; font-weight: 600; color: #111;
+    border: 1.5px solid #E5E2DC; border-radius: 0.5rem; padding: 0.5rem 0.625rem;
+    background: white; outline: none; transition: border-color 0.15s;
+  }
+  .fin-input:focus { border-color: #F5A623; }
+  .fin-hint { font-size: 0.62rem; font-weight: 500; text-transform: none; letter-spacing: 0; color: #9CA3AF; }
+  .fin-result { background: #FAF9F6; border: 1px solid #EAE7E0; border-radius: 0.75rem; padding: 1.125rem 1.25rem; }
+  .fin-monthly-label { font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #9CA3AF; }
+  .fin-monthly { font-family: var(--font-heading); font-weight: 700; font-size: 2rem; color: #111; margin: 0.2rem 0 0.75rem; }
+  .fin-monthly em { font-style: normal; font-size: 0.875rem; color: #9CA3AF; }
+  .fin-breakdown p { display: flex; justify-content: space-between; font-size: 0.78rem; color: #6B7280; padding: 0.3rem 0; border-top: 1px solid #F0EDE8; }
+  .fin-breakdown p span:last-child { font-weight: 700; color: #374151; }
+  .fin-total span { color: #111 !important; }
+  .fin-note { font-size: 0.68rem; color: #9CA3AF; margin-top: 0.875rem; line-height: 1.5; }
+
   /* CLICK-TO-REVEAL CONTACT */
   .reveal-contact { background: none; border: none; padding: 0; cursor: pointer; font-family: inherit; font-size: inherit; }
   .reveal-contact:disabled { opacity: 0.5; }
