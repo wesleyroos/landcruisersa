@@ -2,6 +2,8 @@
 export const prerender = false;
 
 import AdminLayout from '@/layouts/AdminLayout.astro';
+import AdminIgPost from '@/components/AdminIgPost.astro';
+import { getCredentials } from '@/lib/instagram';
 import { db } from '@/db/index';
 import { listings } from '@/db/schema';
 import { eq } from 'drizzle-orm';
@@ -21,6 +23,8 @@ function allPhotos(photos: string) {
 
 const photos = allPhotos(listing.photos);
 const thumb = firstPhoto(listing.photos);
+
+const igConnected = !!(await getCredentials());
 
 const MODELS = ['70-series','76-series','78-series','79-series','80-series','100-series','200-series','300-series','prado-150','prado-250','fj-cruiser','land-cruiser-fj','other'];
 const PROVINCES = ['Gauteng','Western Cape','KwaZulu-Natal','Eastern Cape','Limpopo','Mpumalanga','North West','Free State','Northern Cape'];
@@ -248,6 +252,28 @@ ${listing.description ? listing.description.slice(0, 200).trim() + (listing.desc
           <button id="copy-caption-btn" class="ig-copy-btn" type="button">Copy</button>
         </div>
         <pre id="ig-caption-text" class="ig-caption-body">{igCaption}</pre>
+        {igConnected && listing.status === 'active' && (
+          <div class="ig-post-row" data-ig-posted-slot={listing.id}>
+            {listing.ig_posted_at && (
+              <p class="ig-posted-note">✓ Posted to IG {new Intl.DateTimeFormat('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' }).format(listing.ig_posted_at)}</p>
+            )}
+            <div class="ig-post-actions">
+              <button
+                type="button"
+                class={`btn-ig-post ${listing.ig_posted_at ? 'btn-repost' : 'btn-post'}`}
+                data-action="post"
+                data-id={listing.id}
+              >
+                {listing.ig_posted_at ? 'Repost' : 'Post to Instagram'}
+              </button>
+              {listing.ig_posted_at && (
+                <button type="button" id="ig-clear-posted" class="ig-clear-link" data-id={listing.id}>
+                  ✕ Mark as not posted
+                </button>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
     </div>
@@ -264,6 +290,8 @@ ${listing.description ? listing.description.slice(0, 200).trim() + (listing.desc
     </div>
     <button class="alb-arrow alb-next" id="alb-next" aria-label="Next">›</button>
   </div>
+
+  <AdminIgPost />
 
 </AdminLayout>
 
@@ -462,6 +490,26 @@ ${listing.description ? listing.description.slice(0, 200).trim() + (listing.desc
     cursor: pointer; transition: background 0.15s;
   }
   .ig-copy-btn:hover, .ig-copy-btn.copied { background: rgba(245,166,35,0.3); }
+
+  .ig-post-row { padding: 0.875rem 1rem; border-top: 1px solid #F0EDE8; }
+  .ig-post-actions { display: flex; align-items: center; gap: 0.875rem; margin-top: 0.4rem; }
+  .btn-ig-post {
+    font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em;
+    padding: 0.5rem 1rem; border-radius: 0.375rem; cursor: pointer;
+    border: 1.5px solid transparent; transition: all 0.15s; white-space: nowrap; line-height: 1.5;
+  }
+  .btn-ig-post:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-ig-post.btn-post   { background: #111111; color: white; border-color: #111111; }
+  .btn-ig-post.btn-post:hover:not(:disabled) { background: #374151; border-color: #374151; }
+  .btn-ig-post.btn-repost { background: white; color: #6B7280; border-color: #E5E7EB; }
+  .btn-ig-post.btn-repost:hover:not(:disabled) { background: #F9FAFB; border-color: #9CA3AF; color: #374151; }
+  .ig-clear-link {
+    font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+    color: #9CA3AF; background: none; border: none; padding: 0; cursor: pointer;
+    font-family: inherit; transition: color 0.15s;
+  }
+  .ig-clear-link:hover { color: #991B1B; }
+  .ig-clear-link:disabled { opacity: 0.4; cursor: not-allowed; }
   .ig-caption-body {
     padding: 0.875rem 1rem; font-size: 0.78rem; line-height: 1.7;
     color: #374151; white-space: pre-wrap; word-break: break-word;
@@ -748,4 +796,23 @@ ${listing.description ? listing.description.slice(0, 200).trim() + (listing.desc
       });
     });
   }
+
+  // ── Undo a mistaken IG post marker ─────────────────────────────────────────
+  document.getElementById('ig-clear-posted')?.addEventListener('click', async function () {
+    if (!confirm('Mark this listing as NOT posted to Instagram? (Use after deleting the post on IG.)')) return;
+    const btn = this as HTMLButtonElement;
+    btn.disabled = true;
+    try {
+      const res = await fetch('/api/admin/instagram/clear-posted', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ listingId: Number(btn.dataset.id) }),
+      });
+      if (res.ok) { window.location.reload(); return; }
+      alert('Failed to clear posted status — try again.');
+    } catch {
+      alert('Network error — try again.');
+    }
+    btn.disabled = false;
+  });
 </script>

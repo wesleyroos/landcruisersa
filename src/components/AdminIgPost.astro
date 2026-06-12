@@ -1,0 +1,227 @@
+---
+// Shared Instagram posting kit — caption preview modal, toast, and the full
+// post flow (preview → edit caption → post → poll until ig_posted_at lands).
+//
+// Usage: render this component once on an admin page, then add buttons:
+//   <button class="btn btn-post" data-action="post" data-id={listing.id}>Post to IG</button>
+// Optional: an element with data-ig-posted-slot={id} gets a "✓ Posted" note on success.
+// Pages keep their own .btn-post/.btn-repost styles; everything else is here.
+---
+
+<!-- CAPTION PREVIEW MODAL -->
+<div id="igp-modal" class="igp-backdrop" hidden>
+  <div class="igp-modal">
+    <p class="igp-title">Caption Preview</p>
+    <p id="igp-photo-count" class="igp-meta"></p>
+    <textarea id="igp-caption" class="igp-caption" rows="14" spellcheck="false"></textarea>
+    <div class="igp-actions">
+      <button id="igp-cancel"    class="igp-btn igp-btn-outline">Cancel</button>
+      <button id="igp-rehashtag" class="igp-btn igp-btn-outline" style="margin-right:auto">↺ New hashtags</button>
+      <button id="igp-confirm"   class="igp-btn igp-btn-dark">Post Now</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="igp-toast" class="igp-toast" hidden></div>
+
+<style is:global>
+  .igp-backdrop {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+    display: flex; align-items: center; justify-content: center; z-index: 50;
+  }
+  .igp-backdrop[hidden] { display: none; }
+  .igp-modal {
+    background: white; border-radius: 0.875rem; border: 1.5px solid #E5E7EB;
+    padding: 1.5rem; width: 100%; max-width: 480px; box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+    display: flex; flex-direction: column; gap: 0.875rem;
+  }
+  .igp-title { font-size: 0.875rem; font-weight: 700; color: #111111; }
+  .igp-meta  { font-size: 0.72rem; color: #9CA3AF; margin-top: -0.5rem; }
+  .igp-caption {
+    font-size: 0.78rem; color: #374151; line-height: 1.6;
+    background: #F9FAFB; border: 1.5px solid #E5E7EB; border-radius: 0.5rem;
+    padding: 0.875rem 1rem; word-break: break-word;
+    width: 100%; box-sizing: border-box; resize: vertical;
+    font-family: inherit; outline: none;
+  }
+  .igp-caption:focus { border-color: #111111; }
+  .igp-actions { display: flex; gap: 0.5rem; justify-content: flex-end; }
+  .igp-btn {
+    font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em;
+    padding: 0.45rem 0.875rem; border-radius: 0.375rem; cursor: pointer;
+    border: 1.5px solid transparent; transition: all 0.15s; white-space: nowrap; line-height: 1.5;
+  }
+  .igp-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .igp-btn-outline { background: white; color: #6B7280; border-color: #E5E7EB; }
+  .igp-btn-outline:hover { color: #111111; border-color: #111111; }
+  .igp-btn-dark { background: #111111; color: white; border-color: #111111; }
+  .igp-btn-dark:hover:not(:disabled) { background: #374151; border-color: #374151; }
+
+  .igp-toast {
+    position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 100;
+    background: #111111; color: white; font-size: 0.8rem; font-weight: 600;
+    padding: 0.75rem 1.25rem; border-radius: 0.625rem;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.2); transition: opacity 0.3s;
+  }
+  .igp-toast[hidden] { display: none; }
+  .igp-toast-ok  { background: #166534; }
+  .igp-toast-err { background: #991B1B; }
+
+  .ig-posted-note { font-size: 0.68rem; color: #166534; font-weight: 600; margin-top: 0.2rem; }
+</style>
+
+<script>
+  let pendingListingId: number | null = null;
+
+  const modal          = document.getElementById('igp-modal')!;
+  const modalCaption   = document.getElementById('igp-caption') as HTMLTextAreaElement;
+  const modalMeta      = document.getElementById('igp-photo-count')!;
+  const modalCancel    = document.getElementById('igp-cancel')!;
+  const modalRehashtag = document.getElementById('igp-rehashtag') as HTMLButtonElement;
+  const modalConfirm   = document.getElementById('igp-confirm') as HTMLButtonElement;
+  const toast          = document.getElementById('igp-toast')!;
+
+  const CTA_MARKER = '📲 Link in bio to view full listing';
+
+  function showToast(msg: string, type: 'ok' | 'err') {
+    toast.textContent = msg;
+    toast.className = `igp-toast igp-toast-${type}`;
+    toast.hidden = false;
+    setTimeout(() => { toast.hidden = true; }, 3500);
+  }
+
+  modalCancel.addEventListener('click', () => { modal.hidden = true; pendingListingId = null; });
+  modal.addEventListener('click', (e) => { if (e.target === modal) { modal.hidden = true; pendingListingId = null; } });
+
+  // Posting goes through the preview modal — delegated so any page button works
+  document.addEventListener('click', async (e) => {
+    const btn = (e.target as Element).closest<HTMLButtonElement>('[data-action="post"]');
+    if (!btn) return;
+    await openPreview(Number(btn.dataset.id!), btn);
+  });
+
+  async function openPreview(id: number, btn: HTMLButtonElement) {
+    const originalLabel = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Generating…';
+    modalCaption.value = 'Generating hashtags with AI…';
+    modalCaption.disabled = true;
+    modalConfirm.disabled = true;
+    modalMeta.textContent = '';
+    pendingListingId = id;
+    modal.hidden = false;
+    try {
+      const res  = await fetch('/api/admin/instagram/post', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ listingId: id, previewOnly: true }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        modal.hidden = true;
+        pendingListingId = null;
+        showToast(data.error ?? 'Failed to load preview', 'err');
+        return;
+      }
+      modalCaption.value    = data.caption;
+      modalCaption.disabled = false;
+      modalConfirm.disabled = false;
+      modalMeta.textContent = `${data.photoCount} photo${data.photoCount !== 1 ? 's' : ''} will be posted as ${data.photoCount > 1 ? 'a carousel' : 'a single image'}`;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = originalLabel;
+    }
+  }
+
+  // Regenerate hashtags — keep the body the user may have edited, swap only the hashtag block
+  modalRehashtag.addEventListener('click', async () => {
+    if (!pendingListingId) return;
+    modalRehashtag.disabled = true;
+    modalRehashtag.textContent = '…';
+    let success = false;
+    try {
+      const res  = await fetch('/api/admin/instagram/post', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ listingId: pendingListingId, previewOnly: true }),
+      });
+      const data = await res.json();
+      if (!res.ok) { showToast(data.error ?? 'Failed to regenerate', 'err'); return; }
+
+      const ctaIdx = data.caption.indexOf(CTA_MARKER);
+      const newHashtags = ctaIdx !== -1 ? data.caption.slice(ctaIdx + CTA_MARKER.length).trimStart() : '';
+
+      const current = modalCaption.value;
+      const bodyEnd = current.indexOf(CTA_MARKER);
+      if (bodyEnd !== -1) {
+        modalCaption.value = current.slice(0, bodyEnd + CTA_MARKER.length) + (newHashtags ? '\n\n' + newHashtags : '');
+      } else {
+        modalCaption.value = current.trimEnd() + '\n\n' + newHashtags;
+      }
+      success = true;
+    } finally {
+      modalRehashtag.disabled = false;
+      modalRehashtag.textContent = success ? '✓ Updated!' : '↺ New hashtags';
+      if (success) setTimeout(() => { modalRehashtag.textContent = '↺ New hashtags'; }, 1500);
+    }
+  });
+
+  modalConfirm.addEventListener('click', async () => {
+    if (!pendingListingId) return;
+    const id      = pendingListingId;
+    const caption = modalCaption.value;
+    modal.hidden = true;
+    pendingListingId = null;
+    const btn = document.querySelector<HTMLButtonElement>(`[data-action="post"][data-id="${id}"]`);
+    await doPost(id, btn, caption);
+  });
+
+  function markPosted(id: number, btn: HTMLButtonElement | null) {
+    const slot = document.querySelector(`[data-ig-posted-slot="${id}"]`);
+    if (slot && !slot.querySelector('.ig-posted-note')) {
+      const today = new Intl.DateTimeFormat('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date());
+      const p = document.createElement('p');
+      p.className = 'ig-posted-note';
+      p.textContent = `✓ Posted to IG ${today}`;
+      slot.appendChild(p);
+    }
+    if (btn) { btn.classList.remove('btn-post'); btn.classList.add('btn-repost'); btn.textContent = 'Repost'; btn.disabled = false; }
+  }
+
+  async function pollPosted(id: number, btn: HTMLButtonElement | null, deadline: number) {
+    if (Date.now() > deadline) {
+      showToast('Post timed out — check Instagram to confirm', 'err');
+      if (btn) { btn.disabled = false; btn.textContent = 'Repost'; }
+      return;
+    }
+    const res = await fetch(`/api/admin/instagram/post-status?id=${id}`).catch(() => null);
+    if (res?.ok) {
+      const data = await res.json();
+      if (data.posted) { showToast('Posted to Instagram!', 'ok'); markPosted(id, btn); return; }
+    }
+    setTimeout(() => pollPosted(id, btn, deadline), 4000);
+  }
+
+  async function doPost(id: number, btn: HTMLButtonElement | null, caption?: string) {
+    if (btn) { btn.disabled = true; btn.textContent = 'Posting…'; }
+    try {
+      const res  = await fetch('/api/admin/instagram/post', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ listingId: id, ...(caption ? { caption } : {}) }),
+      });
+      const data = await res.json();
+      if (res.status === 202 || res.ok) {
+        // Background job started — poll until ig_posted_at is stamped (2 min timeout)
+        pollPosted(id, btn, Date.now() + 120_000);
+      } else {
+        showToast(data.error ?? 'Post failed', 'err');
+        if (btn) { btn.disabled = false; btn.textContent = btn.classList.contains('btn-repost') ? 'Repost' : 'Post to IG'; }
+      }
+    } catch {
+      showToast('Network error', 'err');
+      if (btn) { btn.disabled = false; btn.textContent = 'Post to IG'; }
+    }
+  }
+</script>
