@@ -55,6 +55,12 @@ function waUrl(phone: string, title: string): string {
   return `https://wa.me/${waPhone(phone)}?text=${encodeURIComponent(`Hi, I saw your ${title} on Land Cruiser SA.`)}`;
 }
 
+import { getRecentPriceChanges } from '@/lib/price-changes';
+const priceDropAmount = (() => {
+  const c = getRecentPriceChanges().get(listing.slug) ?? 0;
+  return c < 0 ? Math.abs(c) : 0;
+})();
+
 function formatPrice(n: number) {
   return 'R ' + n.toLocaleString('en-ZA');
 }
@@ -330,6 +336,12 @@ const vehicleSchema: Record<string, unknown> = {
                 <div>
                   <p class="price-label">Asking Price</p>
                   <p class="price-value">{formatPrice(listing.price)}</p>
+                  {priceDropAmount > 0 && (
+                    <p class="price-drop-line">
+                      <span class="price-was">{formatPrice(listing.price + priceDropAmount)}</span>
+                      <span class="price-drop-chip">▼ R{priceDropAmount.toLocaleString('en-ZA')} price drop</span>
+                    </p>
+                  )}
                   <p class="price-sub">{listing.year} · {formatMileage(listing.mileage)}</p>
                 </div>
                 <span class="condition-badge cb-neutral">{listing.new_or_used}</span>
@@ -830,6 +842,12 @@ const vehicleSchema: Record<string, unknown> = {
   }
   .sim-meta { font-size: 0.7rem; color: rgba(255,255,255,0.35); margin-bottom: 0.625rem; }
   .sim-price { font-family: var(--font-heading); font-weight: 700; font-size: 1.25rem; color: #F5A623; }
+  .price-drop-line { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.3rem; }
+  .price-was { font-size: 0.8rem; color: #9CA3AF; text-decoration: line-through; }
+  .price-drop-chip {
+    font-size: 0.65rem; font-weight: 700; background: #F0FDF4; color: #166534;
+    padding: 0.18rem 0.55rem; border-radius: 9999px; white-space: nowrap;
+  }
 
   /* SOLD BANNER */
   .sold-banner-wrap {

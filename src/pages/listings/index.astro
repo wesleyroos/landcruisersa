@@ -6,12 +6,15 @@ import { SITE } from '@/data/site';
 import { db } from '@/db/index';
 import { listings } from '@/db/schema';
 import { inArray, desc } from 'drizzle-orm';
+import { getRecentPriceChanges } from '@/lib/price-changes';
 
 const allListings = await db
   .select()
   .from(listings)
   .where(inArray(listings.status, ['active', 'sold']))
   .orderBy(desc(listings.featured), desc(listings.created_at));
+
+const priceChanges = getRecentPriceChanges();
 
 const PROVINCES = ['All', 'Gauteng', 'Western Cape', 'KwaZulu-Natal', 'Eastern Cape', 'Limpopo', 'Mpumalanga', 'North West', 'Free State', 'Northern Cape'];
 const MODELS = [
@@ -131,6 +134,9 @@ function firstPhoto(photos: string) {
                 {l.listing_type === 'show_off' ? '★ ' : ''}{l.model.replaceAll('-', ' ').toUpperCase()}
               </span>
               {l.status === 'sold' && <span class="card-badge card-badge-sold">Sold</span>}
+              {l.status === 'active' && (priceChanges.get(l.slug) ?? 0) < 0 && (
+                <span class="card-badge card-badge-drop">▼ R{Math.abs(priceChanges.get(l.slug)!).toLocaleString('en-ZA')}</span>
+              )}
             </div>
             {l.listing_type === 'show_off' && (
               <span class="show-off-ribbon">Community Build</span>
@@ -148,7 +154,12 @@ function firstPhoto(photos: string) {
             <div class="flex items-center justify-between mt-auto">
               {l.listing_type === 'for_sale' ? (
                 <>
-                  <p class="font-heading font-bold text-2xl text-[#111111]">{formatPrice(l.price)}</p>
+                  <p class="font-heading font-bold text-2xl text-[#111111]">
+                    {formatPrice(l.price)}
+                    {(priceChanges.get(l.slug) ?? 0) < 0 && (
+                      <span class="was-price">{formatPrice(l.price - priceChanges.get(l.slug)!)}</span>
+                    )}
+                  </p>
                   <span class="text-xs font-bold uppercase px-2.5 py-1 rounded-full bg-[#F5F3EE] text-[#6B7280]">{l.new_or_used}</span>
                 </>
               ) : (
@@ -225,6 +236,11 @@ function firstPhoto(photos: string) {
     color: #111111;
   }
   .card-badge-sold { background: #dc2626; }
+  .card-badge-drop { background: #166534; }
+  .was-price {
+    display: block; font-family: var(--font-body); font-weight: 500;
+    font-size: 0.72rem; color: #9CA3AF; text-decoration: line-through;
+  }
 
   .show-off-ribbon {
     position: absolute;

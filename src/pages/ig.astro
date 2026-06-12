@@ -1,0 +1,125 @@
+---
+// "Link in bio" landing page — shows the exact listings posted to Instagram,
+// newest post first, so a visitor from an IG post finds that car in one tap.
+export const prerender = false;
+
+import Base from '@/layouts/Base.astro';
+import { db } from '@/db/index';
+import { listings } from '@/db/schema';
+import { desc, eq, and, isNotNull } from 'drizzle-orm';
+import { getRecentPriceChanges } from '@/lib/price-changes';
+
+const posted = await db.select().from(listings)
+  .where(and(eq(listings.status, 'active'), isNotNull(listings.ig_posted_at)))
+  .orderBy(desc(listings.ig_posted_at))
+  .limit(24);
+
+const priceChanges = getRecentPriceChanges();
+
+function formatPrice(n: number) {
+  return 'R' + n.toLocaleString('en-ZA');
+}
+function formatMileage(n: number) {
+  return n.toLocaleString('en-ZA') + ' km';
+}
+function firstPhoto(photos: string) {
+  try { return JSON.parse(photos)[0] ?? 'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/og-default.jpg'; }
+  catch { return 'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/og-default.jpg'; }
+}
+---
+
+<Base
+  title="As Posted on Instagram — Land Cruiser SA"
+  description="The Land Cruisers from our Instagram posts — tap through to the full listing with photos, specs and seller contact."
+>
+
+<div class="ig-page">
+  <div class="ig-wrap">
+    <p class="ig-eyebrow">From our Instagram</p>
+    <h1 class="ig-title">Latest Posts</h1>
+    <p class="ig-sub">The Cruisers from our recent posts — newest first. Tap one for full photos, specs and how to buy it.</p>
+
+    {posted.length === 0 ? (
+      <p class="ig-empty">Nothing here yet — check back after our next post, or <a href="/listings/">browse all listings</a>.</p>
+    ) : (
+      <div class="ig-grid">
+        {posted.map(l => {
+          const drop = (priceChanges.get(l.slug) ?? 0) < 0 ? Math.abs(priceChanges.get(l.slug)!) : 0;
+          return (
+            <a href={`/listings/${l.slug}/`} class="ig-card">
+              <div class="ig-img-wrap">
+                <img src={firstPhoto(l.photos)} alt={l.title} loading="lazy" width="640" height="400" />
+                {drop > 0 && <span class="ig-drop">▼ R{drop.toLocaleString('en-ZA')}</span>}
+              </div>
+              <div class="ig-body">
+                <p class="ig-card-title">{l.title}</p>
+                <p class="ig-card-sub">{l.province} · {l.mileage > 0 ? formatMileage(l.mileage) : 'New'}</p>
+                <p class="ig-card-price">
+                  {l.price > 0 ? formatPrice(l.price) : 'POA'}
+                  {drop > 0 && <span class="ig-was">{formatPrice(l.price + drop)}</span>}
+                </p>
+              </div>
+            </a>
+          );
+        })}
+      </div>
+    )}
+
+    <div class="ig-all">
+      <a href="/listings/" class="ig-all-btn">Browse all listings →</a>
+    </div>
+  </div>
+</div>
+
+</Base>
+
+<style>
+  .ig-page { background: #F5F3EE; min-height: 100vh; padding: 2.5rem 0 4rem; }
+  .ig-wrap { max-width: 720px; margin: 0 auto; padding: 0 1.25rem; }
+  .ig-eyebrow {
+    font-size: 0.65rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.16em; color: #D4881A; margin-bottom: 0.4rem;
+  }
+  .ig-title {
+    font-family: var(--font-heading); font-weight: 700; text-transform: uppercase;
+    font-size: clamp(1.5rem, 5vw, 2.125rem); color: #111; line-height: 1.05; margin-bottom: 0.6rem;
+  }
+  .ig-sub { font-size: 0.875rem; color: #6B7280; line-height: 1.6; margin-bottom: 1.75rem; }
+  .ig-empty { font-size: 0.875rem; color: #6B7280; }
+  .ig-empty a { color: #D4881A; font-weight: 700; }
+
+  .ig-grid { display: flex; flex-direction: column; gap: 1rem; }
+  .ig-card {
+    display: block; background: white; border-radius: 0.875rem; overflow: hidden;
+    text-decoration: none; box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .ig-card:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,0,0,0.1); }
+  .ig-img-wrap { position: relative; aspect-ratio: 16 / 10; background: #EAE7E0; }
+  .ig-img-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .ig-drop {
+    position: absolute; top: 10px; left: 10px;
+    background: #166534; color: white; font-size: 0.7rem; font-weight: 700;
+    padding: 0.25rem 0.6rem; border-radius: 9999px;
+  }
+  .ig-body { padding: 0.875rem 1.125rem 1.125rem; }
+  .ig-card-title {
+    font-family: var(--font-heading); font-weight: 700; text-transform: uppercase;
+    font-size: 0.9375rem; color: #111; line-height: 1.25; margin-bottom: 0.2rem;
+  }
+  .ig-card-sub { font-size: 0.75rem; color: #9CA3AF; margin-bottom: 0.45rem; }
+  .ig-card-price {
+    font-family: var(--font-heading); font-weight: 700; font-size: 1.25rem; color: #111;
+    display: flex; align-items: baseline; gap: 0.5rem;
+  }
+  .ig-was { font-family: var(--font-body); font-weight: 500; font-size: 0.78rem; color: #9CA3AF; text-decoration: line-through; }
+
+  .ig-all { margin-top: 2rem; text-align: center; }
+  .ig-all-btn {
+    display: inline-block; font-size: 0.75rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.08em; color: #111; text-decoration: none;
+    border: 1.5px solid #111; border-radius: 9999px; padding: 0.65rem 1.5rem;
+    transition: all 0.15s;
+  }
+  .ig-all-btn:hover { background: #111; color: white; }
+</style>
