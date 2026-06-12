@@ -27,21 +27,28 @@ export function getMarketPosition(listing: {
 }): MarketPosition | null {
   if (listing.price <= 0) return null;
 
-  // Cohort: same model, year ±1, active and priced, excluding this listing
-  const cohort = db.select({ price: listings.price, mileage: listings.mileage })
-    .from(listings)
-    .where(and(
-      eq(listings.status, 'active'),
-      eq(listings.listing_type, 'for_sale'),
-      eq(listings.model, listing.model),
-      gte(listings.year, listing.year - 1),
-      lte(listings.year, listing.year + 1),
-      gt(listings.price, 0),
-      ne(listings.id, listing.id),
-    ))
-    .all();
+  // Cohort: same model, widening the year window (±1 → ±2 → ±3) until there
+  // are enough comparables to make an honest claim. Older vehicles are sparse
+  // in any single year; the label always states the actual range used.
+  let cohort: { price: number; mileage: number }[] = [];
+  let span = 1;
+  for (; span <= 3; span++) {
+    cohort = db.select({ price: listings.price, mileage: listings.mileage })
+      .from(listings)
+      .where(and(
+        eq(listings.status, 'active'),
+        eq(listings.listing_type, 'for_sale'),
+        eq(listings.model, listing.model),
+        gte(listings.year, listing.year - span),
+        lte(listings.year, listing.year + span),
+        gt(listings.price, 0),
+        ne(listings.id, listing.id),
+      ))
+      .all();
+    if (cohort.length >= 5) break;
+  }
 
-  if (cohort.length < 5) return null; // too thin to make honest claims
+  if (cohort.length < 5) return null; // even ±3 too thin — no honest claim possible
 
   const prices = cohort.map(c => c.price).sort((a, b) => a - b);
   const medianPrice = median(prices);
@@ -63,7 +70,7 @@ export function getMarketPosition(listing: {
     .orderBy(asc(priceEvents.recorded_at))
     .all();
 
-  const yearLabel = `${listing.year - 1}–${listing.year + 1}`;
+  const yearLabel = `${listing.year - span}–${listing.year + span}`;
   const modelLabel = listing.model.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()).replace(/Fj/, 'FJ');
 
   return {
