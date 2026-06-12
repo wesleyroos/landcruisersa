@@ -239,6 +239,57 @@ const contactRowsP = [...contactByListingP.entries()]
   .slice(0, 15);
 const totalContactClicksP = contactTotalsP.whatsapp + contactTotalsP.call + contactTotalsP.email;
 
+// ─── Conversion funnel (period) ───────────────────────────────────────────────
+// Views → any outbound action → high-intent contact. Admin sessions are
+// excluded at the tracking layer, so these are genuine buyers only.
+const actionRateP  = totalViewsP > 0 ? (totalClicksP / totalViewsP) * 100 : 0;
+const contactRateP = totalViewsP > 0 ? (totalContactClicksP / totalViewsP) * 100 : 0;
+function pct(n: number): string { return n >= 10 ? n.toFixed(0) + '%' : n.toFixed(1) + '%'; }
+
+// Per-model funnel. Views carry model directly; clicks resolve model via the
+// listings table — needs a qualified created_at since the join makes it ambiguous.
+const pWhereClicks: SQL = (() => {
+  if (validPeriod === 'today') return sql`date(click_events.created_at, 'unixepoch') = date('now')`;
+  if (validPeriod === '7d')   return sql`click_events.created_at >= unixepoch('now', '-7 days')`;
+  if (validPeriod === '90d')  return sql`click_events.created_at >= unixepoch('now', '-90 days')`;
+  if (validPeriod === '6m')   return sql`click_events.created_at >= unixepoch('now', '-180 days')`;
+  if (validPeriod === '12m')  return sql`click_events.created_at >= unixepoch('now', '-365 days')`;
+  return sql`click_events.created_at >= unixepoch('now', '-30 days')`;
+})();
+
+const viewsByModelFunnel = db.select({
+  model: viewEvents.model,
+  count: sql<number>`cast(count(*) as int)`,
+}).from(viewEvents).where(and(pWhere, sql`model IS NOT NULL`)).groupBy(viewEvents.model).all();
+
+const clicksByModelFunnel = db.select({
+  model:   listings.model,
+  portal:  sql<number>`cast(sum(CASE WHEN click_events.source NOT IN ('whatsapp','call','email') THEN 1 ELSE 0 END) as int)`,
+  contact: sql<number>`cast(sum(CASE WHEN click_events.source IN ('whatsapp','call','email') THEN 1 ELSE 0 END) as int)`,
+}).from(clickEvents)
+  .leftJoin(listings, eq(listings.slug, clickEvents.listing_slug))
+  .where(pWhereClicks)
+  .groupBy(listings.model)
+  .all();
+
+type FunnelRow = { model: string; views: number; portal: number; contact: number; rate: number };
+const funnelMap = new Map<string, FunnelRow>();
+for (const v of viewsByModelFunnel) {
+  if (!v.model) continue;
+  funnelMap.set(v.model, { model: v.model, views: v.count, portal: 0, contact: 0, rate: 0 });
+}
+for (const c of clicksByModelFunnel) {
+  if (!c.model) continue;
+  const row = funnelMap.get(c.model) ?? { model: c.model, views: 0, portal: 0, contact: 0, rate: 0 };
+  row.portal = c.portal;
+  row.contact = c.contact;
+  funnelMap.set(c.model, row);
+}
+const funnelRows = [...funnelMap.values()]
+  .map(r => ({ ...r, rate: r.views > 0 ? ((r.portal + r.contact) / r.views) * 100 : 0 }))
+  .filter(r => r.views + r.portal + r.contact > 0)
+  .sort((a, b) => b.views - a.views);
+
 // ─── Misc helpers ─────────────────────────────────────────────────────────────
 
 function fmt(d: Date | null) {
@@ -329,6 +380,71 @@ const SOURCE_LABEL: Record<string, string> = {
         <p class="kpi-sub">AutoTrader, WBC, etc.</p>
       </div>
     </div>
+
+    <!-- ── CONVERSION FUNNEL (period-filtered) ───────────────── -->
+    <section class="card">
+      <div class="card-head">
+        <h2 class="card-title">Conversion Funnel</h2>
+        <span class="badge-sub">{periodLabel}</span>
+        <span class="info" data-tip="How buyer attention turns into action. Views = listing pages seen. Actions = any outbound click (portal links + WhatsApp/call/email). Contacts = the high-intent subset (WhatsApp, call, email only). Admin sessions are excluded — this is genuine buyer behaviour.">?</span>
+      </div>
+      {totalViewsP === 0 ? (
+        <p class="empty">No listing views in {periodLabel} yet — funnel appears once genuine traffic lands.</p>
+      ) : (
+        <div class="card-body">
+          <div class="funnel-row">
+            <div class="fstage">
+              <p class="fval">{totalViewsP}</p>
+              <p class="flabel">Listing Views</p>
+            </div>
+            <div class="farrow">
+              <span class="frate">{pct(actionRateP)}</span>
+              <span class="fline">→</span>
+            </div>
+            <div class="fstage">
+              <p class="fval">{totalClicksP}</p>
+              <p class="flabel">Outbound Actions</p>
+            </div>
+            <div class="farrow">
+              <span class="frate">{pct(contactRateP)} of views</span>
+              <span class="fline">→</span>
+            </div>
+            <div class="fstage fstage-hot">
+              <p class="fval">{totalContactClicksP}</p>
+              <p class="flabel">Contact Actions</p>
+            </div>
+          </div>
+
+          {funnelRows.length > 0 && (
+            <div class="table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Model</th>
+                    <th class="num-c">Views</th>
+                    <th class="num-c">Portal Clicks</th>
+                    <th class="num-c">Contacts</th>
+                    <th class="num-c">Action Rate</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {funnelRows.map(r => (
+                    <tr>
+                      <td style="font-weight:600">{r.model.replace(/-/g, ' ').toUpperCase()}</td>
+                      <td class="num-c" style="font-weight:700">{r.views}</td>
+                      <td class="num-c">{r.portal}</td>
+                      <td class="num-c" style={r.contact > 0 ? 'color:#166534;font-weight:700' : ''}>{r.contact}</td>
+                      <td class="num-c" style="color:#D4881A;font-weight:700">{r.views > 0 ? pct(r.rate) : '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <p class="card-note">High views + low action rate = interest but weak listing pages or prices. Contacts are the leads a finance/dealer partner would pay for.</p>
+            </div>
+          )}
+        </div>
+      )}
+    </section>
 
     <!-- ── ROW: CAMPAIGN TRAFFIC + DEMAND BY MODEL ──────────── -->
     <div class="grid-2">
@@ -767,6 +883,27 @@ const SOURCE_LABEL: Record<string, string> = {
     white-space: nowrap; box-shadow: 0 4px 12px rgba(0,0,0,0.2); z-index: 10;
   }
   .growth-tooltip strong { color: #F5A623; }
+  /* FUNNEL */
+  .funnel-row {
+    display: flex; align-items: stretch; gap: 0.5rem; flex-wrap: wrap;
+    margin-bottom: 1rem;
+  }
+  .fstage {
+    flex: 1; min-width: 120px; background: #F9FAFB; border: 1.5px solid #E5E7EB;
+    border-radius: 0.75rem; padding: 1rem 1.25rem; text-align: center;
+  }
+  .fstage-hot { background: #F0FDF4; border-color: #BBF7D0; }
+  .fval { font-size: 1.5rem; font-weight: 700; color: #111111; line-height: 1.1; }
+  .fstage-hot .fval { color: #166534; }
+  .flabel { font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #9CA3AF; margin-top: 0.3rem; }
+  .farrow { display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 70px; }
+  .frate { font-size: 0.68rem; font-weight: 700; color: #D4881A; white-space: nowrap; }
+  .fline { font-size: 1.1rem; color: #D1D5DB; line-height: 1; }
+
+  @media (max-width: 640px) {
+    .funnel-row { flex-direction: column; }
+    .farrow { transform: rotate(90deg); min-width: 0; padding: 0.25rem 0; }
+  }
 </style>
 
 <script define:vars={{ listingsGrowth }}>
