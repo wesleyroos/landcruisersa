@@ -10,9 +10,13 @@ import { sql, isNotNull } from 'drizzle-orm';
 // rollups. Consumed by the periodic weight-tuning review (Claude session):
 //   curl -s $SITE_URL/api/admin/ig-outcomes -H "Authorization: Bearer $INGEST_TOKEN"
 export const GET: APIRoute = async ({ request }) => {
+  // Accepts the full ingest token or the read-only REPORT_TOKEN (used by the
+  // scheduled weight-tuning routine — grants nothing beyond aggregate stats)
   const auth = request.headers.get('authorization') ?? '';
-  const token = import.meta.env.INGEST_TOKEN ?? process.env.INGEST_TOKEN;
-  if (!token || auth !== `Bearer ${token}`) {
+  const ingest = import.meta.env.INGEST_TOKEN ?? process.env.INGEST_TOKEN;
+  const report = import.meta.env.REPORT_TOKEN ?? process.env.REPORT_TOKEN;
+  const ok = (ingest && auth === `Bearer ${ingest}`) || (report && auth === `Bearer ${report}`);
+  if (!ok) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
   }
 
