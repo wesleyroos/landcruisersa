@@ -1,0 +1,16 @@
+name: Daily IG post suggestion
+
+on:
+  schedule:
+    - cron: '0 5 * * *'   # 07:00 SAST — in the inbox before coffee
+  workflow_dispatch:
+
+jobs:
+  suggest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger post-suggestion email
+        run: |
+          curl -sf -X POST "${{ secrets.SITE_URL }}/api/cron/post-suggestion" \
+            -H "Authorization: Bearer ${{ secrets.INGEST_TOKEN }}" \
+            -o /dev/null -w "HTTP %{http_code}\n"
