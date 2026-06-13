@@ -99,6 +99,13 @@ function firstPhoto(photos: string) {
         <option value="600000-900000">R600k – R900k</option>
         <option value="900000-9999999">Over R900k</option>
       </select>
+      <select id="filter-mileage" class="border border-[#DDD9D3] rounded-xl px-4 py-2.5 text-sm bg-white focus:outline-none focus:border-[#F5A623] transition-colors cursor-pointer min-h-[44px]">
+        <option value="all">Any Mileage</option>
+        <option value="0-50000">Under 50k km</option>
+        <option value="0-100000">Under 100k km</option>
+        <option value="100000-200000">100k – 200k km</option>
+        <option value="200000-9999999">Over 200k km</option>
+      </select>
       <span id="results-count" class="self-center text-sm text-[#6B7280] ml-auto"></span>
     </div>
 
@@ -115,6 +122,7 @@ function firstPhoto(photos: string) {
           data-model={l.model}
           data-province={l.province}
           data-price={l.price}
+          data-mileage={l.mileage}
           data-type={l.listing_type}
           data-status={l.status}
         >
@@ -323,6 +331,7 @@ function firstPhoto(photos: string) {
   const modelSel = document.getElementById('filter-model') as HTMLSelectElement;
   const provinceSel = document.getElementById('filter-province') as HTMLSelectElement;
   const priceSel = document.getElementById('filter-price') as HTMLSelectElement;
+  const mileageSel = document.getElementById('filter-mileage') as HTMLSelectElement;
   const typePills = document.querySelectorAll<HTMLButtonElement>('.type-pill');
 
   const PAGE_SIZE = 18;
@@ -345,6 +354,12 @@ function firstPhoto(photos: string) {
     const isShowOff = cardType === 'show_off';
     const priceOk = isShowOff || showingSold || (price >= minP && price <= maxP);
 
+    const [minM, maxM] = mileageSel.value === 'all'
+      ? [0, Infinity]
+      : mileageSel.value.split('-').map(Number);
+    const mileage = Number(card.dataset.mileage);
+    const mileageOk = isShowOff || (mileage >= minM && mileage <= maxM);
+
     const cardModel = card.dataset.model ?? '';
     const modelMatch =
       model === 'all' ||
@@ -357,6 +372,7 @@ function firstPhoto(photos: string) {
     return modelMatch &&
       (province === 'all' || card.dataset.province === province) &&
       priceOk &&
+      mileageOk &&
       typeMatch;
   }
 
@@ -435,17 +451,20 @@ function firstPhoto(photos: string) {
       typePills.forEach(p => p.classList.remove('active'));
       pill.classList.add('active');
       const priceFilter = document.getElementById('filter-price') as HTMLSelectElement;
-      priceFilter.style.display = (activeType === 'show_off' || activeType === 'sold') ? 'none' : '';
+      const hide = (activeType === 'show_off' || activeType === 'sold') ? 'none' : '';
+      priceFilter.style.display = hide;
+      mileageSel.style.display = (activeType === 'show_off') ? 'none' : '';
       applyFilters();
     });
   });
 
-  [modelSel, provinceSel, priceSel].forEach(el => el.addEventListener('change', applyFilters));
+  [modelSel, provinceSel, priceSel, mileageSel].forEach(el => el.addEventListener('change', applyFilters));
 
   document.getElementById('reset-filters')?.addEventListener('click', () => {
     modelSel.value = 'all';
     provinceSel.value = 'all';
     priceSel.value = 'all';
+    mileageSel.value = 'all';
     activeType = 'all';
     typePills.forEach(p => p.classList.toggle('active', p.dataset.type === 'all'));
     applyFilters();

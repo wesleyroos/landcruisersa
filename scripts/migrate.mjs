@@ -59,6 +59,7 @@ addCol('review_flag',    "review_flag    INTEGER NOT NULL DEFAULT 0");
 addCol('ig_posted_at',   "ig_posted_at   INTEGER");
 addCol('featured',       "featured       INTEGER NOT NULL DEFAULT 0");
 addCol('segment',        "segment        TEXT    NOT NULL DEFAULT 'land-cruiser'");
+addCol('off_market_at',  "off_market_at  INTEGER");
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS site_config (
@@ -173,6 +174,33 @@ db.exec(`
 // Data fix: prado-250 launched 2024 — upgrade any stale prado-150 rows
 db.exec(`UPDATE listings SET model = 'prado-250' WHERE model = 'prado-150' AND year >= 2024`);
 
+// Data fix: split flat hilux/fortuner (collected before the era split existed)
+// into engine-era slugs. Title 'D-4D' forces d4d even on a 2016+ row; otherwise
+// year >= 2016 → GD-6 generation. Idempotent — no-op once all rows are split.
+for (const base of ['hilux', 'fortuner']) {
+  db.exec(`UPDATE listings SET model = '${base}-d4d'
+    WHERE model = '${base}' AND (LOWER(title) LIKE '%d-4d%' OR LOWER(title) LIKE '%d4d%' OR year < 2016)`);
+  db.exec(`UPDATE listings SET model = '${base}-gd6' WHERE model = '${base}'`);
+}
+// Keep price_events model slugs in sync with their listing
+db.exec(`
+  UPDATE price_events
+  SET model = (SELECT model FROM listings WHERE listings.slug = price_events.slug)
+  WHERE model IN ('hilux', 'fortuner')
+    AND EXISTS (SELECT 1 FROM listings WHERE listings.slug = price_events.slug)
+`);
+
+// Backfill off_market_at for listings that left the market before this column
+// existed. last_polled_at ≈ when the poller marked a listing removed (it stops
+// polling once removed), so it's a sound proxy. Only fills NULLs, so it's a
+// one-time no-op after the first boot — new departures get stamped by the app.
+db.exec(`
+  UPDATE listings SET off_market_at = last_polled_at
+  WHERE off_market_at IS NULL
+    AND last_polled_at IS NOT NULL
+    AND status IN ('sold', 'removed', 'inactive')
+`);
+
 // Safety check — every column the app expects must exist.
 // If any are missing, crash here so Fly never serves broken traffic.
 const REQUIRED_COLS = [
@@ -181,7 +209,7 @@ const REQUIRED_COLS = [
   'photos', 'seller_name', 'seller_email', 'seller_phone', 'status',
   'fuel_type', 'fuel_consumption', 'power_kw', 'seats', 'co2',
   'source_url', 'source', 'source_id', 'last_polled_at', 'review_flag',
-  'created_at', 'ig_posted_at', 'featured', 'segment',
+  'created_at', 'ig_posted_at', 'featured', 'segment', 'off_market_at',
 ];
 const finalCols = new Set(
   db.prepare("SELECT name FROM pragma_table_info('listings')").all().map(r => r.name)

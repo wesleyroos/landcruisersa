@@ -19,16 +19,17 @@ const fSource   = Astro.url.searchParams.get('source')   ?? '';
 const fModel    = Astro.url.searchParams.get('model')    ?? '';
 const fYear     = Astro.url.searchParams.get('year')     ?? '';
 const fPrice    = Astro.url.searchParams.get('price')    ?? '';
+const fMileage  = Astro.url.searchParams.get('mileage')  ?? '';
 const fProvince = Astro.url.searchParams.get('province') ?? '';
 const fType     = Astro.url.searchParams.get('type')     ?? '';
 const fPosted   = Astro.url.searchParams.get('posted')   === '1';
 const fDrops    = Astro.url.searchParams.get('drops')    === '1';
 const fQ        = (Astro.url.searchParams.get('q') ?? '').trim();
-const hasFilter = !!(fSource || fModel || fYear || fPrice || fProvince || fType || fPosted || fDrops || fQ);
+const hasFilter = !!(fSource || fModel || fYear || fPrice || fMileage || fProvince || fType || fPosted || fDrops || fQ);
 
 function buildFilterUrl(overrides: Record<string, string>) {
   const params = new URLSearchParams();
-  const base = { source: fSource, model: fModel, year: fYear, price: fPrice, province: fProvince, type: fType, posted: fPosted ? '1' : '', drops: fDrops ? '1' : '', q: fQ, ...overrides };
+  const base = { source: fSource, model: fModel, year: fYear, price: fPrice, mileage: fMileage, province: fProvince, type: fType, posted: fPosted ? '1' : '', drops: fDrops ? '1' : '', q: fQ, ...overrides };
   for (const [k, v] of Object.entries(base)) if (v) params.set(k, v);
   const s = params.toString();
   return `/admin${s ? '?' + s : ''}`;
@@ -92,6 +93,11 @@ if (fPrice) {
   const [pMin, pMax] = fPrice.split('-').map(Number);
   activeConds.push(gte(listings.price, pMin));
   if (pMax < 9999999) activeConds.push(lte(listings.price, pMax));
+}
+if (fMileage) {
+  const [mMin, mMax] = fMileage.split('-').map(Number);
+  activeConds.push(gte(listings.mileage, mMin));
+  if (mMax < 9999999) activeConds.push(lte(listings.mileage, mMax));
 }
 if (fPosted) activeConds.push(isNotNull(listings.ig_posted_at));
 if (fDrops) activeConds.push(droppedSlugs.length ? inArray(listings.slug, droppedSlugs) : sql`0 = 1`);
@@ -384,6 +390,12 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
         <option value="fj-cruiser"     selected={fModel==='fj-cruiser'}>FJ Cruiser</option>
         <option value="land-cruiser-fj" selected={fModel==='land-cruiser-fj'}>LC FJ</option>
         <option value="other"          selected={fModel==='other'}>Other</option>
+        <optgroup label="Toyota 4x4 (data only)">
+          <option value="hilux-gd6"     selected={fModel==='hilux-gd6'}>Hilux GD-6</option>
+          <option value="hilux-d4d"     selected={fModel==='hilux-d4d'}>Hilux D-4D</option>
+          <option value="fortuner-gd6"  selected={fModel==='fortuner-gd6'}>Fortuner GD-6</option>
+          <option value="fortuner-d4d"  selected={fModel==='fortuner-d4d'}>Fortuner D-4D</option>
+        </optgroup>
       </select>
       <select class={`af-sel${fYear     ? ' active' : ''}`} data-filter="year">
         <option value="">Any Year</option>
@@ -400,6 +412,13 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
         <option value="300000-600000"  selected={fPrice==='300000-600000'}>R300k – R600k</option>
         <option value="600000-900000"  selected={fPrice==='600000-900000'}>R600k – R900k</option>
         <option value="900000-9999999" selected={fPrice==='900000-9999999'}>Over R900k</option>
+      </select>
+      <select class={`af-sel${fMileage  ? ' active' : ''}`} data-filter="mileage">
+        <option value="">Any Mileage</option>
+        <option value="0-50000"        selected={fMileage==='0-50000'}>Under 50k km</option>
+        <option value="0-100000"       selected={fMileage==='0-100000'}>Under 100k km</option>
+        <option value="100000-200000"  selected={fMileage==='100000-200000'}>100k – 200k km</option>
+        <option value="200000-9999999" selected={fMileage==='200000-9999999'}>Over 200k km</option>
       </select>
       <select class={`af-sel${fProvince ? ' active' : ''}`} data-filter="province">
         <option value="">All Provinces</option>
