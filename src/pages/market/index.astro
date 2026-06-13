@@ -7,25 +7,30 @@ import Base from '@/layouts/Base.astro';
 import { db } from '@/db/index';
 import { listings } from '@/db/schema';
 import { sql, eq, and, gt } from 'drizzle-orm';
+import { segmentForModel, modelLabel } from '@/lib/sources/normalize';
 
-const stats = db.select({
+const allStats = db.select({
   model: listings.model,
   count: sql<number>`cast(count(*) as int)`,
   avgPrice: sql<number>`cast(avg(price) as int)`,
   minPrice: sql<number>`cast(min(price) as int)`,
   maxPrice: sql<number>`cast(max(price) as int)`,
 }).from(listings)
-  .where(and(eq(listings.status, 'active'), eq(listings.segment, 'land-cruiser'), eq(listings.listing_type, 'for_sale'), gt(listings.price, 0)))
+  .where(and(eq(listings.status, 'active'), eq(listings.listing_type, 'for_sale'), gt(listings.price, 0)))
   .groupBy(listings.model)
   .orderBy(sql`count(*) desc`)
   .all();
+
+// Land Cruiser is the headline dataset; Hilux & Fortuner shown as a second section.
+const stats     = allStats.filter(r => segmentForModel(r.model) === 'land-cruiser');
+const toyota4x4 = allStats.filter(r => segmentForModel(r.model) === 'toyota-4x4');
 
 const totalActive = stats.reduce((s, r) => s + r.count, 0);
 const updated = new Date();
 const updatedStr = updated.toLocaleDateString('en-ZA', { day: 'numeric', month: 'long', year: 'numeric' });
 
 function R(n: number) { return 'R ' + n.toLocaleString('en-ZA'); }
-function label(m: string) { return m.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()).replace(/Fj/, 'FJ'); }
+const label = modelLabel;
 
 const datasetSchema = {
   "@context": "https://schema.org",
@@ -78,8 +83,40 @@ const datasetSchema = {
       </tbody>
     </table>
 
+    {toyota4x4.length > 0 && (
+      <>
+        <h2 class="section-h2">Toyota Hilux &amp; Fortuner</h2>
+        <p class="intro">
+          We also track South Africa's two best-selling Toyota 4x4s, split by engine generation —
+          the GD-6 era (2016 onward) and the earlier D-4D.
+        </p>
+        <table class="market-table">
+          <thead>
+            <tr>
+              <th>Model</th>
+              <th>For Sale</th>
+              <th>Average Asking Price</th>
+              <th>Price Range</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {toyota4x4.map(r => (
+              <tr>
+                <td class="m-name">{label(r.model)}</td>
+                <td>{r.count}</td>
+                <td class="m-price">{R(r.avgPrice)}</td>
+                <td>{R(r.minPrice)} – {R(r.maxPrice)}</td>
+                <td><a href={`/market/${r.model}/`} class="m-link">Detail →</a></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </>
+    )}
+
     <p class="foot-note">
-      Source: <a href="https://landcruisersa.co.za/listings/">Land Cruiser SA classifieds</a> — South Africa's
+      Source: <a href="https://landcruisersa.co.za/listings/">Land Cruiser SA</a> — South Africa's
       Land Cruiser listing aggregator. Prices are seller asking prices, not transaction prices.
       Browse all current listings at <a href="/listings/">landcruisersa.co.za/listings</a>.
     </p>
@@ -99,6 +136,10 @@ const datasetSchema = {
     font-family: var(--font-heading); font-weight: 700; text-transform: uppercase;
     font-size: clamp(1.75rem, 4vw, 2.5rem); color: #111; line-height: 1.05;
     margin-bottom: 1rem;
+  }
+  .section-h2 {
+    font-family: var(--font-heading); font-weight: 700; text-transform: uppercase;
+    font-size: 1.25rem; color: #111; margin: 2.75rem 0 0.75rem;
   }
   .intro { font-size: 0.9375rem; color: #4A4A4A; line-height: 1.7; margin-bottom: 2rem; max-width: 640px; }
   .market-table {

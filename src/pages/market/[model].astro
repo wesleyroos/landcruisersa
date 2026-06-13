@@ -7,9 +7,12 @@ import Base from '@/layouts/Base.astro';
 import { db } from '@/db/index';
 import { listings, priceEvents } from '@/db/schema';
 import { sql, eq, and, gt, gte, desc } from 'drizzle-orm';
+import { segmentForModel, modelLabel, modelEra } from '@/lib/sources/normalize';
 
 const { model } = Astro.params;
 
+// Model-keyed query is inherently scoped to one model, so no segment filter
+// needed — both Land Cruiser and the public Toyota-4x4 models render here.
 const rows = db.select({
   price: listings.price,
   year: listings.year,
@@ -17,7 +20,6 @@ const rows = db.select({
 }).from(listings)
   .where(and(
     eq(listings.status, 'active'),
-    eq(listings.segment, 'land-cruiser'),
     eq(listings.listing_type, 'for_sale'),
     eq(listings.model, model!),
     gt(listings.price, 0),
@@ -79,13 +81,16 @@ const updated = new Date();
 const updatedStr = updated.toLocaleDateString('en-ZA', { day: 'numeric', month: 'long', year: 'numeric' });
 
 function R(n: number) { return 'R ' + n.toLocaleString('en-ZA'); }
-const modelLabel = model!.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()).replace(/Fj/, 'FJ');
+const isLC = segmentForModel(model!) === 'land-cruiser';
+const mLabel = modelLabel(model!);                       // "79 Series" | "Hilux GD-6"
+const fullName = isLC ? `Land Cruiser ${mLabel}` : `Toyota ${mLabel}`;
+const era = modelEra(model!);                            // "2016 onward" | null
 
 const datasetSchema = {
   "@context": "https://schema.org",
   "@type": "Dataset",
-  "name": `Toyota Land Cruiser ${modelLabel} Prices — South Africa`,
-  "description": `Live asking prices for ${count} Toyota Land Cruiser ${modelLabel} vehicles for sale in South Africa. Average ${R(avg)}, median ${R(median)}, range ${R(min)} to ${R(max)}. Updated ${updated.toISOString().slice(0, 10)}.`,
+  "name": `Toyota ${fullName} Prices — South Africa`,
+  "description": `Live asking prices for ${count} Toyota ${fullName} vehicles for sale in South Africa. Average ${R(avg)}, median ${R(median)}, range ${R(min)} to ${R(max)}. Updated ${updated.toISOString().slice(0, 10)}.`,
   "url": `https://landcruisersa.co.za/market/${model}/`,
   "creator": { "@type": "Organization", "name": "Land Cruiser SA", "url": "https://landcruisersa.co.za" },
   "dateModified": updated.toISOString(),
@@ -94,18 +99,18 @@ const datasetSchema = {
 ---
 
 <Base
-  title={`Land Cruiser ${modelLabel} Prices South Africa — Live Market Data`}
-  description={`What does a Land Cruiser ${modelLabel} cost in South Africa? ${count} currently for sale: average ${R(avg)}, median ${R(median)}, range ${R(min)}–${R(max)}. Updated ${updatedStr}.`}
+  title={`${fullName} Prices South Africa — Live Market Data`}
+  description={`What does a ${fullName} cost in South Africa? ${count} currently for sale: average ${R(avg)}, median ${R(median)}, range ${R(min)}–${R(max)}. Updated ${updatedStr}.`}
   schema={datasetSchema}
 >
 
 <div class="market-page">
   <div class="market-wrap">
-    <p class="eyebrow"><a href="/market/">Market Data</a> · Updated {updatedStr}</p>
-    <h1>Land Cruiser {modelLabel} Prices in South Africa</h1>
+    <p class="eyebrow"><a href="/market/">Market Data</a> · Updated {updatedStr}{era ? ` · ${era}` : ''}</p>
+    <h1>{fullName} Prices in South Africa</h1>
     <p class="intro">
-      There are currently <strong>{count}</strong> Toyota Land Cruiser {modelLabel} vehicles listed
-      for sale in South Africa. The average asking price is <strong>{R(avg)}</strong> (median {R(median)}),
+      There are currently <strong>{count}</strong> {fullName} vehicles listed
+      for sale in South Africa{era ? ` (${era})` : ''}. The average asking price is <strong>{R(avg)}</strong> (median {R(median)}),
       ranging from {R(min)} to {R(max)}. Average mileage across listings is {avgMileage.toLocaleString('en-ZA')} km.
     </p>
 
@@ -143,7 +148,7 @@ const datasetSchema = {
         <h2>Recent Price Movements (Last 30 Days)</h2>
         <p class="intro">
           Our aggregator observed <strong>{movements.length}</strong> asking-price change{movements.length !== 1 ? 's' : ''} on
-          {' '}{modelLabel} listings in the last 30 days{drops.length > 0 && (
+          {' '}{mLabel} listings in the last 30 days{drops.length > 0 && (
             <> — {drops.length} price drop{drops.length !== 1 ? 's' : ''}{medianDrop > 0 && <>, median reduction {R(medianDrop)}</>}</>
           )}{raises.length > 0 && <>, {raises.length} increase{raises.length !== 1 ? 's' : ''}</>}.
         </p>
@@ -162,7 +167,7 @@ const datasetSchema = {
               return (
                 <tr>
                   <td class="m-name">
-                    {m.status === 'active'
+                    {isLC && m.status === 'active'
                       ? <a href={`/listings/${m.slug}/`}>{m.title ?? m.slug}</a>
                       : (m.title ?? m.slug)
                     }
@@ -183,8 +188,10 @@ const datasetSchema = {
     <p class="foot-note">
       Prices are seller asking prices aggregated by Land Cruiser SA from major South African listing
       platforms and private sellers — not final transaction prices.
-      Browse all current {modelLabel} listings at
-      <a href={`/listings/?model=${model}`}>landcruisersa.co.za/listings</a>.
+      {isLC
+        ? <>{' '}Browse all current {mLabel} listings at <a href={`/listings/?model=${model}`}>landcruisersa.co.za/listings</a>.</>
+        : <>{' '}We track {mLabel} prices for market data; individual {mLabel} listings are not yet published on Land Cruiser SA.</>
+      }
     </p>
   </div>
 </div>

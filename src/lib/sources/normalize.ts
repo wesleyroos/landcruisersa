@@ -24,12 +24,20 @@ const MODEL_MAP: [RegExp, string][] = [
   [/\bhilux\b/i,                                     'hilux'],
 ];
 
-// Models that belong to the Land Cruiser brand vs adjacent segments we collect
-// data for but do not show on landcruisersa.co.za. Drives the `segment` column.
-const NON_LC_MODELS = new Set(['hilux', 'fortuner']);
+// Adjacent Toyota-4x4 segment — collected for data and shown on the public
+// market pages, but kept out of the LC classifieds. Drives the `segment` column.
 export const LC_SEGMENT = 'land-cruiser';
 export function segmentForModel(model: string): string {
-  return NON_LC_MODELS.has(model) ? 'toyota-4x4' : LC_SEGMENT;
+  return (model.startsWith('hilux') || model.startsWith('fortuner')) ? 'toyota-4x4' : LC_SEGMENT;
+}
+
+// Hilux & Fortuner split by engine era (mirrors prado-150/250): the GD-6
+// generation launched 2016, replacing the D-4D. Engine name in the title wins;
+// otherwise fall back to the model year.
+function hiluxFortunerEra(raw: string, year?: number): 'gd6' | 'd4d' {
+  if (/d[\s-]?4d/i.test(raw)) return 'd4d';
+  if (/gd[\s-]?6/i.test(raw)) return 'gd6';
+  return (year ?? 2016) >= 2016 ? 'gd6' : 'd4d';
 }
 
 export function normalizeModel(raw: string, year?: number): string {
@@ -39,6 +47,8 @@ export function normalizeModel(raw: string, year?: number): string {
       if (slug === 'prado-150' && year && year >= 2024) return 'prado-250';
       // New Land Cruiser FJ launched 2026; older "Land Cruiser FJ" listings are FJ Cruisers
       if (slug === 'land-cruiser-fj' && year && year <= 2025) return 'fj-cruiser';
+      // Hilux / Fortuner → engine-era slugs (hilux-gd6, fortuner-d4d, …)
+      if (slug === 'hilux' || slug === 'fortuner') return `${slug}-${hiluxFortunerEra(raw, year)}`;
       return slug;
     }
   }
@@ -60,4 +70,21 @@ const PROVINCE_MAP: Record<string, string> = {
 export function normalizeProvince(raw: string): string {
   const key = raw.toLowerCase().trim();
   return PROVINCE_MAP[key] ?? raw;
+}
+
+// Display labels for model slugs (overrides the generic title-case fallback)
+const MODEL_LABELS: Record<string, string> = {
+  'hilux-gd6': 'Hilux GD-6', 'hilux-d4d': 'Hilux D-4D',
+  'fortuner-gd6': 'Fortuner GD-6', 'fortuner-d4d': 'Fortuner D-4D',
+};
+const MODEL_ERA: Record<string, string> = {
+  'hilux-gd6': '2016 onward', 'hilux-d4d': 'pre-2016',
+  'fortuner-gd6': '2016 onward', 'fortuner-d4d': 'pre-2016',
+};
+export function modelLabel(model: string): string {
+  return MODEL_LABELS[model]
+    ?? model.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()).replace(/Fj/, 'FJ');
+}
+export function modelEra(model: string): string | null {
+  return MODEL_ERA[model] ?? null;
 }

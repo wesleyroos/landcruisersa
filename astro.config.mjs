@@ -53,6 +53,11 @@ export default defineConfig({
         'https://landcruisersa.co.za/market/78-series/',
         'https://landcruisersa.co.za/market/80-series/',
         'https://landcruisersa.co.za/market/land-cruiser-fj/',
+        // Toyota Hilux & Fortuner market data (public data layer)
+        'https://landcruisersa.co.za/market/hilux-gd6/',
+        'https://landcruisersa.co.za/market/hilux-d4d/',
+        'https://landcruisersa.co.za/market/fortuner-gd6/',
+        'https://landcruisersa.co.za/market/fortuner-d4d/',
       ],
       // Keep admin pages out of the sitemap
       filter: (page) => !page.includes('/admin/'),
