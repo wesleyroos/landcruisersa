@@ -85,9 +85,21 @@ function firstPhoto(photos: string) {
 
     <!-- DROPDOWN FILTERS -->
     <div class="flex flex-wrap gap-2.5 mb-8" id="filters">
-      <select id="filter-model" class="border border-[#DDD9D3] rounded-xl px-4 py-2.5 text-sm bg-white focus:outline-none focus:border-[#F5A623] transition-colors cursor-pointer min-h-[44px]">
-        {MODELS.map(m => <option value={m.value}>{m.label}</option>)}
-      </select>
+      <div class="relative" id="ms-model">
+        <button type="button" id="ms-model-btn" aria-expanded="false"
+          class="border border-[#DDD9D3] rounded-xl px-4 py-2.5 text-sm bg-white focus:outline-none focus:border-[#F5A623] transition-colors cursor-pointer min-h-[44px] flex items-center gap-2 justify-between min-w-[150px]">
+          <span id="ms-model-label" class="truncate">All Models</span>
+          <svg width="10" height="6" viewBox="0 0 10 6" class="flex-shrink-0"><path d="M1 1l4 4 4-4" stroke="#9CA3AF" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <div id="ms-model-panel" class="absolute z-30 mt-1 w-56 max-h-72 overflow-auto bg-white border border-[#DDD9D3] rounded-xl shadow-lg py-1 hidden">
+          {MODELS.filter(m => m.value !== 'all').map(m => (
+            <label class="flex items-center gap-2.5 px-4 py-2 text-sm cursor-pointer hover:bg-[#F5F3EE]">
+              <input type="checkbox" value={m.value} class="ms-model-cb accent-[#F5A623] w-4 h-4" />
+              <span>{m.label}</span>
+            </label>
+          ))}
+        </div>
+      </div>
       <select id="filter-province" class="border border-[#DDD9D3] rounded-xl px-4 py-2.5 text-sm bg-white focus:outline-none focus:border-[#F5A623] transition-colors cursor-pointer min-h-[44px]">
         <option value="all">All Provinces</option>
         {PROVINCES.filter(p => p !== 'All').map(p => <option value={p}>{p}</option>)}
@@ -328,18 +340,42 @@ function firstPhoto(photos: string) {
   const countEl = document.getElementById('results-count')!;
   const paginationEl = document.getElementById('pagination')!;
 
-  const modelSel = document.getElementById('filter-model') as HTMLSelectElement;
   const provinceSel = document.getElementById('filter-province') as HTMLSelectElement;
   const priceSel = document.getElementById('filter-price') as HTMLSelectElement;
   const mileageSel = document.getElementById('filter-mileage') as HTMLSelectElement;
   const typePills = document.querySelectorAll<HTMLButtonElement>('.type-pill');
+
+  // ── Multi-select model dropdown ──────────────────────────────────────────
+  const msBtn = document.getElementById('ms-model-btn')!;
+  const msPanel = document.getElementById('ms-model-panel')!;
+  const msLabel = document.getElementById('ms-model-label')!;
+  const msBoxes = Array.from(document.querySelectorAll<HTMLInputElement>('.ms-model-cb'));
+  let selectedModels: string[] = [];
+
+  function updateModelLabel() {
+    selectedModels = msBoxes.filter(b => b.checked).map(b => b.value);
+    msLabel.textContent =
+      selectedModels.length === 0 ? 'All Models'
+      : selectedModels.length === 1 ? (msBoxes.find(b => b.checked)!.nextElementSibling!.textContent ?? '1 model')
+      : `${selectedModels.length} models`;
+  }
+  msBtn.addEventListener('click', () => {
+    const open = msPanel.classList.toggle('hidden');
+    msBtn.setAttribute('aria-expanded', String(!open));
+  });
+  document.addEventListener('click', e => {
+    if (!document.getElementById('ms-model')!.contains(e.target as Node)) {
+      msPanel.classList.add('hidden');
+      msBtn.setAttribute('aria-expanded', 'false');
+    }
+  });
+  msBoxes.forEach(b => b.addEventListener('change', () => { updateModelLabel(); applyFilters(); }));
 
   const PAGE_SIZE = 18;
   let activeType = 'all';
   let currentPage = 1;
 
   function matchesFilters(card: HTMLElement): boolean {
-    const model = modelSel.value;
     const province = provinceSel.value;
     const [minP, maxP] = priceSel.value === 'all'
       ? [0, Infinity]
@@ -361,11 +397,11 @@ function firstPhoto(photos: string) {
     const mileageOk = isShowOff || (mileage >= minM && mileage <= maxM);
 
     const cardModel = card.dataset.model ?? '';
-    const modelMatch =
-      model === 'all' ||
-      (model === 'prado' && cardModel.startsWith('prado')) ||
-      (model === 'fj' && (cardModel === 'fj-cruiser' || cardModel === 'land-cruiser-fj')) ||
-      cardModel === model;
+    const modelMatch = selectedModels.length === 0 || selectedModels.some(sel =>
+      (sel === 'prado' && cardModel.startsWith('prado')) ||
+      (sel === 'fj' && (cardModel === 'fj-cruiser' || cardModel === 'land-cruiser-fj')) ||
+      cardModel === sel
+    );
 
     const typeMatch = showingSold || activeType === 'all' || cardType === activeType;
 
@@ -458,10 +494,11 @@ function firstPhoto(photos: string) {
     });
   });
 
-  [modelSel, provinceSel, priceSel, mileageSel].forEach(el => el.addEventListener('change', applyFilters));
+  [provinceSel, priceSel, mileageSel].forEach(el => el.addEventListener('change', applyFilters));
 
   document.getElementById('reset-filters')?.addEventListener('click', () => {
-    modelSel.value = 'all';
+    msBoxes.forEach(b => { b.checked = false; });
+    updateModelLabel();
     provinceSel.value = 'all';
     priceSel.value = 'all';
     mileageSel.value = 'all';
@@ -469,6 +506,14 @@ function firstPhoto(photos: string) {
     typePills.forEach(p => p.classList.toggle('active', p.dataset.type === 'all'));
     applyFilters();
   });
+
+  // Pre-select models from ?model= (e.g. market-page "browse listings" links)
+  const urlModels = new URLSearchParams(location.search).get('model');
+  if (urlModels) {
+    const wanted = urlModels.split(',');
+    msBoxes.forEach(b => { if (wanted.includes(b.value)) b.checked = true; });
+  }
+  updateModelLabel();
 
   applyFilters();
 </script>
