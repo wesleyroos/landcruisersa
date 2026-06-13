@@ -1,6 +1,7 @@
 import { chromium } from 'playwright-core';
 import type { Browser, Page } from 'playwright-core';
 import { normalizeModel, normalizeProvince } from './normalize.ts';
+import { collectExtraSegments } from './registry.ts';
 import type { DiscoveredRef, NormalizedListing, LivenessResult, SourceAdapter } from './types.ts';
 
 const SOURCE = 'carsza';
@@ -24,6 +25,9 @@ const LC_MODELS = [
   'FJ Cruiser',
   'Land Cruiser FJ',
 ];
+// Adjacent Toyota 4x4s — collected for data, gated, not shown on the LC site
+const EXTRA_MODELS = ['Hilux', 'Fortuner'];
+const SEARCH_MODELS = collectExtraSegments() ? [...LC_MODELS, ...EXTRA_MODELS] : LC_MODELS;
 
 interface CarsZaRecord {
   id: string;
@@ -132,7 +136,7 @@ export const CarsZaAdapter: SourceAdapter = {
     cache.clear();
     const { browser, page } = await launchSession();
     try {
-      for (const model of LC_MODELS) {
+      for (const model of SEARCH_MODELS) {
         const filter = `make_model_variant[Toyota][${encodeURIComponent(model)}][All]`;
         let offset = 0;
         let total = Infinity;

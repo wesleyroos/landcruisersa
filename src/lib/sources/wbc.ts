@@ -1,6 +1,7 @@
 import { createHash } from 'crypto';
 import { politeFetch } from './http.ts';
 import { normalizeModel, normalizeProvince } from './normalize.ts';
+import { collectExtraSegments } from './registry.ts';
 import type { DiscoveredRef, NormalizedListing, LivenessResult, SourceAdapter } from './types.ts';
 
 const SOURCE = 'wbc';
@@ -83,7 +84,10 @@ async function getPowToken(): Promise<string> {
 // everything, so discovery paginates that instead. It needs the same
 // proof-of-work token as get-car.
 
-const SEARCH_QUERIES = ['Toyota Land Cruiser', 'Toyota Prado', 'Toyota FJ Cruiser'];
+const SEARCH_QUERIES = [
+  'Toyota Land Cruiser', 'Toyota Prado', 'Toyota FJ Cruiser',
+  ...(collectExtraSegments() ? ['Toyota Hilux', 'Toyota Fortuner'] : []),
+];
 const SEARCH_PAGE = 24; // server caps page size at 24 regardless of `size`
 
 // Full body shape required — the endpoint 400s on missing keys
@@ -163,7 +167,10 @@ interface WbcVehicle {
 function isLandCruiser(v: WbcVehicle): boolean {
   if (v.Make !== 'Toyota') return false;
   const model = v.Model ?? '';
-  return /land.?cruiser/i.test(model) || /\bprado\b/i.test(model) || /\bfj.?cruiser\b/i.test(model);
+  if (/land.?cruiser/i.test(model) || /\bprado\b/i.test(model) || /\bfj.?cruiser\b/i.test(model)) return true;
+  // Adjacent Toyota 4x4s — collected for data, gated, never shown on the LC site
+  if (collectExtraSegments() && (/\bhilux\b/i.test(model) || /\bfortuner\b/i.test(model))) return true;
+  return false;
 }
 
 function normalizeWbc(v: WbcVehicle): NormalizedListing {

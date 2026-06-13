@@ -18,7 +18,19 @@ const MODEL_MAP: [RegExp, string][] = [
   [/80[\s-]?series|lc80|land.?cruiser.?80/i,         '80-series'],
   [/land.?cruiser.?fj(?!\s*cruiser)/i,               'land-cruiser-fj'],
   [/fj[\s-]?cruiser/i,                               'fj-cruiser'],
+  // ── Adjacent Toyota 4x4s (collected into the DB; NOT surfaced on the LC site) ──
+  // Listed after every Land Cruiser pattern so LC always wins the match.
+  [/\bfortuner\b/i,                                  'fortuner'],
+  [/\bhilux\b/i,                                     'hilux'],
 ];
+
+// Models that belong to the Land Cruiser brand vs adjacent segments we collect
+// data for but do not show on landcruisersa.co.za. Drives the `segment` column.
+const NON_LC_MODELS = new Set(['hilux', 'fortuner']);
+export const LC_SEGMENT = 'land-cruiser';
+export function segmentForModel(model: string): string {
+  return NON_LC_MODELS.has(model) ? 'toyota-4x4' : LC_SEGMENT;
+}
 
 export function normalizeModel(raw: string, year?: number): string {
   for (const [re, slug] of MODEL_MAP) {

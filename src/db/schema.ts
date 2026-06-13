@@ -33,6 +33,7 @@ export const listings = sqliteTable('listings', {
   featured:     integer('featured', { mode: 'boolean' }).notNull().default(false),
   review_flag:  integer('review_flag', { mode: 'boolean' }).notNull().default(false),
   ig_posted_at: integer('ig_posted_at', { mode: 'timestamp' }),    // last posted to Instagram
+  segment:      text('segment').notNull().default('land-cruiser'), // 'land-cruiser' | 'toyota-4x4' — only LC is shown publicly
   created_at:   integer('created_at', { mode: 'timestamp' }).notNull(),
 }, t => ({
   sourceIdIdx: uniqueIndex('listings_source_source_id').on(t.source, t.source_id),

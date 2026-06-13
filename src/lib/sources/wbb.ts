@@ -1,10 +1,14 @@
 import { normalizeModel } from './normalize.ts';
+import { collectExtraSegments } from './registry.ts';
 import type { DiscoveredRef, NormalizedListing, LivenessResult, SourceAdapter } from './types.ts';
 
 const SOURCE = 'wbb';
 const BASE = 'https://webuybakkies.co.za';
 
-const LC_SLUGS = ['toyota-land-cruiser', 'toyota-fj-cruiser', 'toyota-prado'];
+const LC_SLUGS = [
+  'toyota-land-cruiser', 'toyota-fj-cruiser', 'toyota-prado',
+  ...(collectExtraSegments() ? ['toyota-hilux', 'toyota-fortuner'] : []),
+];
 
 async function fetchSitemapUrls(): Promise<string[]> {
   const urls: string[] = [];

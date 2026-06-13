@@ -1,12 +1,13 @@
 import { politeFetch } from './http.ts';
 import { normalizeModel, normalizeProvince } from './normalize.ts';
+import { collectExtraSegments } from './registry.ts';
 import type { DiscoveredRef, NormalizedListing, LivenessResult, SourceAdapter } from './types.ts';
 
 const SOURCE = 'autotrader';
 const BASE = 'https://www.autotrader.co.za';
 
 // All Land Cruiser model slugs on AutoTrader SA
-const SEARCH_URLS = [
+const LC_SEARCH_URLS = [
   `${BASE}/cars-for-sale/toyota/land-cruiser-79`,
   `${BASE}/cars-for-sale/toyota/land-cruiser-78`,
   `${BASE}/cars-for-sale/toyota/land-cruiser-76`,
@@ -21,6 +22,12 @@ const SEARCH_URLS = [
   `${BASE}/cars-for-sale/toyota/land-cruiser-fj`,
   `${BASE}/cars-for-sale/toyota/fj-cruiser`,
 ];
+// Adjacent Toyota 4x4s — collected for data, not shown on the LC site
+const EXTRA_SEARCH_URLS = [
+  `${BASE}/cars-for-sale/toyota/hilux`,
+  `${BASE}/cars-for-sale/toyota/fortuner`,
+];
+const SEARCH_URLS = collectExtraSegments() ? [...LC_SEARCH_URLS, ...EXTRA_SEARCH_URLS] : LC_SEARCH_URLS;
 
 const BROWSER_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
 

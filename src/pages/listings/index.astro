@@ -5,13 +5,13 @@ import Base from '@/layouts/Base.astro';
 import { SITE } from '@/data/site';
 import { db } from '@/db/index';
 import { listings } from '@/db/schema';
-import { inArray, desc } from 'drizzle-orm';
+import { inArray, desc, and, eq } from 'drizzle-orm';
 import { getRecentPriceChanges } from '@/lib/price-changes';
 
 const allListings = await db
   .select()
   .from(listings)
-  .where(inArray(listings.status, ['active', 'sold']))
+  .where(and(inArray(listings.status, ['active', 'sold']), eq(listings.segment, 'land-cruiser')))
   .orderBy(desc(listings.featured), desc(listings.created_at));
 
 const priceChanges = getRecentPriceChanges();

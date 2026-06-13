@@ -4,6 +4,7 @@ import type { APIRoute } from 'astro';
 import { db } from '@/db/index';
 import { listings, priceEvents } from '@/db/schema';
 import { and, eq, ne } from 'drizzle-orm';
+import { segmentForModel } from '@/lib/sources/normalize';
 
 function slugify(str: string) {
   return str
@@ -88,6 +89,7 @@ export const POST: APIRoute = async ({ request }) => {
       power_kw: power_kw ? Number(power_kw) : null,
       seats: seats ? Number(seats) : null,
       co2: co2 ? Number(co2) : null,
+      segment: segmentForModel(String(model)),
       status: 'active',
     }).where(eq(listings.id, existing[0].id));
 
@@ -151,6 +153,7 @@ export const POST: APIRoute = async ({ request }) => {
     power_kw: power_kw ? Number(power_kw) : null,
     seats: seats ? Number(seats) : null,
     co2: co2 ? Number(co2) : null,
+    segment: segmentForModel(String(model)),
     created_at: new Date(),
   });
 

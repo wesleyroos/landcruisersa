@@ -25,7 +25,7 @@ const provinceName = PROVINCE_MAP[province!];
 if (!provinceName) return Astro.redirect('/listings/');
 
 const results = await db.select().from(listings)
-  .where(and(eq(listings.status, 'active'), eq(listings.province, provinceName)))
+  .where(and(eq(listings.status, 'active'), eq(listings.segment, 'land-cruiser'), eq(listings.province, provinceName)))
   .orderBy(desc(listings.featured), desc(listings.created_at));
 
 function firstPhoto(photos: string) {

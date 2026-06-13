@@ -15,7 +15,7 @@ const stats = db.select({
   minPrice: sql<number>`cast(min(price) as int)`,
   maxPrice: sql<number>`cast(max(price) as int)`,
 }).from(listings)
-  .where(and(eq(listings.status, 'active'), eq(listings.listing_type, 'for_sale'), gt(listings.price, 0)))
+  .where(and(eq(listings.status, 'active'), eq(listings.segment, 'land-cruiser'), eq(listings.listing_type, 'for_sale'), gt(listings.price, 0)))
   .groupBy(listings.model)
   .orderBy(sql`count(*) desc`)
   .all();

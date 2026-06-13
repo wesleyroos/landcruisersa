@@ -26,21 +26,23 @@ const modelInfo = MODEL_MAP[model!];
 if (!modelInfo) return Astro.redirect('/listings/');
 
 // Match how the listings index filter works for each model
+const LC = eq(listings.segment, 'land-cruiser');
 let results;
 if (model === 'prado') {
   results = await db.select().from(listings)
-    .where(and(eq(listings.status, 'active'), like(listings.model, 'prado%')))
+    .where(and(eq(listings.status, 'active'), LC, like(listings.model, 'prado%')))
     .orderBy(desc(listings.featured), desc(listings.created_at));
 } else if (model === 'fj-cruiser') {
   results = await db.select().from(listings)
     .where(and(
       eq(listings.status, 'active'),
+      LC,
       or(eq(listings.model, 'fj-cruiser'), eq(listings.model, 'land-cruiser-fj'))
     ))
     .orderBy(desc(listings.featured), desc(listings.created_at));
 } else {
   results = await db.select().from(listings)
-    .where(and(eq(listings.status, 'active'), eq(listings.model, model!)))
+    .where(and(eq(listings.status, 'active'), LC, eq(listings.model, model!)))
     .orderBy(desc(listings.featured), desc(listings.created_at));
 }
 

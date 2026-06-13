@@ -3,7 +3,7 @@ export const prerender = false;
 import type { APIRoute } from 'astro';
 import { db } from '@/db/index';
 import { listings } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 
 export const GET: APIRoute = async () => {
   const rows = await db
@@ -25,7 +25,7 @@ export const GET: APIRoute = async () => {
       created_at: listings.created_at,
     })
     .from(listings)
-    .where(eq(listings.status, 'active'))
+    .where(and(eq(listings.status, 'active'), eq(listings.segment, 'land-cruiser')))
     .orderBy(listings.created_at);
 
   const data = rows.map(r => ({

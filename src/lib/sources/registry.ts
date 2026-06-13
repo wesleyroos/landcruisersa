@@ -4,3 +4,11 @@ export function isSourceEnabled(source: string): boolean {
   const env = typeof process !== 'undefined' ? process.env : {};
   return env[key] !== '1';
 }
+
+// Adjacent Toyota 4x4s (Hilux, Fortuner) are collected into the DB for the
+// market-data moat but NOT shown on landcruisersa.co.za. On by default;
+// set DISABLE_EXTRA_SEGMENTS=1 to make every scraper revert to LC-only.
+export function collectExtraSegments(): boolean {
+  const env = typeof process !== 'undefined' ? process.env : {};
+  return env.DISABLE_EXTRA_SEGMENTS !== '1';
+}

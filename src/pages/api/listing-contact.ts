@@ -22,7 +22,7 @@ export const GET: APIRoute = async ({ url, cookies }) => {
     email: listings.seller_email,
     source_url: listings.source_url,
   }).from(listings)
-    .where(and(eq(listings.slug, slug), eq(listings.status, 'active')))
+    .where(and(eq(listings.slug, slug), eq(listings.status, 'active'), eq(listings.segment, 'land-cruiser')))
     .get();
 
   // Only own listings expose contact details (aggregated ones link to the portal)

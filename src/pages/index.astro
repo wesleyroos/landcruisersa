@@ -16,10 +16,14 @@ const posts = allPosts
 
 const SLOTS = 3;
 
+// Only Land Cruiser listings are shown publicly (Hilux/Fortuner are collected
+// for data but live behind segment = 'toyota-4x4').
+const LC = eq(listings.segment, 'land-cruiser');
+
 const pinnedListings = await db
   .select()
   .from(listings)
-  .where(and(eq(listings.status, 'active'), eq(listings.featured, true)))
+  .where(and(eq(listings.status, 'active'), LC, eq(listings.featured, true)))
   .orderBy(desc(listings.created_at))
   .limit(SLOTS);
 
@@ -27,7 +31,7 @@ const fillListings = pinnedListings.length < SLOTS
   ? await db
       .select()
       .from(listings)
-      .where(and(eq(listings.status, 'active'), not(eq(listings.featured, true))))
+      .where(and(eq(listings.status, 'active'), LC, not(eq(listings.featured, true))))
       .orderBy(desc(listings.created_at))
       .limit(SLOTS - pinnedListings.length)
   : [];
@@ -36,14 +40,15 @@ const featuredListings = [...pinnedListings, ...fillListings];
 
 // Live hero stats — the first fold's claims stay true automatically
 const activeCount = (db.select({ n: sql<number>`count(*)` })
-  .from(listings).where(eq(listings.status, 'active')).get())?.n ?? 0;
+  .from(listings).where(and(eq(listings.status, 'active'), LC)).get())?.n ?? 0;
 const modelCount = (db.select({ n: sql<number>`count(DISTINCT model)` })
-  .from(listings).where(and(eq(listings.status, 'active'), not(eq(listings.model, 'other')))).get())?.n ?? 0;
+  .from(listings).where(and(eq(listings.status, 'active'), LC, not(eq(listings.model, 'other')))).get())?.n ?? 0;
 const dropCount = (db.select({ n: sql<number>`count(DISTINCT slug)` })
   .from(priceEvents)
   .where(and(
     gte(priceEvents.recorded_at, new Date(Date.now() - 30 * 24 * 3600 * 1000)),
     sql`new_price < old_price`,
+    sql`model NOT IN ('hilux','fortuner')`,
   )).get())?.n ?? 0;
 const activeStr = activeCount.toLocaleString('en-ZA');
 
