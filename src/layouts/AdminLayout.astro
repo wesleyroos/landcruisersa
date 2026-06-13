@@ -72,25 +72,61 @@ const { title = 'Admin', activePage = 'listings' } = Astro.props;
     .admin-topbar {
       background: white; border-bottom: 1px solid #E5E7EB;
       padding: 1rem 2rem; position: sticky; top: 0; z-index: 10;
+      display: flex; align-items: center; gap: 0.875rem;
     }
     .admin-topbar h1 { font-size: 0.875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #111111; }
     .admin-content { padding: 2rem; flex: 1; }
 
+    /* Hamburger + overlay — hidden on desktop */
+    .nav-toggle {
+      display: none; align-items: center; justify-content: center;
+      width: 40px; height: 40px; flex-shrink: 0;
+      background: none; border: 1.5px solid #E5E7EB; border-radius: 0.5rem;
+      cursor: pointer; color: #111;
+    }
+    .nav-toggle:active { background: #F3F4F6; }
+    .sidebar-overlay {
+      display: none; position: fixed; inset: 0; z-index: 25;
+      background: rgba(0,0,0,0.5); opacity: 0; transition: opacity 0.2s;
+    }
+    .sidebar-close { display: none; }
+
     @media (max-width: 768px) {
-      .sidebar { width: 100%; height: auto; position: relative; flex-direction: row; align-items: center; padding: 0 0.75rem; }
-      .sidebar-brand { padding: 0.75rem 0.75rem 0.75rem 0; border-bottom: none; border-right: 1px solid rgba(255,255,255,0.07); }
-      .brand-eyebrow { display: none; }
-      .sidebar-nav { flex-direction: row; padding: 0.5rem; flex: 1; }
-      .sidebar-footer { padding: 0 0 0 0.75rem; border-top: none; border-left: 1px solid rgba(255,255,255,0.07); }
-      .admin-main { margin-left: 0; }
       .shell { flex-direction: column; }
+      .admin-main { margin-left: 0; }
       .admin-content { padding: 1rem; }
+      .nav-toggle { display: inline-flex; }
+
+      /* Sidebar becomes an off-canvas drawer */
+      .sidebar {
+        width: 270px; max-width: 85vw;
+        transform: translateX(-100%);
+        transition: transform 0.25s ease;
+        box-shadow: 2px 0 24px rgba(0,0,0,0.3);
+      }
+      body.nav-open .sidebar { transform: translateX(0); }
+      body.nav-open .sidebar-overlay { display: block; opacity: 1; }
+      body.nav-open { overflow: hidden; }
+
+      .sidebar-close {
+        display: flex; align-items: center; justify-content: center;
+        position: absolute; top: 1rem; right: 1rem;
+        width: 34px; height: 34px; background: rgba(255,255,255,0.08);
+        border: none; border-radius: 0.5rem; color: rgba(255,255,255,0.7); cursor: pointer;
+      }
+      /* Bigger tap targets in the drawer */
+      .nav-link, .logout-btn { padding: 0.875rem 1rem; font-size: 0.9375rem; }
+      .nav-link svg, .logout-btn svg { width: 18px; height: 18px; }
     }
   </style>
 </head>
 <body>
   <div class="shell">
-    <aside class="sidebar">
+    <div class="sidebar-overlay" id="sidebar-overlay"></div>
+    <aside class="sidebar" id="sidebar">
+      <button type="button" class="sidebar-close" id="sidebar-close" aria-label="Close menu">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
       <div class="sidebar-brand">
         <p class="brand-eyebrow">Land Cruiser SA</p>
         <p class="brand-name">Admin</p>
@@ -152,6 +188,9 @@ const { title = 'Admin', activePage = 'listings' } = Astro.props;
 
     <div class="admin-main">
       <div class="admin-topbar">
+        <button type="button" class="nav-toggle" id="nav-toggle" aria-label="Open menu">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
         <h1>{title}</h1>
       </div>
       <div class="admin-content">
@@ -159,5 +198,19 @@ const { title = 'Admin', activePage = 'listings' } = Astro.props;
       </div>
     </div>
   </div>
+
+  <script>
+    (function () {
+      const body = document.body;
+      const open = () => body.classList.add('nav-open');
+      const close = () => body.classList.remove('nav-open');
+      document.getElementById('nav-toggle')?.addEventListener('click', open);
+      document.getElementById('sidebar-close')?.addEventListener('click', close);
+      document.getElementById('sidebar-overlay')?.addEventListener('click', close);
+      // Close when a nav link is tapped (drawer navigation)
+      document.querySelectorAll('#sidebar a').forEach(a => a.addEventListener('click', close));
+      window.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+    })();
+  </script>
 </body>
 </html>
