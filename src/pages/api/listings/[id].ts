@@ -3,6 +3,7 @@ export const prerender = false;
 import type { APIRoute } from 'astro';
 import { db } from '@/db/index';
 import { listings } from '@/db/schema';
+import { offMarketPatch } from '@/lib/listing-status';
 import { eq } from 'drizzle-orm';
 
 const UPDATABLE_FIELDS = [
@@ -37,6 +38,9 @@ export const PATCH: APIRoute = async ({ params, request }) => {
   if (updates.status && !['pending', 'active', 'sold'].includes(updates.status as string)) {
     return new Response(JSON.stringify({ error: 'Invalid status' }), { status: 400 });
   }
+
+  // Keep off_market_at in step with any status change (stamp on sold, clear on reactivate).
+  Object.assign(updates, offMarketPatch(updates.status as string | undefined));
 
   await db.update(listings).set(updates).where(eq(listings.id, id));
 

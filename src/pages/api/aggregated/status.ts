@@ -3,6 +3,7 @@ export const prerender = false;
 import type { APIRoute } from 'astro';
 import { db } from '@/db/index';
 import { listings } from '@/db/schema';
+import { offMarketPatch } from '@/lib/listing-status';
 import { and, eq } from 'drizzle-orm';
 
 function checkToken(request: Request): boolean {
@@ -42,7 +43,10 @@ export const POST: APIRoute = async ({ request }) => {
       null; // 'unknown' — only update last_polled_at
 
     const patch: Record<string, unknown> = { last_polled_at: now };
-    if (dbStatus) patch.status = dbStatus;
+    if (dbStatus) {
+      patch.status = dbStatus;
+      Object.assign(patch, offMarketPatch(dbStatus, now)); // stamp/clear off_market_at on the transition
+    }
 
     await db.update(listings)
       .set(patch)

@@ -48,6 +48,7 @@ const addColumns: [string, string][] = [
   ['source_id',      `ALTER TABLE listings ADD COLUMN source_id TEXT`],
   ['last_polled_at', `ALTER TABLE listings ADD COLUMN last_polled_at INTEGER`],
   ['review_flag',    `ALTER TABLE listings ADD COLUMN review_flag INTEGER NOT NULL DEFAULT 0`],
+  ['off_market_at',  `ALTER TABLE listings ADD COLUMN off_market_at INTEGER`],
 ];
 
 const existingCols = new Set(

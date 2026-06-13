@@ -29,6 +29,7 @@ export const listings = sqliteTable('listings', {
   source:       text('source').notNull().default('own'),     // 'own' | 'autotrader' | 'wbc' | 'adios'
   source_id:    text('source_id'),                           // platform-native listing ID
   last_polled_at: integer('last_polled_at', { mode: 'timestamp' }), // last liveness check
+  off_market_at: integer('off_market_at', { mode: 'timestamp' }),   // when it left the market (sold/removed/inactive); null while live
   featured:     integer('featured', { mode: 'boolean' }).notNull().default(false),
   review_flag:  integer('review_flag', { mode: 'boolean' }).notNull().default(false),
   ig_posted_at: integer('ig_posted_at', { mode: 'timestamp' }),    // last posted to Instagram

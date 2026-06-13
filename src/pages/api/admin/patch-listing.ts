@@ -3,6 +3,7 @@ export const prerender = false;
 import type { APIRoute } from 'astro';
 import { db } from '@/db/index';
 import { listings } from '@/db/schema';
+import { offMarketPatch } from '@/lib/listing-status';
 import { eq } from 'drizzle-orm';
 
 export const POST: APIRoute = async ({ request }) => {
@@ -21,10 +22,13 @@ export const POST: APIRoute = async ({ request }) => {
   if (!source_id) return new Response(JSON.stringify({ error: 'source_id required' }), { status: 400 });
 
   const VALID_STATUSES = ['active', 'inactive', 'sold', 'pending'];
-  const updates: Record<string, string> = {};
+  const updates: Record<string, unknown> = {};
   if (description !== undefined) updates.description = description;
   if (colour !== undefined) updates.colour = colour;
-  if (status !== undefined && VALID_STATUSES.includes(status)) updates.status = status;
+  if (status !== undefined && VALID_STATUSES.includes(status)) {
+    updates.status = status;
+    Object.assign(updates, offMarketPatch(status)); // stamp/clear off_market_at alongside the status
+  }
 
   if (!Object.keys(updates).length) {
     return new Response(JSON.stringify({ error: 'Nothing to update' }), { status: 400 });

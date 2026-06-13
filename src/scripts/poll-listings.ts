@@ -1,5 +1,6 @@
 import { db } from '../db/index';
 import { listings } from '../db/schema';
+import { offMarketPatch } from '../lib/listing-status';
 import { eq, and, isNotNull } from 'drizzle-orm';
 
 // AutoTrader listing IDs look like /12345678 at the end of the URL
@@ -58,7 +59,7 @@ async function main() {
     if (isSold) {
       await db
         .update(listings)
-        .set({ status: 'sold' })
+        .set({ status: 'sold', ...offMarketPatch('sold') })
         .where(eq(listings.id, listing.id));
 
       console.log(`  [SOLD] ${listing.slug} — ${listing.source_url}`);

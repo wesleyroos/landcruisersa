@@ -40,8 +40,46 @@ const periodLabel = PERIOD_LABEL[validPeriod] ?? 'last 30 days';
 
 const leads = db.select().from(trainingLeads).orderBy(desc(trainingLeads.created_at)).all();
 
-const activeListingCount = (db.select({ n: sql<number>`count(*)` }).from(listings).where(eq(listings.status, 'active')).get())?.n ?? 0;
-const totalListingCount  = (db.select({ n: sql<number>`count(*)` }).from(listings).get())?.n ?? 0;
+// Single grouped pass over listing statuses — drives the supply / off-market KPIs.
+const statusCounts = db.select({ status: listings.status, n: sql<number>`cast(count(*) as int)` })
+  .from(listings).groupBy(listings.status).all();
+const byStatus: Record<string, number> = {};
+for (const r of statusCounts) byStatus[r.status] = r.n;
+const activeListingCount  = byStatus['active']  ?? 0;
+const soldListingCount    = byStatus['sold']    ?? 0;
+const removedListingCount = byStatus['removed'] ?? 0;
+const pendingListingCount = byStatus['pending'] ?? 0;
+const totalListingCount   = activeListingCount + soldListingCount + removedListingCount + pendingListingCount;
+// "Off the market" = sold (a sale we know about) + removed (poller found it delisted at source).
+const offMarketCount = soldListingCount + removedListingCount;
+const turnoverPct = totalListingCount > 0 ? Math.round((offMarketCount / totalListingCount) * 100) : 0;
+
+function median(xs: number[]): number | null {
+  if (xs.length === 0) return null;
+  const s = [...xs].sort((a, b) => a - b);
+  const m = Math.floor(s.length / 2);
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+}
+
+// Median days a listing spends on the market (list → off-market). Only listings
+// that left *after* off_market_at tracking began carry a timestamp, so this is
+// a forward-accruing metric. SQLite has no median — compute in JS.
+const medianDom = median(
+  db.select({ days: sql<number>`(off_market_at - created_at) / 86400.0` })
+    .from(listings)
+    .where(sql`off_market_at IS NOT NULL AND off_market_at >= created_at`)
+    .all()
+    .map(r => r.days)
+);
+
+// Median age of current active stock — how stale the live inventory is.
+const medianActiveAge = median(
+  db.select({ days: sql<number>`(unixepoch('now') - created_at) / 86400.0` })
+    .from(listings)
+    .where(eq(listings.status, 'active'))
+    .all()
+    .map(r => r.days)
+);
 
 const partnerClickRows = db.select({
   partner_slug: partnerClicks.partner_slug,
@@ -123,6 +161,19 @@ const maxDailyCount = Math.max(1, ...listingsGrowth.map(r => r.count));
 // New listings in period
 const newListingsP = (db.select({ n: sql<number>`cast(count(*) as int)` })
   .from(listings).where(pWhere).get())?.n ?? 0;
+
+// Listings that left the market in period (sold or delisted). off_market_at is
+// only populated going forward, so this counts post-launch departures.
+const leftMarketPWhere: SQL = (() => {
+  if (validPeriod === 'today') return sql`date(off_market_at, 'unixepoch') = date('now')`;
+  if (validPeriod === '7d')   return sql`off_market_at >= unixepoch('now', '-7 days')`;
+  if (validPeriod === '90d')  return sql`off_market_at >= unixepoch('now', '-90 days')`;
+  if (validPeriod === '6m')   return sql`off_market_at >= unixepoch('now', '-180 days')`;
+  if (validPeriod === '12m')  return sql`off_market_at >= unixepoch('now', '-365 days')`;
+  return sql`off_market_at >= unixepoch('now', '-30 days')`;
+})();
+const leftMarketP = (db.select({ n: sql<number>`cast(count(*) as int)` })
+  .from(listings).where(leftMarketPWhere).get())?.n ?? 0;
 
 // Campaign visits in period
 const visitsBySourceP = db.select({
@@ -334,11 +385,17 @@ const SOURCE_LABEL: Record<string, string> = {
 
     <!-- ── STATIC "AT A GLANCE" ──────────────────────────────── -->
     <div class="section-label">At a Glance</div>
-    <div class="kpi-strip kpi-strip-3">
+    <div class="kpi-strip kpi-strip-4">
       <div class="kpi">
         <p class="kpi-value">{activeListingCount}</p>
         <p class="kpi-label">Active Listings</p>
         <p class="kpi-sub">{totalListingCount} total incl. sold &amp; pending</p>
+      </div>
+      <div class="kpi">
+        <span class="kpi-dir dir-off">↓ Off</span>
+        <p class="kpi-value">{offMarketCount}</p>
+        <p class="kpi-label">Off the Market</p>
+        <p class="kpi-sub">{soldListingCount} sold · {removedListingCount} delisted at source · {turnoverPct}% of all listings</p>
       </div>
       <div class="kpi">
         <span class="kpi-dir dir-out">↑ Out</span>
@@ -402,6 +459,36 @@ const SOURCE_LABEL: Record<string, string> = {
         <p class="kpi-sub">AutoTrader, WBC, etc.</p>
       </div>
     </div>
+
+    <!-- ── MARKET TURNOVER ───────────────────────────────────── -->
+    <section class="card">
+      <div class="card-head">
+        <h2 class="card-title">Market Turnover</h2>
+        <span class="badge-sub">{periodLabel} · velocity all-time</span>
+        <span class="info" data-tip="How fast inventory moves. Left the Market = listings that went sold or delisted in this period. Median Days on Market = list date → off-market date, across all departed listings. Median Active Age = how long current live listings have been up. Days-based metrics only count listings that left after this tracking went live, so they grow more representative each week.">?</span>
+      </div>
+      <div class="card-body">
+        <div class="kpi-strip kpi-strip-3">
+          <div class="kpi">
+            <span class="kpi-dir dir-off">↓ Off</span>
+            <p class="kpi-value">{leftMarketP}</p>
+            <p class="kpi-label">Left the Market</p>
+            <p class="kpi-sub">sold or delisted {periodLabel}</p>
+          </div>
+          <div class="kpi">
+            <p class="kpi-value">{medianDom !== null ? Math.round(medianDom) : '—'}<span class="kpi-unit"> days</span></p>
+            <p class="kpi-label">Median Days on Market</p>
+            <p class="kpi-sub">list → off-market, all-time</p>
+          </div>
+          <div class="kpi">
+            <p class="kpi-value">{medianActiveAge !== null ? Math.round(medianActiveAge) : '—'}<span class="kpi-unit"> days</span></p>
+            <p class="kpi-label">Median Active Age</p>
+            <p class="kpi-sub">how long current stock has been live</p>
+          </div>
+        </div>
+      </div>
+      <p class="card-note">Off the market all-time: {offMarketCount} ({soldListingCount} sold · {removedListingCount} delisted at source). Days-on-market accrues from when this tracking went live — historical departures have no timestamp, so the median sharpens over the coming weeks.</p>
+    </section>
 
     <!-- ── CONVERSION FUNNEL (period-filtered) ───────────────── -->
     <section class="card">
@@ -735,7 +822,7 @@ const SOURCE_LABEL: Record<string, string> = {
         <div class="card-head">
           <h2 class="card-title">Listings Growth</h2>
           <span class="badge">{totalListingCount} total</span>
-          <span class="badge-sub">{activeListingCount} active</span>
+          <span class="badge-sub">{activeListingCount} active · {offMarketCount} off-market</span>
         </div>
         <div class="growth-body">
           <div class="growth-chart-wrap">
@@ -832,8 +919,10 @@ const SOURCE_LABEL: Record<string, string> = {
   /* KPI strips */
   .kpi-strip { display: grid; gap: 0.75rem; }
   .kpi-strip-3 { grid-template-columns: repeat(3, 1fr); }
+  .kpi-strip-4 { grid-template-columns: repeat(2, 1fr); }
   .kpi-strip-6 { grid-template-columns: repeat(2, 1fr); }
   @media (min-width: 640px)  { .kpi-strip-6 { grid-template-columns: repeat(3, 1fr); } }
+  @media (min-width: 1024px) { .kpi-strip-4 { grid-template-columns: repeat(4, 1fr); } }
   @media (min-width: 1024px) { .kpi-strip-6 { grid-template-columns: repeat(6, 1fr); } }
   @media (max-width: 639px)  { .kpi-strip-3 { grid-template-columns: repeat(2, 1fr); } }
 
@@ -842,6 +931,7 @@ const SOURCE_LABEL: Record<string, string> = {
     padding: 0.875rem 1.125rem; position: relative;
   }
   .kpi-value { font-size: 1.625rem; font-weight: 800; color: #111; line-height: 1.1; }
+  .kpi-unit  { font-size: 0.9rem; font-weight: 600; color: #9CA3AF; }
   .kpi-label { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #9CA3AF; margin-top: 0.2rem; }
   .kpi-sub   { font-size: 0.62rem; color: #C4C9D0; margin-top: 0.3rem; line-height: 1.35; }
   .kpi-dir {
@@ -851,6 +941,7 @@ const SOURCE_LABEL: Record<string, string> = {
   }
   .dir-in  { background: #F0FDF4; color: #16A34A; border: 1px solid #BBF7D0; }
   .dir-out { background: #EFF6FF; color: #2563EB; border: 1px solid #BFDBFE; }
+  .dir-off { background: #FEF2F2; color: #B91C1C; border: 1px solid #FECACA; }
 
   /* Tooltip */
   .info {
