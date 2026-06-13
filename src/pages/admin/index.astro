@@ -188,7 +188,7 @@ if (fPosted && creds) {
 }
 
 // ─── Outbound clicks per listing ──────────────────────────────────────────────
-type ClickCounts = { whatsapp: number; call: number; email: number; portal: number };
+type ClickCounts = { whatsapp: number; call: number; email: number; reveal: number; portal: number };
 const listingClicks = new Map<string, ClickCounts>();
 
 {
@@ -201,10 +201,11 @@ const listingClicks = new Map<string, ClickCounts>();
     .all();
 
   for (const r of rows) {
-    const c = listingClicks.get(r.slug) ?? { whatsapp: 0, call: 0, email: 0, portal: 0 };
+    const c = listingClicks.get(r.slug) ?? { whatsapp: 0, call: 0, email: 0, reveal: 0, portal: 0 };
     if (r.source === 'whatsapp') c.whatsapp += r.count;
     else if (r.source === 'call') c.call += r.count;
     else if (r.source === 'email') c.email += r.count;
+    else if (r.source === 'reveal_number' || r.source === 'reveal_email') c.reveal += r.count;
     else c.portal += r.count;
     listingClicks.set(r.slug, c);
   }
@@ -447,8 +448,8 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
         {items.map((l: Listing) => {
           const photo = firstPhoto(l.photos);
           const igS = fPosted ? igMediaStats.get(l.id) : undefined;
-          const clk = listingClicks.get(l.slug) ?? { whatsapp: 0, call: 0, email: 0, portal: 0 };
-          const hasClicks = clk.whatsapp + clk.call + clk.email + clk.portal > 0;
+          const clk = listingClicks.get(l.slug) ?? { whatsapp: 0, call: 0, email: 0, reveal: 0, portal: 0 };
+          const hasClicks = clk.whatsapp + clk.call + clk.email + clk.reveal + clk.portal > 0;
           return (
             <div
               class={`lcard lcard-${l.status}`}
@@ -506,6 +507,7 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
                     {clk.whatsapp > 0 && <span class="stat-chip stat-wa">WA {clk.whatsapp}</span>}
                     {clk.call     > 0 && <span class="stat-chip stat-contact">Call {clk.call}</span>}
                     {clk.email    > 0 && <span class="stat-chip stat-contact">Email {clk.email}</span>}
+                    {clk.reveal   > 0 && <span class="stat-chip stat-reveal">Revealed {clk.reveal}</span>}
                     {clk.portal   > 0 && <span class="stat-chip stat-portal">Portal {clk.portal}</span>}
                   </div>
                 )}
@@ -763,6 +765,7 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
   .stat-views   { background: #F0F4FF; color: #3730A3; }
   .stat-wa      { background: #F0FDF4; color: #166534; }
   .stat-contact { background: #F0F9FF; color: #0369A1; }
+  .stat-reveal  { background: #FEF3C7; color: #92400E; }
   .stat-portal  { background: #EFF6FF; color: #1D4ED8; }
   .stat-divider { font-size: 0.65rem; color: #D1D5DB; }
 

@@ -213,23 +213,26 @@ const perfRowsP = [...perfMapP.values()]
   .sort((a, b) => b.views - a.views || b.clicks - a.clicks)
   .slice(0, 25);
 
-// Contact clicks in period
+// Contact / lead clicks in period — high-intent actions on own listings.
+// 'reveal' = clicked Show number / Show email (often the only signal we get,
+// since people then dial from their phone rather than our tel: link).
 const contactClicksP = db.select({
   listing_slug: clickEvents.listing_slug,
   listing_title: clickEvents.listing_title,
   source: clickEvents.source,
   count: sql<number>`cast(count(*) as int)`,
 }).from(clickEvents)
-  .where(and(pWhere, sql`source IN ('whatsapp', 'call', 'email')`))
+  .where(and(pWhere, sql`source IN ('whatsapp', 'call', 'email', 'reveal_number', 'reveal_email')`))
   .groupBy(clickEvents.listing_slug, clickEvents.source)
   .all();
 
-const contactTotalsP: Record<string, number> = { whatsapp: 0, call: 0, email: 0 };
-const contactByListingP = new Map<string, { title: string | null; whatsapp: number; call: number; email: number; total: number }>();
+const contactTotalsP: Record<string, number> = { whatsapp: 0, call: 0, email: 0, reveal: 0 };
+const contactByListingP = new Map<string, { title: string | null; whatsapp: number; call: number; email: number; reveal: number; total: number }>();
 for (const r of contactClicksP) {
-  contactTotalsP[r.source] = (contactTotalsP[r.source] ?? 0) + r.count;
-  const row = contactByListingP.get(r.listing_slug) ?? { title: r.listing_title, whatsapp: 0, call: 0, email: 0, total: 0 };
-  row[r.source as 'whatsapp' | 'call' | 'email'] += r.count;
+  const bucket = (r.source === 'reveal_number' || r.source === 'reveal_email') ? 'reveal' : r.source;
+  contactTotalsP[bucket] = (contactTotalsP[bucket] ?? 0) + r.count;
+  const row = contactByListingP.get(r.listing_slug) ?? { title: r.listing_title, whatsapp: 0, call: 0, email: 0, reveal: 0, total: 0 };
+  row[bucket as 'whatsapp' | 'call' | 'email' | 'reveal'] += r.count;
   row.total += r.count;
   contactByListingP.set(r.listing_slug, row);
 }
@@ -237,7 +240,7 @@ const contactRowsP = [...contactByListingP.entries()]
   .map(([slug, v]) => ({ slug, ...v }))
   .sort((a, b) => b.total - a.total)
   .slice(0, 15);
-const totalContactClicksP = contactTotalsP.whatsapp + contactTotalsP.call + contactTotalsP.email;
+const totalContactClicksP = contactTotalsP.whatsapp + contactTotalsP.call + contactTotalsP.email + contactTotalsP.reveal;
 
 // ─── Conversion funnel (period) ───────────────────────────────────────────────
 // Views → any outbound action → high-intent contact. Admin sessions are
@@ -265,7 +268,7 @@ const viewsByModelFunnel = db.select({
 const clicksByModelFunnel = db.select({
   model:   listings.model,
   portal:  sql<number>`cast(sum(CASE WHEN click_events.source NOT IN ('whatsapp','call','email') THEN 1 ELSE 0 END) as int)`,
-  contact: sql<number>`cast(sum(CASE WHEN click_events.source IN ('whatsapp','call','email') THEN 1 ELSE 0 END) as int)`,
+  contact: sql<number>`cast(sum(CASE WHEN click_events.source IN ('whatsapp','call','email','reveal_number','reveal_email') THEN 1 ELSE 0 END) as int)`,
 }).from(clickEvents)
   .leftJoin(listings, eq(listings.slug, clickEvents.listing_slug))
   .where(pWhereClicks)
@@ -303,7 +306,7 @@ const igPostRows = igPosts.map(p => {
   const since = Math.floor(p.posted_at!.getTime() / 1000);
   const views = (db.get<{ n: number }>(sql`SELECT count(*) n FROM view_events WHERE listing_slug = ${p.slug} AND created_at >= ${since}`))?.n ?? 0;
   const igViews = (db.get<{ n: number }>(sql`SELECT count(*) n FROM view_events WHERE listing_slug = ${p.slug} AND created_at >= ${since} AND utm_source = 'ig'`))?.n ?? 0;
-  const contacts = (db.get<{ n: number }>(sql`SELECT count(*) n FROM click_events WHERE listing_slug = ${p.slug} AND created_at >= ${since} AND source IN ('whatsapp','call','email')`))?.n ?? 0;
+  const contacts = (db.get<{ n: number }>(sql`SELECT count(*) n FROM click_events WHERE listing_slug = ${p.slug} AND created_at >= ${since} AND source IN ('whatsapp','call','email','reveal_number','reveal_email')`))?.n ?? 0;
   const portal = (db.get<{ n: number }>(sql`SELECT count(*) n FROM click_events WHERE listing_slug = ${p.slug} AND created_at >= ${since} AND source NOT IN ('whatsapp','call','email')`))?.n ?? 0;
   const days = Math.max(0.1, (Date.now() - p.posted_at!.getTime()) / 86_400_000);
   return { ...p, views, igViews, contacts, portal, days: Math.round(days * 10) / 10 };
@@ -642,17 +645,18 @@ const SOURCE_LABEL: Record<string, string> = {
 
       <section class="card">
         <div class="card-head">
-          <h2 class="card-title">Seller Contact Clicks</h2>
+          <h2 class="card-title">Seller Contact &amp; Leads</h2>
           <span class="badge">{totalContactClicksP}</span>
           <span class="badge-sub">{periodLabel}</span>
-          <span class="info" data-tip="Buyers contacting sellers on private listings — WA, call, email. This is the listing-conversion metric.">?</span>
+          <span class="info" data-tip="High-intent actions on your own listings: WhatsApp, Call, Email, and Reveal (clicked Show number / Show email). Reveal is often the only signal we get since buyers then dial from their phone. This is the listing-conversion / lead metric.">?</span>
         </div>
         {totalContactClicksP === 0 ? (
-          <p class="empty">No seller contact clicks in {periodLabel}.</p>
+          <p class="empty">No seller contact or reveal clicks in {periodLabel}.</p>
         ) : (
           <div>
             <div class="card-body" style="padding-bottom:0.75rem">
               <div class="chip-row">
+                <span class="stat-chip">Reveal <strong>{contactTotalsP.reveal}</strong></span>
                 <span class="stat-chip">WhatsApp <strong>{contactTotalsP.whatsapp}</strong></span>
                 <span class="stat-chip">Call <strong>{contactTotalsP.call}</strong></span>
                 <span class="stat-chip">Email <strong>{contactTotalsP.email}</strong></span>
@@ -663,6 +667,7 @@ const SOURCE_LABEL: Record<string, string> = {
                 <thead>
                   <tr>
                     <th>Listing</th>
+                    <th class="num-c">Reveal</th>
                     <th class="num-c">WA</th>
                     <th class="num-c">Call</th>
                     <th class="num-c">Email</th>
@@ -672,7 +677,8 @@ const SOURCE_LABEL: Record<string, string> = {
                   {contactRowsP.map(r => (
                     <tr>
                       <td><a href={`/listings/${r.slug}/`} target="_blank">{r.title ?? r.slug}</a></td>
-                      <td class="num-c" style="font-weight:700">{r.whatsapp}</td>
+                      <td class="num-c" style="font-weight:700;color:#92400E">{r.reveal}</td>
+                      <td class="num-c">{r.whatsapp}</td>
                       <td class="num-c">{r.call}</td>
                       <td class="num-c">{r.email}</td>
                     </tr>
