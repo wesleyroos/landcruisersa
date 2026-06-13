@@ -5,13 +5,16 @@ import Base from '@/layouts/Base.astro';
 import { db } from '@/db/index';
 import { listings } from '@/db/schema';
 import { and, eq, ne } from 'drizzle-orm';
+import { isAdminSession } from '@/lib/track-guard';
 
 const { slug } = Astro.params;
 const [listing] = await db.select().from(listings).where(eq(listings.slug, slug!));
 
 // Hilux/Fortuner are collected for data but never shown publicly — a direct
-// URL to one redirects away like any non-existent listing.
-if (!listing || listing.status === 'pending' || listing.segment !== 'land-cruiser') {
+// URL to one redirects away (Googlebot has no cookie, so it always redirects).
+// A logged-in admin can preview them.
+const isAdmin = isAdminSession(Astro.cookies);
+if (!listing || listing.status === 'pending' || (listing.segment !== 'land-cruiser' && !isAdmin)) {
   return Astro.redirect('/listings/');
 }
 

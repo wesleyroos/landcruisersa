@@ -24,6 +24,12 @@ function allPhotos(photos: string) {
 const photos = allPhotos(listing.photos);
 const thumb = firstPhoto(listing.photos);
 
+const SOURCE_LABEL: Record<string, string> = {
+  autotrader: 'AutoTrader', wbc: 'WeBuyCars', adios: 'Adios',
+  wbb: 'We Buy Bakkies', carsza: 'Cars.co.za', own: 'Own listing',
+};
+const portalLabel = SOURCE_LABEL[listing.source] ?? listing.source;
+
 const igConnected = !!(await getCredentials());
 
 const MODELS = ['70-series','76-series','78-series','79-series','80-series','100-series','200-series','300-series','prado-150','prado-250','fj-cruiser','land-cruiser-fj','other'];
@@ -57,6 +63,12 @@ ${listing.description ? listing.description.slice(0, 200).trim() + (listing.desc
       <span class={`status-badge status-${listing.status}`}>{listing.status}</span>
       <span class={`type-badge type-${listing.listing_type}`}>{listing.listing_type === 'for_sale' ? 'For Sale' : '★ Show Off'}</span>
     </div>
+    {listing.source_url && (
+      <a href={listing.source_url} target="_blank" rel="noopener" class="view-link">
+        View on {portalLabel}
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+      </a>
+    )}
     {listing.status === 'active' && listing.slug && (
       <a href={`/listings/${listing.slug}/`} target="_blank" class="view-link">
         View on site
@@ -74,6 +86,18 @@ ${listing.description ? listing.description.slice(0, 200).trim() + (listing.desc
       <div id="error-banner" class="error-banner hidden">Something went wrong — try again.</div>
 
       <form id="edit-form">
+
+        <!-- Source -->
+        <div class="card">
+          <h2 class="card-heading">Source</h2>
+          <div class="field">
+            <label>Portal listing</label>
+            {listing.source_url
+              ? <p class="source-row"><span class="source-portal">{portalLabel}</span><a href={listing.source_url} target="_blank" rel="noopener" class="source-link">{listing.source_url}</a></p>
+              : <p class="source-row"><span class="source-portal">{portalLabel}</span><span class="source-none">No external link (own listing)</span></p>
+            }
+          </div>
+        </div>
 
         <!-- Status & Type -->
         <div class="card">
@@ -515,6 +539,11 @@ ${listing.description ? listing.description.slice(0, 200).trim() + (listing.desc
     color: #374151; white-space: pre-wrap; word-break: break-word;
     margin: 0; font-family: inherit;
   }
+  .source-row { display: flex; align-items: center; gap: 0.625rem; flex-wrap: wrap; }
+  .source-portal { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; background: #F3F4F6; color: #374151; padding: 0.25rem 0.6rem; border-radius: 9999px; flex-shrink: 0; }
+  .source-link { font-size: 0.8rem; color: #D4881A; text-decoration: none; word-break: break-all; }
+  .source-link:hover { text-decoration: underline; }
+  .source-none { font-size: 0.8rem; color: #9CA3AF; }
 </style>
 
 <script define:vars={{ listingId: listing.id }}>

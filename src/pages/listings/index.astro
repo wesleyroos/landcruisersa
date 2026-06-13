@@ -7,11 +7,19 @@ import { db } from '@/db/index';
 import { listings } from '@/db/schema';
 import { inArray, desc, and, eq } from 'drizzle-orm';
 import { getRecentPriceChanges } from '@/lib/price-changes';
+import { isAdminSession } from '@/lib/track-guard';
+
+// Admins (logged in) can preview the Hilux/Fortuner listings too — the public
+// never sees them (Googlebot has no cookie, so it gets Land Cruiser only).
+const isAdmin = isAdminSession(Astro.cookies);
 
 const allListings = await db
   .select()
   .from(listings)
-  .where(and(inArray(listings.status, ['active', 'sold']), eq(listings.segment, 'land-cruiser')))
+  .where(and(
+    inArray(listings.status, ['active', 'sold']),
+    isAdmin ? undefined : eq(listings.segment, 'land-cruiser'),
+  ))
   .orderBy(desc(listings.featured), desc(listings.created_at));
 
 const priceChanges = getRecentPriceChanges();
@@ -30,6 +38,12 @@ const MODELS = [
   { value: 'fj', label: 'FJ' },
   { value: 'other', label: 'Other' },
 ];
+// Admin-only preview filters for the adjacent Toyota 4x4 segment
+const ADMIN_MODELS = [
+  { value: 'hilux-gd6', label: 'Hilux GD-6' }, { value: 'hilux-d4d', label: 'Hilux D-4D' },
+  { value: 'fortuner-gd6', label: 'Fortuner GD-6' }, { value: 'fortuner-d4d', label: 'Fortuner D-4D' },
+];
+const MODEL_OPTIONS = isAdmin ? [...MODELS, ...ADMIN_MODELS] : MODELS;
 
 function formatPrice(n: number) {
   return 'R' + n.toLocaleString('en-ZA');
@@ -70,6 +84,12 @@ function firstPhoto(photos: string) {
   </div>
   <div class="h-1 bg-[#F5A623]"></div>
 
+  {isAdmin && (
+    <div class="bg-[#FEF3C7] text-[#92400E] text-xs font-semibold text-center px-4 py-2 border-b border-[#F5A623]/30">
+      Admin preview — Hilux &amp; Fortuner listings are included here for you only; the public sees Land Cruisers only.
+    </div>
+  )}
+
   <div class="max-w-7xl mx-auto px-4 py-8 sm:py-10">
 
     <!-- TYPE TOGGLE -->
@@ -92,7 +112,7 @@ function firstPhoto(photos: string) {
           <svg width="10" height="6" viewBox="0 0 10 6" class="flex-shrink-0"><path d="M1 1l4 4 4-4" stroke="#9CA3AF" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
         <div id="ms-model-panel" class="absolute z-30 mt-1 w-56 max-h-72 overflow-auto bg-white border border-[#DDD9D3] rounded-xl shadow-lg py-1 hidden">
-          {MODELS.filter(m => m.value !== 'all').map(m => (
+          {MODEL_OPTIONS.filter(m => m.value !== 'all').map(m => (
             <label class="flex items-center gap-2.5 px-4 py-2 text-sm cursor-pointer hover:bg-[#F5F3EE]">
               <input type="checkbox" value={m.value} class="ms-model-cb accent-[#F5A623] w-4 h-4" />
               <span>{m.label}</span>
