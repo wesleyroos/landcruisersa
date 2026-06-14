@@ -49,6 +49,28 @@ for (const [src, models] of matrix) {
   sourceTotals.set(src, [...models.values()].reduce((a, b) => a + b, 0));
 }
 
+// ── Market coverage (Land Cruiser segment only) ──────────────────────────────
+const lcCounts = db.select({
+  source: listings.source,
+  n: sql<number>`count(*)`,
+}).from(listings)
+  .where(sql`status = 'active' AND segment = 'land-cruiser'`)
+  .groupBy(listings.source)
+  .all();
+const lcBySource = new Map(lcCounts.map(r => [r.source, r.n]));
+const lcTotal = lcCounts.reduce((s, r) => s + r.n, 0);
+
+// Penetration per source from its latest run that reported a source total.
+// Cars.co.za & WeBuyCars expose one; the others don't (we watch their caps).
+function latestPenetration(key: string): { pct: number; found: number; total: number } | null {
+  const r = (runsBySource.get(key) ?? []).find(x => x.source_total != null && x.source_total > 0);
+  if (!r) return null;
+  return { pct: Math.round((r.found / r.source_total!) * 100), found: r.found, total: r.source_total! };
+}
+
+// How recently the supply was refreshed overall (most recent successful run, any source)
+const lastRefresh = allRuns.find(r => r.ok)?.run_at ?? null;
+
 // Coverage anomaly: source carries decent stock overall but has ZERO of a model
 // that other sources hold plenty of — the exact failure mode that hid WBC 79s.
 function isAnomaly(source: string, model: string): boolean {
@@ -94,6 +116,48 @@ function fmtModel(m: string): string {
 ---
 
 <AdminLayout title="Scrapers" activePage="scrapers">
+
+  <!-- MARKET COVERAGE -->
+  <div class="coverage">
+    <div class="cov-head">
+      <div>
+        <p class="cov-eyebrow">Market Coverage</p>
+        <p class="cov-total"><strong>{lcTotal.toLocaleString('en-ZA')}</strong> active Land Cruiser listings tracked</p>
+      </div>
+      {lastRefresh && <span class="cov-refresh">Refreshed {ago(lastRefresh)}</span>}
+    </div>
+    <p class="cov-claim">
+      Aggregated across South Africa's dominant used-vehicle platforms — <strong>AutoTrader</strong> (the
+      country's #1 marketplace, ~130k total listings &amp; 11M monthly visits), <strong>Cars.co.za</strong>
+      (#2, ~74k listings) and <strong>WeBuyCars</strong> — plus the Land Cruiser specialists Adios &amp; We Buy
+      Bakkies. For Land Cruisers specifically, this is effectively the entire online market.
+    </p>
+
+    <div class="cov-grid">
+      {SOURCES.map(({ key, label }) => {
+        const n = lcBySource.get(key) ?? 0;
+        const pen = latestPenetration(key);
+        const share = lcTotal > 0 ? Math.round((n / lcTotal) * 100) : 0;
+        return (
+          <div class="cov-src">
+            <p class="cov-src-name">{label}</p>
+            <p class="cov-src-n">{n.toLocaleString('en-ZA')}<span class="cov-src-share"> · {share}% of our stock</span></p>
+            {pen
+              ? <p class="cov-src-pen">Penetration <strong>{pen.pct}%</strong> <span>({pen.found.toLocaleString('en-ZA')} of {pen.total.toLocaleString('en-ZA')} the source reports)</span></p>
+              : <p class="cov-src-pen cov-src-pen-na">No source total — coverage tracked via pagination caps</p>
+            }
+          </div>
+        );
+      })}
+    </div>
+
+    <p class="cov-foot">
+      <strong>Penetration</strong> = listings we captured ÷ the total the source's own counter reports.
+      Cars.co.za reports a true per-model total (so its % is real coverage); WeBuyCars reports text-search
+      hits incl. non-LC, so its % reads low by design. "Effectively the entire market" means online-listed
+      stock — private off-platform sales (Facebook, word-of-mouth) are out of scope and unmeasurable.
+    </p>
+  </div>
 
   <!-- SOURCE HEALTH CARDS -->
   <div class="health-grid">
@@ -192,6 +256,31 @@ function fmtModel(m: string): string {
 
 </AdminLayout>
 
+<style>
+  /* MARKET COVERAGE */
+  .coverage {
+    border: 1.5px solid #111111; border-radius: 0.875rem; padding: 1.25rem 1.5rem;
+    margin-bottom: 1.5rem; background: #FBFBFA;
+  }
+  .cov-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+  .cov-eyebrow { font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.14em; color: #D4881A; margin-bottom: 0.3rem; }
+  .cov-total { font-family: var(--font-heading, inherit); font-size: 1.5rem; color: #6B7280; }
+  .cov-total strong { color: #111111; font-weight: 800; }
+  .cov-refresh { font-size: 0.65rem; font-weight: 700; color: #9CA3AF; white-space: nowrap; }
+  .cov-claim { font-size: 0.8rem; color: #4A4A4A; line-height: 1.6; margin-top: 0.75rem; max-width: 760px; }
+  .cov-claim strong { color: #111; }
+
+  .cov-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0.625rem; margin: 1rem 0 0.875rem; }
+  .cov-src { border: 1px solid #EAE7E0; border-radius: 0.625rem; padding: 0.75rem 0.875rem; background: white; }
+  .cov-src-name { font-size: 0.7rem; font-weight: 700; color: #111; }
+  .cov-src-n { font-size: 1.125rem; font-weight: 800; color: #111; margin-top: 0.1rem; }
+  .cov-src-share { font-size: 0.62rem; font-weight: 600; color: #9CA3AF; }
+  .cov-src-pen { font-size: 0.62rem; color: #166534; font-weight: 700; margin-top: 0.3rem; }
+  .cov-src-pen span { color: #9CA3AF; font-weight: 500; }
+  .cov-src-pen-na { color: #9CA3AF; font-weight: 500; }
+  .cov-foot { font-size: 0.66rem; color: #9CA3AF; line-height: 1.55; margin-top: 0.25rem; }
+  .cov-foot strong { color: #6B7280; }
+</style>
 <style>
   .health-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 0.625rem; margin-bottom: 1.5rem; }
   .hcard { border: 1.5px solid #E5E7EB; border-radius: 0.75rem; padding: 0.875rem 1rem; }
