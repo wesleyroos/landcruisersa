@@ -272,6 +272,10 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
                 <span class="time-label">Next:</span> <span id="ingest-next-run" class="time-val">—</span>
               </span>
             </p>
+            <div id="ingest-progress" class="tool-progress" hidden>
+              <div class="tool-progress-track"><span id="ingest-progress-fill"></span></div>
+              <span id="ingest-progress-label" class="tool-progress-label"></span>
+            </div>
           </div>
           <div class="tool-controls">
             <button id="run-ingest-btn" class="btn btn-tool">Run Ingest</button>
@@ -608,6 +612,11 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
   .time-next { margin-left: auto; display: flex; align-items: center; gap: 0.4rem; flex-shrink: 0; }
   .tool-status-inline { font-variant-numeric: tabular-nums; color: #9CA3AF; min-width: 0; }
   .tool-status-inline.is-error { color: #991B1B; background: #FEF2F2; border-radius: 0.375rem; padding: 0.2rem 0.5rem; font-weight: 600; }
+  .tool-progress { margin-top: 0.6rem; display: flex; align-items: center; gap: 0.6rem; }
+  .tool-progress[hidden] { display: none; }
+  .tool-progress-track { flex: 1; height: 7px; background: #EAE8E3; border-radius: 999px; overflow: hidden; min-width: 120px; }
+  .tool-progress-track > span { display: block; height: 100%; width: 0; background: #F5A623; border-radius: 999px; transition: width 0.3s ease; }
+  .tool-progress-label { font-size: 0.65rem; font-variant-numeric: tabular-nums; color: #6B7280; white-space: nowrap; }
   .tool-controls { display: flex; align-items: center; gap: 0.625rem; flex-shrink: 0; }
   .btn-tool { background: #111111; color: white; border-color: #111111; }
   .btn-tool:hover:not(:disabled) { background: #374151; border-color: #374151; }
@@ -979,6 +988,9 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
   const cancelBtn    = document.getElementById('ingest-cancel-btn')!;
   const confirmBtn   = document.getElementById('ingest-confirm-btn') as HTMLButtonElement;
   const statusEl     = document.getElementById('ingest-status')!;
+  const progressEl   = document.getElementById('ingest-progress')!;
+  const progressFill = document.getElementById('ingest-progress-fill')!;
+  const progressLbl  = document.getElementById('ingest-progress-label')!;
 
   ingestBtn?.addEventListener('click', () => {
     ingestModal.hidden = false;
@@ -1001,6 +1013,9 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
     ingestBtn!.disabled = true;
     ingestBtn!.textContent = 'Running…';
     statusEl.textContent = 'Starting…';
+    progressEl.hidden = false;
+    (progressFill as HTMLElement).style.width = '0%';
+    progressLbl.textContent = 'Starting…';
 
     const sourceResults: Record<string, { created: number; updated: number; ok: boolean }> = {};
     const summaryRe = /\] done — created: (\d+), updated: (\d+)/;
@@ -1026,6 +1041,8 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
           if (ev.type === 'script-start') {
             currentSource = String(ev.name);
             statusEl.textContent = `Running ${currentSource}…`;
+            (progressFill as HTMLElement).style.width = '0%';
+            progressLbl.textContent = `${currentSource} · Starting…`;
           } else if (ev.type === 'log') {
             const text = String(ev.text);
             statusEl.textContent = text.slice(0, 80);
@@ -1033,6 +1050,13 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
             if (m && currentSource) {
               sourceResults[currentSource] = { created: Number(m[1]), updated: Number(m[2]), ok: true };
             }
+          } else if (ev.type === 'progress') {
+            const done = Number(ev.done), total = Number(ev.total) || 1;
+            const pct = Math.min(100, Math.round((done / total) * 100));
+            (progressFill as HTMLElement).style.width = pct + '%';
+            const phase = ev.phase === 'discover' ? 'Discovering' : 'Importing';
+            const detail = ev.sub ? String(ev.sub) : `${Math.floor(done).toLocaleString()}/${total.toLocaleString()}`;
+            progressLbl.textContent = `${currentSource ? currentSource + ' · ' : ''}${phase} ${pct}% — ${detail}`;
           } else if (ev.type === 'script-done') {
             if (!sourceResults[currentSource]) {
               sourceResults[currentSource] = { created: 0, updated: 0, ok: Boolean(ev.ok) };
@@ -1043,6 +1067,9 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
               .map(([src, r]) => `${LABELS[src] ?? src.toUpperCase()} +${r.created} new`)
               .join(' · ');
             statusEl.textContent = summary || 'Done.';
+            (progressFill as HTMLElement).style.width = '100%';
+            progressLbl.textContent = 'Done';
+            setTimeout(() => { progressEl.hidden = true; }, 2500);
             const el = document.getElementById('ingest-last-run');
             if (el) el.textContent = fmtTime(Date.now());
           }

@@ -167,7 +167,13 @@ export const AutoTraderAdapter: SourceAdapter = {
     let gotLcTotal = false;
     let anyIncomplete = false;
 
-    for (const baseUrl of SEARCH_URLS) {
+    // Streamed to the admin "Run Ingest" progress bar via stdout (run-ingest.ts
+    // parses PROGRESS:: lines). `done` is fractional so the bar moves per page.
+    const progress = (done: number, sub: string) =>
+      console.log(`PROGRESS::${JSON.stringify({ phase: 'discover', done, total: SEARCH_URLS.length, sub })}`);
+
+    for (let mi = 0; mi < SEARCH_URLS.length; mi++) {
+      const baseUrl = SEARCH_URLS[mi];
       const slug = baseUrl.split('/').pop()!;
       const isLcUrl = LC_URLS.has(baseUrl);
       let totalPages = 1;                 // refined from page 1's embedded count
@@ -251,6 +257,7 @@ export const AutoTraderAdapter: SourceAdapter = {
         }
 
         console.log(`[autotrader] ${slug} page ${page}/${totalPages}: ${foundOnPage} new (${modelIds.size}/${totalCount || '?'})`);
+        progress(mi + page / Math.max(totalPages, 1), `${slug} ${page}/${totalPages}`);
         if (foundOnPage === 0) break; // ran out of new listings — done with this model
       }
 

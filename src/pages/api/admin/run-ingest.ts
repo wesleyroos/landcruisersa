@@ -34,6 +34,10 @@ function runScript(
 
     const emit = (text: string) => {
       for (const line of text.split('\n').filter(l => l.trim())) {
+        // Scripts emit `PROGRESS::{json}` for the progress bar; everything else is a log line.
+        if (line.startsWith('PROGRESS::')) {
+          try { send({ type: 'progress', script, ...JSON.parse(line.slice(10)) }); continue; } catch { /* fall through */ }
+        }
         send({ type: 'log', script, text: line });
       }
     };

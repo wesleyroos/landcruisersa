@@ -47,8 +47,13 @@ async function ingest() {
   let updated = 0;
   let skipped = 0;
 
-  for (const ref of refs) {
-    console.log(`[autotrader] fetching ${ref.source_id}…`);
+  // Streamed to the admin "Run Ingest" progress bar (run-ingest.ts parses these).
+  const progress = (done: number) =>
+    console.log(`PROGRESS::${JSON.stringify({ phase: 'ingest', done, total: refs.length })}`);
+
+  for (let idx = 0; idx < refs.length; idx++) {
+    if (idx % 20 === 0) progress(idx);
+    const ref = refs[idx];
     let listing = await AutoTraderAdapter.fetchListing(ref);
 
     if (!listing) {
@@ -98,6 +103,7 @@ async function ingest() {
     else if (result.action === 'updated') updated++;
   }
 
+  progress(refs.length);
   console.log(`[autotrader] done — created: ${created}, updated: ${updated}, skipped: ${skipped}`);
   await reportRun('autotrader', { found: refs.length, created, updated, skipped, sourceTotal: discoverStats.sourceTotal, capHit: discoverStats.capHit });
 }
