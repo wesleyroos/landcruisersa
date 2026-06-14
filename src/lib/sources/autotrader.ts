@@ -3,10 +3,10 @@ import { normalizeModel, normalizeProvince } from './normalize.ts';
 import { collectExtraSegments } from './registry.ts';
 import type { DiscoveredRef, DiscoverStats, NormalizedListing, LivenessResult, SourceAdapter } from './types.ts';
 
-// Penetration stats from the last discover(). AutoTrader exposes no result total,
-// so sourceTotal stays null; instead we flag capHit when a model URL fills all 30
-// allowed pages (the loop ceiling) without hitting an empty page — i.e. there's a
-// page 31 we never fetch and we may be truncating that model.
+// Penetration stats from the last discover(). AutoTrader's search HTML embeds its
+// own "totalCount"/"totalPages" per model, so we read those: sourceTotal = sum of
+// the LC models' totals (a true penetration denominator), and capHit flags only
+// when an LC model has more pages than PAGE_CAP (genuine truncation of public stock).
 export const discoverStats: DiscoverStats = { sourceTotal: null, capHit: false };
 
 const SOURCE = 'autotrader';
@@ -156,11 +156,23 @@ export const AutoTraderAdapter: SourceAdapter = {
     discoverStats.capHit = false;
     const refs: DiscoveredRef[] = [];
     const seen = new Set<string>();
+    // Per-URL page ceiling. LC models max ~21 pages so they're fully covered;
+    // Hilux/Fortuner run to 100+ pages and are intentionally sampled to this depth
+    // (~PAGE_CAP×30 listings) — enough for benchmarking, without a huge crawl.
     const PAGE_CAP = 30;
+    const LC_URLS = new Set(LC_SEARCH_URLS);
+
+    let lcTotal = 0;
+    let gotLcTotal = false;
 
     for (const baseUrl of SEARCH_URLS) {
-      for (let page = 1; page <= PAGE_CAP; page++) {
-        const pageUrl = page === 1 ? baseUrl : `${baseUrl}?p=${page}`;
+      const isLcUrl = LC_URLS.has(baseUrl);
+      let totalPages = PAGE_CAP; // refined from page 1's embedded count
+
+      for (let page = 1; page <= Math.min(totalPages, PAGE_CAP); page++) {
+        // AutoTrader paginates via ?pagenumber=N (NOT ?p=N — that param is ignored
+        // and silently re-serves page 1, which truncated us to ~6% of stock).
+        const pageUrl = page === 1 ? baseUrl : `${baseUrl}?pagenumber=${page}`;
         const res = await politeFetch(pageUrl, {
           headers: {
             'Accept': 'text/html,application/xhtml+xml',
@@ -171,6 +183,20 @@ export const AutoTraderAdapter: SourceAdapter = {
         if (!res.ok) break;
 
         const html = await res.text();
+
+        if (page === 1) {
+          const tp = html.match(/"totalPages":(\d+)/);
+          const tc = html.match(/"totalCount":(\d+)/);
+          if (tp) totalPages = Number(tp[1]);
+          if (isLcUrl && tc) { lcTotal += Number(tc[1]); gotLcTotal = true; }
+          // Genuine truncation alarm — only for LC models (the public market we
+          // claim to fully cover). Sampled Hilux/Fortuner exceeding the cap is by design.
+          if (isLcUrl && totalPages > PAGE_CAP) {
+            discoverStats.capHit = true;
+            console.warn(`[autotrader] ${baseUrl.split('/').pop()} has ${totalPages} pages > ${PAGE_CAP}-page cap — raise PAGE_CAP`);
+          }
+        }
+
         let foundOnPage = 0;
 
         const scriptRe = /<script[^>]*>([\s\S]*?)<\/script>/gi;
@@ -207,18 +233,13 @@ export const AutoTraderAdapter: SourceAdapter = {
           break; // only one script tag has the tile data
         }
 
-        console.log(`[autotrader] ${baseUrl.split('/').pop()} page ${page}: ${foundOnPage} listings`);
-        if (foundOnPage === 0) break; // no more pages
-        // Reached the page ceiling with a still-full page → there's more we won't fetch.
-        if (page === PAGE_CAP) {
-          discoverStats.capHit = true;
-          console.warn(`[autotrader] ${baseUrl.split('/').pop()} hit ${PAGE_CAP}-page cap with listings still on the last page — possible truncation`);
-        }
-
+        console.log(`[autotrader] ${baseUrl.split('/').pop()} page ${page}/${Math.min(totalPages, PAGE_CAP)}: ${foundOnPage} listings`);
+        if (foundOnPage === 0) break; // empty page → done with this model
         if (page < 15) await new Promise(r => setTimeout(r, 1500));
       }
     }
 
+    discoverStats.sourceTotal = gotLcTotal ? lcTotal : null;
     return refs;
   },
 
