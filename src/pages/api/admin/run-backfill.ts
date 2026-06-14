@@ -44,8 +44,15 @@ export const GET: APIRoute = async ({ cookies }) => {
 
   const stream = new ReadableStream({
     async start(controller) {
-      const send = (data: object) =>
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
+      // Guard against the client disconnecting mid-stream — writing to a closed
+      // controller throws an uncaught error that crashes the whole server.
+      let closed = false;
+      const send = (data: object) => {
+        if (closed) return;
+        try { controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`)); }
+        catch { closed = true; }
+      };
+      const safeClose = () => { if (!closed) { try { controller.close(); } catch { /* noop */ } closed = true; } };
 
       const pending = await db
         .select({ source_id: listings.source_id, source_url: listings.source_url })
@@ -61,7 +68,7 @@ export const GET: APIRoute = async ({ cookies }) => {
 
       if (pending.length === 0) {
         send({ type: 'done', updated: 0, empty: 0, failed: 0 });
-        controller.close();
+        safeClose();
         return;
       }
 
@@ -96,7 +103,7 @@ export const GET: APIRoute = async ({ cookies }) => {
       }
 
       send({ type: 'done', updated, empty, failed });
-      controller.close();
+      safeClose();
     },
   });
 

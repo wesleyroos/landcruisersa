@@ -23,12 +23,14 @@ function runScript(
   script: string,
   env: NodeJS.ProcessEnv,
   send: (data: object) => void,
+  registerChild: (proc: ReturnType<typeof spawn> | null) => void,
 ): Promise<number> {
   return new Promise(resolve => {
     const proc = spawn('node', ['--experimental-strip-types', script], {
       cwd: process.cwd(),
       env,
     });
+    registerChild(proc);
 
     const emit = (text: string) => {
       for (const line of text.split('\n').filter(l => l.trim())) {
@@ -38,11 +40,12 @@ function runScript(
 
     proc.stdout.on('data', (chunk: Buffer) => emit(chunk.toString()));
     proc.stderr.on('data', (chunk: Buffer) => emit(chunk.toString()));
-    proc.on('close', resolve);
+    proc.on('close', code => { registerChild(null); resolve(code ?? 0); });
+    proc.on('error', () => { registerChild(null); resolve(1); });
   });
 }
 
-export const GET: APIRoute = async ({ cookies, url }) => {
+export const GET: APIRoute = async ({ cookies, url, request }) => {
   if (!checkAdmin(cookies)) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
   }
@@ -68,21 +71,42 @@ export const GET: APIRoute = async ({ cookies, url }) => {
 
   const stream = new ReadableStream({
     async start(controller) {
-      const send = (data: object) =>
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
+      // The client (browser SSE) can disconnect mid-ingest — closing the page,
+      // navigating away, or just letting the ingest finish. The spawned child
+      // keeps emitting after that, so every write must be guarded or enqueueing
+      // on a closed controller throws an uncaught error and kills the server.
+      let closed = false;
+      let activeChild: ReturnType<typeof spawn> | null = null;
+
+      const send = (data: object) => {
+        if (closed) return;
+        try {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
+        } catch {
+          closed = true; // controller already gone — stop writing
+        }
+      };
+
+      const onAbort = () => {
+        closed = true;
+        activeChild?.kill();           // stop the ingest if the client left
+      };
+      request.signal.addEventListener('abort', onAbort);
 
       send({ type: 'start', scripts });
 
       for (const script of scripts) {
+        if (closed) break;
         const name = script.split('/').pop()!.replace('ingest-', '').replace('.ts', '');
         send({ type: 'script-start', name });
-        const code = await runScript(script, childEnv, send);
+        const code = await runScript(script, childEnv, send, p => { activeChild = p; });
         send({ type: 'script-done', name, ok: code === 0, code });
       }
 
+      request.signal.removeEventListener('abort', onAbort);
       try { writeFileSync('/tmp/lcsa-poll.log', new Date().toISOString()); } catch {}
       send({ type: 'done' });
-      controller.close();
+      if (!closed) { try { controller.close(); } catch { /* already closed */ } }
     },
   });
 

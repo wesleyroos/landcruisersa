@@ -121,11 +121,13 @@ function fmtModel(m: string): string {
                 </p>
               )}
               {h.reason && <p class={`hcard-reason reason-${h.state}`}>{h.reason}</p>}
+              <p class="rh-label">Recent runs — listings found <span class="rh-dir">newest ←→ oldest</span></p>
               <div class="run-history">
                 {runs.slice(0, 6).map(r => (
-                  <span class={`run-pill${r.ok ? '' : ' run-fail'}`} title={`${r.run_at.toLocaleString('en-ZA')} — found ${r.found}`}>
-                    {r.found}
-                  </span>
+                  <div class={`run-pill${r.ok ? '' : ' run-fail'}`} title={r.ok ? r.run_at.toLocaleString('en-ZA') : `${r.run_at.toLocaleString('en-ZA')} — failed${r.note ? ': ' + r.note : ''}`}>
+                    <span class="rp-found">{r.ok ? r.found : '✕'}</span>
+                    <span class="rp-time">{ago(r.run_at)}</span>
+                  </div>
                 ))}
               </div>
             </>
@@ -212,12 +214,23 @@ function fmtModel(m: string): string {
   .reason-warn { color: #B45309; }
   .reason-down { color: #991B1B; }
 
-  .run-history { display: flex; gap: 0.25rem; margin-top: 0.5rem; }
-  .run-pill {
-    font-size: 0.6rem; font-weight: 700; color: #6B7280; background: #F3F4F6;
-    padding: 0.1rem 0.4rem; border-radius: 9999px; font-variant-numeric: tabular-nums;
+  .rh-label {
+    font-size: 0.58rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+    color: #9CA3AF; margin-top: 0.75rem; margin-bottom: 0.3rem;
+    display: flex; align-items: center; gap: 0.4rem;
   }
-  .run-fail { background: #FEE2E2; color: #991B1B; }
+  .rh-dir { font-weight: 600; text-transform: none; letter-spacing: 0; color: #C4C4C4; font-size: 0.55rem; }
+  .run-history { display: flex; gap: 0.3rem; }
+  .run-pill {
+    display: flex; flex-direction: column; align-items: center; gap: 0.05rem;
+    min-width: 38px; padding: 0.3rem 0.4rem; border-radius: 0.4rem;
+    background: #F3F4F6; font-variant-numeric: tabular-nums;
+  }
+  .rp-found { font-size: 0.8rem; font-weight: 700; color: #111111; line-height: 1; }
+  .rp-time { font-size: 0.5rem; font-weight: 600; color: #9CA3AF; white-space: nowrap; }
+  .run-fail { background: #FEE2E2; }
+  .run-fail .rp-found { color: #991B1B; }
+  .run-fail .rp-time { color: #B91C1C; }
 
   .section { margin-bottom: 2rem; }
   .section-head {

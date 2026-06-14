@@ -26,8 +26,15 @@ export const GET: APIRoute = async ({ cookies }) => {
 
   const stream = new ReadableStream({
     async start(controller) {
-      const send = (data: object) =>
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
+      // Guard against the client disconnecting mid-stream — writing to a closed
+      // controller throws an uncaught error that crashes the whole server.
+      let closed = false;
+      const send = (data: object) => {
+        if (closed) return;
+        try { controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`)); }
+        catch { closed = true; }
+      };
+      const safeClose = () => { if (!closed) { try { controller.close(); } catch { /* noop */ } closed = true; } };
 
       // Always fetch pending list from prod so local runs see the real AT listings
       let pending: { id: number; source_id: string; source_url: string; colour: string }[] = [];
@@ -39,7 +46,7 @@ export const GET: APIRoute = async ({ cookies }) => {
         pending = data.listings ?? [];
       } catch (err) {
         send({ type: 'error', message: 'Failed to fetch pending listings from prod' });
-        controller.close();
+        safeClose();
         return;
       }
 
@@ -47,7 +54,7 @@ export const GET: APIRoute = async ({ cookies }) => {
 
       if (pending.length === 0) {
         send({ type: 'done', updated: 0, skipped: 0, failed: 0 });
-        controller.close();
+        safeClose();
         return;
       }
 
@@ -96,7 +103,7 @@ export const GET: APIRoute = async ({ cookies }) => {
 
       send({ type: 'done', updated, skipped, failed });
       try { (await import('fs')).writeFileSync('/tmp/lcsa-desc-backfill.log', new Date().toISOString()); } catch {}
-      controller.close();
+      safeClose();
     },
   });
 
