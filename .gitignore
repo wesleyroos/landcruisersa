@@ -24,3 +24,9 @@ public/images/og/
 
 # User-uploaded listing photos — served from Fly volume or CDN
 public/uploads/
+
+# Stray local artifacts (empty SQLite file + unused root logo — real logo is on R2)
+local.db
+local.db-shm
+local.db-wal
+/logo.png
