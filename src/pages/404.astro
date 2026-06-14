@@ -42,10 +42,16 @@ const LINKS = [
   </section>
 </Base>
 
+<style is:global>
+  /* Let the dark 404 section fill the <main> area so no page background shows
+     through as a strip above the footer. */
+  body:has(.nf) main { display: flex; flex-direction: column; }
+</style>
 <style>
   .nf {
     background: #111111;
     color: #fff;
+    flex: 1;
     min-height: calc(100vh - 4rem);
     display: flex;
     align-items: center;
