@@ -1,7 +1,13 @@
 import { politeFetch } from './http.ts';
 import { normalizeModel, normalizeProvince } from './normalize.ts';
 import { collectExtraSegments } from './registry.ts';
-import type { DiscoveredRef, NormalizedListing, LivenessResult, SourceAdapter } from './types.ts';
+import type { DiscoveredRef, DiscoverStats, NormalizedListing, LivenessResult, SourceAdapter } from './types.ts';
+
+// Penetration stats from the last discover(). AutoTrader exposes no result total,
+// so sourceTotal stays null; instead we flag capHit when a model URL fills all 30
+// allowed pages (the loop ceiling) without hitting an empty page — i.e. there's a
+// page 31 we never fetch and we may be truncating that model.
+export const discoverStats: DiscoverStats = { sourceTotal: null, capHit: false };
 
 const SOURCE = 'autotrader';
 const BASE = 'https://www.autotrader.co.za';
@@ -146,11 +152,14 @@ export const AutoTraderAdapter: SourceAdapter = {
 
   async discover(): Promise<DiscoveredRef[]> {
     _cache.clear();
+    discoverStats.sourceTotal = null;
+    discoverStats.capHit = false;
     const refs: DiscoveredRef[] = [];
     const seen = new Set<string>();
+    const PAGE_CAP = 30;
 
     for (const baseUrl of SEARCH_URLS) {
-      for (let page = 1; page <= 30; page++) {
+      for (let page = 1; page <= PAGE_CAP; page++) {
         const pageUrl = page === 1 ? baseUrl : `${baseUrl}?p=${page}`;
         const res = await politeFetch(pageUrl, {
           headers: {
@@ -200,6 +209,11 @@ export const AutoTraderAdapter: SourceAdapter = {
 
         console.log(`[autotrader] ${baseUrl.split('/').pop()} page ${page}: ${foundOnPage} listings`);
         if (foundOnPage === 0) break; // no more pages
+        // Reached the page ceiling with a still-full page → there's more we won't fetch.
+        if (page === PAGE_CAP) {
+          discoverStats.capHit = true;
+          console.warn(`[autotrader] ${baseUrl.split('/').pop()} hit ${PAGE_CAP}-page cap with listings still on the last page — possible truncation`);
+        }
 
         if (page < 15) await new Promise(r => setTimeout(r, 1500));
       }

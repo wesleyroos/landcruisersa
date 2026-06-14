@@ -8,6 +8,8 @@ export interface RunStats {
   removed?: number;
   ok?: boolean;
   note?: string;
+  sourceTotal?: number | null; // total the source itself reported (powers penetration %)
+  capHit?: boolean;            // hit a pagination ceiling this run
 }
 
 export async function reportRun(source: string, stats: RunStats): Promise<void> {

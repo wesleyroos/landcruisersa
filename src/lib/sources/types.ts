@@ -29,6 +29,14 @@ export interface NormalizedListing {
 
 export type LivenessResult = 'live' | 'removed' | 'unknown';
 
+// Per-run discovery telemetry — populated by an adapter's discover() so the
+// ingest script can report penetration (found vs source-reported total) and
+// whether a pagination cap was hit. Read after discover() resolves.
+export interface DiscoverStats {
+  sourceTotal: number | null; // total the source's own counter reported for our queries; null if not exposed
+  capHit: boolean;            // a pagination ceiling was reached this run — we may be truncating
+}
+
 export interface SourceAdapter {
   source: string;
   discover(): Promise<DiscoveredRef[]>;

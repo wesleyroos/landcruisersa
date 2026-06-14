@@ -1,5 +1,11 @@
 import { normalizeModel, normalizeProvince } from './normalize.ts';
-import type { DiscoveredRef, NormalizedListing, LivenessResult, SourceAdapter } from './types.ts';
+import type { DiscoveredRef, DiscoverStats, NormalizedListing, LivenessResult, SourceAdapter } from './types.ts';
+
+// Penetration stats from the last discover(). Adios is a single fetch with
+// per_page=100 and no pagination loop, so if it ever returns a full 100 we've
+// almost certainly truncated — flag it. No clean total is exposed.
+export const discoverStats: DiscoverStats = { sourceTotal: null, capHit: false };
+const ADIOS_PAGE_CAP = 100;
 
 const SOURCE = 'adios';
 const BASE = 'https://adios.co.za';
@@ -122,6 +128,11 @@ export const AdiosAdapter: SourceAdapter = {
 
   async discover(): Promise<DiscoveredRef[]> {
     const results = await fetchAllListings();
+    discoverStats.sourceTotal = null;
+    discoverStats.capHit = results.length >= ADIOS_PAGE_CAP;
+    if (discoverStats.capHit) {
+      console.warn(`[adios] returned a full ${ADIOS_PAGE_CAP} with no pagination — listings beyond ${ADIOS_PAGE_CAP} are not fetched`);
+    }
     for (const item of results) {
       _listingCache.set(String(item.id), item);
     }

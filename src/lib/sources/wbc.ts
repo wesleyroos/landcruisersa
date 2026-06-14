@@ -2,7 +2,13 @@ import { createHash } from 'crypto';
 import { politeFetch } from './http.ts';
 import { normalizeModel, normalizeProvince } from './normalize.ts';
 import { collectExtraSegments } from './registry.ts';
-import type { DiscoveredRef, NormalizedListing, LivenessResult, SourceAdapter } from './types.ts';
+import type { DiscoveredRef, DiscoverStats, NormalizedListing, LivenessResult, SourceAdapter } from './types.ts';
+
+// Source-reported penetration stats from the last discover(). sourceTotal sums the
+// total.value WeBuyCars returns per search query — these are text-search hits (include
+// non-LC / not-for-sale), so found ÷ source_total reads low by design (we keep only LC
+// for-sale). We paginate every query to exhaustion, so there's no cap to hit.
+export const discoverStats: DiscoverStats = { sourceTotal: null, capHit: false };
 
 const SOURCE = 'wbc';
 const BASE = 'https://www.webuycars.co.za';
@@ -110,7 +116,7 @@ function searchBody(q: string, to: number) {
   };
 }
 
-async function searchVehicles(q: string): Promise<WbcVehicle[]> {
+async function searchVehicles(q: string): Promise<{ vehicles: WbcVehicle[]; total: number }> {
   const out: WbcVehicle[] = [];
   let to = 0;
   let total = Infinity;
@@ -141,7 +147,7 @@ async function searchVehicles(q: string): Promise<WbcVehicle[]> {
     to += batch.length;
     await new Promise(r => setTimeout(r, 400 + Math.random() * 300));
   }
-  return out;
+  return { vehicles: out, total: total === Infinity ? 0 : total };
 }
 
 interface WbcVehicle {
@@ -217,10 +223,14 @@ export const WbcAdapter: SourceAdapter = {
 
   async discover(): Promise<DiscoveredRef[]> {
     cache.clear();
+    discoverStats.sourceTotal = null;
+    discoverStats.capHit = false;
     const refs: DiscoveredRef[] = [];
+    let reportedTotal = 0;
 
     for (const q of SEARCH_QUERIES) {
-      const vehicles = await searchVehicles(q);
+      const { vehicles, total } = await searchVehicles(q);
+      reportedTotal += total;
       let matched = 0;
       for (const v of vehicles) {
         if (!isLandCruiser(v) || !v.StockNumber || v.Status !== 'For Sale') continue;
@@ -236,6 +246,7 @@ export const WbcAdapter: SourceAdapter = {
       console.log(`[wbc] "${q}": ${vehicles.length} hits, ${matched} new LC refs`);
     }
 
+    discoverStats.sourceTotal = reportedTotal;
     return refs;
   },
 

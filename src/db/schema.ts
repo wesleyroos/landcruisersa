@@ -103,6 +103,11 @@ export const ingestRuns = sqliteTable('ingest_runs', {
   ok:      integer('ok', { mode: 'boolean' }).notNull().default(true),
   note:    text('note'),
   run_at:  integer('run_at', { mode: 'timestamp' }).notNull(),
+  // Penetration telemetry: how many listings the source's own counter reported
+  // for our queries (null if the source exposes no total), and whether we hit a
+  // pagination ceiling this run (possible silent truncation).
+  source_total: integer('source_total'),
+  cap_hit:      integer('cap_hit', { mode: 'boolean' }).notNull().default(false),
 });
 
 // Price changes observed by the aggregator — fuels price-trend content and

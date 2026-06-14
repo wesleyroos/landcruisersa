@@ -1,6 +1,12 @@
 import { normalizeModel } from './normalize.ts';
 import { collectExtraSegments } from './registry.ts';
-import type { DiscoveredRef, NormalizedListing, LivenessResult, SourceAdapter } from './types.ts';
+import type { DiscoveredRef, DiscoverStats, NormalizedListing, LivenessResult, SourceAdapter } from './types.ts';
+
+// Penetration stats from the last discover(). WeBuyBakkies exposes no total; we
+// crawl up to 10 vehicle sitemap files, so capHit flags when all 10 exist (a
+// possible 11th file would be missed). sourceTotal stays null.
+export const discoverStats: DiscoverStats = { sourceTotal: null, capHit: false };
+const SITEMAP_FILE_CAP = 10;
 
 const SOURCE = 'wbb';
 const BASE = 'https://webuybakkies.co.za';
@@ -12,7 +18,7 @@ const LC_SLUGS = [
 
 async function fetchSitemapUrls(): Promise<string[]> {
   const urls: string[] = [];
-  for (let i = 1; i <= 10; i++) {
+  for (let i = 1; i <= SITEMAP_FILE_CAP; i++) {
     const res = await fetch(`${BASE}/wp-sitemap-posts-vehicle-${i}.xml`, {
       headers: { 'User-Agent': 'Mozilla/5.0' },
       signal: AbortSignal.timeout(10_000),
@@ -21,6 +27,11 @@ async function fetchSitemapUrls(): Promise<string[]> {
     const xml = await res.text();
     for (const m of xml.matchAll(/<loc>(https:\/\/webuybakkies\.co\.za\/vehicles\/[^<]+)<\/loc>/g)) {
       urls.push(m[1].trim());
+    }
+    // Last allowed file still resolved — a file 11 would go unread.
+    if (i === SITEMAP_FILE_CAP) {
+      discoverStats.capHit = true;
+      console.warn(`[wbb] read all ${SITEMAP_FILE_CAP} allowed sitemap files — any further files are not crawled`);
     }
   }
   return urls;
@@ -120,6 +131,8 @@ export const WbbAdapter: SourceAdapter = {
   source: SOURCE,
 
   async discover(): Promise<DiscoveredRef[]> {
+    discoverStats.sourceTotal = null;
+    discoverStats.capHit = false;
     const all = await fetchSitemapUrls();
     return all
       .filter(isLandCruiser)

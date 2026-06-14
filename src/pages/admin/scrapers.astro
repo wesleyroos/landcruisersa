@@ -69,6 +69,7 @@ function healthFor(key: string): Health {
   const last = runs[0];
   const ageH = (now - last.run_at.getTime()) / 3_600_000;
   if (!last.ok) return { state: 'down', reason: last.note ?? 'Last run failed' };
+  if (last.cap_hit) return { state: 'warn', reason: 'Hit a pagination cap — may be truncating listings' };
   if (ageH > 48) return { state: 'warn', reason: `Last run ${Math.round(ageH)}h ago` };
   if (runs.length > 1 && runs[1].found > 0) {
     const drop = (runs[1].found - last.found) / runs[1].found;
@@ -113,6 +114,12 @@ function fmtModel(m: string): string {
                 Last run {ago(last.run_at)} — found {last.found},
                 +{last.created} new, {last.updated} updated, {last.skipped} skipped{last.removed > 0 ? `, ${last.removed} removed` : ''}
               </p>
+              {last.source_total != null && last.source_total > 0 && (
+                <p class="hcard-pen">
+                  Penetration <strong>{Math.round((last.found / last.source_total) * 100)}%</strong>
+                  <span class="pen-sub"> — {last.found} of {last.source_total} reported by source</span>
+                </p>
+              )}
               {h.reason && <p class={`hcard-reason reason-${h.state}`}>{h.reason}</p>}
               <div class="run-history">
                 {runs.slice(0, 6).map(r => (
@@ -173,6 +180,8 @@ function fmtModel(m: string): string {
     <p class="section-head">How scraping health is measured</p>
     <ul class="explain">
       <li><strong>Found</strong> — how many Land Cruiser listings the scraper discovered on the source site this run. A sudden drop means the source changed their site/API or is blocking us.</li>
+      <li><strong>Penetration</strong> — found ÷ the total the source's own counter reports. Only shown for sources that expose a total. <em>Cars.co.za</em> reports a per-model total so its % is true coverage; <em>WeBuyCars</em> reports text-search hits (which include non-LC and not-for-sale), so its % reads low by design — we keep only LC for-sale. Sources with no total (AutoTrader, Adios, We Buy Bakkies) show no %; we watch their pagination caps instead.</li>
+      <li><strong>Pagination cap</strong> — AutoTrader (30 pages/model), Adios (100, no pagination) and We Buy Bakkies (10 sitemap files) stop at a fixed ceiling. If a run actually reaches that ceiling with stock still beyond it, the card turns amber with “Hit a pagination cap” — that's the signal we're truncating and should raise the limit.</li>
       <li><strong>Skipped</strong> — listings discovered but not saved: per-listing fetch failures (blocking, rate limits) or cross-source duplicates. Near-100% skipped with 0 created/updated means the fetcher is broken even though discovery works.</li>
       <li><strong>Zero-model anomalies</strong> — the red cells above. This is exactly how the missing WBC 79-series would have been caught automatically.</li>
       <li>Each ingest script reports its run here automatically; failures (zero results) report too, so a silent scraper shows up as a red card, not an empty page.</li>
@@ -196,6 +205,9 @@ function fmtModel(m: string): string {
   .hcard-active { margin-left: auto; font-size: 0.65rem; font-weight: 700; color: #9CA3AF; }
 
   .hcard-last { font-size: 0.7rem; color: #6B7280; line-height: 1.5; }
+  .hcard-pen { font-size: 0.7rem; color: #374151; margin-top: 0.3rem; }
+  .hcard-pen strong { color: #111111; }
+  .pen-sub { color: #9CA3AF; }
   .hcard-reason { font-size: 0.7rem; font-weight: 700; margin-top: 0.3rem; }
   .reason-warn { color: #B45309; }
   .reason-down { color: #991B1B; }

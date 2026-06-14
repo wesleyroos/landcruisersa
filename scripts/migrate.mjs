@@ -137,10 +137,27 @@ db.exec(`
     removed INTEGER NOT NULL DEFAULT 0,
     ok      INTEGER NOT NULL DEFAULT 1,
     note    TEXT,
-    run_at  INTEGER NOT NULL
+    run_at  INTEGER NOT NULL,
+    source_total INTEGER,
+    cap_hit      INTEGER NOT NULL DEFAULT 0
   )
 `);
 db.exec(`CREATE INDEX IF NOT EXISTS ingest_runs_source ON ingest_runs (source, run_at)`);
+
+// Idempotent column additions for ingest_runs on existing DBs — CREATE TABLE
+// IF NOT EXISTS above never alters a table that already exists, so the admin
+// Scrapers page (which SELECTs every column) would 500 without these.
+const runCols = new Set(
+  db.prepare("SELECT name FROM pragma_table_info('ingest_runs')").all().map(r => r.name)
+);
+const addRunCol = (col, def) => {
+  if (!runCols.has(col)) {
+    db.exec(`ALTER TABLE ingest_runs ADD COLUMN ${def}`);
+    console.log(`[migrate] Added ingest_runs column: ${col}`);
+  }
+};
+addRunCol('source_total', "source_total INTEGER");
+addRunCol('cap_hit',      "cap_hit      INTEGER NOT NULL DEFAULT 0");
 
 // Price changes observed at ingest — fuels price-trend pages and price-drop surfacing
 db.exec(`

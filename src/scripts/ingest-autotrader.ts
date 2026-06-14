@@ -1,4 +1,4 @@
-import { AutoTraderAdapter } from '../lib/sources/autotrader.ts';
+import { AutoTraderAdapter, discoverStats } from '../lib/sources/autotrader.ts';
 import { isSourceEnabled } from '../lib/sources/registry.ts';
 import { reportRun } from '../lib/sources/report.ts';
 
@@ -95,7 +95,7 @@ async function ingest() {
   }
 
   console.log(`[autotrader] done — created: ${created}, updated: ${updated}, skipped: ${skipped}`);
-  await reportRun('autotrader', { found: refs.length, created, updated, skipped });
+  await reportRun('autotrader', { found: refs.length, created, updated, skipped, sourceTotal: discoverStats.sourceTotal, capHit: discoverStats.capHit });
 }
 
 ingest().catch(async (err) => {

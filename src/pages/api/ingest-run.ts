@@ -24,7 +24,7 @@ export const POST: APIRoute = async ({ request }) => {
     return new Response(JSON.stringify({ error: 'Invalid JSON' }), { status: 400 });
   }
 
-  const { source, found, created, updated, skipped, removed, ok, note } = body;
+  const { source, found, created, updated, skipped, removed, ok, note, sourceTotal, capHit } = body;
   if (!source) {
     return new Response(JSON.stringify({ error: 'Missing source' }), { status: 400 });
   }
@@ -39,6 +39,8 @@ export const POST: APIRoute = async ({ request }) => {
     ok:      ok !== false,
     note:    note ? String(note) : null,
     run_at:  new Date(),
+    source_total: sourceTotal == null ? null : Number(sourceTotal),
+    cap_hit:      capHit === true,
   });
 
   return new Response(JSON.stringify({ ok: true }), {

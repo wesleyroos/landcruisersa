@@ -1,4 +1,4 @@
-import { CarsZaAdapter } from '../lib/sources/carsza.ts';
+import { CarsZaAdapter, discoverStats } from '../lib/sources/carsza.ts';
 import { isSourceEnabled } from '../lib/sources/registry.ts';
 import { reportRun } from '../lib/sources/report.ts';
 
@@ -77,7 +77,7 @@ async function ingest() {
   }
 
   console.log(`[carsza] done — created: ${created}, updated: ${updated}, skipped: ${skipped}, removed: ${removed}`);
-  await reportRun('carsza', { found: refs.length, created, updated, skipped, removed });
+  await reportRun('carsza', { found: refs.length, created, updated, skipped, removed, sourceTotal: discoverStats.sourceTotal, capHit: discoverStats.capHit });
 }
 
 ingest().catch(async err => {

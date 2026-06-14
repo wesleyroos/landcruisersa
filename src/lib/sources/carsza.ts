@@ -2,7 +2,12 @@ import { chromium } from 'playwright-core';
 import type { Browser, Page } from 'playwright-core';
 import { normalizeModel, normalizeProvince } from './normalize.ts';
 import { collectExtraSegments } from './registry.ts';
-import type { DiscoveredRef, NormalizedListing, LivenessResult, SourceAdapter } from './types.ts';
+import type { DiscoveredRef, DiscoverStats, NormalizedListing, LivenessResult, SourceAdapter } from './types.ts';
+
+// Source-reported penetration stats from the last discover() — read by the ingest script.
+// cars.co.za exposes a per-model meta.total and we paginate to exhaustion, so this is a
+// clean denominator: found ÷ source_total ≈ true coverage of cars.co.za's LC stock.
+export const discoverStats: DiscoverStats = { sourceTotal: null, capHit: false };
 
 const SOURCE = 'carsza';
 const API = 'https://api.cars.co.za/fw/public/v3/vehicle';
@@ -134,6 +139,9 @@ export const CarsZaAdapter: SourceAdapter = {
 
   async discover(): Promise<DiscoveredRef[]> {
     cache.clear();
+    discoverStats.sourceTotal = null;
+    discoverStats.capHit = false;
+    let reportedTotal = 0;
     const { browser, page } = await launchSession();
     try {
       for (const model of SEARCH_MODELS) {
@@ -152,8 +160,10 @@ export const CarsZaAdapter: SourceAdapter = {
           offset += batch.length;
           await page.waitForTimeout(400); // polite pacing
         }
+        if (total !== Infinity) reportedTotal += total; // sum the per-model totals cars.co.za reports
         console.log(`[${SOURCE}] ${model}: ${Math.min(total, offset)} listings`);
       }
+      discoverStats.sourceTotal = reportedTotal;
     } finally {
       await browser.close();
     }

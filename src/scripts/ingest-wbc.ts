@@ -1,4 +1,4 @@
-import { WbcAdapter } from '../lib/sources/wbc.ts';
+import { WbcAdapter, discoverStats } from '../lib/sources/wbc.ts';
 import { isSourceEnabled } from '../lib/sources/registry.ts';
 import { reportRun } from '../lib/sources/report.ts';
 
@@ -70,7 +70,7 @@ async function ingest() {
   }
 
   console.log(`[wbc] done — created: ${created}, updated: ${updated}, skipped: ${skipped}`);
-  await reportRun('wbc', { found: refs.length, created, updated, skipped });
+  await reportRun('wbc', { found: refs.length, created, updated, skipped, sourceTotal: discoverStats.sourceTotal, capHit: discoverStats.capHit });
 }
 
 ingest().catch(async (err) => {

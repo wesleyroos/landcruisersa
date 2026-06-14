@@ -1,4 +1,4 @@
-import { WbbAdapter } from '../lib/sources/wbb.ts';
+import { WbbAdapter, discoverStats } from '../lib/sources/wbb.ts';
 import { isSourceEnabled } from '../lib/sources/registry.ts';
 import { reportRun } from '../lib/sources/report.ts';
 
@@ -44,7 +44,7 @@ async function ingest() {
   }
 
   console.log(`[wbb] done — created: ${created}, updated: ${updated}, skipped: ${skipped}`);
-  await reportRun('wbb', { found: refs.length, created, updated, skipped });
+  await reportRun('wbb', { found: refs.length, created, updated, skipped, sourceTotal: discoverStats.sourceTotal, capHit: discoverStats.capHit });
 }
 
 ingest().catch(async err => {

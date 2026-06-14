@@ -1,4 +1,4 @@
-import { AdiosAdapter } from '../lib/sources/adios.ts';
+import { AdiosAdapter, discoverStats } from '../lib/sources/adios.ts';
 import { isSourceEnabled } from '../lib/sources/registry.ts';
 import { reportRun } from '../lib/sources/report.ts';
 
@@ -70,7 +70,7 @@ async function ingest() {
   }
 
   console.log(`[adios] done — created: ${created}, updated: ${updated}, skipped: ${skipped}`);
-  await reportRun('adios', { found: refs.length, created, updated, skipped });
+  await reportRun('adios', { found: refs.length, created, updated, skipped, sourceTotal: discoverStats.sourceTotal, capHit: discoverStats.capHit });
 }
 
 ingest().catch(async (err) => {
