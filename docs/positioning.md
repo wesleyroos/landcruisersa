@@ -50,3 +50,14 @@ Scrapers find cars → tracker spots price drops → scoring engine picks the da
 - Price events: accruing since 11 June 2026
 - Organic social already #2 traffic channel; market pages drawing organic search within 24h of launch
 - Full-funnel tracking live: views → contact reveals → WhatsApp/call/email leads, per listing and per model
+
+## Market coverage data (for "how much of the market do you have?")
+
+*Sources: Mordor Intelligence SA Used Car Market; Wikipedia/SimilarWeb on AutoTrader SA; AutoTrader SA NADA reports (2025).*
+
+- **AutoTrader** — SA's #1 automotive marketplace (SimilarWeb category leader): ~130k listings searchable, ~70–80k vehicles for sale, **11M monthly visits**; sold ~34k used vehicles/month (Sept 2025).
+- **Cars.co.za** — #2, ~74k listings.
+- **WeBuyCars** — major, data-rich, JSE-listed; consolidating share.
+- We aggregate **all three dominant platforms** + two Land Cruiser-specialist dealers (Adios, We Buy Bakkies). For Land Cruisers specifically, that is effectively the **entire online listed market**.
+- **Measured penetration** (live on /admin/scrapers): Cars.co.za 100% of its reported per-model total; per-source counts and pagination-cap monitoring for the rest. Out of scope: private off-platform sales (Facebook, word-of-mouth) — unmeasurable for anyone.
+- Pitch line: *"We don't sample the market — we mirror it. On SA's #1 and #2 car marketplaces we capture ~100% of Land Cruiser stock, refreshed continuously."*
