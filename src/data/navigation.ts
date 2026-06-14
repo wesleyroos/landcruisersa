@@ -1,5 +1,6 @@
 export const NAV_LINKS = [
   { label: 'Listings', href: '/listings/' },
+  { label: 'Market Data', href: '/market/' },
   { label: 'Useful Info', href: '/useful-info/' },
   { label: 'Models', href: '/models/', children: [
     { label: '— 70 Series Family —', href: '/models/' },

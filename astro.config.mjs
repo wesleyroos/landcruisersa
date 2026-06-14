@@ -18,6 +18,7 @@ export default defineConfig({
       // SSR pages aren't auto-discovered — add them manually
       customPages: [
         'https://landcruisersa.co.za/',
+        'https://landcruisersa.co.za/about/',
         'https://landcruisersa.co.za/listings/',
         // Province pages
         'https://landcruisersa.co.za/listings/province/gauteng/',
