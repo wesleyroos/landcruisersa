@@ -1,0 +1,188 @@
+---
+import Base from '@/layouts/Base.astro';
+
+// Popular destinations — keep these aligned with the main nav.
+const LINKS = [
+  { label: 'Browse Listings', href: '/listings/', desc: 'Every Land Cruiser for sale in SA' },
+  { label: 'Live Market Data', href: '/market/', desc: 'Asking prices & supply, tracked daily' },
+  { label: 'Model Guides', href: '/models/', desc: '70 Series to 300 Series & Prado' },
+  { label: 'Useful Info', href: '/useful-info/', desc: 'Buying guides, ownership & advice' },
+];
+---
+
+<Base
+  title="Page Not Found (404) — Land Cruiser SA"
+  description="The page you're looking for has gone off the map. Head back to Land Cruiser SA for listings, live market data and model guides."
+  noindex={true}
+>
+  <section class="nf">
+    <div class="nf-inner">
+      <p class="nf-code">404</p>
+      <h1 class="nf-heading">You've gone off the map</h1>
+      <p class="nf-sub">
+        This trail leads nowhere — the page you're after has moved, been retired,
+        or never existed. Let's get you back on the road.
+      </p>
+
+      <div class="nf-actions">
+        <a href="/" class="nf-btn-primary">Back to Home</a>
+        <a href="/listings/" class="nf-btn-ghost">Browse Listings</a>
+      </div>
+
+      <div class="nf-grid">
+        {LINKS.map(l => (
+          <a href={l.href} class="nf-card">
+            <span class="nf-card-title">{l.label}</span>
+            <span class="nf-card-desc">{l.desc}</span>
+            <span class="nf-card-arrow" aria-hidden="true">→</span>
+          </a>
+        ))}
+      </div>
+    </div>
+  </section>
+</Base>
+
+<style>
+  .nf {
+    background: #111111;
+    color: #fff;
+    min-height: calc(100vh - 4rem);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4rem 1rem 5rem;
+    position: relative;
+    overflow: hidden;
+  }
+  /* subtle topographic-style accent */
+  .nf::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(circle at 80% 0%, rgba(245, 166, 35, 0.10), transparent 45%),
+      radial-gradient(circle at 0% 100%, rgba(245, 166, 35, 0.06), transparent 40%);
+    pointer-events: none;
+  }
+
+  .nf-inner {
+    position: relative;
+    max-width: 720px;
+    width: 100%;
+    text-align: center;
+  }
+
+  .nf-code {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: clamp(5.5rem, 22vw, 11rem);
+    line-height: 0.85;
+    letter-spacing: 0.02em;
+    color: #F5A623;
+    margin: 0;
+    text-shadow: 0 0 60px rgba(245, 166, 35, 0.25);
+  }
+
+  .nf-heading {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-size: clamp(1.6rem, 5vw, 2.5rem);
+    margin: 1rem 0 0.75rem;
+    color: #fff;
+  }
+
+  .nf-sub {
+    font-size: 1.0625rem;
+    line-height: 1.7;
+    color: rgba(255, 255, 255, 0.65);
+    max-width: 30rem;
+    margin: 0 auto;
+  }
+
+  .nf-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    justify-content: center;
+    margin-top: 1.75rem;
+  }
+  .nf-btn-primary,
+  .nf-btn-ghost {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-size: 0.95rem;
+    padding: 0.7rem 1.6rem;
+    border-radius: 4px;
+    transition: all 0.15s ease;
+  }
+  .nf-btn-primary {
+    background: #F5A623;
+    color: #111111;
+  }
+  .nf-btn-primary:hover { background: #D4881A; }
+  .nf-btn-ghost {
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    color: #fff;
+  }
+  .nf-btn-ghost:hover {
+    border-color: #F5A623;
+    color: #F5A623;
+  }
+
+  .nf-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+    margin-top: 3rem;
+    text-align: left;
+  }
+  @media (max-width: 560px) {
+    .nf-grid { grid-template-columns: 1fr; }
+  }
+
+  .nf-card {
+    position: relative;
+    display: block;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    border-radius: 8px;
+    padding: 1rem 1.1rem;
+    transition: all 0.15s ease;
+  }
+  .nf-card:hover {
+    background: rgba(245, 166, 35, 0.08);
+    border-color: rgba(245, 166, 35, 0.5);
+  }
+  .nf-card-title {
+    display: block;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    font-size: 1.05rem;
+    color: #fff;
+  }
+  .nf-card-desc {
+    display: block;
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.55);
+    margin-top: 0.15rem;
+  }
+  .nf-card-arrow {
+    position: absolute;
+    top: 1rem;
+    right: 1.1rem;
+    color: #F5A623;
+    opacity: 0;
+    transform: translateX(-4px);
+    transition: all 0.15s ease;
+  }
+  .nf-card:hover .nf-card-arrow {
+    opacity: 1;
+    transform: translateX(0);
+  }
+</style>

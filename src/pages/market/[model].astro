@@ -39,19 +39,24 @@ const max = prices[count - 1];
 const avgMileage = Math.round(rows.reduce((s, r) => s + r.mileage, 0) / count);
 
 // By-year breakdown
-const byYear = new Map<number, number[]>();
+const byYear = new Map<number, { price: number; mileage: number }[]>();
 for (const r of rows) {
   if (!byYear.has(r.year)) byYear.set(r.year, []);
-  byYear.get(r.year)!.push(r.price);
+  byYear.get(r.year)!.push({ price: r.price, mileage: r.mileage });
 }
 const yearRows = [...byYear.entries()]
-  .map(([year, ps]) => ({
-    year,
-    count: ps.length,
-    avg: Math.round(ps.reduce((s, p) => s + p, 0) / ps.length),
-    min: Math.min(...ps),
-    max: Math.max(...ps),
-  }))
+  .map(([year, rs]) => {
+    const ps = rs.map(r => r.price);
+    const km = rs.map(r => r.mileage).filter(m => m > 0);
+    return {
+      year,
+      count: ps.length,
+      avg: Math.round(ps.reduce((s, p) => s + p, 0) / ps.length),
+      min: Math.min(...ps),
+      max: Math.max(...ps),
+      avgMileage: km.length ? Math.round(km.reduce((s, m) => s + m, 0) / km.length) : null,
+    };
+  })
   .sort((a, b) => b.year - a.year);
 
 // Recent price movements (last 30 days) — observed by our aggregator across
@@ -129,6 +134,7 @@ const datasetSchema = {
           <th>For Sale</th>
           <th>Average Asking</th>
           <th>Price Range</th>
+          <th>Avg Mileage</th>
         </tr>
       </thead>
       <tbody>
@@ -138,6 +144,7 @@ const datasetSchema = {
             <td>{r.count}</td>
             <td class="m-price">{R(r.avg)}</td>
             <td>{r.count > 1 ? `${R(r.min)} – ${R(r.max)}` : R(r.min)}</td>
+            <td>{r.avgMileage != null ? `${r.avgMileage.toLocaleString('en-ZA')} km` : '—'}</td>
           </tr>
         ))}
       </tbody>
