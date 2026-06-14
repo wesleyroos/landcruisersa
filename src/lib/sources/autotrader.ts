@@ -5,8 +5,9 @@ import type { DiscoveredRef, DiscoverStats, NormalizedListing, LivenessResult, S
 
 // Penetration stats from the last discover(). AutoTrader's search HTML embeds its
 // own "totalCount"/"totalPages" per model, so we read those: sourceTotal = sum of
-// the LC models' totals (a true penetration denominator), and capHit flags only
-// when an LC model has more pages than PAGE_CAP (genuine truncation of public stock).
+// the LC models' totals (a true penetration denominator), and capHit flags when any
+// model's crawl came up short of its reported totalCount this run (a real, reliable
+// "we didn't get them all" signal — replaces the old guess-by-page-count heuristic).
 export const discoverStats: DiscoverStats = { sourceTotal: null, capHit: false };
 
 const SOURCE = 'autotrader';
@@ -156,31 +157,47 @@ export const AutoTraderAdapter: SourceAdapter = {
     discoverStats.capHit = false;
     const refs: DiscoveredRef[] = [];
     const seen = new Set<string>();
-    // Per-URL page ceiling. LC models max ~21 pages so they're fully covered;
-    // Hilux/Fortuner run to 100+ pages and are intentionally sampled to this depth
-    // (~PAGE_CAP×30 listings) — enough for benchmarking, without a huge crawl.
-    const PAGE_CAP = 30;
+    // No per-model page cap: each model's crawl is driven by AutoTrader's own
+    // "totalPages". SAFETY_CAP is only a runaway guard (a model would need ~6,000+
+    // listings to reach it). Reliability comes from the per-model completeness check.
+    const SAFETY_CAP = 250;
     const LC_URLS = new Set(LC_SEARCH_URLS);
 
     let lcTotal = 0;
     let gotLcTotal = false;
+    let anyIncomplete = false;
 
     for (const baseUrl of SEARCH_URLS) {
+      const slug = baseUrl.split('/').pop()!;
       const isLcUrl = LC_URLS.has(baseUrl);
-      let totalPages = PAGE_CAP; // refined from page 1's embedded count
+      let totalPages = 1;                 // refined from page 1's embedded count
+      let totalCount = 0;
+      const modelIds = new Set<string>(); // distinct listings this model's pages showed
+      let aborted = false;                // a page failed mid-crawl → coverage incomplete
 
-      for (let page = 1; page <= Math.min(totalPages, PAGE_CAP); page++) {
+      for (let page = 1; page <= Math.min(totalPages, SAFETY_CAP); page++) {
         // AutoTrader paginates via ?pagenumber=N (NOT ?p=N — that param is ignored
-        // and silently re-serves page 1, which truncated us to ~6% of stock).
+        // and silently re-serves page 1, which once truncated us to ~6% of stock).
         const pageUrl = page === 1 ? baseUrl : `${baseUrl}?pagenumber=${page}`;
-        const res = await politeFetch(pageUrl, {
-          headers: {
-            'Accept': 'text/html,application/xhtml+xml',
-            'User-Agent': BROWSER_UA,
-            'Accept-Language': 'en-ZA,en;q=0.9',
-          },
-        });
-        if (!res.ok) break;
+        let res: Response;
+        try {
+          res = await politeFetch(pageUrl, {
+            headers: {
+              'Accept': 'text/html,application/xhtml+xml',
+              'User-Agent': BROWSER_UA,
+              'Accept-Language': 'en-ZA,en;q=0.9',
+            },
+          });
+        } catch (e) {
+          aborted = true; // politeFetch already retried — a throw means it's really down
+          console.warn(`[autotrader] ${slug} page ${page} failed after retries (${e}) — coverage incomplete`);
+          break;
+        }
+        if (!res.ok) {
+          aborted = true; // do NOT silently break-as-done; this is a truncation
+          console.warn(`[autotrader] ${slug} page ${page} → HTTP ${res.status} — coverage incomplete`);
+          break;
+        }
 
         const html = await res.text();
 
@@ -188,12 +205,11 @@ export const AutoTraderAdapter: SourceAdapter = {
           const tp = html.match(/"totalPages":(\d+)/);
           const tc = html.match(/"totalCount":(\d+)/);
           if (tp) totalPages = Number(tp[1]);
-          if (isLcUrl && tc) { lcTotal += Number(tc[1]); gotLcTotal = true; }
-          // Genuine truncation alarm — only for LC models (the public market we
-          // claim to fully cover). Sampled Hilux/Fortuner exceeding the cap is by design.
-          if (isLcUrl && totalPages > PAGE_CAP) {
-            discoverStats.capHit = true;
-            console.warn(`[autotrader] ${baseUrl.split('/').pop()} has ${totalPages} pages > ${PAGE_CAP}-page cap — raise PAGE_CAP`);
+          if (tc) totalCount = Number(tc[1]);
+          if (isLcUrl && totalCount) { lcTotal += totalCount; gotLcTotal = true; }
+          if (totalPages > SAFETY_CAP) {
+            aborted = true;
+            console.warn(`[autotrader] ${slug} has ${totalPages} pages > ${SAFETY_CAP} safety cap — raise SAFETY_CAP`);
           }
         }
 
@@ -208,7 +224,8 @@ export const AutoTraderAdapter: SourceAdapter = {
           const tileMatches = s.matchAll(/"listingId":(\d+),"canonicalUrl":"([^"]+)"/g);
           for (const m of tileMatches) {
             const id = m[1];
-            if (seen.has(id)) continue;
+            modelIds.add(id);           // per-model completeness, counted before global dedup
+            if (seen.has(id)) continue; // global dedup → unique refs across models
             seen.add(id);
 
             const startIdx = s.lastIndexOf('{"resultType":', s.indexOf(`"listingId":${id}`));
@@ -233,13 +250,21 @@ export const AutoTraderAdapter: SourceAdapter = {
           break; // only one script tag has the tile data
         }
 
-        console.log(`[autotrader] ${baseUrl.split('/').pop()} page ${page}/${Math.min(totalPages, PAGE_CAP)}: ${foundOnPage} listings`);
-        if (foundOnPage === 0) break; // empty page → done with this model
-        if (page < 15) await new Promise(r => setTimeout(r, 1500));
+        console.log(`[autotrader] ${slug} page ${page}/${totalPages}: ${foundOnPage} new (${modelIds.size}/${totalCount || '?'})`);
+        if (foundOnPage === 0) break; // ran out of new listings — done with this model
+      }
+
+      // Reliable completeness signal: did we capture (nearly) all of this model's
+      // listings? 10% slack absorbs cross-model dedup and listings that churn between
+      // the reported count and the crawl. This replaces the old page-cap heuristic.
+      if (totalCount > 0 && (aborted || modelIds.size < totalCount * 0.9)) {
+        anyIncomplete = true;
+        console.warn(`[autotrader] ${slug} INCOMPLETE: captured ${modelIds.size}/${totalCount}${aborted ? ' (crawl aborted)' : ''}`);
       }
     }
 
     discoverStats.sourceTotal = gotLcTotal ? lcTotal : null;
+    discoverStats.capHit = anyIncomplete; // now means: a model's crawl came up short this run
     return refs;
   },
 
