@@ -13,8 +13,16 @@ import { isAdminSession } from '@/lib/track-guard';
 // never sees them (Googlebot has no cookie, so it gets Land Cruiser only).
 const isAdmin = isAdminSession(Astro.cookies);
 
-const allListings = await db
-  .select()
+// Only the columns the cards need — avoids hauling description/mods/source text
+// for ~2,000 rows on every request (the old SELECT * was the main page slowness).
+const rawListings = await db
+  .select({
+    slug: listings.slug, title: listings.title, model: listings.model, year: listings.year,
+    price: listings.price, mileage: listings.mileage, province: listings.province,
+    transmission: listings.transmission, colour: listings.colour, photos: listings.photos,
+    listing_type: listings.listing_type, status: listings.status,
+    new_or_used: listings.new_or_used, featured: listings.featured,
+  })
   .from(listings)
   .where(and(
     inArray(listings.status, ['active', 'sold']),
@@ -23,6 +31,21 @@ const allListings = await db
   .orderBy(desc(listings.featured), desc(listings.created_at));
 
 const priceChanges = getRecentPriceChanges();
+const PAGE_SIZE = 18;
+
+// Compact client dataset — filtered & paginated in the browser. Shipping this as
+// JSON (~12 small fields/row) is far lighter than rendering ~2,000 card elements.
+const data = rawListings.map(l => ({
+  slug: l.slug, title: l.title, model: l.model, year: l.year, price: l.price,
+  mileage: l.mileage, province: l.province, transmission: l.transmission,
+  colour: l.colour, photo: firstPhoto(l.photos), type: l.listing_type,
+  status: l.status, nu: l.new_or_used, drop: priceChanges.get(l.slug) ?? 0,
+}));
+const dataJson = JSON.stringify(data).replace(/</g, '\\u003c');
+
+// Server-render only the first page (default view: active, newest first) for fast
+// first paint + no-JS fallback; the client takes over filtering/pagination.
+const ssrCards = data.filter(d => d.status === 'active').slice(0, PAGE_SIZE);
 
 const PROVINCES = ['All', 'Gauteng', 'Western Cape', 'KwaZulu-Natal', 'Eastern Cape', 'Limpopo', 'Mpumalanga', 'North West', 'Free State', 'Northern Cape'];
 const MODELS = [
@@ -141,26 +164,20 @@ function firstPhoto(photos: string) {
       <span id="results-count" class="self-center text-sm text-[#6B7280] ml-auto"></span>
     </div>
 
-    <!-- GRID -->
+    <!-- GRID — first page server-rendered; client re-renders from JSON below -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5" id="listings-grid">
-      {allListings.map((l, i) => (
+      {ssrCards.map((l, i) => (
         <a
           href={`/listings/${l.slug}/`}
           class={`listing-card group border rounded-xl overflow-hidden transition-all flex flex-col ${
-            l.listing_type === 'show_off'
+            l.type === 'show_off'
               ? 'bg-[#1A1A1A] border-[rgba(245,166,35,0.15)] hover:border-[#F5A623] hover:shadow-lg hover:shadow-[rgba(245,166,35,0.1)]'
               : 'bg-white border-[#DDD9D3] hover:border-[#F5A623] hover:shadow-md'
           } ${l.status === 'sold' ? 'is-sold' : ''}`}
-          data-model={l.model}
-          data-province={l.province}
-          data-price={l.price}
-          data-mileage={l.mileage}
-          data-type={l.listing_type}
-          data-status={l.status}
         >
           <div class="card-img-wrap">
             <img
-              src={firstPhoto(l.photos)}
+              src={l.photo}
               alt={l.title}
               class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
               width="800"
@@ -170,37 +187,37 @@ function firstPhoto(photos: string) {
               decoding="async"
             />
             <div class="absolute top-3 left-3 flex gap-1.5 flex-wrap">
-              <span class={`card-badge ${l.listing_type === 'show_off' ? 'card-badge-show' : ''}`}>
-                {l.listing_type === 'show_off' ? '★ ' : ''}{l.model.replaceAll('-', ' ').toUpperCase()}
+              <span class={`card-badge ${l.type === 'show_off' ? 'card-badge-show' : ''}`}>
+                {l.type === 'show_off' ? '★ ' : ''}{l.model.replaceAll('-', ' ').toUpperCase()}
               </span>
               {l.status === 'sold' && <span class="card-badge card-badge-sold">Sold</span>}
-              {l.status === 'active' && (priceChanges.get(l.slug) ?? 0) < 0 && (
-                <span class="card-badge card-badge-drop">▼ R{Math.abs(priceChanges.get(l.slug)!).toLocaleString('en-ZA')}</span>
+              {l.status === 'active' && l.drop < 0 && (
+                <span class="card-badge card-badge-drop">▼ R{Math.abs(l.drop).toLocaleString('en-ZA')}</span>
               )}
             </div>
-            {l.listing_type === 'show_off' && (
+            {l.type === 'show_off' && (
               <span class="show-off-ribbon">Community Build</span>
             )}
           </div>
           <div class="p-4 sm:p-5 flex flex-col flex-1">
-            <h2 class={`font-heading font-bold uppercase text-base leading-tight mb-1 transition-colors group-hover:text-[#F5A623] line-clamp-2 ${l.listing_type === 'show_off' ? 'text-white' : 'text-[#111111]'}`}>
+            <h2 class={`font-heading font-bold uppercase text-base leading-tight mb-1 transition-colors group-hover:text-[#F5A623] line-clamp-2 ${l.type === 'show_off' ? 'text-white' : 'text-[#111111]'}`}>
               {l.title}
             </h2>
-            {l.listing_type === 'show_off' ? (
+            {l.type === 'show_off' ? (
               <p class="text-xs text-[rgba(255,255,255,0.4)] mb-4 truncate">{l.province} · {l.year} · {l.transmission === 'manual' ? 'Manual' : 'Auto'} · {l.colour}</p>
             ) : (
               <p class="text-xs text-[#6B7280] mb-4 truncate">{l.province} · {formatMileage(l.mileage)} · {l.transmission === 'manual' ? 'Manual' : 'Auto'} · {l.colour}</p>
             )}
             <div class="flex items-center justify-between mt-auto">
-              {l.listing_type === 'for_sale' ? (
+              {l.type === 'for_sale' ? (
                 <>
                   <p class="font-heading font-bold text-2xl text-[#111111]">
                     {formatPrice(l.price)}
-                    {(priceChanges.get(l.slug) ?? 0) < 0 && (
-                      <span class="was-price">{formatPrice(l.price - priceChanges.get(l.slug)!)}</span>
+                    {l.drop < 0 && (
+                      <span class="was-price">{formatPrice(l.price - l.drop)}</span>
                     )}
                   </p>
-                  <span class="text-xs font-bold uppercase px-2.5 py-1 rounded-full bg-[#F5F3EE] text-[#6B7280]">{l.new_or_used}</span>
+                  <span class="text-xs font-bold uppercase px-2.5 py-1 rounded-full bg-[#F5F3EE] text-[#6B7280]">{l.nu}</span>
                 </>
               ) : (
                 <>
@@ -208,7 +225,7 @@ function firstPhoto(photos: string) {
                     <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
                     Show Off
                   </span>
-                  <span class="text-xs font-bold uppercase px-2.5 py-1 rounded-full bg-[#1c1c1c] text-[#9CA3AF]">{l.new_or_used}</span>
+                  <span class="text-xs font-bold uppercase px-2.5 py-1 rounded-full bg-[#1c1c1c] text-[#9CA3AF]">{l.nu}</span>
                 </>
               )}
             </div>
@@ -216,6 +233,7 @@ function firstPhoto(photos: string) {
         </a>
       ))}
     </div>
+    <script type="application/json" id="listings-data" set:html={dataJson}></script>
 
     <!-- PAGINATION -->
     <div id="pagination" class="hidden mt-8 flex items-center justify-center gap-2"></div>
@@ -354,11 +372,56 @@ function firstPhoto(photos: string) {
 </style>
 
 <script>
+  type Listing = {
+    slug: string; title: string; model: string; year: number; price: number;
+    mileage: number; province: string; transmission: string; colour: string;
+    photo: string; type: string; status: string; nu: string; drop: number;
+  };
+  const DATA: Listing[] = JSON.parse(document.getElementById('listings-data')!.textContent || '[]');
+
   const grid = document.getElementById('listings-grid')!;
-  const cards = Array.from(grid.querySelectorAll<HTMLElement>('.listing-card'));
   const emptyState = document.getElementById('empty-state')!;
   const countEl = document.getElementById('results-count')!;
   const paginationEl = document.getElementById('pagination')!;
+
+  const esc = (s: unknown) => String(s).replace(/[&<>"']/g, c =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
+  const za = (n: number) => n.toLocaleString('en-ZA');
+
+  // Mirrors the server-rendered card markup above — keep the two in sync.
+  function cardHTML(l: Listing, i: number): string {
+    const isShow = l.type === 'show_off';
+    const isSold = l.status === 'sold';
+    const cls = `listing-card group border rounded-xl overflow-hidden transition-all flex flex-col ${
+      isShow
+        ? 'bg-[#1A1A1A] border-[rgba(245,166,35,0.15)] hover:border-[#F5A623] hover:shadow-lg hover:shadow-[rgba(245,166,35,0.1)]'
+        : 'bg-white border-[#DDD9D3] hover:border-[#F5A623] hover:shadow-md'
+    } ${isSold ? 'is-sold' : ''}`;
+    const badges =
+      `<span class="card-badge ${isShow ? 'card-badge-show' : ''}">${isShow ? '★ ' : ''}${esc(l.model.replaceAll('-', ' ').toUpperCase())}</span>` +
+      (isSold ? '<span class="card-badge card-badge-sold">Sold</span>' : '') +
+      (!isSold && l.drop < 0 ? `<span class="card-badge card-badge-drop">▼ R${za(Math.abs(l.drop))}</span>` : '');
+    const meta = isShow
+      ? `<p class="text-xs text-[rgba(255,255,255,0.4)] mb-4 truncate">${esc(l.province)} · ${l.year} · ${l.transmission === 'manual' ? 'Manual' : 'Auto'} · ${esc(l.colour)}</p>`
+      : `<p class="text-xs text-[#6B7280] mb-4 truncate">${esc(l.province)} · ${za(l.mileage)} km · ${l.transmission === 'manual' ? 'Manual' : 'Auto'} · ${esc(l.colour)}</p>`;
+    const foot = l.type === 'for_sale'
+      ? `<p class="font-heading font-bold text-2xl text-[#111111]">R${za(l.price)}${l.drop < 0 ? `<span class="was-price">R${za(l.price - l.drop)}</span>` : ''}</p>` +
+        `<span class="text-xs font-bold uppercase px-2.5 py-1 rounded-full bg-[#F5F3EE] text-[#6B7280]">${esc(l.nu)}</span>`
+      : `<span class="show-off-tag"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>Show Off</span>` +
+        `<span class="text-xs font-bold uppercase px-2.5 py-1 rounded-full bg-[#1c1c1c] text-[#9CA3AF]">${esc(l.nu)}</span>`;
+    return `<a href="/listings/${esc(l.slug)}/" class="${cls}">` +
+      `<div class="card-img-wrap">` +
+        `<img src="${esc(l.photo)}" alt="${esc(l.title)}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" width="800" height="500" loading="${i < 6 ? 'eager' : 'lazy'}" decoding="async" />` +
+        `<div class="absolute top-3 left-3 flex gap-1.5 flex-wrap">${badges}</div>` +
+        (isShow ? '<span class="show-off-ribbon">Community Build</span>' : '') +
+      `</div>` +
+      `<div class="p-4 sm:p-5 flex flex-col flex-1">` +
+        `<h2 class="font-heading font-bold uppercase text-base leading-tight mb-1 transition-colors group-hover:text-[#F5A623] line-clamp-2 ${isShow ? 'text-white' : 'text-[#111111]'}">${esc(l.title)}</h2>` +
+        meta +
+        `<div class="flex items-center justify-between mt-auto">${foot}</div>` +
+      `</div>` +
+    `</a>`;
+  }
 
   const provinceSel = document.getElementById('filter-province') as HTMLSelectElement;
   const priceSel = document.getElementById('filter-price') as HTMLSelectElement;
@@ -395,38 +458,33 @@ function firstPhoto(photos: string) {
   let activeType = 'all';
   let currentPage = 1;
 
-  function matchesFilters(card: HTMLElement): boolean {
-    const province = provinceSel.value;
+  function matchesFilters(l: Listing): boolean {
+    const showingSold = activeType === 'sold';
+    const isSold = l.status === 'sold';
+    if (showingSold !== isSold) return false;
+
+    const isShowOff = l.type === 'show_off';
+
     const [minP, maxP] = priceSel.value === 'all'
       ? [0, Infinity]
       : priceSel.value.split('-').map(Number);
-
-    const showingSold = activeType === 'sold';
-    const isSold = card.dataset.status === 'sold';
-    if (showingSold !== isSold) return false;
-
-    const price = Number(card.dataset.price);
-    const cardType = card.dataset.type ?? 'for_sale';
-    const isShowOff = cardType === 'show_off';
-    const priceOk = isShowOff || showingSold || (price >= minP && price <= maxP);
+    const priceOk = isShowOff || showingSold || (l.price >= minP && l.price <= maxP);
 
     const [minM, maxM] = mileageSel.value === 'all'
       ? [0, Infinity]
       : mileageSel.value.split('-').map(Number);
-    const mileage = Number(card.dataset.mileage);
-    const mileageOk = isShowOff || (mileage >= minM && mileage <= maxM);
+    const mileageOk = isShowOff || (l.mileage >= minM && l.mileage <= maxM);
 
-    const cardModel = card.dataset.model ?? '';
     const modelMatch = selectedModels.length === 0 || selectedModels.some(sel =>
-      (sel === 'prado' && cardModel.startsWith('prado')) ||
-      (sel === 'fj' && (cardModel === 'fj-cruiser' || cardModel === 'land-cruiser-fj')) ||
-      cardModel === sel
+      (sel === 'prado' && l.model.startsWith('prado')) ||
+      (sel === 'fj' && (l.model === 'fj-cruiser' || l.model === 'land-cruiser-fj')) ||
+      l.model === sel
     );
 
-    const typeMatch = showingSold || activeType === 'all' || cardType === activeType;
+    const typeMatch = showingSold || activeType === 'all' || l.type === activeType;
 
     return modelMatch &&
-      (province === 'all' || card.dataset.province === province) &&
+      (provinceSel.value === 'all' || l.province === provinceSel.value) &&
       priceOk &&
       mileageOk &&
       typeMatch;
@@ -487,15 +545,14 @@ function firstPhoto(photos: string) {
   function applyFilters(resetPage = true) {
     if (resetPage) currentPage = 1;
 
-    const matched = cards.filter(matchesFilters);
+    const matched = DATA.filter(matchesFilters);
     const totalPages = Math.ceil(matched.length / PAGE_SIZE);
+    if (currentPage > totalPages) currentPage = Math.max(1, totalPages);
     const start = (currentPage - 1) * PAGE_SIZE;
-    const pageCards = new Set(matched.slice(start, start + PAGE_SIZE));
+    const pageItems = matched.slice(start, start + PAGE_SIZE);
 
-    cards.forEach(card => {
-      card.style.display = pageCards.has(card) ? '' : 'none';
-    });
-
+    grid.innerHTML = pageItems.map((l, i) => cardHTML(l, i)).join('');
+    grid.classList.toggle('hidden', matched.length === 0);
     emptyState.classList.toggle('hidden', matched.length > 0);
     countEl.textContent = `${matched.length} listing${matched.length !== 1 ? 's' : ''}`;
     renderPagination(matched.length, totalPages);
