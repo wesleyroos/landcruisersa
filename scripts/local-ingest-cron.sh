@@ -10,7 +10,7 @@
 
 set -uo pipefail
 
-REPO="/Users/wesleyroos/Documents/Projects/LandCruiserSA"
+REPO="/Users/wesleyroos/Developer/LandCruiserSA"
 NODE="/Users/wesleyroos/.nvm/versions/node/v22.22.0/bin/node"
 
 cd "$REPO"
