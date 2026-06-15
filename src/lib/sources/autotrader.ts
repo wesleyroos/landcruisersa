@@ -5,9 +5,11 @@ import type { DiscoveredRef, DiscoverStats, NormalizedListing, LivenessResult, S
 
 // Penetration stats from the last discover(). AutoTrader's search HTML embeds its
 // own "totalCount"/"totalPages" per model, so we read those: sourceTotal = sum of
-// the LC models' totals (a true penetration denominator), and capHit flags when any
-// model's crawl came up short of its reported totalCount this run (a real, reliable
-// "we didn't get them all" signal — replaces the old guess-by-page-count heuristic).
+// EVERY segment we crawl's totals (LC + the extra Toyota 4x4s when enabled), so the
+// denominator matches `found` (which counts every crawled segment) — otherwise an
+// LC-only denominator against an all-segments numerator reads >100%. capHit flags
+// when any model's crawl came up short of its reported totalCount this run (a real,
+// reliable "we didn't get them all" signal).
 export const discoverStats: DiscoverStats = { sourceTotal: null, capHit: false };
 
 const SOURCE = 'autotrader';
@@ -161,10 +163,9 @@ export const AutoTraderAdapter: SourceAdapter = {
     // "totalPages". SAFETY_CAP is only a runaway guard (a model would need ~6,000+
     // listings to reach it). Reliability comes from the per-model completeness check.
     const SAFETY_CAP = 250;
-    const LC_URLS = new Set(LC_SEARCH_URLS);
 
-    let lcTotal = 0;
-    let gotLcTotal = false;
+    let srcTotal = 0;
+    let gotTotal = false;
     let anyIncomplete = false;
 
     // Streamed to the admin "Run Ingest" progress bar via stdout (run-ingest.ts
@@ -175,7 +176,6 @@ export const AutoTraderAdapter: SourceAdapter = {
     for (let mi = 0; mi < SEARCH_URLS.length; mi++) {
       const baseUrl = SEARCH_URLS[mi];
       const slug = baseUrl.split('/').pop()!;
-      const isLcUrl = LC_URLS.has(baseUrl);
       let totalPages = 1;                 // refined from page 1's embedded count
       let totalCount = 0;
       const modelIds = new Set<string>(); // distinct listings this model's pages showed
@@ -212,7 +212,7 @@ export const AutoTraderAdapter: SourceAdapter = {
           const tc = html.match(/"totalCount":(\d+)/);
           if (tp) totalPages = Number(tp[1]);
           if (tc) totalCount = Number(tc[1]);
-          if (isLcUrl && totalCount) { lcTotal += totalCount; gotLcTotal = true; }
+          if (totalCount) { srcTotal += totalCount; gotTotal = true; }
           if (totalPages > SAFETY_CAP) {
             aborted = true;
             console.warn(`[autotrader] ${slug} has ${totalPages} pages > ${SAFETY_CAP} safety cap — raise SAFETY_CAP`);
@@ -270,7 +270,7 @@ export const AutoTraderAdapter: SourceAdapter = {
       }
     }
 
-    discoverStats.sourceTotal = gotLcTotal ? lcTotal : null;
+    discoverStats.sourceTotal = gotTotal ? srcTotal : null;
     discoverStats.capHit = anyIncomplete; // now means: a model's crawl came up short this run
     return refs;
   },
