@@ -395,6 +395,28 @@ const vehicleSchema: Record<string, unknown> = {
               </div>
             </div>
             <p class="fin-note">Estimate only — includes the standard NCA initiation fee (R1 207.50) and monthly service fee (R69), excludes insurance and extras. Actual rates depend on your credit profile.</p>
+
+            <!-- Lead capture: turn a calculation into a real callback -->
+            <div class="fin-lead">
+              <button type="button" id="fin-cta-btn" class="fin-cta">Like this estimate? Get pre-approved &rarr;</button>
+              <form id="fin-lead-form" class="fin-form" hidden>
+                <p class="fin-form-title">Request finance pre-approval</p>
+                <p class="fin-form-sub">A vetted finance partner will call you about this vehicle — no obligation, no impact on your credit score.</p>
+                <input type="text"  id="fin-lead-name"  class="fin-field" placeholder="Full name" autocomplete="name" required />
+                <input type="tel"   id="fin-lead-phone" class="fin-field" placeholder="Phone number" autocomplete="tel" required />
+                <input type="email" id="fin-lead-email" class="fin-field" placeholder="Email address" autocomplete="email" required />
+                <label class="fin-consent">
+                  <input type="checkbox" id="fin-lead-consent" required />
+                  <span>I agree to share my details with a vetted finance partner to be contacted about finance for this vehicle.</span>
+                </label>
+                <button type="submit" id="fin-lead-submit" class="fin-submit">Request callback</button>
+                <p class="fin-form-err" id="fin-lead-err" hidden></p>
+              </form>
+              <div id="fin-lead-success" class="fin-success" hidden>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                <p>Done — a finance partner will be in touch about this vehicle within one business day.</p>
+              </div>
+            </div>
           </div>
         )}
 
@@ -608,13 +630,14 @@ const vehicleSchema: Record<string, unknown> = {
   </script>
 )}
 
-<script define:vars={{ _slug: listing.slug, _title: listing.title }}>
+<script define:vars={{ _slug: listing.slug, _title: listing.title, _model: listing.model }}>
     // ── Finance calculator ───────────────────────────────────────────────────
     (function () {
       const card = document.getElementById('fin-card');
       if (!card) return;
       const price = Number(card.dataset.price);
       const R = (n) => 'R ' + Math.round(n).toLocaleString('en-ZA');
+      let lastCalc = null; // most recent calculator state, attached to a lead on submit
 
       const els = {
         deposit: document.getElementById('fin-deposit'),
@@ -663,6 +686,7 @@ const vehicleSchema: Record<string, unknown> = {
         els.depositPct.textContent = price > 0 ? Math.round(deposit / price * 100) + '% of asking price' : '';
         els.balloonRow.hidden = balloonAmt <= 0;
         els.balloonAmt.textContent = R(balloonAmt);
+        lastCalc = { deposit, term: n, rate: annual, balloonPct: Number(els.balloon.value), monthly };
       }
 
       ['input', 'change'].forEach(evt => {
@@ -680,6 +704,58 @@ const vehicleSchema: Record<string, unknown> = {
       });
 
       calc();
+
+      // ── Lead capture: calculation → real callback ──────────────────────────
+      const leadBtn = document.getElementById('fin-cta-btn');
+      const leadForm = document.getElementById('fin-lead-form');
+      const leadSuccess = document.getElementById('fin-lead-success');
+      const leadErr = document.getElementById('fin-lead-err');
+      const leadSubmit = document.getElementById('fin-lead-submit');
+
+      if (leadBtn && leadForm) {
+        leadBtn.addEventListener('click', function () {
+          leadForm.hidden = false;
+          leadBtn.hidden = true;
+          const nameEl = document.getElementById('fin-lead-name');
+          if (nameEl) nameEl.focus();
+        });
+
+        leadForm.addEventListener('submit', async function (e) {
+          e.preventDefault();
+          const name    = document.getElementById('fin-lead-name').value.trim();
+          const phone   = document.getElementById('fin-lead-phone').value.trim();
+          const email   = document.getElementById('fin-lead-email').value.trim();
+          const consent = document.getElementById('fin-lead-consent').checked;
+          if (!name || !phone || !email || !consent) return;
+
+          leadErr.hidden = true;
+          leadSubmit.disabled = true;
+          leadSubmit.textContent = 'Sending…';
+
+          const c = lastCalc || {};
+          try {
+            const res = await fetch('/api/finance-lead', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                name, phone, email, consent,
+                listing_slug: _slug, listing_title: _title, model: _model, price,
+                deposit: c.deposit, term_months: c.term, interest_rate: c.rate,
+                balloon_pct: c.balloonPct,
+                est_monthly: c.monthly != null ? Math.round(c.monthly) : null,
+              }),
+            });
+            if (!res.ok) throw new Error('bad status');
+            leadForm.hidden = true;
+            leadSuccess.hidden = false;
+          } catch {
+            leadErr.textContent = 'Something went wrong — please try again, or use WhatsApp / call the seller above.';
+            leadErr.hidden = false;
+            leadSubmit.disabled = false;
+            leadSubmit.textContent = 'Request callback';
+          }
+        });
+      }
     })();
 </script>
 
@@ -1094,6 +1170,40 @@ const vehicleSchema: Record<string, unknown> = {
   .fin-breakdown p span:last-child { font-weight: 700; color: #374151; }
   .fin-total span { color: #111 !important; }
   .fin-note { font-size: 0.68rem; color: #9CA3AF; margin-top: 0.875rem; line-height: 1.5; }
+
+  /* Finance lead capture */
+  .fin-lead { margin-top: 1rem; border-top: 1px solid #F0EDE8; padding-top: 1rem; }
+  .fin-cta {
+    width: 100%; background: #111; color: #fff; border: none; cursor: pointer;
+    font-family: var(--font-heading); font-weight: 700; font-size: 0.95rem;
+    letter-spacing: 0.01em; padding: 0.85rem 1rem; border-radius: 0.65rem;
+    transition: background 0.15s;
+  }
+  .fin-cta:hover { background: #F5A623; color: #111; }
+  .fin-form { display: flex; flex-direction: column; gap: 0.6rem; }
+  .fin-form-title { font-family: var(--font-heading); font-weight: 700; font-size: 1.05rem; color: #111; }
+  .fin-form-sub { font-size: 0.72rem; color: #6B7280; line-height: 1.5; margin-bottom: 0.2rem; }
+  .fin-field {
+    width: 100%; border: 1px solid #E5E7EB; border-radius: 0.55rem;
+    padding: 0.65rem 0.8rem; font-size: 0.9rem; color: #111; background: #fff;
+  }
+  .fin-field:focus { outline: none; border-color: #F5A623; }
+  .fin-consent { display: flex; gap: 0.55rem; align-items: flex-start; font-size: 0.68rem; color: #6B7280; line-height: 1.45; cursor: pointer; }
+  .fin-consent input { margin-top: 0.15rem; flex-shrink: 0; accent-color: #F5A623; }
+  .fin-submit {
+    background: #F5A623; color: #111; border: none; cursor: pointer;
+    font-family: var(--font-heading); font-weight: 700; font-size: 0.95rem;
+    padding: 0.8rem 1rem; border-radius: 0.65rem; transition: opacity 0.15s;
+  }
+  .fin-submit:hover { opacity: 0.9; }
+  .fin-submit:disabled { opacity: 0.55; cursor: default; }
+  .fin-form-err { font-size: 0.72rem; color: #B91C1C; line-height: 1.45; }
+  .fin-success {
+    display: flex; gap: 0.6rem; align-items: center;
+    background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 0.65rem;
+    padding: 0.85rem 1rem; color: #166534; font-size: 0.82rem; line-height: 1.5;
+  }
+  .fin-success svg { color: #16A34A; flex-shrink: 0; }
 
   /* CLICK-TO-REVEAL CONTACT */
   .reveal-contact { background: none; border: none; padding: 0; cursor: pointer; font-family: inherit; font-size: inherit; }

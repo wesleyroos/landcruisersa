@@ -3,7 +3,7 @@ export const prerender = false;
 
 import AdminLayout from '@/layouts/AdminLayout.astro';
 import { db } from '@/db/index';
-import { trainingLeads, clickEvents, viewEvents, visitEvents, partnerClicks, listings } from '@/db/schema';
+import { trainingLeads, clickEvents, viewEvents, visitEvents, partnerClicks, listings, financeLeads } from '@/db/schema';
 import { sql, desc, eq, and } from 'drizzle-orm';
 import { PARTNERS } from '@/data/partners';
 import type { SQL } from 'drizzle-orm';
@@ -39,6 +39,16 @@ const periodLabel = PERIOD_LABEL[validPeriod] ?? 'last 30 days';
 // ─── Static "at a glance" queries (always all-time) ──────────────────────────
 
 const leads = db.select().from(trainingLeads).orderBy(desc(trainingLeads.created_at)).all();
+
+// Finance pre-approval leads — the new monetisation funnel. Calc-opens come
+// from the finance_calc demand-signal beacon; submits are the captured leads.
+// The gap between them is the "does anyone actually submit?" answer.
+const financeLeadRows = db.select().from(financeLeads).orderBy(desc(financeLeads.created_at)).all();
+const financeCalcOpens = (db.select({ n: sql<number>`cast(count(*) as int)` })
+  .from(clickEvents).where(eq(clickEvents.source, 'finance_calc')).get())?.n ?? 0;
+const financeSubmitRate = financeCalcOpens > 0
+  ? Math.round((financeLeadRows.length / financeCalcOpens) * 100)
+  : 0;
 
 // Single grouped pass over listing statuses — drives the supply / off-market KPIs.
 const statusCounts = db.select({ status: listings.status, n: sql<number>`cast(count(*) as int)` })
@@ -883,6 +893,61 @@ const SOURCE_LABEL: Record<string, string> = {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+    </section>
+
+    <!-- ── FINANCE LEADS ─────────────────────────────────────── -->
+    <section class="card">
+      <div class="card-head">
+        <h2 class="card-title">Finance Leads</h2>
+        <span class="badge">{financeLeadRows.length}</span>
+        <span class="badge-sub">all time</span>
+        <span class="info" data-tip="Buyers who used the finance calculator on a listing and then requested a pre-approval callback. Calc Opens = how many engaged the calculator (finance_calc beacon); Leads = how many submitted their details; Submit Rate = the share that converted. Each lead carries the exact deal (vehicle, price, deposit, term) to hand a finance partner.">?</span>
+      </div>
+      <div class="card-body" style="padding-bottom:0.75rem">
+        <div class="chip-row">
+          <span class="stat-chip">Calc Opens <strong>{financeCalcOpens}</strong></span>
+          <span class="stat-chip">Leads <strong>{financeLeadRows.length}</strong></span>
+          <span class="stat-chip">Submit Rate <strong>{financeSubmitRate}%</strong></span>
+        </div>
+      </div>
+      {financeLeadRows.length === 0 ? (
+        <p class="empty">No finance leads yet — {financeCalcOpens > 0 ? `${financeCalcOpens} buyer(s) have opened the calculator, none submitted yet.` : 'appears once a buyer requests a pre-approval callback.'}</p>
+      ) : (
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Name</th>
+                <th>Contact</th>
+                <th>Vehicle</th>
+                <th class="num">Price</th>
+                <th class="num">Deposit</th>
+                <th class="num">Term</th>
+                <th class="num">Est. p/m</th>
+              </tr>
+            </thead>
+            <tbody>
+              {financeLeadRows.map(r => (
+                <tr>
+                  <td class="nowrap">{fmt(r.created_at)}</td>
+                  <td class="nowrap">{r.name}</td>
+                  <td>
+                    <a href={`mailto:${r.email}`}>{r.email}</a>
+                    <span class="sub-line">{r.phone}</span>
+                  </td>
+                  <td><a href={`/listings/${r.listing_slug}/`} target="_blank">{r.listing_title ?? r.listing_slug}</a></td>
+                  <td class="num">{r.price != null ? 'R ' + r.price.toLocaleString('en-ZA') : '—'}</td>
+                  <td class="num">{r.deposit != null ? 'R ' + r.deposit.toLocaleString('en-ZA') : '—'}</td>
+                  <td class="num">{r.term_months != null ? r.term_months + 'm' : '—'}</td>
+                  <td class="num" style="font-weight:700;color:#111">{r.est_monthly != null ? 'R ' + r.est_monthly.toLocaleString('en-ZA') : '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p class="card-note">Each lead is a buyer who picked a specific car and asked to be called — bottom-of-funnel, the kind a finance partner pays R1–2k per funded deal for. Add the partner's address to FINANCE_RECIPIENTS in src/pages/api/finance-lead.ts to forward leads automatically.</p>
         </div>
       )}
     </section>

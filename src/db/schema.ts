@@ -111,6 +111,30 @@ export const ingestRuns = sqliteTable('ingest_runs', {
   cap_hit:      integer('cap_hit', { mode: 'boolean' }).notNull().default(false),
 });
 
+// Finance pre-approval leads — captured from the finance calculator on a
+// listing page. Carries the full deal context (which car, price, and the
+// buyer's chosen deposit/term/rate) so a finance partner gets a warm,
+// bottom-of-funnel lead rather than a cold name.
+export const financeLeads = sqliteTable('finance_leads', {
+  id:            integer('id').primaryKey({ autoIncrement: true }),
+  name:          text('name').notNull(),
+  phone:         text('phone').notNull(),
+  email:         text('email').notNull(),
+  listing_slug:  text('listing_slug').notNull(),
+  listing_title: text('listing_title'),
+  model:         text('model'),                  // denormalised for aggregation
+  price:         integer('price'),               // vehicle asking price at capture
+  deposit:       integer('deposit'),             // buyer's chosen deposit
+  term_months:   integer('term_months'),         // buyer's chosen term
+  interest_rate: real('interest_rate'),          // buyer's chosen rate (p.a.)
+  balloon_pct:   integer('balloon_pct'),         // buyer's chosen balloon %
+  est_monthly:   integer('est_monthly'),         // calculator's estimated monthly payment
+  consent:       integer('consent', { mode: 'boolean' }).notNull().default(false), // POPIA: agreed to be contacted by a finance partner
+  created_at:    integer('created_at', { mode: 'timestamp' }).notNull(),
+});
+
+export type FinanceLead = typeof financeLeads.$inferSelect;
+
 // Price changes observed by the aggregator — fuels price-trend content and
 // "price drop" surfacing. One row per observed change, captured at ingest.
 export const priceEvents = sqliteTable('price_events', {

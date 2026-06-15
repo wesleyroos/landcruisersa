@@ -93,6 +93,28 @@ db.exec(`
   )
 `);
 
+// Finance pre-approval leads captured from the listing-page calculator
+db.exec(`
+  CREATE TABLE IF NOT EXISTS finance_leads (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    name          TEXT    NOT NULL,
+    phone         TEXT    NOT NULL,
+    email         TEXT    NOT NULL,
+    listing_slug  TEXT    NOT NULL,
+    listing_title TEXT,
+    model         TEXT,
+    price         INTEGER,
+    deposit       INTEGER,
+    term_months   INTEGER,
+    interest_rate REAL,
+    balloon_pct   INTEGER,
+    est_monthly   INTEGER,
+    consent       INTEGER NOT NULL DEFAULT 0,
+    created_at    INTEGER NOT NULL
+  )
+`);
+db.exec(`CREATE INDEX IF NOT EXISTS finance_leads_created ON finance_leads (created_at)`);
+
 db.exec(`
   CREATE TABLE IF NOT EXISTS view_events (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
