@@ -60,6 +60,7 @@ addCol('ig_posted_at',   "ig_posted_at   INTEGER");
 addCol('featured',       "featured       INTEGER NOT NULL DEFAULT 0");
 addCol('segment',        "segment        TEXT    NOT NULL DEFAULT 'land-cruiser'");
 addCol('off_market_at',  "off_market_at  INTEGER");
+addCol('seller_notified_at', "seller_notified_at INTEGER");
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS site_config (
@@ -227,6 +228,7 @@ const REQUIRED_COLS = [
   'fuel_type', 'fuel_consumption', 'power_kw', 'seats', 'co2',
   'source_url', 'source', 'source_id', 'last_polled_at', 'review_flag',
   'created_at', 'ig_posted_at', 'featured', 'segment', 'off_market_at',
+  'seller_notified_at',
 ];
 const finalCols = new Set(
   db.prepare("SELECT name FROM pragma_table_info('listings')").all().map(r => r.name)

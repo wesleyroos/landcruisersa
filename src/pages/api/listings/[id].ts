@@ -4,6 +4,7 @@ import type { APIRoute } from 'astro';
 import { db } from '@/db/index';
 import { listings } from '@/db/schema';
 import { offMarketPatch } from '@/lib/listing-status';
+import { sendSellerLiveEmail } from '@/lib/seller-live-email';
 import { eq } from 'drizzle-orm';
 
 const UPDATABLE_FIELDS = [
@@ -43,6 +44,21 @@ export const PATCH: APIRoute = async ({ params, request }) => {
   Object.assign(updates, offMarketPatch(updates.status as string | undefined));
 
   await db.update(listings).set(updates).where(eq(listings.id, id));
+
+  // Email a private seller the first time their submission goes live. Own
+  // listings only (aggregated ones have a source_url and no real seller inbox),
+  // and one-shot via seller_notified_at so later edits never re-trigger it.
+  if (updates.status === 'active') {
+    const row = db.select().from(listings).where(eq(listings.id, id)).get();
+    if (row && !row.source_url && !row.seller_notified_at) {
+      const sent = await sendSellerLiveEmail(row);
+      if (sent) {
+        await db.update(listings)
+          .set({ seller_notified_at: new Date() })
+          .where(eq(listings.id, id));
+      }
+    }
+  }
 
   return new Response(JSON.stringify({ ok: true }), {
     status: 200,
