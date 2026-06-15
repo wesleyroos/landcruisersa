@@ -5,8 +5,9 @@ export async function politeFetch(
   url: string,
   opts: RequestInit = {},
   retries = 2,
+  delay: { min: number; max: number } = { min: 800, max: 2000 },
 ): Promise<Response> {
-  const jitter = 800 + Math.random() * 1200; // 0.8–2 s
+  const jitter = delay.min + Math.random() * (delay.max - delay.min); // default 0.8–2 s
   await new Promise(r => setTimeout(r, jitter));
 
   const headers = {

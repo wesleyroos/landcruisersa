@@ -193,7 +193,7 @@ export const AutoTraderAdapter: SourceAdapter = {
               'User-Agent': BROWSER_UA,
               'Accept-Language': 'en-ZA,en;q=0.9',
             },
-          });
+          }, 2, { min: 2500, max: 6000 }); // AT-only: 2.5–6 s/request to stay under rate limits
         } catch (e) {
           aborted = true; // politeFetch already retried — a throw means it's really down
           console.warn(`[autotrader] ${slug} page ${page} failed after retries (${e}) — coverage incomplete`);
@@ -267,6 +267,12 @@ export const AutoTraderAdapter: SourceAdapter = {
       if (totalCount > 0 && (aborted || modelIds.size < totalCount * 0.9)) {
         anyIncomplete = true;
         console.warn(`[autotrader] ${slug} INCOMPLETE: captured ${modelIds.size}/${totalCount}${aborted ? ' (crawl aborted)' : ''}`);
+      }
+
+      // Breather between model segments — never hammer AutoTrader as one unbroken
+      // stream of ~300 pages (the burst pattern that tripped its rate limiter).
+      if (mi < SEARCH_URLS.length - 1) {
+        await new Promise(r => setTimeout(r, 15_000 + Math.random() * 15_000)); // 15–30 s
       }
     }
 

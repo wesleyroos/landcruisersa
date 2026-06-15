@@ -5,6 +5,7 @@ import AdminLayout from '@/layouts/AdminLayout.astro';
 import { db } from '@/db/index';
 import { listings, ingestRuns } from '@/db/schema';
 import { desc, eq, sql } from 'drizzle-orm';
+import { getScheduledMap } from '@/lib/scraper-config';
 
 const SOURCES: { key: string; label: string }[] = [
   { key: 'autotrader', label: 'AutoTrader' },
@@ -13,6 +14,9 @@ const SOURCES: { key: string; label: string }[] = [
   { key: 'adios',      label: 'Adios' },
   { key: 'wbb',        label: 'We Buy Bakkies' },
 ];
+
+// Per-source "run on schedule" flags (admin-toggleable; default on).
+const scheduled = getScheduledMap();
 
 const MODELS = [
   '79-series', '76-series', '78-series', '70-series', '80-series', '100-series',
@@ -191,11 +195,16 @@ function fmtModel(m: string): string {
       const runs = runsBySource.get(key) ?? [];
       const last = runs[0];
       return (
-        <div class={`hcard hcard-${h.state}`}>
+        <div class={`hcard hcard-${h.state}${scheduled[key] === false ? ' hcard-paused' : ''}`}>
           <div class="hcard-top">
             <span class={`dot dot-${h.state}`}></span>
             <span class="hcard-name">{label}</span>
+            {scheduled[key] === false && <span class="paused-pill">Paused</span>}
             <span class="hcard-active">{sourceTotals.get(key) ?? 0} active</span>
+            <label class="sched-toggle" title="Run this scraper on its schedule. Off = paused; the manual Run button still works.">
+              <input type="checkbox" class="sched-input" data-source={key} checked={scheduled[key] !== false} />
+              <span class="sched-track"><span class="sched-thumb"></span></span>
+            </label>
           </div>
           {last ? (
             <>
@@ -281,6 +290,41 @@ function fmtModel(m: string): string {
 
 </AdminLayout>
 
+<script>
+  // Per-source schedule toggle → POST to admin endpoint; revert on failure.
+  document.querySelectorAll<HTMLInputElement>('.sched-input').forEach((input) => {
+    input.addEventListener('change', async () => {
+      const source = input.dataset.source!;
+      const scheduled = input.checked;
+      input.disabled = true;
+      try {
+        const res = await fetch('/api/admin/set-scraper-schedule', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ source, scheduled }),
+        });
+        if (!res.ok) throw new Error('failed');
+        input.closest('.hcard')?.classList.toggle('hcard-paused', !scheduled);
+        const top = input.closest('.hcard-top');
+        const existing = top?.querySelector('.paused-pill');
+        if (!scheduled && top && !existing) {
+          const pill = document.createElement('span');
+          pill.className = 'paused-pill';
+          pill.textContent = 'Paused';
+          top.querySelector('.hcard-name')?.after(pill);
+        } else if (scheduled && existing) {
+          existing.remove();
+        }
+      } catch {
+        input.checked = !scheduled; // revert
+        alert('Could not update the schedule — please try again.');
+      } finally {
+        input.disabled = false;
+      }
+    });
+  });
+</script>
+
 <style>
   /* MARKET COVERAGE */
   .coverage {
@@ -323,6 +367,15 @@ function fmtModel(m: string): string {
   .dot-down { background: #DC2626; }
   .hcard-name { font-size: 0.8rem; font-weight: 700; color: #111111; }
   .hcard-active { margin-left: auto; font-size: 0.65rem; font-weight: 700; color: #9CA3AF; }
+  .paused-pill { font-size: 0.55rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #92400E; background: #FEF3C7; border: 1px solid #FDE68A; border-radius: 9999px; padding: 0.1rem 0.4rem; }
+  .hcard-paused { opacity: 0.65; }
+  .sched-toggle { display: inline-flex; align-items: center; cursor: pointer; flex-shrink: 0; }
+  .sched-input { position: absolute; opacity: 0; width: 0; height: 0; }
+  .sched-track { width: 32px; height: 18px; border-radius: 9999px; background: #E5E7EB; position: relative; transition: background 0.15s; }
+  .sched-thumb { position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; transition: transform 0.15s; box-shadow: 0 1px 2px rgba(0,0,0,0.25); }
+  .sched-input:checked + .sched-track { background: #F5A623; }
+  .sched-input:checked + .sched-track .sched-thumb { transform: translateX(14px); }
+  .sched-input:disabled + .sched-track { opacity: 0.5; cursor: wait; }
 
   .hcard-last { font-size: 0.7rem; color: #6B7280; line-height: 1.5; }
   .hcard-pen { font-size: 0.7rem; color: #374151; margin-top: 0.3rem; }
