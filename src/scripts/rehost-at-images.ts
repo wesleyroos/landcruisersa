@@ -18,11 +18,14 @@ async function run() {
     headers: { Authorization: `Bearer ${TOKEN}` },
   });
   if (!listRes.ok) throw new Error(`listings-with-at-images returned ${listRes.status}`);
-  const { listings: targets } = await listRes.json() as {
-    listings: { source_id: string; photos: string }[];
+  const { listings: all } = await listRes.json() as {
+    listings: { source_id: string | null; photos: string }[];
   };
+  // patch-listing matches on source_id, so rows without one can't be patched here.
+  const targets = all.filter(t => t.source_id);
+  const noSid = all.length - targets.length;
 
-  console.log(`[at-image-rehost] ${targets.length} listings still hotlinking AutoTrader`);
+  console.log(`[at-image-rehost] ${targets.length} listings still hotlinking AutoTrader${noSid ? ` (skipping ${noSid} without source_id)` : ''}`);
   if (targets.length === 0) { await reportRun('at-image-rehost', { found: 0 }); return; }
 
   let updated = 0, skipped = 0, failed = 0, imgs = 0;
