@@ -1,6 +1,6 @@
 # Land Cruiser SA — Positioning & Moat
 
-*Investor/partner conversation collateral. Last updated: 12 June 2026.*
+*Investor/partner conversation collateral. Last updated: 15 June 2026.*
 
 ## One-liner
 
@@ -15,7 +15,7 @@ The same asymmetry applies to everything downstream:
 | Capability | Single portal (e.g. AutoTrader) | Land Cruiser SA |
 |---|---|---|
 | Price vs market | Own stock only | Whole visible market |
-| Supply counts | Own stock only | Whole market (~1,850 active) |
+| Supply counts | Own stock only | Whole market (~2,358 active Land Cruisers) |
 | Price-drop detection | Own stock only | Every platform, recorded permanently |
 | Price history dataset | Internal, unpublished | Accruing daily since June 2026, published |
 | Niche depth | Generalist (all makes) | 100% Land Cruiser: best-in-SA coverage of one high-value, high-passion segment |
@@ -38,16 +38,16 @@ Scrapers find cars → tracker spots price drops → scoring engine picks the da
 
 ## Monetisation paths (in sequence)
 
-1. **Finance lead-gen** — "get finance" CTA on ~1,850 listings; SA vehicle-finance referrals pay R1–2k+ per funded deal. Trigger: ~500 genuine listing views/week.
+1. **Finance lead-gen** — "get finance" CTA on every priced listing (~2,358 Land Cruisers); SA vehicle-finance referrals pay R1–2k+ per funded deal. The one monetisation surface that works across *all* aggregated stock, not just our own inventory.
 2. **Dealer pay-per-lead / subscriptions** — we already aggregate dealer stock and send them buyers; "claim your listings, receive the WhatsApp/call/email leads" (all lead events already tracked per listing).
 3. **Featured placement** for private sellers and dealers.
 4. **The dataset itself** — SA's only Land Cruiser price index; licensing/insights potential as depth grows.
 
 ## Traction markers (update before each conversation)
 
-- Active listings: ~1,850 (from 791 pre-aggregation expansion, June 2026)
-- Sources: 5 platforms, automated, self-monitoring
-- Price events: accruing since 11 June 2026
+- Active listings: **9,474** across 5 platforms (up from 791 pre-aggregation) — **~2,358 Land Cruisers** (the visible LC market) **plus ~7,100 Hilux/Fortuner already indexed by the same engine** (segment-agnostic playbook proven at the data layer; held privately, not shown publicly)
+- Sources: 5 platforms, automated, self-monitoring (Cars.co.za now the largest at 4,443)
+- Price events: **441 changes across 304 listings in the first 4 days (~100/day)**, accruing since 11 June 2026; **103 listing departures tracked** (time-on-market dataset accruing)
 - Organic social already #2 traffic channel; market pages drawing organic search within 24h of launch
 - Full-funnel tracking live: views → contact reveals → WhatsApp/call/email leads, per listing and per model
 

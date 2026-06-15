@@ -3,6 +3,26 @@ export const prerender = false;
 import type { APIRoute } from 'astro';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { randomBytes } from 'crypto';
+import sharp from 'sharp';
+
+// Keep memory low on the 256MB Fly machine: one image at a time.
+sharp.concurrency(1);
+
+// Resize to a sensible max edge and re-encode as quality JPEG. Phone uploads
+// arrive as 6–10MB originals; this brings them to ~150–300KB with no visible
+// quality loss. Returns the compressed buffer, or the original on failure.
+const MAX_EDGE = 1920;
+async function compress(input: Buffer): Promise<Buffer> {
+  try {
+    return await sharp(input, { limitInputPixels: 40_000_000, failOn: 'none' })
+      .rotate() // honour EXIF orientation before stripping metadata
+      .resize({ width: MAX_EDGE, height: MAX_EDGE, fit: 'inside', withoutEnlargement: true })
+      .jpeg({ quality: 78, mozjpeg: true })
+      .toBuffer();
+  } catch {
+    return input;
+  }
+}
 
 const R2_ENDPOINT = import.meta.env.R2_ENDPOINT ?? process.env.R2_ENDPOINT;
 const R2_ACCESS_KEY_ID = import.meta.env.R2_ACCESS_KEY_ID ?? process.env.R2_ACCESS_KEY_ID;
@@ -31,8 +51,8 @@ export const POST: APIRoute = async ({ request }) => {
     return new Response(JSON.stringify({ error: 'File too large (max 10MB)' }), { status: 400 });
   }
 
-  const ext = file.name.split('.').pop()?.toLowerCase() ?? 'jpg';
-  const key = `uploads/listings/${Date.now()}-${randomBytes(4).toString('hex')}.${ext}`;
+  const body = await compress(Buffer.from(await file.arrayBuffer()));
+  const key = `uploads/listings/${Date.now()}-${randomBytes(4).toString('hex')}.jpg`;
 
   const s3 = new S3Client({
     region: 'auto',
@@ -43,8 +63,8 @@ export const POST: APIRoute = async ({ request }) => {
   await s3.send(new PutObjectCommand({
     Bucket: R2_BUCKET,
     Key: key,
-    Body: Buffer.from(await file.arrayBuffer()),
-    ContentType: file.type,
+    Body: body,
+    ContentType: 'image/jpeg',
     CacheControl: 'public, max-age=31536000, immutable',
   }));
 
