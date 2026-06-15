@@ -1,5 +1,6 @@
 import { AutoTraderAdapter, discoverStats } from '../lib/sources/autotrader.ts';
 import { isSourceEnabled } from '../lib/sources/registry.ts';
+import { applyExtraSegments } from '../lib/sources/extra-config.ts';
 import { reportRun } from '../lib/sources/report.ts';
 import { segmentForModel } from '../lib/sources/normalize.ts';
 
@@ -29,6 +30,7 @@ async function ingest() {
   }
   if (!TOKEN) throw new Error('INGEST_TOKEN not set');
 
+  await applyExtraSegments('autotrader');
   console.log('[autotrader] discovering listings…');
   const refs = await AutoTraderAdapter.discover();
   console.log(`[autotrader] found ${refs.length} refs`);

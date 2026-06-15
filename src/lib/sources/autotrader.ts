@@ -36,7 +36,11 @@ const EXTRA_SEARCH_URLS = [
   `${BASE}/cars-for-sale/toyota/hilux`,
   `${BASE}/cars-for-sale/toyota/fortuner`,
 ];
-const SEARCH_URLS = collectExtraSegments() ? [...LC_SEARCH_URLS, ...EXTRA_SEARCH_URLS] : LC_SEARCH_URLS;
+// Built per-run inside discover() so the Hilux/Fortuner toggle is read at
+// runtime (after applyExtraSegments), not frozen at module load.
+function searchUrls(): string[] {
+  return collectExtraSegments() ? [...LC_SEARCH_URLS, ...EXTRA_SEARCH_URLS] : LC_SEARCH_URLS;
+}
 
 const BROWSER_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
 
@@ -167,6 +171,8 @@ export const AutoTraderAdapter: SourceAdapter = {
     let srcTotal = 0;
     let gotTotal = false;
     let anyIncomplete = false;
+
+    const SEARCH_URLS = searchUrls();
 
     // Streamed to the admin "Run Ingest" progress bar via stdout (run-ingest.ts
     // parses PROGRESS:: lines). `done` is fractional so the bar moves per page.

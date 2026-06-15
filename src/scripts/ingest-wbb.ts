@@ -1,5 +1,6 @@
 import { WbbAdapter, discoverStats } from '../lib/sources/wbb.ts';
 import { isSourceEnabled } from '../lib/sources/registry.ts';
+import { applyExtraSegments } from '../lib/sources/extra-config.ts';
 import { reportRun } from '../lib/sources/report.ts';
 
 const SITE_URL = process.env.SITE_URL ?? 'https://landcruisersa.fly.dev';
@@ -9,6 +10,7 @@ async function ingest() {
   if (!isSourceEnabled('wbb')) { console.log('[wbb] disabled — skipping'); return; }
   if (!TOKEN) throw new Error('INGEST_TOKEN not set');
 
+  await applyExtraSegments('wbb');
   console.log('[wbb] discovering listings…');
   const refs = await WbbAdapter.discover();
   console.log(`[wbb] found ${refs.length} refs`);

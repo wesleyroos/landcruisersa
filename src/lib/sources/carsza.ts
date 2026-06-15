@@ -32,7 +32,11 @@ const LC_MODELS = [
 ];
 // Adjacent Toyota 4x4s — collected for data, gated, not shown on the LC site
 const EXTRA_MODELS = ['Hilux', 'Fortuner'];
-const SEARCH_MODELS = collectExtraSegments() ? [...LC_MODELS, ...EXTRA_MODELS] : LC_MODELS;
+// Built per-run inside discover() so the Hilux/Fortuner toggle is read at
+// runtime (after applyExtraSegments), not frozen at module load.
+function searchModels(): string[] {
+  return collectExtraSegments() ? [...LC_MODELS, ...EXTRA_MODELS] : LC_MODELS;
+}
 
 interface CarsZaRecord {
   id: string;
@@ -144,7 +148,7 @@ export const CarsZaAdapter: SourceAdapter = {
     let reportedTotal = 0;
     const { browser, page } = await launchSession();
     try {
-      for (const model of SEARCH_MODELS) {
+      for (const model of searchModels()) {
         const filter = `make_model_variant[Toyota][${encodeURIComponent(model)}][All]`;
         let offset = 0;
         let total = Infinity;

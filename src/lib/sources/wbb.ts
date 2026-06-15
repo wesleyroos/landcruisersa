@@ -11,10 +11,15 @@ const SITEMAP_FILE_CAP = 10;
 const SOURCE = 'wbb';
 const BASE = 'https://webuybakkies.co.za';
 
-const LC_SLUGS = [
-  'toyota-land-cruiser', 'toyota-fj-cruiser', 'toyota-prado',
-  ...(collectExtraSegments() ? ['toyota-hilux', 'toyota-fortuner'] : []),
-];
+// Built per-run so the Hilux/Fortuner toggle is read at runtime (after
+// applyExtraSegments), not frozen at module load. isLandCruiser() (used by
+// discover) calls this each time.
+function lcSlugs(): string[] {
+  return [
+    'toyota-land-cruiser', 'toyota-fj-cruiser', 'toyota-prado',
+    ...(collectExtraSegments() ? ['toyota-hilux', 'toyota-fortuner'] : []),
+  ];
+}
 
 async function fetchSitemapUrls(): Promise<string[]> {
   const urls: string[] = [];
@@ -39,7 +44,7 @@ async function fetchSitemapUrls(): Promise<string[]> {
 
 function isLandCruiser(url: string): boolean {
   const slug = url.toLowerCase();
-  return LC_SLUGS.some(p => slug.includes(p));
+  return lcSlugs().some(p => slug.includes(p));
 }
 
 // Extract stock ID from URL: /vehicles/toyota-land-cruiser-70-42730-557/ → "42730"

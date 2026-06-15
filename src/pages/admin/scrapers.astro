@@ -5,7 +5,7 @@ import AdminLayout from '@/layouts/AdminLayout.astro';
 import { db } from '@/db/index';
 import { listings, ingestRuns } from '@/db/schema';
 import { desc, eq, sql } from 'drizzle-orm';
-import { getScheduledMap } from '@/lib/scraper-config';
+import { getScheduledMap, getExtraMap, EXTRA_SEGMENT_SOURCES } from '@/lib/scraper-config';
 
 const SOURCES: { key: string; label: string }[] = [
   { key: 'autotrader', label: 'AutoTrader' },
@@ -17,6 +17,10 @@ const SOURCES: { key: string; label: string }[] = [
 
 // Per-source "run on schedule" flags (admin-toggleable; default on).
 const scheduled = getScheduledMap();
+// Per-source "also collect Hilux/Fortuner" flags (default off). Adios has no
+// such stock, so it never gets the toggle.
+const extra = getExtraMap();
+const SUPPORTS_EXTRA = new Set<string>(EXTRA_SEGMENT_SOURCES);
 
 const MODELS = [
   '79-series', '76-series', '78-series', '70-series', '80-series', '100-series',
@@ -206,6 +210,13 @@ function fmtModel(m: string): string {
               <span class="sched-track"><span class="sched-thumb"></span></span>
             </label>
           </div>
+          {SUPPORTS_EXTRA.has(key) && (
+            <label class="extra-toggle" title="Also scrape Hilux & Fortuner from this source (collected for market data — never shown in the public LC listings). Off = Land Cruiser only.">
+              <input type="checkbox" class="extra-input" data-source={key} checked={extra[key] === true} />
+              <span class="sched-track"><span class="sched-thumb"></span></span>
+              <span class="extra-label">Scrape Hilux &amp; Fortuner</span>
+            </label>
+          )}
           {last ? (
             <>
               <p class="hcard-last">
@@ -395,6 +406,28 @@ function fmtModel(m: string): string {
       } catch {
         input.checked = !scheduled; // revert
         alert('Could not update the schedule — please try again.');
+      } finally {
+        input.disabled = false;
+      }
+    });
+  });
+
+  // Per-source "scrape Hilux & Fortuner" toggle → POST; revert on failure.
+  document.querySelectorAll<HTMLInputElement>('.extra-input').forEach((input) => {
+    input.addEventListener('change', async () => {
+      const source = input.dataset.source!;
+      const extra = input.checked;
+      input.disabled = true;
+      try {
+        const res = await fetch('/api/admin/set-scraper-extra', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ source, extra }),
+        });
+        if (!res.ok) throw new Error('failed');
+      } catch {
+        input.checked = !extra; // revert
+        alert('Could not update Hilux/Fortuner scraping — please try again.');
       } finally {
         input.disabled = false;
       }
@@ -689,6 +722,14 @@ function fmtModel(m: string): string {
   .sched-input:checked + .sched-track { background: #F5A623; }
   .sched-input:checked + .sched-track .sched-thumb { transform: translateX(14px); }
   .sched-input:disabled + .sched-track { opacity: 0.5; cursor: wait; }
+
+  .extra-toggle { display: inline-flex; align-items: center; gap: 0.4rem; cursor: pointer; margin-bottom: 0.5rem; }
+  .extra-input { position: absolute; opacity: 0; width: 0; height: 0; }
+  .extra-input:checked + .sched-track { background: #F5A623; }
+  .extra-input:checked + .sched-track .sched-thumb { transform: translateX(14px); }
+  .extra-input:disabled + .sched-track { opacity: 0.5; cursor: wait; }
+  .extra-label { font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #9CA3AF; }
+  .extra-input:checked ~ .extra-label { color: #B45309; }
 
   .hcard-last { font-size: 0.7rem; color: #6B7280; line-height: 1.5; }
   .hcard-pen { font-size: 0.7rem; color: #374151; margin-top: 0.3rem; }

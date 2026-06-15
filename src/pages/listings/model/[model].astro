@@ -18,8 +18,8 @@ const MODEL_MAP: Record<string, { label: string; description: string }> = {
   '300-series': { label: '300 Series', description: 'Toyota Land Cruiser 300 Series' },
   'prado': { label: 'Prado', description: 'Toyota Land Cruiser Prado' },
   'fj-cruiser': { label: 'FJ Cruiser', description: 'Toyota FJ Cruiser' },
-  'hilux': { label: 'Hilux', description: 'Toyota Hilux' },
-  'fortuner': { label: 'Fortuner', description: 'Toyota Fortuner' },
+  // Hilux/Fortuner are intentionally absent — they're not public (any request
+  // for those slugs falls through to the /listings/ redirect below).
 };
 
 const { model } = Astro.params;
@@ -28,9 +28,10 @@ const modelInfo = MODEL_MAP[model!];
 if (!modelInfo) return Astro.redirect('/listings/');
 
 // Match how the listings index filter works for each model. Model uniquely
-// determines segment, so no segment filter is needed (Hilux/Fortuner included).
+// determines segment, so no segment filter is needed — and Hilux/Fortuner can
+// never reach here (their MODEL_MAP entries were removed → redirect above).
 let results;
-if (model === 'prado' || model === 'hilux' || model === 'fortuner') {
+if (model === 'prado') {
   results = await db.select().from(listings)
     .where(and(eq(listings.status, 'active'), like(listings.model, `${model}%`)))
     .orderBy(desc(listings.featured), desc(listings.created_at));

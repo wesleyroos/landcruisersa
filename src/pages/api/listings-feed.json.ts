@@ -3,7 +3,7 @@ export const prerender = false;
 import type { APIRoute } from 'astro';
 import { db } from '@/db/index';
 import { listings } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 
 export const GET: APIRoute = async () => {
   const rows = await db
@@ -24,10 +24,11 @@ export const GET: APIRoute = async () => {
       created_at: listings.created_at,
     })
     .from(listings)
-    .where(eq(listings.status, 'active'))
+    .where(and(eq(listings.status, 'active'), eq(listings.segment, 'land-cruiser')))
     .orderBy(listings.created_at);
 
-  // Lean index across all segments (~9k rows). Heavy fields are trimmed and the
+  // Public Land Cruiser index only (Hilux/Fortuner stay out of the feed). Heavy
+  // fields are trimmed and the
   // output is not pretty-printed so the whole feed fits comfortably in memory on
   // the small instance — full text & galleries live on each listing page.
   function firstPhoto(photos: string): string | null {

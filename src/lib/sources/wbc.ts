@@ -90,10 +90,14 @@ async function getPowToken(): Promise<string> {
 // everything, so discovery paginates that instead. It needs the same
 // proof-of-work token as get-car.
 
-const SEARCH_QUERIES = [
-  'Toyota Land Cruiser', 'Toyota Prado', 'Toyota FJ Cruiser',
-  ...(collectExtraSegments() ? ['Toyota Hilux', 'Toyota Fortuner'] : []),
-];
+// Built per-run inside discover() so the Hilux/Fortuner toggle is read at
+// runtime (after applyExtraSegments), not frozen at module load.
+function searchQueries(): string[] {
+  return [
+    'Toyota Land Cruiser', 'Toyota Prado', 'Toyota FJ Cruiser',
+    ...(collectExtraSegments() ? ['Toyota Hilux', 'Toyota Fortuner'] : []),
+  ];
+}
 const SEARCH_PAGE = 24; // server caps page size at 24 regardless of `size`
 
 // Full body shape required — the endpoint 400s on missing keys
@@ -228,7 +232,7 @@ export const WbcAdapter: SourceAdapter = {
     const refs: DiscoveredRef[] = [];
     let reportedTotal = 0;
 
-    for (const q of SEARCH_QUERIES) {
+    for (const q of searchQueries()) {
       const { vehicles, total } = await searchVehicles(q);
       reportedTotal += total;
       let matched = 0;
