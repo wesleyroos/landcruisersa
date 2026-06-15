@@ -142,8 +142,8 @@ const postedCount = (db.select({ n: sql<number>`count(*)` }).from(listings)
 
 // IG media stats — only fetched in the Posted view so normal page loads stay fast.
 // Step 1: fetch media list, match to listings by timestamp (±2 min window)
-// Step 2: for each match, fetch insights (views, total_interactions)
-type IgStats = { likes: number; comments: number; views: number; interactions: number };
+// Step 2: for each match, fetch insights (views, saves, shares)
+type IgStats = { likes: number; comments: number; views: number; saves: number; shares: number };
 const igMediaStats = new Map<number, IgStats>(); // keyed by listing.id
 
 if (fPosted && creds) {
@@ -173,22 +173,23 @@ if (fPosted && creds) {
       // Fetch insights in parallel for each matched post.
       // Views (not reach) — matches the headline number shown in the IG app.
       await Promise.all(matched.map(async (m) => {
-        let views = 0, interactions = 0;
+        let views = 0, saves = 0, shares = 0;
         try {
           const ir = await fetch(
             `https://graph.instagram.com/v21.0/${m.mediaId}/insights` +
-            `?metric=views,total_interactions&period=lifetime&access_token=${creds.accessToken}`
+            `?metric=views,saved,shares&period=lifetime&access_token=${creds.accessToken}`
           );
           const ij = await ir.json();
           if (Array.isArray(ij.data)) {
             for (const d of ij.data) {
               const val = d.values?.[0]?.value ?? d.value ?? 0;
-              if (d.name === 'views')              views        = val;
-              if (d.name === 'total_interactions') interactions = val;
+              if (d.name === 'views')  views  = val;
+              if (d.name === 'saved')  saves  = val;
+              if (d.name === 'shares') shares = val;
             }
           }
         } catch { /* scope not yet available — shows 0 */ }
-        igMediaStats.set(m.listingId, { likes: m.likes, comments: m.comments, views, interactions });
+        igMediaStats.set(m.listingId, { likes: m.likes, comments: m.comments, views, saves, shares });
       }));
     }
   } catch { /* IG unavailable — show cards without stats */ }
@@ -527,11 +528,14 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
                       <>
                         <span class="stat-chip stat-ig">Likes {igS.likes}</span>
                         <span class="stat-chip stat-ig">Comments {igS.comments}</span>
+                        {igS.saves > 0 && (
+                          <span class="stat-chip stat-saves">Saves {igS.saves.toLocaleString('en-ZA')}</span>
+                        )}
+                        {igS.shares > 0 && (
+                          <span class="stat-chip stat-shares">Shares {igS.shares.toLocaleString('en-ZA')}</span>
+                        )}
                         {igS.views > 0 && (
                           <span class="stat-chip stat-views">Views {igS.views.toLocaleString('en-ZA')}</span>
-                        )}
-                        {igS.interactions > 0 && (
-                          <span class="stat-chip stat-views">Actions {igS.interactions.toLocaleString('en-ZA')}</span>
                         )}
                         {hasClicks && <span class="stat-divider">·</span>}
                       </>
@@ -823,6 +827,8 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
     background: #F3F4F6; color: #6B7280;
   }
   .stat-ig      { background: #FDF2F8; color: #9D174D; }
+  .stat-saves   { background: #FEF9C3; color: #854D0E; }
+  .stat-shares  { background: #EDE9FE; color: #6D28D9; }
   .stat-views   { background: #F0F4FF; color: #3730A3; }
   .stat-wa      { background: #F0FDF4; color: #166534; }
   .stat-contact { background: #F0F9FF; color: #0369A1; }
