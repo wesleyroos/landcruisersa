@@ -20,7 +20,6 @@ export const GET: APIRoute = async () => {
       transmission: listings.transmission,
       colour: listings.colour,
       description: listings.description,
-      mods: listings.mods,
       photos: listings.photos,
       created_at: listings.created_at,
     })
@@ -28,6 +27,12 @@ export const GET: APIRoute = async () => {
     .where(eq(listings.status, 'active'))
     .orderBy(listings.created_at);
 
+  // Lean index across all segments (~9k rows). Heavy fields are trimmed and the
+  // output is not pretty-printed so the whole feed fits comfortably in memory on
+  // the small instance — full text & galleries live on each listing page.
+  function firstPhoto(photos: string): string | null {
+    try { return JSON.parse(photos)?.[0] ?? null; } catch { return null; }
+  }
   const data = rows.map(r => ({
     url: `https://landcruisersa.co.za/listings/${r.slug}/`,
     listing_type: r.listing_type,
@@ -42,13 +47,12 @@ export const GET: APIRoute = async () => {
     new_or_used: r.new_or_used,
     transmission: r.transmission,
     colour: r.colour,
-    description: r.description,
-    ...(r.mods ? { mods: r.mods } : {}),
-    photos: (() => { try { return JSON.parse(r.photos); } catch { return []; } })(),
+    description: r.description ? r.description.slice(0, 300) : '',
+    image: firstPhoto(r.photos),
     listed_at: r.created_at,
   }));
 
-  return new Response(JSON.stringify({ count: data.length, listings: data }, null, 2), {
+  return new Response(JSON.stringify({ count: data.length, listings: data }), {
     status: 200,
     headers: {
       'Content-Type': 'application/json',

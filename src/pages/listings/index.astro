@@ -257,7 +257,9 @@ function firstPhoto(photos: string) {
 
 </Base>
 
-<style>
+<!-- Global: these classes are also applied to cards rendered client-side via
+     innerHTML, which don't carry Astro's scoped-style attribute. -->
+<style is:global>
   .card-img-wrap {
     position: relative;
     aspect-ratio: 16 / 10;
