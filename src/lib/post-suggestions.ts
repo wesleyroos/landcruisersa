@@ -71,25 +71,30 @@ export function getPostSuggestions(limit = 3): PostSuggestion[] {
   // Price drops (net 30d)
   const changes = getRecentPriceChanges();
 
-  // Rotation: models of the two most recent IG posts get penalised
+  // Rotation: the last 5 IG posts, most-recent first. Penalty is recency- and
+  // frequency-weighted (see ROT_WEIGHTS) so a segment we keep posting drops out
+  // of contention — this is what stops the suggestions homogenising into Prados.
   const recentlyPostedModels = db.select({ model: listings.model })
     .from(listings)
     .where(sql`ig_posted_at IS NOT NULL`)
     .orderBy(sql`ig_posted_at DESC`)
-    .limit(2)
+    .limit(5)
     .all()
     .map(r => r.model);
+  const ROT_WEIGHTS = [22, 16, 11, 7, 4]; // index = how many posts ago
 
   const now = Date.now();
   const scored: PostSuggestion[] = candidates.map(c => {
     let score = 0;
     const reasons: string[] = [];
 
+    // Demand is log-damped: a hot listing still rises, but the segment with the
+    // most stock (Prado) can't win on raw view volume alone.
     const mv = modelViews.get(c.model) ?? 0;
-    if (mv > 0) { score += mv * 2; reasons.push(`${c.model.replace(/-/g, ' ')} demand: ${mv} views this week`); }
+    if (mv > 0) { score += Math.round(Math.log2(1 + mv) * 6); reasons.push(`${c.model.replace(/-/g, ' ')} demand: ${mv} views this week`); }
 
     const sv = slugViews.get(c.slug) ?? 0;
-    if (sv > 0) { score += sv * 3; reasons.push(`listing itself viewed ${sv}× this week`); }
+    if (sv > 0) { score += Math.round(Math.log2(1 + sv) * 9); reasons.push(`listing itself viewed ${sv}× this week`); }
 
     const change = changes.get(c.slug) ?? 0;
     const dropAmount = change < 0 ? Math.abs(change) : 0;
@@ -106,9 +111,11 @@ export function getPostSuggestions(limit = 3): PostSuggestion[] {
 
     if ((c.description ?? '').length >= 200) score += 5;
 
-    if (recentlyPostedModels.includes(c.model)) {
-      score -= 25;
-      reasons.push('recently posted this model (rotation penalty)');
+    let rot = 0;
+    recentlyPostedModels.forEach((m, i) => { if (m === c.model) rot += ROT_WEIGHTS[i] ?? 0; });
+    if (rot > 0) {
+      score -= rot;
+      reasons.push(`recently posted ${c.model.replace(/-/g, ' ')} — rotation penalty −${rot}`);
     }
 
     return {

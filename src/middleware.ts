@@ -1,6 +1,10 @@
 import { defineMiddleware } from 'astro:middleware';
+import { ensurePostSuggestionScheduler } from './lib/post-suggestion-scheduler';
 
 export const onRequest = defineMiddleware(async ({ url, cookies, redirect, request }, next) => {
+  // Idempotent — starts the daily IG-email timer on the first request after boot.
+  ensurePostSuggestionScheduler();
+
   const path = url.pathname;
   const isAdminArea = path.startsWith('/admin');
   const isLoginPage = path === '/admin/login' || path === '/admin/login/';

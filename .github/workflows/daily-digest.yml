@@ -1,8 +1,13 @@
-name: Daily IG post suggestion
+name: Daily IG post suggestion (backup)
 
+# BACKUP trigger only. The primary is the Fly server-side scheduler
+# (src/lib/post-suggestion-scheduler.ts), which fires reliably at 07:00 SAST.
+# GitHub scheduled runs are chronically delayed, so this just catches the rare
+# day the server was mid-deploy at 07:00. The endpoint dedupes per day, so a
+# late run here no-ops if the email already went out.
 on:
   schedule:
-    - cron: '0 5 * * *'   # 07:00 SAST — in the inbox before coffee
+    - cron: '0 6 * * *'   # ~08:00 SAST target; GitHub usually runs it later
   workflow_dispatch:
 
 jobs:
