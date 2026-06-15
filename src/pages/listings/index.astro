@@ -190,6 +190,7 @@ function firstPhoto(photos: string) {
         </div>
       </div>
       <span id="results-count" class="self-center text-sm text-[#6B7280] ml-auto"></span>
+      <button id="clear-filters-bar" type="button" class="hidden self-center text-sm font-semibold text-[#F5A623] hover:underline">Clear filters ✕</button>
     </div>
 
     <!-- GRID — first page server-rendered; client re-renders from JSON below -->
@@ -703,6 +704,7 @@ function firstPhoto(photos: string) {
     emptyState.classList.toggle('hidden', matched.length > 0);
     countEl.textContent = `${matched.length} listing${matched.length !== 1 ? 's' : ''}`;
     renderPagination(matched.length, totalPages);
+    document.getElementById('clear-filters-bar')?.classList.toggle('hidden', !anyFilterActive());
   }
 
   typePills.forEach(pill => {
@@ -718,7 +720,12 @@ function firstPhoto(photos: string) {
     });
   });
 
-  document.getElementById('reset-filters')?.addEventListener('click', () => {
+  const clearBtnBar = document.getElementById('clear-filters-bar') as HTMLButtonElement | null;
+  function anyFilterActive(): boolean {
+    return selectedModels.length > 0 || selectedProvinces.length > 0 ||
+      selectedMileages.length > 0 || priceMin > 0 || isFinite(priceMax) || activeType !== 'all';
+  }
+  function clearAllFilters() {
     msBoxes.forEach(b => { b.checked = false; });
     updateModelLabel();
     provBoxes.forEach(b => { b.checked = false; });
@@ -729,7 +736,9 @@ function firstPhoto(photos: string) {
     activeType = 'all';
     typePills.forEach(p => p.classList.toggle('active', p.dataset.type === 'all'));
     applyFilters();
-  });
+  }
+  document.getElementById('reset-filters')?.addEventListener('click', clearAllFilters);
+  clearBtnBar?.addEventListener('click', clearAllFilters);
 
   // Pre-select models from ?model= (e.g. market-page "browse listings" links)
   const urlModels = new URLSearchParams(location.search).get('model');
