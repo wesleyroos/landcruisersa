@@ -128,10 +128,21 @@ function firstPhoto(photos: string) {
           ))}
         </div>
       </div>
-      <select id="filter-province" class="border border-[#DDD9D3] rounded-xl px-4 py-2.5 text-sm bg-white focus:outline-none focus:border-[#F5A623] transition-colors cursor-pointer min-h-[44px]">
-        <option value="all">All Provinces</option>
-        {PROVINCES.filter(p => p !== 'All').map(p => <option value={p}>{p}</option>)}
-      </select>
+      <div class="relative" id="ms-province">
+        <button type="button" id="ms-province-btn" aria-expanded="false"
+          class="border border-[#DDD9D3] rounded-xl px-4 py-2.5 text-sm bg-white focus:outline-none focus:border-[#F5A623] transition-colors cursor-pointer min-h-[44px] flex items-center gap-2 justify-between min-w-[150px]">
+          <span id="ms-province-label" class="truncate">All Provinces</span>
+          <svg width="10" height="6" viewBox="0 0 10 6" class="flex-shrink-0"><path d="M1 1l4 4 4-4" stroke="#9CA3AF" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <div id="ms-province-panel" class="absolute z-30 mt-1 w-56 max-h-72 overflow-auto bg-white border border-[#DDD9D3] rounded-xl shadow-lg py-1 hidden">
+          {PROVINCES.filter(p => p !== 'All').map(p => (
+            <label class="flex items-center gap-2.5 px-4 py-2 text-sm cursor-pointer hover:bg-[#F5F3EE]">
+              <input type="checkbox" value={p} class="ms-province-cb accent-[#F5A623] w-4 h-4" />
+              <span>{p}</span>
+            </label>
+          ))}
+        </div>
+      </div>
       <div class="relative" id="price-filter">
         <button type="button" id="price-btn" aria-expanded="false"
           class="border border-[#DDD9D3] rounded-xl px-4 py-2.5 text-sm bg-white focus:outline-none focus:border-[#F5A623] transition-colors cursor-pointer min-h-[44px] flex items-center gap-2 justify-between min-w-[140px]">
@@ -154,13 +165,30 @@ function firstPhoto(photos: string) {
           </div>
         </div>
       </div>
-      <select id="filter-mileage" class="border border-[#DDD9D3] rounded-xl px-4 py-2.5 text-sm bg-white focus:outline-none focus:border-[#F5A623] transition-colors cursor-pointer min-h-[44px]">
-        <option value="all">Any Mileage</option>
-        <option value="0-50000">Under 50k km</option>
-        <option value="0-100000">Under 100k km</option>
-        <option value="100000-200000">100k – 200k km</option>
-        <option value="200000-9999999">Over 200k km</option>
-      </select>
+      <div class="relative" id="ms-mileage">
+        <button type="button" id="ms-mileage-btn" aria-expanded="false"
+          class="border border-[#DDD9D3] rounded-xl px-4 py-2.5 text-sm bg-white focus:outline-none focus:border-[#F5A623] transition-colors cursor-pointer min-h-[44px] flex items-center gap-2 justify-between min-w-[150px]">
+          <span id="ms-mileage-label" class="truncate">Any Mileage</span>
+          <svg width="10" height="6" viewBox="0 0 10 6" class="flex-shrink-0"><path d="M1 1l4 4 4-4" stroke="#9CA3AF" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <div id="ms-mileage-panel" class="absolute z-30 mt-1 w-56 max-h-72 overflow-auto bg-white border border-[#DDD9D3] rounded-xl shadow-lg py-1 hidden">
+          <label class="flex items-center gap-2.5 px-4 py-2 text-sm cursor-pointer hover:bg-[#F5F3EE]">
+            <input type="checkbox" data-min="0" data-max="50000" class="ms-mileage-cb accent-[#F5A623] w-4 h-4" /><span>Under 50k km</span>
+          </label>
+          <label class="flex items-center gap-2.5 px-4 py-2 text-sm cursor-pointer hover:bg-[#F5F3EE]">
+            <input type="checkbox" data-min="50000" data-max="100000" class="ms-mileage-cb accent-[#F5A623] w-4 h-4" /><span>50k – 100k km</span>
+          </label>
+          <label class="flex items-center gap-2.5 px-4 py-2 text-sm cursor-pointer hover:bg-[#F5F3EE]">
+            <input type="checkbox" data-min="100000" data-max="150000" class="ms-mileage-cb accent-[#F5A623] w-4 h-4" /><span>100k – 150k km</span>
+          </label>
+          <label class="flex items-center gap-2.5 px-4 py-2 text-sm cursor-pointer hover:bg-[#F5F3EE]">
+            <input type="checkbox" data-min="150000" data-max="200000" class="ms-mileage-cb accent-[#F5A623] w-4 h-4" /><span>150k – 200k km</span>
+          </label>
+          <label class="flex items-center gap-2.5 px-4 py-2 text-sm cursor-pointer hover:bg-[#F5F3EE]">
+            <input type="checkbox" data-min="200000" data-max="" class="ms-mileage-cb accent-[#F5A623] w-4 h-4" /><span>Over 200k km</span>
+          </label>
+        </div>
+      </div>
       <span id="results-count" class="self-center text-sm text-[#6B7280] ml-auto"></span>
     </div>
 
@@ -425,8 +453,6 @@ function firstPhoto(photos: string) {
     `</a>`;
   }
 
-  const provinceSel = document.getElementById('filter-province') as HTMLSelectElement;
-  const mileageSel = document.getElementById('filter-mileage') as HTMLSelectElement;
   const typePills = document.querySelectorAll<HTMLButtonElement>('.type-pill');
 
   // ── Multi-select model dropdown ──────────────────────────────────────────
@@ -454,6 +480,57 @@ function firstPhoto(photos: string) {
     }
   });
   msBoxes.forEach(b => b.addEventListener('change', () => { updateModelLabel(); applyFilters(); }));
+
+  // ── Multi-select province dropdown ───────────────────────────────────────
+  const provBtn = document.getElementById('ms-province-btn')!;
+  const provPanel = document.getElementById('ms-province-panel')!;
+  const provLabel = document.getElementById('ms-province-label')!;
+  const provBoxes = Array.from(document.querySelectorAll<HTMLInputElement>('.ms-province-cb'));
+  let selectedProvinces: string[] = [];
+  function updateProvinceLabel() {
+    selectedProvinces = provBoxes.filter(b => b.checked).map(b => b.value);
+    provLabel.textContent =
+      selectedProvinces.length === 0 ? 'All Provinces'
+      : selectedProvinces.length === 1 ? selectedProvinces[0]
+      : `${selectedProvinces.length} provinces`;
+  }
+  provBtn.addEventListener('click', () => {
+    const open = provPanel.classList.toggle('hidden');
+    provBtn.setAttribute('aria-expanded', String(!open));
+  });
+  document.addEventListener('click', e => {
+    if (!document.getElementById('ms-province')!.contains(e.target as Node)) {
+      provPanel.classList.add('hidden');
+      provBtn.setAttribute('aria-expanded', 'false');
+    }
+  });
+  provBoxes.forEach(b => b.addEventListener('change', () => { updateProvinceLabel(); applyFilters(); }));
+
+  // ── Multi-select mileage dropdown (ranges) ───────────────────────────────
+  const mileBtn = document.getElementById('ms-mileage-btn')!;
+  const milePanel = document.getElementById('ms-mileage-panel')!;
+  const mileLabel = document.getElementById('ms-mileage-label')!;
+  const mileBoxes = Array.from(document.querySelectorAll<HTMLInputElement>('.ms-mileage-cb'));
+  let selectedMileages: [number, number][] = [];
+  function updateMileageLabel() {
+    selectedMileages = mileBoxes.filter(b => b.checked).map(b =>
+      [Number(b.dataset.min || 0), b.dataset.max ? Number(b.dataset.max) : Infinity] as [number, number]);
+    mileLabel.textContent =
+      selectedMileages.length === 0 ? 'Any Mileage'
+      : selectedMileages.length === 1 ? (mileBoxes.find(b => b.checked)!.nextElementSibling!.textContent ?? '1 range')
+      : `${selectedMileages.length} ranges`;
+  }
+  mileBtn.addEventListener('click', () => {
+    const open = milePanel.classList.toggle('hidden');
+    mileBtn.setAttribute('aria-expanded', String(!open));
+  });
+  document.addEventListener('click', e => {
+    if (!document.getElementById('ms-mileage')!.contains(e.target as Node)) {
+      milePanel.classList.add('hidden');
+      mileBtn.setAttribute('aria-expanded', 'false');
+    }
+  });
+  mileBoxes.forEach(b => b.addEventListener('change', () => { updateMileageLabel(); applyFilters(); }));
 
   // ── Price dropdown (presets + custom min/max) ────────────────────────────
   const priceBtn = document.getElementById('price-btn')!;
@@ -540,10 +617,8 @@ function firstPhoto(photos: string) {
 
     const priceOk = isShowOff || showingSold || (l.price >= priceMin && l.price <= priceMax);
 
-    const [minM, maxM] = mileageSel.value === 'all'
-      ? [0, Infinity]
-      : mileageSel.value.split('-').map(Number);
-    const mileageOk = isShowOff || (l.mileage >= minM && l.mileage <= maxM);
+    const mileageOk = isShowOff || selectedMileages.length === 0 ||
+      selectedMileages.some(([mn, mx]) => l.mileage >= mn && l.mileage <= mx);
 
     const modelMatch = selectedModels.length === 0 || selectedModels.some(sel =>
       (sel === 'prado' && l.model.startsWith('prado')) ||
@@ -556,7 +631,7 @@ function firstPhoto(photos: string) {
     const typeMatch = showingSold || activeType === 'all' || l.type === activeType;
 
     return modelMatch &&
-      (provinceSel.value === 'all' || l.province === provinceSel.value) &&
+      (selectedProvinces.length === 0 || selectedProvinces.includes(l.province)) &&
       priceOk &&
       mileageOk &&
       typeMatch;
@@ -638,19 +713,19 @@ function firstPhoto(photos: string) {
       const priceFilter = document.getElementById('price-filter') as HTMLElement;
       const hide = (activeType === 'show_off' || activeType === 'sold') ? 'none' : '';
       priceFilter.style.display = hide;
-      mileageSel.style.display = (activeType === 'show_off') ? 'none' : '';
+      (document.getElementById('ms-mileage') as HTMLElement).style.display = (activeType === 'show_off') ? 'none' : '';
       applyFilters();
     });
   });
 
-  [provinceSel, mileageSel].forEach(el => el.addEventListener('change', applyFilters));
-
   document.getElementById('reset-filters')?.addEventListener('click', () => {
     msBoxes.forEach(b => { b.checked = false; });
     updateModelLabel();
-    provinceSel.value = 'all';
+    provBoxes.forEach(b => { b.checked = false; });
+    updateProvinceLabel();
+    mileBoxes.forEach(b => { b.checked = false; });
+    updateMileageLabel();
     resetPrice();
-    mileageSel.value = 'all';
     activeType = 'all';
     typePills.forEach(p => p.classList.toggle('active', p.dataset.type === 'all'));
     applyFilters();
@@ -663,6 +738,8 @@ function firstPhoto(photos: string) {
     msBoxes.forEach(b => { if (wanted.includes(b.value)) b.checked = true; });
   }
   updateModelLabel();
+  updateProvinceLabel();
+  updateMileageLabel();
 
   applyFilters();
 </script>
