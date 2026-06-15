@@ -18,6 +18,8 @@ const MODEL_MAP: Record<string, { label: string; description: string }> = {
   '300-series': { label: '300 Series', description: 'Toyota Land Cruiser 300 Series' },
   'prado': { label: 'Prado', description: 'Toyota Land Cruiser Prado' },
   'fj-cruiser': { label: 'FJ Cruiser', description: 'Toyota FJ Cruiser' },
+  'hilux': { label: 'Hilux', description: 'Toyota Hilux' },
+  'fortuner': { label: 'Fortuner', description: 'Toyota Fortuner' },
 };
 
 const { model } = Astro.params;
@@ -25,24 +27,23 @@ const modelInfo = MODEL_MAP[model!];
 
 if (!modelInfo) return Astro.redirect('/listings/');
 
-// Match how the listings index filter works for each model
-const LC = eq(listings.segment, 'land-cruiser');
+// Match how the listings index filter works for each model. Model uniquely
+// determines segment, so no segment filter is needed (Hilux/Fortuner included).
 let results;
-if (model === 'prado') {
+if (model === 'prado' || model === 'hilux' || model === 'fortuner') {
   results = await db.select().from(listings)
-    .where(and(eq(listings.status, 'active'), LC, like(listings.model, 'prado%')))
+    .where(and(eq(listings.status, 'active'), like(listings.model, `${model}%`)))
     .orderBy(desc(listings.featured), desc(listings.created_at));
 } else if (model === 'fj-cruiser') {
   results = await db.select().from(listings)
     .where(and(
       eq(listings.status, 'active'),
-      LC,
       or(eq(listings.model, 'fj-cruiser'), eq(listings.model, 'land-cruiser-fj'))
     ))
     .orderBy(desc(listings.featured), desc(listings.created_at));
 } else {
   results = await db.select().from(listings)
-    .where(and(eq(listings.status, 'active'), LC, eq(listings.model, model!)))
+    .where(and(eq(listings.status, 'active'), eq(listings.model, model!)))
     .orderBy(desc(listings.featured), desc(listings.created_at));
 }
 

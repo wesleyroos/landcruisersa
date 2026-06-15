@@ -5,16 +5,12 @@ import Base from '@/layouts/Base.astro';
 import { db } from '@/db/index';
 import { listings } from '@/db/schema';
 import { and, eq, ne } from 'drizzle-orm';
-import { isAdminSession } from '@/lib/track-guard';
 
 const { slug } = Astro.params;
 const [listing] = await db.select().from(listings).where(eq(listings.slug, slug!));
 
-// Hilux/Fortuner are collected for data but never shown publicly — a direct
-// URL to one redirects away (Googlebot has no cookie, so it always redirects).
-// A logged-in admin can preview them.
-const isAdmin = isAdminSession(Astro.cookies);
-if (!listing || listing.status === 'pending' || (listing.segment !== 'land-cruiser' && !isAdmin)) {
+// All segments are public (Land Cruiser + Toyota 4x4); only pending/missing redirect.
+if (!listing || listing.status === 'pending') {
   return Astro.redirect('/listings/');
 }
 
@@ -31,17 +27,17 @@ const SOURCE_LABEL: Record<string, string> = {
 };
 const portalName = SOURCE_LABEL[listing.source] ?? 'AutoTrader';
 
-// Similar: same model first, then any active LC listing as fallback
-const LC = eq(listings.segment, 'land-cruiser');
+// Similar: same model first, then any active listing in the same segment as fallback
+const SEG = eq(listings.segment, listing.segment);
 const sameModel = await db.select().from(listings)
-  .where(and(eq(listings.status, 'active'), LC, eq(listings.model, listing.model)))
+  .where(and(eq(listings.status, 'active'), SEG, eq(listings.model, listing.model)))
   .limit(5);
 const sameModelFiltered = sameModel.filter(l => l.slug !== slug);
 
 let similarFiltered = sameModelFiltered.slice(0, 3);
 if (similarFiltered.length < 3) {
   const others = await db.select().from(listings)
-    .where(and(eq(listings.status, 'active'), LC, ne(listings.model, listing.model)))
+    .where(and(eq(listings.status, 'active'), SEG, ne(listings.model, listing.model)))
     .limit(6);
   const needed = 3 - similarFiltered.length;
   similarFiltered = [...similarFiltered, ...others.filter(l => l.slug !== slug).slice(0, needed)];
