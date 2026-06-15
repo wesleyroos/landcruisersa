@@ -237,6 +237,83 @@ function fmtModel(m: string): string {
     })}
   </div>
 
+  <!-- TOOLS — manual runs; local dev only (AT blocks Fly IPs) -->
+  {import.meta.env.DEV && (
+    <div class="tools-row">
+      <div class="tool-card">
+        <div class="tool-info">
+          <p class="tool-name">Ingest Listings <span class="local-badge">LOCAL</span></p>
+          <p class="tool-desc">Discover and import new listings from AutoTrader, WBC, Adios, and We Buy Bakkies using your residential IP.</p>
+          <p class="tool-times">
+            <span class="time-label">Last run:</span> <span id="ingest-last-run" class="time-val">—</span>
+            <span id="ingest-status" class="tool-status-inline"></span>
+            <span class="time-next">
+              <span class="time-label">Next:</span> <span id="ingest-next-run" class="time-val">—</span>
+            </span>
+          </p>
+          <div id="ingest-progress" class="tool-progress" hidden>
+            <div class="tool-progress-track"><span id="ingest-progress-fill"></span></div>
+            <span id="ingest-progress-label" class="tool-progress-label"></span>
+          </div>
+        </div>
+        <div class="tool-controls">
+          <button id="run-ingest-btn" class="btn btn-tool">Run Ingest</button>
+        </div>
+      </div>
+      <div class="tool-card">
+        <div class="tool-info">
+          <p class="tool-name">AT Image Backfill <span class="local-badge">LOCAL</span></p>
+          <p class="tool-desc">Fetch full image sets for AT listings with &lt;2 photos.</p>
+          <p class="tool-times">
+            <span class="time-label">Last run:</span> <span id="backfill-last-run" class="time-val">—</span>
+            <span id="backfill-status" class="tool-status-inline"></span>
+            <span class="time-next">
+              <span class="time-label">Next:</span> <span id="backfill-next-run" class="time-val">—</span>
+            </span>
+          </p>
+        </div>
+        <div class="tool-controls">
+          <button id="run-backfill-btn" class="btn btn-tool">Run Backfill</button>
+        </div>
+      </div>
+      <div class="tool-card">
+        <div class="tool-info">
+          <p class="tool-name">AT Description Backfill <span class="local-badge">LOCAL</span></p>
+          <p class="tool-desc">Pull seller comments &amp; colour for AT listings missing a description.</p>
+          <p class="tool-times">
+            <span class="time-label">Last run:</span> <span id="desc-backfill-last-run" class="time-val">—</span>
+            <span id="desc-backfill-status" class="tool-status-inline"></span>
+            <span class="time-next">
+              <span class="time-label">Next:</span> <span id="desc-backfill-next-run" class="time-val">—</span>
+            </span>
+          </p>
+        </div>
+        <div class="tool-controls">
+          <button id="run-desc-backfill-btn" class="btn btn-tool">Run</button>
+        </div>
+      </div>
+    </div>
+  )}
+
+  {import.meta.env.DEV && (
+    <div id="ingest-modal" class="modal-backdrop" hidden>
+      <div class="modal">
+        <p class="modal-title">Select Sources</p>
+        <div class="modal-sources">
+          <label class="source-opt"><input type="checkbox" name="source" value="autotrader" checked /> AutoTrader</label>
+          <label class="source-opt"><input type="checkbox" name="source" value="wbc" checked /> WBC</label>
+          <label class="source-opt"><input type="checkbox" name="source" value="adios" checked /> Adios</label>
+          <label class="source-opt"><input type="checkbox" name="source" value="wbb" checked /> We Buy Bakkies</label>
+          <label class="source-opt"><input type="checkbox" name="source" value="carsza" checked /> Cars.co.za</label>
+        </div>
+        <div class="modal-actions">
+          <button id="ingest-cancel-btn" class="btn btn-edit">Cancel</button>
+          <button id="ingest-confirm-btn" class="btn btn-tool">Run</button>
+        </div>
+      </div>
+    </div>
+  )}
+
   <!-- COVERAGE MATRIX -->
   <div class="section">
     <p class="section-head">Coverage — active listings by source &times; model</p>
@@ -323,6 +400,242 @@ function fmtModel(m: string): string {
       }
     });
   });
+</script>
+
+<script>
+  // Manual scraper runs — local dev only (the tool cards are DEV-gated; AT
+  // blocks Fly IPs so these must run from the residential machine).
+  if (import.meta.env.DEV) {
+    function fmtTime(ms: number | null): string {
+      if (!ms) return '—';
+      return new Intl.DateTimeFormat('en-ZA', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(ms));
+    }
+
+    function fmtNext(ms: number): string {
+      const now = Date.now();
+      const diff = ms - now;
+      if (diff < 0) return 'overdue';
+      const mins = Math.round(diff / 60000);
+      if (mins < 60) return `in ${mins}m`;
+      const d = new Date(ms);
+      const isToday = new Date(now).toDateString() === d.toDateString();
+      const isTomorrow = new Date(now + 86400000).toDateString() === d.toDateString();
+      const timeStr = d.toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' });
+      if (isToday) return `today at ${timeStr}`;
+      if (isTomorrow) return `tomorrow at ${timeStr}`;
+      return fmtTime(ms);
+    }
+
+    async function loadRunTimes() {
+      try {
+        const data = await fetch('/api/admin/run-times').then(r => r.json());
+        const il = document.getElementById('ingest-last-run');
+        const in_ = document.getElementById('ingest-next-run');
+        const bl = document.getElementById('backfill-last-run');
+        const bn = document.getElementById('backfill-next-run');
+        const dl = document.getElementById('desc-backfill-last-run');
+        const dn = document.getElementById('desc-backfill-next-run');
+        if (il) il.textContent = fmtTime(data.ingest.lastRun);
+        if (in_) in_.textContent = fmtNext(data.ingest.nextRun);
+        if (bl) bl.textContent = fmtTime(data.backfill.lastRun);
+        if (bn) bn.textContent = fmtNext(data.backfill.nextRun);
+        if (dl) dl.textContent = fmtTime(data.descBackfill?.lastRun);
+        if (dn) dn.textContent = fmtNext(data.descBackfill?.nextRun);
+      } catch { /* non-critical */ }
+    }
+
+    loadRunTimes();
+
+    // Ingest — open source picker modal first
+    const ingestModal  = document.getElementById('ingest-modal')!;
+    const ingestBtn    = document.getElementById('run-ingest-btn') as HTMLButtonElement | null;
+    const cancelBtn    = document.getElementById('ingest-cancel-btn')!;
+    const confirmBtn   = document.getElementById('ingest-confirm-btn') as HTMLButtonElement;
+    const statusEl     = document.getElementById('ingest-status')!;
+    const progressEl   = document.getElementById('ingest-progress')!;
+    const progressFill = document.getElementById('ingest-progress-fill')!;
+    const progressLbl  = document.getElementById('ingest-progress-label')!;
+
+    ingestBtn?.addEventListener('click', () => { ingestModal.hidden = false; });
+    cancelBtn?.addEventListener('click', () => { ingestModal.hidden = true; });
+    ingestModal?.addEventListener('click', (e) => { if (e.target === ingestModal) ingestModal.hidden = true; });
+
+    confirmBtn?.addEventListener('click', async () => {
+      const checked = [...ingestModal.querySelectorAll<HTMLInputElement>('input[name="source"]:checked')]
+        .map(el => el.value);
+      if (!checked.length) { alert('Select at least one source.'); return; }
+
+      ingestModal.hidden = true;
+      ingestBtn!.disabled = true;
+      ingestBtn!.textContent = 'Running…';
+      statusEl.textContent = 'Starting…';
+      progressEl.hidden = false;
+      (progressFill as HTMLElement).style.width = '0%';
+      progressLbl.textContent = 'Starting…';
+
+      const sourceResults: Record<string, { created: number; updated: number; ok: boolean }> = {};
+      const summaryRe = /\] done — created: (\d+), updated: (\d+)/;
+      let currentSource = '';
+
+      try {
+        const url = `/api/admin/run-ingest?sources=${checked.join(',')}`;
+        const res = await fetch(url);
+        if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buf = '';
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buf += decoder.decode(value, { stream: true });
+          const parts = buf.split('\n\n');
+          buf = parts.pop() ?? '';
+          for (const part of parts) {
+            if (!part.startsWith('data: ')) continue;
+            let ev: Record<string, unknown>;
+            try { ev = JSON.parse(part.slice(6)); } catch { continue; }
+            if (ev.type === 'script-start') {
+              currentSource = String(ev.name);
+              statusEl.textContent = `Running ${currentSource}…`;
+              (progressFill as HTMLElement).style.width = '0%';
+              progressLbl.textContent = `${currentSource} · Starting…`;
+            } else if (ev.type === 'log') {
+              const text = String(ev.text);
+              statusEl.textContent = text.slice(0, 80);
+              const m = summaryRe.exec(text);
+              if (m && currentSource) {
+                sourceResults[currentSource] = { created: Number(m[1]), updated: Number(m[2]), ok: true };
+              }
+            } else if (ev.type === 'progress') {
+              const done = Number(ev.done), total = Number(ev.total) || 1;
+              const pct = Math.min(100, Math.round((done / total) * 100));
+              (progressFill as HTMLElement).style.width = pct + '%';
+              const phase = ev.phase === 'discover' ? 'Discovering' : 'Importing';
+              const detail = ev.sub ? String(ev.sub) : `${Math.floor(done).toLocaleString()}/${total.toLocaleString()}`;
+              progressLbl.textContent = `${currentSource ? currentSource + ' · ' : ''}${phase} ${pct}% — ${detail}`;
+            } else if (ev.type === 'script-done') {
+              if (!sourceResults[currentSource]) {
+                sourceResults[currentSource] = { created: 0, updated: 0, ok: Boolean(ev.ok) };
+              }
+            } else if (ev.type === 'done') {
+              const LABELS: Record<string, string> = { autotrader: 'AT', wbc: 'WBC', adios: 'Adios', wbb: 'WBB', carsza: 'Cars.co.za' };
+              const summary = Object.entries(sourceResults)
+                .map(([src, r]) => `${LABELS[src] ?? src.toUpperCase()} +${r.created} new`)
+                .join(' · ');
+              statusEl.textContent = summary || 'Done.';
+              (progressFill as HTMLElement).style.width = '100%';
+              progressLbl.textContent = 'Done';
+              setTimeout(() => { progressEl.hidden = true; }, 2500);
+              const el = document.getElementById('ingest-last-run');
+              if (el) el.textContent = fmtTime(Date.now());
+            }
+          }
+        }
+      } catch (err) {
+        statusEl.textContent = String(err);
+        statusEl.classList.add('is-error');
+      }
+      ingestBtn!.disabled = false;
+      ingestBtn!.textContent = 'Run Ingest';
+    });
+
+    // AT image backfill — streams SSE progress
+    document.getElementById('run-backfill-btn')?.addEventListener('click', async function () {
+      const btn = this as HTMLButtonElement;
+      const statusEl = document.getElementById('backfill-status')!;
+
+      btn.disabled = true;
+      btn.textContent = 'Running…';
+      statusEl.textContent = 'Starting…';
+
+      try {
+        const res = await fetch('/api/admin/run-backfill');
+        if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buf = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buf += decoder.decode(value, { stream: true });
+          const parts = buf.split('\n\n');
+          buf = parts.pop() ?? '';
+          for (const part of parts) {
+            if (!part.startsWith('data: ')) continue;
+            let ev: Record<string, unknown>;
+            try { ev = JSON.parse(part.slice(6)); } catch { continue; }
+            if (ev.type === 'start') {
+              statusEl.textContent = ev.total === 0 ? 'Nothing to backfill.' : `Processing ${ev.total} listings…`;
+            } else if (ev.type === 'progress') {
+              statusEl.textContent = ev.ok
+                ? `${ev.source_id}: ${ev.photos} photos saved`
+                : `${ev.source_id}: ${ev.reason}`;
+            } else if (ev.type === 'done') {
+              statusEl.textContent = `Done — ${ev.updated} updated, ${ev.empty} empty, ${ev.failed} failed`;
+              const el = document.getElementById('backfill-last-run');
+              if (el) el.textContent = fmtTime(Date.now());
+            }
+          }
+        }
+      } catch (err) {
+        statusEl.textContent = String(err);
+        statusEl.classList.add('is-error');
+      }
+
+      btn.disabled = false;
+      btn.textContent = 'Run Backfill';
+    });
+
+    // AT description backfill — streams SSE progress
+    document.getElementById('run-desc-backfill-btn')?.addEventListener('click', async function () {
+      const btn = this as HTMLButtonElement;
+      const statusEl = document.getElementById('desc-backfill-status')!;
+
+      btn.disabled = true;
+      btn.textContent = 'Running…';
+      statusEl.textContent = 'Starting…';
+      statusEl.classList.remove('is-error');
+
+      try {
+        const res = await fetch('/api/admin/backfill-descriptions');
+        if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buf = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buf += decoder.decode(value, { stream: true });
+          const parts = buf.split('\n\n');
+          buf = parts.pop() ?? '';
+          for (const part of parts) {
+            if (!part.startsWith('data: ')) continue;
+            let ev: Record<string, unknown>;
+            try { ev = JSON.parse(part.slice(6)); } catch { continue; }
+            if (ev.type === 'start') {
+              statusEl.textContent = ev.total === 0 ? 'All descriptions filled.' : `0 / ${ev.total} processed…`;
+            } else if (ev.type === 'batch') {
+              statusEl.textContent = `${ev.done} / ${ev.total} — ${ev.updated} updated`;
+            } else if (ev.type === 'done') {
+              statusEl.textContent = `Done — ${ev.updated} updated, ${ev.skipped} skipped, ${ev.failed} failed`;
+              const el = document.getElementById('desc-backfill-last-run');
+              if (el) el.textContent = fmtTime(Date.now());
+            }
+          }
+        }
+      } catch (err) {
+        statusEl.textContent = String(err);
+        statusEl.classList.add('is-error');
+      }
+
+      btn.disabled = false;
+      btn.textContent = 'Run';
+    });
+  }
 </script>
 
 <style>
@@ -427,4 +740,59 @@ function fmtModel(m: string): string {
   .explain { font-size: 0.75rem; color: #6B7280; line-height: 1.7; padding-left: 1.1rem; }
   .explain li { margin-bottom: 0.4rem; }
   .explain strong { color: #374151; }
+
+  /* Tools — manual runs (local-only); moved here from the admin home page */
+  .btn {
+    font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em;
+    padding: 0.45rem 0.75rem; border-radius: 0.375rem; cursor: pointer;
+    border: 1.5px solid transparent; transition: all 0.15s; white-space: nowrap;
+    text-decoration: none; display: inline-block; text-align: center; line-height: 1.5;
+  }
+  .btn:disabled { opacity: 0.35; cursor: not-allowed; }
+  .btn-edit    { background: white; color: #6B7280; border-color: #E5E7EB; }
+  .btn-edit:hover { color: #111111; border-color: #111111; }
+  .tools-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 0.625rem; margin-bottom: 1.5rem; }
+  .tool-card {
+    border: 1.5px solid #E5E7EB; border-radius: 0.625rem;
+    padding: 0.75rem 1rem; display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
+  }
+  .tool-info { flex: 1; min-width: 0; }
+  .tool-name { font-size: 0.75rem; font-weight: 700; color: #111111; margin-bottom: 0.15rem; display: flex; align-items: center; gap: 0.4rem; }
+  .local-badge { font-size: 0.55rem; font-weight: 700; letter-spacing: 0.08em; background: #DCFCE7; color: #166534; padding: 0.15rem 0.5rem; border-radius: 9999px; }
+  .tool-desc { font-size: 0.7rem; color: #9CA3AF; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 0.2rem; }
+  .tool-times { font-size: 0.65rem; color: #9CA3AF; display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; min-width: 0; }
+  .time-label { font-weight: 600; color: #6B7280; white-space: nowrap; }
+  .time-val { font-variant-numeric: tabular-nums; color: #374151; white-space: nowrap; }
+  .time-next { margin-left: auto; display: flex; align-items: center; gap: 0.4rem; flex-shrink: 0; }
+  .tool-status-inline { font-variant-numeric: tabular-nums; color: #9CA3AF; min-width: 0; }
+  .tool-status-inline.is-error { color: #991B1B; background: #FEF2F2; border-radius: 0.375rem; padding: 0.2rem 0.5rem; font-weight: 600; }
+  .tool-progress { margin-top: 0.6rem; display: flex; align-items: center; gap: 0.6rem; }
+  .tool-progress[hidden] { display: none; }
+  .tool-progress-track { flex: 1; height: 7px; background: #EAE8E3; border-radius: 999px; overflow: hidden; min-width: 120px; }
+  .tool-progress-track > span { display: block; height: 100%; width: 0; background: #F5A623; border-radius: 999px; transition: width 0.3s ease; }
+  .tool-progress-label { font-size: 0.65rem; font-variant-numeric: tabular-nums; color: #6B7280; white-space: nowrap; }
+  .tool-controls { display: flex; align-items: center; gap: 0.625rem; flex-shrink: 0; }
+  .btn-tool { background: #111111; color: white; border-color: #111111; }
+  .btn-tool:hover:not(:disabled) { background: #374151; border-color: #374151; }
+  .btn-tool:disabled { opacity: 0.5; }
+  .modal-backdrop {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+    display: flex; align-items: center; justify-content: center; z-index: 50;
+  }
+  .modal-backdrop[hidden] { display: none; }
+  .modal {
+    background: white; border-radius: 0.875rem; border: 1.5px solid #E5E7EB;
+    padding: 1.5rem; width: 100%; max-width: 320px; box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+  }
+  .modal-title { font-size: 0.8rem; font-weight: 700; color: #111111; margin-bottom: 1rem; }
+  .modal-sources { display: flex; flex-direction: column; gap: 0.625rem; margin-bottom: 1.25rem; }
+  .source-opt {
+    display: flex; align-items: center; gap: 0.625rem;
+    font-size: 0.8rem; color: #374151; cursor: pointer;
+    padding: 0.5rem 0.75rem; border-radius: 0.5rem; border: 1.5px solid #E5E7EB;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .source-opt:hover { border-color: #111111; }
+  .source-opt input { accent-color: #111111; width: 14px; height: 14px; cursor: pointer; }
+  .modal-actions { display: flex; gap: 0.5rem; justify-content: flex-end; }
 </style>
