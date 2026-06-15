@@ -25,6 +25,7 @@ export interface PostSuggestion {
   price: number;
   province: string;
   photoCount: number;
+  photo: string | null;       // first photo URL, for the suggestion thumbnail
   dropAmount: number;         // rands, 0 if none
   marketDiff: number | null;  // asking − cohort median; <0 = below market; null = cohort too thin
   dealScore: number | null;   // composite price+mileage deal score; >0 = good buy; null = unconfirmed
@@ -42,6 +43,9 @@ const MILEAGE_WEIGHT = 0.5;
 const MARKET_EVAL_CUT = 20;
 
 const zar = (n: number) => 'R' + Math.round(n).toLocaleString('en-ZA');
+const firstPhoto = (photos: string | null) => {
+  try { return photos ? (JSON.parse(photos)[0] ?? null) : null; } catch { return null; }
+};
 
 export function getPostSuggestions(limit = 3): PostSuggestion[] {
   const weekAgo = new Date(Date.now() - 7 * 24 * 3600 * 1000);
@@ -58,6 +62,7 @@ export function getPostSuggestions(limit = 3): PostSuggestion[] {
     mileage: listings.mileage,
     created_at: listings.created_at,
     description: listings.description,
+    photos: listings.photos,
     photoCount: sql<number>`json_array_length(photos)`,
   }).from(listings)
     .where(and(
@@ -196,7 +201,7 @@ export function getPostSuggestions(limit = 3): PostSuggestion[] {
     return {
       id: c.id, slug: c.slug, title: c.title, model: c.model,
       price: c.price, province: c.province ?? '',
-      photoCount: c.photoCount, dropAmount, marketDiff, dealScore,
+      photoCount: c.photoCount, photo: firstPhoto(c.photos), dropAmount, marketDiff, dealScore,
       score: Math.round(score), reasons,
     };
   });
