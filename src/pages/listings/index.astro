@@ -132,13 +132,28 @@ function firstPhoto(photos: string) {
         <option value="all">All Provinces</option>
         {PROVINCES.filter(p => p !== 'All').map(p => <option value={p}>{p}</option>)}
       </select>
-      <select id="filter-price" class="border border-[#DDD9D3] rounded-xl px-4 py-2.5 text-sm bg-white focus:outline-none focus:border-[#F5A623] transition-colors cursor-pointer min-h-[44px]">
-        <option value="all">Any Price</option>
-        <option value="0-300000">Under R300k</option>
-        <option value="300000-600000">R300k – R600k</option>
-        <option value="600000-900000">R600k – R900k</option>
-        <option value="900000-9999999">Over R900k</option>
-      </select>
+      <div class="relative" id="price-filter">
+        <button type="button" id="price-btn" aria-expanded="false"
+          class="border border-[#DDD9D3] rounded-xl px-4 py-2.5 text-sm bg-white focus:outline-none focus:border-[#F5A623] transition-colors cursor-pointer min-h-[44px] flex items-center gap-2 justify-between min-w-[140px]">
+          <span id="price-label" class="truncate">Any Price</span>
+          <svg width="10" height="6" viewBox="0 0 10 6" class="flex-shrink-0"><path d="M1 1l4 4 4-4" stroke="#9CA3AF" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <div id="price-panel" class="absolute z-30 mt-1 w-72 bg-white border border-[#DDD9D3] rounded-xl shadow-lg py-1 hidden">
+          <button type="button" class="price-preset w-full text-left px-4 py-2 text-sm hover:bg-[#F5F3EE]" data-min="0" data-max="">Any Price</button>
+          <button type="button" class="price-preset w-full text-left px-4 py-2 text-sm hover:bg-[#F5F3EE]" data-min="0" data-max="300000">Under R300k</button>
+          <button type="button" class="price-preset w-full text-left px-4 py-2 text-sm hover:bg-[#F5F3EE]" data-min="300000" data-max="600000">R300k – R600k</button>
+          <button type="button" class="price-preset w-full text-left px-4 py-2 text-sm hover:bg-[#F5F3EE]" data-min="600000" data-max="1000000">R600k – R1m</button>
+          <button type="button" class="price-preset w-full text-left px-4 py-2 text-sm hover:bg-[#F5F3EE]" data-min="1000000" data-max="1500000">R1m – R1.5m</button>
+          <button type="button" class="price-preset w-full text-left px-4 py-2 text-sm hover:bg-[#F5F3EE]" data-min="1500000" data-max="">Over R1.5m</button>
+          <div class="border-t border-[#EEE] my-1"></div>
+          <div class="px-3 py-2 flex items-center gap-1.5">
+            <input type="number" inputmode="numeric" min="0" id="price-min" placeholder="Min R" class="w-full min-w-0 border border-[#DDD9D3] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#F5A623]" />
+            <span class="text-[#9CA3AF]">–</span>
+            <input type="number" inputmode="numeric" min="0" id="price-max" placeholder="Max R" class="w-full min-w-0 border border-[#DDD9D3] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#F5A623]" />
+            <button type="button" id="price-apply" class="flex-shrink-0 px-3 py-1.5 rounded-lg text-sm font-bold bg-[#111111] text-white hover:bg-[#F5A623] hover:text-[#111111] transition-colors">Go</button>
+          </div>
+        </div>
+      </div>
       <select id="filter-mileage" class="border border-[#DDD9D3] rounded-xl px-4 py-2.5 text-sm bg-white focus:outline-none focus:border-[#F5A623] transition-colors cursor-pointer min-h-[44px]">
         <option value="all">Any Mileage</option>
         <option value="0-50000">Under 50k km</option>
@@ -411,7 +426,6 @@ function firstPhoto(photos: string) {
   }
 
   const provinceSel = document.getElementById('filter-province') as HTMLSelectElement;
-  const priceSel = document.getElementById('filter-price') as HTMLSelectElement;
   const mileageSel = document.getElementById('filter-mileage') as HTMLSelectElement;
   const typePills = document.querySelectorAll<HTMLButtonElement>('.type-pill');
 
@@ -441,6 +455,78 @@ function firstPhoto(photos: string) {
   });
   msBoxes.forEach(b => b.addEventListener('change', () => { updateModelLabel(); applyFilters(); }));
 
+  // ── Price dropdown (presets + custom min/max) ────────────────────────────
+  const priceBtn = document.getElementById('price-btn')!;
+  const pricePanel = document.getElementById('price-panel')!;
+  const priceLabelEl = document.getElementById('price-label')!;
+  const priceMinInput = document.getElementById('price-min') as HTMLInputElement;
+  const priceMaxInput = document.getElementById('price-max') as HTMLInputElement;
+  const pricePresets = Array.from(document.querySelectorAll<HTMLButtonElement>('.price-preset'));
+  let priceMin = 0;
+  let priceMax = Infinity;
+
+  const kR = (n: number) =>
+    n >= 1000000 ? 'R' + (n / 1000000).toFixed(n % 1000000 === 0 ? 0 : 1) + 'm'
+    : 'R' + Math.round(n / 1000) + 'k';
+
+  function customPriceLabel(min: number, max: number): string {
+    if (min <= 0 && !isFinite(max)) return 'Any Price';
+    if (min <= 0) return 'Up to ' + kR(max);
+    if (!isFinite(max)) return kR(min) + '+';
+    return kR(min) + ' – ' + kR(max);
+  }
+
+  function closePricePanel() {
+    pricePanel.classList.add('hidden');
+    priceBtn.setAttribute('aria-expanded', 'false');
+  }
+
+  function setPrice(min: number, max: number, label: string) {
+    priceMin = min;
+    priceMax = max;
+    priceLabelEl.textContent = label;
+    applyFilters();
+  }
+
+  function resetPrice() {
+    priceMinInput.value = '';
+    priceMaxInput.value = '';
+    priceMin = 0;
+    priceMax = Infinity;
+    priceLabelEl.textContent = 'Any Price';
+  }
+
+  priceBtn.addEventListener('click', () => {
+    const open = pricePanel.classList.toggle('hidden');
+    priceBtn.setAttribute('aria-expanded', String(!open));
+  });
+  document.addEventListener('click', e => {
+    if (!document.getElementById('price-filter')!.contains(e.target as Node)) closePricePanel();
+  });
+
+  pricePresets.forEach(btn => btn.addEventListener('click', () => {
+    const min = Number(btn.dataset.min || 0);
+    const max = btn.dataset.max ? Number(btn.dataset.max) : Infinity;
+    priceMinInput.value = min > 0 ? String(min) : '';
+    priceMaxInput.value = isFinite(max) ? String(max) : '';
+    setPrice(min, max, btn.textContent!.trim());
+    closePricePanel();
+  }));
+
+  function applyCustomPrice() {
+    let lo = Math.max(0, Number(priceMinInput.value) || 0);
+    let hi = priceMaxInput.value ? Number(priceMaxInput.value) : Infinity;
+    if (isFinite(hi) && lo > hi) { const t = lo; lo = hi; hi = t; } // swap if reversed
+    priceMinInput.value = lo > 0 ? String(lo) : '';
+    priceMaxInput.value = isFinite(hi) ? String(hi) : '';
+    setPrice(lo, hi, customPriceLabel(lo, hi));
+    closePricePanel();
+  }
+  document.getElementById('price-apply')!.addEventListener('click', applyCustomPrice);
+  [priceMinInput, priceMaxInput].forEach(inp => inp.addEventListener('keydown', e => {
+    if ((e as KeyboardEvent).key === 'Enter') { e.preventDefault(); applyCustomPrice(); }
+  }));
+
   const PAGE_SIZE = 18;
   let activeType = 'all';
   let currentPage = 1;
@@ -452,10 +538,7 @@ function firstPhoto(photos: string) {
 
     const isShowOff = l.type === 'show_off';
 
-    const [minP, maxP] = priceSel.value === 'all'
-      ? [0, Infinity]
-      : priceSel.value.split('-').map(Number);
-    const priceOk = isShowOff || showingSold || (l.price >= minP && l.price <= maxP);
+    const priceOk = isShowOff || showingSold || (l.price >= priceMin && l.price <= priceMax);
 
     const [minM, maxM] = mileageSel.value === 'all'
       ? [0, Infinity]
@@ -552,7 +635,7 @@ function firstPhoto(photos: string) {
       activeType = pill.dataset.type ?? 'all';
       typePills.forEach(p => p.classList.remove('active'));
       pill.classList.add('active');
-      const priceFilter = document.getElementById('filter-price') as HTMLSelectElement;
+      const priceFilter = document.getElementById('price-filter') as HTMLElement;
       const hide = (activeType === 'show_off' || activeType === 'sold') ? 'none' : '';
       priceFilter.style.display = hide;
       mileageSel.style.display = (activeType === 'show_off') ? 'none' : '';
@@ -560,13 +643,13 @@ function firstPhoto(photos: string) {
     });
   });
 
-  [provinceSel, priceSel, mileageSel].forEach(el => el.addEventListener('change', applyFilters));
+  [provinceSel, mileageSel].forEach(el => el.addEventListener('change', applyFilters));
 
   document.getElementById('reset-filters')?.addEventListener('click', () => {
     msBoxes.forEach(b => { b.checked = false; });
     updateModelLabel();
     provinceSel.value = 'all';
-    priceSel.value = 'all';
+    resetPrice();
     mileageSel.value = 'all';
     activeType = 'all';
     typePills.forEach(p => p.classList.toggle('active', p.dataset.type === 'all'));
