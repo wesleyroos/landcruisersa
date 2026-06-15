@@ -23,4 +23,6 @@ echo "── $(date '+%Y-%m-%d %H:%M:%S') starting local ingests ──"
 # AT listings ingest with empty descriptions (AT blocks our servers); fill them
 # here from this residential IP, right after the AT ingest that created them.
 "$NODE" --experimental-strip-types src/scripts/backfill-at-descriptions.ts || echo "[cron] at-desc-backfill failed"
+# Copy AutoTrader-hosted images to R2 (AT rate-limits hotlinks) — also residential.
+"$NODE" --experimental-strip-types src/scripts/rehost-at-images.ts || echo "[cron] at-image-rehost failed"
 echo "── $(date '+%Y-%m-%d %H:%M:%S') local ingests done ──"

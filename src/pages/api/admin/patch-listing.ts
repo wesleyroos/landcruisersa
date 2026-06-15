@@ -13,18 +13,19 @@ export const POST: APIRoute = async ({ request }) => {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
   }
 
-  let body: { source_id?: string; description?: string; colour?: string; status?: string };
+  let body: { source_id?: string; description?: string; colour?: string; status?: string; photos?: string[] };
   try { body = await request.json(); } catch {
     return new Response(JSON.stringify({ error: 'Invalid JSON' }), { status: 400 });
   }
 
-  const { source_id, description, colour, status } = body;
+  const { source_id, description, colour, status, photos } = body;
   if (!source_id) return new Response(JSON.stringify({ error: 'source_id required' }), { status: 400 });
 
   const VALID_STATUSES = ['active', 'inactive', 'sold', 'pending'];
   const updates: Record<string, unknown> = {};
   if (description !== undefined) updates.description = description;
   if (colour !== undefined) updates.colour = colour;
+  if (Array.isArray(photos)) updates.photos = JSON.stringify(photos);
   if (status !== undefined && VALID_STATUSES.includes(status)) {
     updates.status = status;
     Object.assign(updates, offMarketPatch(status)); // stamp/clear off_market_at alongside the status
