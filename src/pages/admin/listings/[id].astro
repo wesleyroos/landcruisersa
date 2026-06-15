@@ -829,7 +829,7 @@ ${listing.description ? listing.description.slice(0, 200).trim() + (listing.desc
   // ── Undo a mistaken IG post marker ─────────────────────────────────────────
   document.getElementById('ig-clear-posted')?.addEventListener('click', async function () {
     if (!confirm('Mark this listing as NOT posted to Instagram? (Use after deleting the post on IG.)')) return;
-    const btn = this as HTMLButtonElement;
+    const btn = this;
     btn.disabled = true;
     try {
       const res = await fetch('/api/admin/instagram/clear-posted', {
