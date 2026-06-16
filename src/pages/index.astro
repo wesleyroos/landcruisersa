@@ -8,6 +8,7 @@ import { PARTNERS } from '@/data/partners';
 import { db } from '@/db/index';
 import { listings, priceEvents } from '@/db/schema';
 import { eq, desc, and, not, sql, gte } from 'drizzle-orm';
+import { getSiteStats } from '@/lib/site-stats';
 
 const allPosts = await getCollection('posts', p => !p.data.draft);
 const posts = allPosts
@@ -38,11 +39,10 @@ const fillListings = pinnedListings.length < SLOTS
 
 const featuredListings = [...pinnedListings, ...fillListings];
 
-// Live hero stats — the first fold's claims stay true automatically
-const activeCount = (db.select({ n: sql<number>`count(*)` })
-  .from(listings).where(and(eq(listings.status, 'active'), LC)).get())?.n ?? 0;
-const modelCount = (db.select({ n: sql<number>`count(DISTINCT model)` })
-  .from(listings).where(and(eq(listings.status, 'active'), LC, not(eq(listings.model, 'other')))).get())?.n ?? 0;
+// Live hero stats — the first fold's claims stay true automatically.
+// Counts come from the shared single source of truth so the homepage, About
+// and market pages never quote conflicting numbers.
+const { liveListings: activeCount, models: modelCount } = getSiteStats();
 const dropCount = (db.select({ n: sql<number>`count(DISTINCT slug)` })
   .from(priceEvents)
   .where(and(

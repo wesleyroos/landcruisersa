@@ -5,15 +5,10 @@
 export const prerender = false;
 
 import Base from '@/layouts/Base.astro';
-import { db } from '@/db/index';
-import { listings } from '@/db/schema';
-import { sql, eq, and } from 'drizzle-orm';
 import { SITE } from '@/data/site';
+import { getSiteStats } from '@/lib/site-stats';
 
-const activeCount = (db.select({ n: sql<number>`cast(count(*) as int)` })
-  .from(listings).where(eq(listings.status, 'active')).get())?.n ?? 0;
-const modelCount = (db.select({ n: sql<number>`cast(count(DISTINCT model) as int)` })
-  .from(listings).where(and(eq(listings.status, 'active'), sql`model != 'other'`)).get())?.n ?? 0;
+const { liveListings: activeCount, models: modelCount } = getSiteStats();
 const activeStr = activeCount.toLocaleString('en-ZA');
 
 const updated = new Date();

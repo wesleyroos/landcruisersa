@@ -8,6 +8,7 @@ import { db } from '@/db/index';
 import { listings } from '@/db/schema';
 import { sql, eq, and, gt } from 'drizzle-orm';
 import { segmentForModel, modelLabel } from '@/lib/sources/normalize';
+import { getSiteStats } from '@/lib/site-stats';
 
 const allStats = db.select({
   model: listings.model,
@@ -25,7 +26,13 @@ const allStats = db.select({
 const stats     = allStats.filter(r => segmentForModel(r.model) === 'land-cruiser');
 const toyota4x4 = allStats.filter(r => segmentForModel(r.model) === 'toyota-4x4');
 
+// totalActive = the priced for-sale rows shown in the table below. It is a
+// subset of the canonical live-listings total (which also includes show-off
+// posts and listings with no published price) — surface both so the figures
+// across the site visibly reconcile rather than read as competing headlines.
 const totalActive = stats.reduce((s, r) => s + r.count, 0);
+const { liveListings } = getSiteStats();
+const liveStr = liveListings.toLocaleString('en-ZA');
 const total4x4 = toyota4x4.reduce((s, r) => s + r.count, 0);
 const updated = new Date();
 const updatedStr = updated.toLocaleDateString('en-ZA', { day: 'numeric', month: 'long', year: 'numeric' });
@@ -37,7 +44,7 @@ const datasetSchema = {
   "@context": "https://schema.org",
   "@type": "Dataset",
   "name": "Toyota Land Cruiser Market Data — South Africa",
-  "description": `Live asking prices and supply counts for ${totalActive} Toyota Land Cruisers currently for sale in South Africa, aggregated across major listing platforms. Updated ${updated.toISOString().slice(0, 10)}.`,
+  "description": `Live asking prices and supply counts for ${totalActive} Toyota Land Cruisers currently for sale with a published asking price in South Africa (of ${liveListings} live Land Cruiser listings tracked), aggregated across major listing platforms. Updated ${updated.toISOString().slice(0, 10)}.`,
   "url": "https://landcruisersa.co.za/market/",
   "creator": { "@type": "Organization", "name": "Land Cruiser SA", "url": "https://landcruisersa.co.za" },
   "dateModified": updated.toISOString(),
@@ -47,7 +54,7 @@ const datasetSchema = {
 
 <Base
   title="Land Cruiser Market Data South Africa — Live Prices & Supply"
-  description={`Live market data for ${totalActive} Toyota Land Cruisers for sale in South Africa: average asking prices, price ranges, and supply by model. Updated ${updatedStr}.`}
+  description={`Live market data for ${totalActive} Toyota Land Cruisers for sale with a published asking price in South Africa: average asking prices, price ranges, and supply by model. Updated ${updatedStr}.`}
   schema={datasetSchema}
 >
 
@@ -57,7 +64,8 @@ const datasetSchema = {
     <h1>Toyota Land Cruiser Prices in South Africa</h1>
     <p class="intro">
       Live asking-price and supply data for the {totalActive} Toyota Land Cruisers currently listed
-      for sale across South Africa, aggregated by Land Cruiser SA from major listing platforms and
+      for sale with a published asking price — part of the {liveStr} live Land Cruiser listings
+      Land Cruiser SA tracks across South Africa, aggregated from major listing platforms and
       private sellers. Figures update continuously as listings are added and sold.
     </p>
 
