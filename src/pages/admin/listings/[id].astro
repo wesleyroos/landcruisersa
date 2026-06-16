@@ -895,7 +895,7 @@ const waSpec = [
   }
 
   // Robust copy — clipboard API where available, textarea+execCommand fallback.
-  async function copyToClipboard(text: string): Promise<boolean> {
+  async function copyToClipboard(text) {
     try {
       if (navigator.clipboard && window.isSecureContext) {
         await navigator.clipboard.writeText(text);
@@ -931,7 +931,7 @@ const waSpec = [
   // WhatsApp photo download — hits the same-origin proxy per photo (forces a
   // download via Content-Disposition; small delay dodges the browser's
   // multi-download throttle).
-  const waDlBtn = document.getElementById('wa-download-btn') as HTMLButtonElement | null;
+  const waDlBtn = document.getElementById('wa-download-btn');
   if (waDlBtn) {
     waDlBtn.addEventListener('click', async () => {
       const id = waDlBtn.dataset.id;
