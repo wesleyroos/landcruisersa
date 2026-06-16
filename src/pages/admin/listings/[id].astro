@@ -50,6 +50,27 @@ const igCaption = `${listing.year} Toyota ${modelLabel} — ${priceStr}
 ${listing.description ? listing.description.slice(0, 200).trim() + (listing.description.length > 200 ? '...' : '') + '\n\n' : ''}🔗 Link in bio to view full listing.
 
 #LandCruiser #Toyota #${listing.model.replace(/-/g, '')} #4x4 #Offroad #SouthAfrica #LandCruiserSA #4WD #TruckLife #Overlanding`;
+
+// WhatsApp spec — full vehicle detail, ready to paste into a chat
+const listingUrl = listing.slug ? `https://landcruisersa.co.za/listings/${listing.slug}/` : '';
+const waSpec = [
+  `*${listing.title}*`,
+  listing.price ? `💰 R${listing.price.toLocaleString('en-ZA')}` : '💰 POA',
+  '',
+  `📅 Year: ${listing.year}`,
+  `🚙 Model: ${modelLabel}`,
+  listing.mileage ? `🛣️ Mileage: ${listing.mileage.toLocaleString('en-ZA')} km` : null,
+  transStr ? `⚙️ Transmission: ${transStr}` : null,
+  listing.fuel_type ? `⛽ Fuel: ${listing.fuel_type}` : null,
+  listing.fuel_consumption ? `📊 Consumption: ${listing.fuel_consumption} L/100km` : null,
+  listing.power_kw ? `🔋 Power: ${listing.power_kw} kW` : null,
+  listing.seats ? `💺 Seats: ${listing.seats}` : null,
+  listing.colour ? `🎨 Colour: ${listing.colour}` : null,
+  listing.new_or_used ? `🏷️ Condition: ${listing.new_or_used}` : null,
+  listing.province ? `📍 Province: ${listing.province}` : null,
+  listing.description ? `\n${listing.description.trim()}` : null,
+  listingUrl ? `\n🔗 ${listingUrl}` : null,
+].filter(line => line !== null).join('\n');
 ---
 
 <AdminLayout title={listing.title} activePage="listings">
@@ -274,6 +295,20 @@ ${listing.description ? listing.description.slice(0, 200).trim() + (listing.desc
           <span class="upload-hint">JPEG, PNG or WebP · max 10 MB each</span>
         </div>
         <div id="upload-status"></div>
+      </div>
+
+      <!-- WhatsApp share -->
+      <div class="card ig-card">
+        <div class="ig-card-header">
+          <span>📱 WhatsApp spec</span>
+          <button id="wa-copy-btn" class="ig-copy-btn" type="button">Copy spec</button>
+        </div>
+        <pre id="wa-spec-text" class="ig-caption-body">{waSpec}</pre>
+        {photos.length > 0 && (
+          <button id="wa-download-btn" class="wa-dl-btn" type="button" data-id={listing.id} data-count={photos.length}>
+            ⬇ Download {photos.length} photo{photos.length > 1 ? 's' : ''}
+          </button>
+        )}
       </div>
 
       <!-- IG Caption -->
@@ -521,6 +556,15 @@ ${listing.description ? listing.description.slice(0, 200).trim() + (listing.desc
     cursor: pointer; transition: background 0.15s;
   }
   .ig-copy-btn:hover, .ig-copy-btn.copied { background: rgba(245,166,35,0.3); }
+
+  .wa-dl-btn {
+    display: block; width: calc(100% - 2rem); margin: 0 1rem 1rem;
+    background: #25D366; color: #fff; border: none;
+    font-size: 0.8rem; font-weight: 700; padding: 0.6rem 1rem;
+    border-radius: 0.5rem; cursor: pointer; transition: background 0.15s;
+  }
+  .wa-dl-btn:hover:not(:disabled) { background: #1da851; }
+  .wa-dl-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
   .ig-post-row { padding: 0.875rem 1rem; border-top: 1px solid #F0EDE8; }
   .ig-post-actions { display: flex; align-items: center; gap: 0.875rem; margin-top: 0.4rem; }
@@ -831,6 +875,44 @@ ${listing.description ? listing.description.slice(0, 200).trim() + (listing.desc
           copyBtn.classList.remove('copied');
         }, 2000);
       });
+    });
+  }
+
+  // WhatsApp spec copy
+  const waCopyBtn = document.getElementById('wa-copy-btn');
+  if (waCopyBtn) {
+    const specEl = document.getElementById('wa-spec-text');
+    waCopyBtn.addEventListener('click', () => {
+      navigator.clipboard.writeText(specEl?.textContent ?? '').then(() => {
+        waCopyBtn.textContent = 'Copied!';
+        waCopyBtn.classList.add('copied');
+        setTimeout(() => { waCopyBtn.textContent = 'Copy spec'; waCopyBtn.classList.remove('copied'); }, 2000);
+      });
+    });
+  }
+
+  // WhatsApp photo download — hits the same-origin proxy per photo (forces a
+  // download via Content-Disposition; small delay dodges the browser's
+  // multi-download throttle).
+  const waDlBtn = document.getElementById('wa-download-btn') as HTMLButtonElement | null;
+  if (waDlBtn) {
+    waDlBtn.addEventListener('click', async () => {
+      const id = waDlBtn.dataset.id;
+      const count = Number(waDlBtn.dataset.count || '0');
+      const orig = waDlBtn.textContent;
+      waDlBtn.disabled = true;
+      for (let i = 0; i < count; i++) {
+        waDlBtn.textContent = `Downloading ${i + 1}/${count}…`;
+        const a = document.createElement('a');
+        a.href = `/api/admin/listing-photos/${id}?i=${i}`;
+        a.download = '';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        await new Promise(r => setTimeout(r, 500));
+      }
+      waDlBtn.textContent = 'Done ✓';
+      setTimeout(() => { waDlBtn.textContent = orig; waDlBtn.disabled = false; }, 2500);
     });
   }
 
