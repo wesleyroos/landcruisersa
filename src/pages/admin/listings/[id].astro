@@ -126,6 +126,13 @@ ${listing.description ? listing.description.slice(0, 200).trim() + (listing.desc
               <option value="true"  selected={!!listing.featured}>★ Yes — show on home page &amp; top of listings</option>
             </select>
           </div>
+          <div class="field">
+            <label>Dealer offer</label>
+            <select name="dealer_offer_optin" id="f-dealer-offer-optin">
+              <option value="false" selected={!listing.dealer_offer_optin}>No</option>
+              <option value="true"  selected={!!listing.dealer_offer_optin}>🏷️ Yes — seller wants a dealer offer (shop to dealer partners)</option>
+            </select>
+          </div>
         </div>
 
         <!-- Vehicle Details -->
@@ -576,6 +583,7 @@ ${listing.description ? listing.description.slice(0, 200).trim() + (listing.desc
     if (data.mileage) data.mileage = Number(data.mileage);
     // Coerce boolean fields
     if ('featured' in data) data.featured = data.featured === 'true';
+    if ('dealer_offer_optin' in data) data.dealer_offer_optin = data.dealer_offer_optin === 'true';
 
     try {
       const res = await fetch(`/api/listings/${listingId}`, {

@@ -32,6 +32,8 @@ export const listings = sqliteTable('listings', {
   off_market_at: integer('off_market_at', { mode: 'timestamp' }),   // when it left the market (sold/removed/inactive); null while live
   featured:     integer('featured', { mode: 'boolean' }).notNull().default(false),
   review_flag:  integer('review_flag', { mode: 'boolean' }).notNull().default(false),
+  dealer_offer_optin: integer('dealer_offer_optin', { mode: 'boolean' }).notNull().default(false), // seller opted in to be shopped to dealer partners
+
   ig_posted_at: integer('ig_posted_at', { mode: 'timestamp' }),    // last posted to Instagram
   seller_notified_at: integer('seller_notified_at', { mode: 'timestamp' }), // when a private seller was emailed that their listing went live (one-shot)
   segment:      text('segment').notNull().default('land-cruiser'), // 'land-cruiser' | 'toyota-4x4' — only LC is shown publicly

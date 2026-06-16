@@ -20,6 +20,7 @@ export const POST: APIRoute = async ({ request }) => {
     province, new_or_used, transmission, fuel_type, colour,
     description, mods, photos,
     seller_name, seller_email, seller_phone,
+    dealer_offer_optin = false,
   } = body;
 
   if (!title || !model || !year || !seller_email || !seller_name || !seller_phone) {
@@ -52,6 +53,7 @@ export const POST: APIRoute = async ({ request }) => {
     seller_name,
     seller_email,
     seller_phone,
+    dealer_offer_optin: dealer_offer_optin === true && listing_type === 'for_sale',
     status: 'pending',
     created_at: new Date(),
   });
@@ -73,6 +75,7 @@ export const POST: APIRoute = async ({ request }) => {
                <p>${year} · ${province}</p>
                ${listing_type === 'for_sale' ? `<p>Price: R${Number(price).toLocaleString()}</p>` : ''}
                <p>From: ${seller_name} — ${seller_email} — ${seller_phone}</p>
+               ${dealer_offer_optin === true && listing_type === 'for_sale' ? `<p>🏷️ <strong>Wants a dealer offer</strong> — shop to dealer partners.</p>` : ''}
                <p><a href="https://landcruisersa.co.za/admin">Review in Admin →</a></p>`,
       }),
     }).catch(() => {}); // fire-and-forget

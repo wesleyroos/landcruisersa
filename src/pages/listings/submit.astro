@@ -271,6 +271,12 @@ import Base from '@/layouts/Base.astro';
         <input id="f-phone" type="tel" autocomplete="tel" placeholder="082 555 1234" inputmode="tel" />
         <span id="phone-hint" class="field-hint">Buyers contact you directly. Not shown publicly on Show Off posts.</span>
       </div>
+      <div class="field" id="dealer-offer-field">
+        <label class="dealer-consent" for="f-dealer-optin">
+          <input id="f-dealer-optin" type="checkbox" />
+          <span><strong>Want a dealer offer too?</strong> Tick to let us shop your Land Cruiser to our network of vetted dealer partners for a direct cash offer — a fast, hassle-free alternative to a private sale. We'll only share your details with a dealer if you tick this, and you can still sell privately.</span>
+        </label>
+      </div>
     </div>
 
     <p id="form-error" class="field-error hidden"></p>
@@ -633,6 +639,13 @@ import Base from '@/layouts/Base.astro';
   }
   .field textarea { resize: vertical; min-height: 120px; line-height: 1.6; }
   .field-hint { font-size: 0.7rem; color: #9CA3AF; line-height: 1.4; }
+  .field label.dealer-consent {
+    display: flex; gap: 0.6rem; align-items: flex-start;
+    font-size: 0.78rem; font-weight: 400; text-transform: none; letter-spacing: normal;
+    color: #6B7280; line-height: 1.5; cursor: pointer;
+  }
+  .dealer-consent strong { color: #374151; font-weight: 700; }
+  .dealer-consent input { margin-top: 0.1rem; flex-shrink: 0; width: 1rem; height: 1rem; accent-color: #F5A623; cursor: pointer; }
   .field-row {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -826,10 +839,12 @@ import Base from '@/layouts/Base.astro';
     const descLabel = document.getElementById('desc-label')!;
     const step3Sub = document.getElementById('step3-sub')!;
     const phoneHint = document.getElementById('phone-hint')!;
+    const dealerOfferField = document.getElementById('dealer-offer-field')!;
 
     if (selectedType === 'show_off') {
       saleFields.classList.add('hidden');
       modsField.classList.remove('hidden');
+      dealerOfferField.classList.add('hidden');
       descLabel.textContent = 'Build Story *';
       step3Sub.textContent = 'Tell us about your build.';
       (document.getElementById('f-description') as HTMLTextAreaElement).placeholder =
@@ -838,6 +853,7 @@ import Base from '@/layouts/Base.astro';
     } else {
       saleFields.classList.remove('hidden');
       modsField.classList.add('hidden');
+      dealerOfferField.classList.remove('hidden');
       descLabel.textContent = 'Description *';
       step3Sub.textContent = 'Tell buyers about your vehicle.';
       (document.getElementById('f-description') as HTMLTextAreaElement).placeholder =
@@ -999,6 +1015,8 @@ import Base from '@/layouts/Base.astro';
       seller_name: name,
       seller_email: email,
       seller_phone: phone,
+      dealer_offer_optin: selectedType === 'for_sale'
+        && (document.getElementById('f-dealer-optin') as HTMLInputElement).checked,
     };
 
     try {

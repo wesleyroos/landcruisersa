@@ -8,7 +8,7 @@ import { sendSellerLiveEmail } from '@/lib/seller-live-email';
 import { eq } from 'drizzle-orm';
 
 const UPDATABLE_FIELDS = [
-  'status', 'listing_type', 'featured', 'title', 'model', 'year', 'price', 'mileage',
+  'status', 'listing_type', 'featured', 'dealer_offer_optin', 'title', 'model', 'year', 'price', 'mileage',
   'province', 'new_or_used', 'transmission', 'fuel_type', 'colour', 'description',
   'mods', 'seller_name', 'seller_email', 'seller_phone',
 ];
@@ -31,6 +31,7 @@ export const PATCH: APIRoute = async ({ params, request }) => {
   }
 
   if ('featured' in updates) updates.featured = Boolean(updates.featured);
+  if ('dealer_offer_optin' in updates) updates.dealer_offer_optin = Boolean(updates.dealer_offer_optin);
 
   if (Object.keys(updates).length === 0) {
     return new Response(JSON.stringify({ error: 'No valid fields provided' }), { status: 400 });

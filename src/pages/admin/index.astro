@@ -25,12 +25,13 @@ const fProvince = Astro.url.searchParams.get('province') ?? '';
 const fType     = Astro.url.searchParams.get('type')     ?? '';
 const fPosted   = Astro.url.searchParams.get('posted')   === '1';
 const fDrops    = Astro.url.searchParams.get('drops')    === '1';
+const fDealer   = Astro.url.searchParams.get('dealer')   === '1';
 const fQ        = (Astro.url.searchParams.get('q') ?? '').trim();
-const hasFilter = !!(fSource || fModel || fYear || fPrice || fMileage || fProvince || fType || fPosted || fDrops || fQ);
+const hasFilter = !!(fSource || fModel || fYear || fPrice || fMileage || fProvince || fType || fPosted || fDrops || fDealer || fQ);
 
 function buildFilterUrl(overrides: Record<string, string>) {
   const params = new URLSearchParams();
-  const base = { source: fSource, model: fModel, year: fYear, price: fPrice, mileage: fMileage, province: fProvince, type: fType, posted: fPosted ? '1' : '', drops: fDrops ? '1' : '', q: fQ, ...overrides };
+  const base = { source: fSource, model: fModel, year: fYear, price: fPrice, mileage: fMileage, province: fProvince, type: fType, posted: fPosted ? '1' : '', drops: fDrops ? '1' : '', dealer: fDealer ? '1' : '', q: fQ, ...overrides };
   for (const [k, v] of Object.entries(base)) if (v) params.set(k, v);
   const s = params.toString();
   return `/admin${s ? '?' + s : ''}`;
@@ -102,6 +103,7 @@ if (fMileage) {
 }
 if (fPosted) activeConds.push(isNotNull(listings.ig_posted_at));
 if (fDrops) activeConds.push(droppedSlugs.length ? inArray(listings.slug, droppedSlugs) : sql`0 = 1`);
+if (fDealer) activeConds.push(eq(listings.dealer_offer_optin, true));
 if (fQ) {
   const pat = `%${fQ}%`;
   activeConds.push(or(
@@ -139,6 +141,10 @@ const igPick = igSuggestions[0];
 // Posted count for the filter toggle
 const postedCount = (db.select({ n: sql<number>`count(*)` }).from(listings)
   .where(and(eq(listings.status, 'active'), isNotNull(listings.ig_posted_at))).get())?.n ?? 0;
+
+// Dealer-offer opt-in count for the filter toggle
+const dealerOptinCount = (db.select({ n: sql<number>`count(*)` }).from(listings)
+  .where(and(eq(listings.status, 'active'), eq(listings.dealer_offer_optin, true))).get())?.n ?? 0;
 
 // IG media stats — only fetched in the Posted view so normal page loads stay fast.
 // Step 1: fetch media list, match to listings by timestamp (±2 min window)
@@ -382,6 +388,9 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
           ✓ Posted to IG ({postedCount})
         </a>
       )}
+      <a href={buildFilterUrl({ dealer: fDealer ? '' : '1', page: '' })} class={`af-posted-toggle${fDealer ? ' active' : ''}`}>
+        🏷️ Wants dealer offer ({dealerOptinCount})
+      </a>
       {hasFilter && <span class="af-count">{filteredActiveCount} listing{filteredActiveCount !== 1 ? 's' : ''}</span>}
       {hasFilter && <a href="/admin" class="af-clear">✕ Clear</a>}
     </div>
@@ -432,6 +441,9 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
                   {priceChange.has(l.slug) && (priceChange.get(l.slug)! < 0
                     ? <span class="chg-chip chg-drop">▼ R{Math.abs(priceChange.get(l.slug)!).toLocaleString('en-ZA')}</span>
                     : <span class="chg-chip chg-raise">▲ R{priceChange.get(l.slug)!.toLocaleString('en-ZA')}</span>
+                  )}
+                  {l.dealer_offer_optin && (
+                    <span class="badge badge-dealer">🏷️ Dealer offer</span>
                   )}
                 </div>
                 <a href={`/admin/listings/${l.id}`} class="lcard-title">{l.title}</a>
@@ -672,6 +684,7 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
   }
   .badge-sale { background: #FEF3C7; color: #92400E; }
   .badge-show { background: #F3F4F6; color: #6B7280; }
+  .badge-dealer { background: #FDE68A; color: #92400E; }
 
   .lcard-price { font-size: 0.9375rem; font-weight: 700; color: #111111; }
   .chg-chip {
