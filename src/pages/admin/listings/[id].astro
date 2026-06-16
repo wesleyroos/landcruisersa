@@ -51,8 +51,26 @@ ${listing.description ? listing.description.slice(0, 200).trim() + (listing.desc
 
 #LandCruiser #Toyota #${listing.model.replace(/-/g, '')} #4x4 #Offroad #SouthAfrica #LandCruiserSA #4WD #TruckLife #Overlanding`;
 
-// WhatsApp spec — full vehicle detail, ready to paste into a chat
-const listingUrl = listing.slug ? `https://landcruisersa.co.za/listings/${listing.slug}/` : '';
+// WhatsApp spec — full vehicle detail, ready to paste into a chat.
+// Strip seller-contact boilerplate from the description: "finance" lines,
+// standalone prices, phone numbers, URLs, and any leftover emojis.
+const EMOJI_RE = /[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2190}-\u{21FF}\u{2B00}-\u{2BFF}\u{FE00}-\u{FE0F}\u{200D}]/gu;
+function cleanDescription(raw: string): string {
+  return raw.split('\n')
+    .map(l => l.replace(EMOJI_RE, '').replace(/\s+$/, ''))
+    .filter(l => {
+      const t = l.trim();
+      if (/finance/i.test(t)) return false;            // "Finance can be arranged"
+      if (/^R\s?[\d\s.,]+$/i.test(t)) return false;     // standalone price line
+      if (/^\+?\d[\d\s().-]{7,}\d$/.test(t)) return false; // standalone phone number
+      if (/https?:\/\//i.test(t)) return false;         // URLs
+      return true;
+    })
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+const cleanDesc = listing.description ? cleanDescription(listing.description) : '';
 const waSpec = [
   `*${listing.title}*`,
   '',
@@ -67,8 +85,7 @@ const waSpec = [
   listing.colour ? `Colour: ${listing.colour}` : null,
   listing.new_or_used ? `Condition: ${listing.new_or_used}` : null,
   listing.province ? `Province: ${listing.province}` : null,
-  listing.description ? `\n${listing.description.trim()}` : null,
-  listingUrl ? `\n${listingUrl}` : null,
+  cleanDesc ? `\n${cleanDesc}` : null,
 ].filter(line => line !== null).join('\n');
 ---
 
@@ -877,16 +894,37 @@ const waSpec = [
     });
   }
 
+  // Robust copy — clipboard API where available, textarea+execCommand fallback.
+  async function copyToClipboard(text: string): Promise<boolean> {
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+        return true;
+      }
+    } catch { /* fall through to legacy path */ }
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.top = '-9999px';
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      const ok = document.execCommand('copy');
+      ta.remove();
+      return ok;
+    } catch { return false; }
+  }
+
   // WhatsApp spec copy
   const waCopyBtn = document.getElementById('wa-copy-btn');
   if (waCopyBtn) {
     const specEl = document.getElementById('wa-spec-text');
-    waCopyBtn.addEventListener('click', () => {
-      navigator.clipboard.writeText(specEl?.textContent ?? '').then(() => {
-        waCopyBtn.textContent = 'Copied!';
-        waCopyBtn.classList.add('copied');
-        setTimeout(() => { waCopyBtn.textContent = 'Copy spec'; waCopyBtn.classList.remove('copied'); }, 2000);
-      });
+    waCopyBtn.addEventListener('click', async () => {
+      const ok = await copyToClipboard(specEl?.textContent ?? '');
+      waCopyBtn.textContent = ok ? 'Copied!' : 'Press Ctrl+C';
+      waCopyBtn.classList.toggle('copied', ok);
+      setTimeout(() => { waCopyBtn.textContent = 'Copy spec'; waCopyBtn.classList.remove('copied'); }, 2000);
     });
   }
 
