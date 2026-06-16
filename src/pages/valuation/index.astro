@@ -1,0 +1,139 @@
+---
+export const prerender = false;
+
+import Base from '@/layouts/Base.astro';
+import ValuationTool from '@/components/ValuationTool.astro';
+import { valuate, VALUATION_DISCLAIMER, type Valuation } from '@/lib/valuation';
+import { LC_MODEL_SLUGS, LC_MODEL_SLUG_SET, modelLabel } from '@/lib/sources/normalize';
+
+const R = (n: number) => 'R' + Math.round(n).toLocaleString('en-ZA');
+
+// No-JS fallback: the tool's form posts here; compute server-side and render.
+let posted: { model: string; year: number; mileage: number; result: Valuation } | null = null;
+if (Astro.request.method === 'POST') {
+  try {
+    const fd = await Astro.request.formData();
+    if (String(fd.get('website') ?? '').trim() === '') {
+      const model = String(fd.get('model') ?? '').trim();
+      const year = Math.round(Number(fd.get('year')));
+      const mileage = Math.round(Number(fd.get('mileage')));
+      const cr = String(fd.get('condition') ?? 'good');
+      const condition = (['excellent', 'good', 'fair', 'rough'].includes(cr) ? cr : 'good') as
+        'excellent' | 'good' | 'fair' | 'rough';
+      if (LC_MODEL_SLUG_SET.has(model) && Number.isFinite(year) && Number.isFinite(mileage) && mileage >= 0 && mileage <= 600000) {
+        const result = valuate({ model, year, mileage, condition });
+        if (result.available) posted = { model, year, mileage, result };
+      }
+    }
+  } catch { /* fall through to the empty tool */ }
+}
+
+const models = LC_MODEL_SLUGS.map(s => ({ slug: s, label: modelLabel(s) }));
+const updatedStr = new Date().toLocaleDateString('en-ZA', { day: 'numeric', month: 'long', year: 'numeric' });
+
+const schema = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'WebApplication',
+      'name': 'Land Cruiser Valuation Tool',
+      'applicationCategory': 'FinanceApplication',
+      'operatingSystem': 'Web',
+      'url': 'https://landcruisersa.co.za/valuation/',
+      'offers': { '@type': 'Offer', 'price': '0', 'priceCurrency': 'ZAR' },
+      'description': 'Free instant valuation for any Toyota Land Cruiser in South Africa, built from live market asking prices aggregated nationwide.',
+    },
+    {
+      '@type': 'FAQPage',
+      'mainEntity': [
+        {
+          '@type': 'Question',
+          'name': "How is my Land Cruiser's value calculated?",
+          'acceptedAnswer': {
+            '@type': 'Answer',
+            'text': 'We compare your model, year and mileage against live and recently-sold Land Cruiser listings aggregated across South African platforms, then apply a conservative asking-to-selling adjustment to estimate a realistic private-sale range. ' + VALUATION_DISCLAIMER,
+          },
+        },
+        {
+          '@type': 'Question',
+          'name': 'Is the Land Cruiser valuation free?',
+          'acceptedAnswer': { '@type': 'Answer', 'text': "Yes — it's free, instant and needs no sign-up." },
+        },
+      ],
+    },
+  ],
+};
+---
+
+<Base
+  title="What's My Land Cruiser Worth? — Free Valuation (South Africa)"
+  description="Free instant Land Cruiser valuation for South Africa. Enter your model, year and mileage for a realistic private-sale range, built from live market asking prices across every model."
+  schema={schema}
+>
+  <div class="val-page">
+    <div class="val-wrap">
+      <p class="eyebrow">Free Valuation · Updated {updatedStr}</p>
+      <h1>What's My Land Cruiser Worth?</h1>
+      <p class="intro">
+        Get a realistic private-sale estimate for any Toyota Land Cruiser in South Africa — built
+        from <strong>live market asking prices</strong> we aggregate across every platform, not a generic
+        book value. Enter your details below.
+      </p>
+
+      {posted && posted.result.available && (
+        <div class="ssr-result">
+          <p class="ssr-lead">Realistic private-sale estimate · {posted.result.cohort.label}</p>
+          <p class="ssr-big">{R(posted.result.sellMid)}</p>
+          <p class="ssr-band">likely range <strong>{R(posted.result.sellLow)} – {R(posted.result.sellHigh)}</strong></p>
+          <p class="ssr-mkt">
+            Comparable cars ask <strong>{R(posted.result.cohort.p25)} – {R(posted.result.cohort.p75)}</strong>
+            (median {R(posted.result.cohort.medianPrice)}, {posted.result.cohort.size} listings).
+            If listing, price around <strong>{R(posted.result.askingCeiling)}</strong>.
+          </p>
+          <p class="ssr-disc">{VALUATION_DISCLAIMER}</p>
+        </div>
+      )}
+
+      <ValuationTool />
+
+      <section class="val-models">
+        <h2>Value a specific model</h2>
+        <div class="val-model-grid">
+          {models.map(m => (
+            <a href={`/valuation/${m.slug}/`} class="val-model-link">{m.label}</a>
+          ))}
+        </div>
+      </section>
+
+      <p class="foot-note">
+        Estimates are built from seller asking prices aggregated by Land Cruiser SA across major South
+        African platforms and recently-sold listings — not confirmed transaction prices. {VALUATION_DISCLAIMER}
+      </p>
+    </div>
+  </div>
+</Base>
+
+<style>
+  .val-page { background: #F5F3EE; min-height: 100vh; padding: 3rem 0 5rem; }
+  .val-wrap { max-width: 720px; margin: 0 auto; padding: 0 1.5rem; }
+  .eyebrow { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.16em; color: #D4881A; margin-bottom: 0.6rem; }
+  h1 { font-family: var(--font-heading); font-weight: 700; text-transform: uppercase; font-size: clamp(1.75rem, 5vw, 2.6rem); color: #111; line-height: 1.04; margin-bottom: 1rem; }
+  .intro { font-size: 0.95rem; color: #4A4A4A; line-height: 1.7; margin-bottom: 1.75rem; }
+  .intro strong { color: #111; }
+
+  .ssr-result { background: #fff; border: 1px solid #DDD9D3; border-radius: 0.875rem; padding: 1.4rem 1.25rem; margin-bottom: 1.5rem; }
+  .ssr-lead { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #6B7280; }
+  .ssr-big { font-family: var(--font-heading); font-weight: 700; font-size: clamp(2rem, 7vw, 2.6rem); color: #111; line-height: 1; margin-top: 0.2rem; }
+  .ssr-band { font-size: 0.9rem; color: #4A4A4A; margin-top: 0.35rem; }
+  .ssr-band strong, .ssr-mkt strong { color: #111; }
+  .ssr-mkt { font-size: 0.9rem; color: #4A4A4A; margin-top: 0.7rem; line-height: 1.6; }
+  .ssr-disc { font-size: 0.72rem; color: #9CA3AF; margin-top: 0.9rem; line-height: 1.55; }
+
+  .val-models { margin-top: 2.5rem; }
+  .val-models h2 { font-family: var(--font-heading); font-weight: 700; text-transform: uppercase; font-size: 1.05rem; color: #111; margin-bottom: 0.9rem; }
+  .val-model-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; }
+  @media (min-width: 560px) { .val-model-grid { grid-template-columns: repeat(3, 1fr); } }
+  .val-model-link { display: block; padding: 0.65rem 0.8rem; background: #fff; border: 1px solid #DDD9D3; border-radius: 0.5rem; font-size: 0.85rem; font-weight: 600; color: #111; text-decoration: none; text-align: center; transition: all 0.12s; }
+  .val-model-link:hover { border-color: #F5A623; color: #D4881A; }
+  .foot-note { font-size: 0.75rem; color: #9CA3AF; line-height: 1.6; margin-top: 2rem; }
+</style>

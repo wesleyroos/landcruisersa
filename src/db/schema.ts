@@ -137,6 +137,48 @@ export const financeLeads = sqliteTable('finance_leads', {
 
 export type FinanceLead = typeof financeLeads.$inferSelect;
 
+// Valuation tool requests — one row per estimate. Written anonymously at compute
+// time (vehicle + province + computed output, NO contact), then UPDATED in place
+// if the user later submits contact for a dealer offer. Denormalises the output
+// snapshot because the live cohort drifts. VIN is capture-only (the future
+// book-of-life spine key — no decode in v1).
+export const valuationRequests = sqliteTable('valuation_requests', {
+  id:            integer('id').primaryKey({ autoIncrement: true }),
+  // inputs
+  model:         text('model').notNull(),
+  year:          integer('year').notNull(),
+  mileage:       integer('mileage').notNull(),
+  province:      text('province'),
+  condition:     text('condition'),
+  // output snapshot (frozen at compute time)
+  sell_low:       integer('sell_low'),
+  sell_mid:       integer('sell_mid'),
+  sell_high:      integer('sell_high'),
+  asking_ceiling: integer('asking_ceiling'),
+  confidence:     text('confidence'),            // high | medium | low | none
+  cohort_size:    integer('cohort_size'),
+  cohort_label:   text('cohort_label'),
+  anchor_basis:   text('anchor_basis'),          // delisted | active
+  // VIN — capture-only, nullable, indexed (phase-2 spine; NO decode in v1)
+  vin:           text('vin'),
+  vin_valid:     integer('vin_valid', { mode: 'boolean' }).notNull().default(false),
+  // contact (nullable until the dealer-offer step)
+  name:          text('name'),
+  email:         text('email'),
+  phone:         text('phone'),
+  // consent & routing
+  consent:            integer('consent', { mode: 'boolean' }).notNull().default(false),            // Consent A: contact + store
+  dealer_offer_optin: integer('dealer_offer_optin', { mode: 'boolean' }).notNull().default(false), // Consent B: share with dealer
+  referred_at:        integer('referred_at', { mode: 'timestamp' }),
+  // attribution
+  source:        text('source').notNull().default('valuation_tool'),
+  source_path:   text('source_path'),
+  utm_source:    text('utm_source'),
+  created_at:    integer('created_at', { mode: 'timestamp' }).notNull(),
+});
+
+export type ValuationRequest = typeof valuationRequests.$inferSelect;
+
 // Price changes observed by the aggregator — fuels price-trend content and
 // "price drop" surfacing. One row per observed change, captured at ingest.
 export const priceEvents = sqliteTable('price_events', {

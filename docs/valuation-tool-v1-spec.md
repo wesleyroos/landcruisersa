@@ -6,6 +6,26 @@
 
 ---
 
+## 0. Build outcome — deltas from this spec (2026-06-16)
+
+The v1.0 thin slice is built and verified against a live prod-data snapshot. Two pre-flight tests against ~2,100 real listings drove changes from the spec as written:
+
+- **Coverage:** 99% of real listings sit in a (model, year) that clears ≥5 comps; 11/12 models SOLID, only 78-series sparse (degrades to the manual-valuation path). Script: `scripts/valuation-coverage.mjs`.
+- **A2 bracket test:** ~68–69% of listings fall inside the computed band — the structural ceiling for a market-comp tool without per-VIN spec data; the rest are genuinely cheap/dear, not errors. Scripts: `scripts/valuation-bracket-test.mjs`, `scripts/valuation-bracket-compare.mjs`.
+
+**Engine deltas (validated, in code):**
+1. **Delisted anchor DISABLED in v1** (`preferDelisted=false`). The delisted pool (~36 comps) is too thin — it widened to ±3 years and produced skewed cohorts that **doubled incoherent "sell-low/list-high" results (12%→5%) with no in-band gain**. Re-enable in phase 2 once the pool densifies, with a tight span cap. (Supersedes §3.1 delisted-preferred, §3.5 delisted context, and the §3.7 `anchorBasis==='active'` downgrade — that downgrade is **removed**, since every v1 estimate is asking-based by design; honesty lives in the disclaimer + sell discount, not a per-result penalty.)
+2. **Asking ceiling anchored to the cohort's own upper quartile:** `clamp(base × conditionFactor × (1+w), p25→p75, p90)` — replaces the spec's `median×(1+w)`, which sat too low for tight cohorts. (Supersedes §3.6 ceiling formula.)
+3. **Price-outlier trim** (1.5×IQR fence, keep ≥5 else untrimmed) added to `getCohortStats` so a mis-segmented/typo'd comp (e.g. a R2.8m "79") can't poison the median/percentiles. (Adds to §3.1.)
+4. **Mileage fires at `kmCompCount ≥ 3`** (incl. young cohorts) — it's a flat heuristic, not a per-cohort fit, so the young-skip was over-cautious. (Relaxes §3.3.)
+5. **Result framing = realistic-sell estimate + the real cohort spread (p25–p75) + suggested asking ceiling** (the chosen UX posture), so the ~32% outside the band reads as "you're at the top/bottom because of your km/condition," not a miss. (Confirms §6.1.)
+
+**Scope shipped (v1.0):** model-slug constants, `getCohortStats` refactor (byte-for-byte `getMarketPosition` preserved), `valuation.ts`, `valuation_requests` table + deploy-safe migration, `POST /api/valuation` (honeypot + per-IP rate-limit + anonymous snapshot), ungated `/valuation/` hub (with no-JS POST fallback) + 12 programmatic `/valuation/[model]/` SSR pages (WebApplication+Dataset+FAQ schema, noindex-on-thin), nav link, sitemap.
+
+**Deferred to v1.1** (was v1.0 in §9): the dealer-offer **lead-capture** step — `POST /api/valuation-lead`, the contact/consent/VIN fields on the form, the `/privacy/` page (legal gate for PII), admin surfacing of `dealer_offer_optin` rows, and the `track-event` beacon. Also deferred: extracting `getPriceDropSummary`/`getModelMarketStats` into shared libs (the price-movement context line). v1.0 captures **no PII** (anonymous vehicle+estimate snapshots only), so the privacy gate isn't yet binding.
+
+---
+
 ## 1. Overview & Strategy
 
 **What it is:** A public **"What's my Land Cruiser worth?"** tool at `/valuation/`. The user enters model + year + mileage (plus optional condition/extras/province), and we return an **honest range built from live comparable asking prices** we already aggregate, using a refactor of the existing `getMarketPosition` cohort engine.

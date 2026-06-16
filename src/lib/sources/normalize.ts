@@ -55,6 +55,24 @@ export function normalizeModel(raw: string, year?: number): string {
   return 'other';
 }
 
+// Canonical Land Cruiser model slugs — the 12 we surface and value. Single
+// source of truth for the valuation tool's model picker, route allowlist and
+// sitemap. Validate membership with LC_MODEL_SLUG_SET (do NOT use normalizeModel,
+// which maps free text and can fall through to 'other'/hilux/fortuner).
+export const LC_MODEL_SLUGS = [
+  '70-series', '76-series', '78-series', '79-series', '80-series', '100-series',
+  '200-series', '300-series', 'prado-150', 'prado-250', 'fj-cruiser', 'land-cruiser-fj',
+] as const;
+export const LC_MODEL_SLUG_SET: ReadonlySet<string> = new Set(LC_MODEL_SLUGS);
+
+// Launch years for young-cohort detection in the valuation engine — models too
+// new to have a meaningful used-market depreciation signal.
+export const MODEL_LAUNCH_YEAR: Record<string, number> = {
+  '300-series': 2021,
+  'prado-250': 2024,
+  'land-cruiser-fj': 2026,
+};
+
 const PROVINCE_MAP: Record<string, string> = {
   'gauteng': 'Gauteng',
   'western cape': 'Western Cape',

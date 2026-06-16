@@ -1,0 +1,238 @@
+---
+import { LC_MODEL_SLUGS, modelLabel } from '@/lib/sources/normalize';
+
+interface Props {
+  model?: string;     // preselect a model (per-model pages)
+  heading?: string;
+}
+const { model = '', heading = "What's your Land Cruiser worth?" } = Astro.props;
+
+const MODELS = LC_MODEL_SLUGS.map(s => ({ slug: s, label: modelLabel(s) }));
+const PROVINCES = ['Gauteng', 'Western Cape', 'KwaZulu-Natal', 'Eastern Cape', 'Limpopo', 'Mpumalanga', 'North West', 'Free State', 'Northern Cape'];
+const CONDITIONS = [
+  { v: 'excellent', l: 'Showroom' },
+  { v: 'good', l: 'Good' },
+  { v: 'fair', l: 'Average' },
+  { v: 'rough', l: 'Needs work' },
+];
+const years: number[] = [];
+for (let y = new Date().getFullYear(); y >= 1990; y--) years.push(y);
+---
+
+<div class="vt" data-preset-model={model}>
+  <form class="vt-form" id="vt-form" method="POST" action="/valuation/" novalidate>
+    <h2 class="vt-h">{heading}</h2>
+
+    <div class="vt-grid">
+      <label class="vt-field">
+        <span>Model</span>
+        <select name="model" required>
+          <option value="" disabled selected={!model}>Choose model…</option>
+          {MODELS.map(m => <option value={m.slug} selected={m.slug === model}>{m.label}</option>)}
+        </select>
+      </label>
+
+      <label class="vt-field">
+        <span>Year</span>
+        <select name="year" required>
+          <option value="" disabled selected>Year…</option>
+          {years.map(y => <option value={y}>{y}</option>)}
+        </select>
+      </label>
+
+      <label class="vt-field">
+        <span>Mileage (km)</span>
+        <input type="number" name="mileage" min="0" max="600000" step="1000" inputmode="numeric" placeholder="e.g. 120000" required />
+      </label>
+
+      <label class="vt-field">
+        <span>Province <em>(optional)</em></span>
+        <select name="province">
+          <option value="">Anywhere in SA</option>
+          {PROVINCES.map(p => <option value={p}>{p}</option>)}
+        </select>
+      </label>
+    </div>
+
+    <fieldset class="vt-cond">
+      <legend>Condition</legend>
+      <div class="vt-pills" role="radiogroup" aria-label="Condition">
+        {CONDITIONS.map((c, i) => (
+          <label class="vt-pill">
+            <input type="radio" name="condition" value={c.v} checked={i === 1} />
+            <span>{c.l}</span>
+          </label>
+        ))}
+      </div>
+    </fieldset>
+
+    {/* honeypot — visually hidden, off the tab order */}
+    <div class="vt-hp" aria-hidden="true">
+      <label>Leave this empty<input type="text" name="website" tabindex="-1" autocomplete="off" /></label>
+    </div>
+
+    <button type="submit" class="vt-submit">SEE MY ESTIMATE →</button>
+    <p class="vt-mini">Free · instant · no sign-up. Estimates from live market asking prices.</p>
+  </form>
+
+  <div id="vt-result" class="vt-result" aria-live="polite" hidden></div>
+</div>
+
+<script>
+  document.querySelectorAll('.vt').forEach(function (root) {
+    const form = root.querySelector('#vt-form');
+    const out = root.querySelector('#vt-result');
+    if (!form || !out) return;
+
+    const R = (n) => 'R' + Math.round(Number(n)).toLocaleString('en-ZA');
+    const esc = (s) => String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+    const utm = (() => { try { return sessionStorage.getItem('lcsa_utm') || ''; } catch { return ''; } })();
+
+    function track(name) { try { window.plausible && window.plausible(name); } catch {} }
+
+    function confBadge(c) {
+      const map = { high: ['High confidence', '#166534'], medium: ['Medium confidence', '#B45309'], low: ['Rough estimate', '#9A3412'], none: ['Not enough data', '#6B7280'] };
+      const [label, col] = map[c] || map.none;
+      return `<span class="vt-badge" style="color:${col};border-color:${col}33;background:${col}11">${label}</span>`;
+    }
+
+    function renderEstimate(d) {
+      const e = d.estimate, c = d.cohort;
+      const reasons = (e.confidenceReasons || []).map(r => `<li>${esc(r)}</li>`).join('');
+      return `
+        <div class="vt-card">
+          ${confBadge(e.confidence)}
+          <p class="vt-lead">Realistic private-sale estimate</p>
+          <p class="vt-big">${R(e.sellMid)}</p>
+          <p class="vt-band">likely range <strong>${R(e.sellLow)} – ${R(e.sellHigh)}</strong></p>
+
+          <div class="vt-market">
+            <p>Comparable <strong>${esc(c.label)}</strong> on the market today ask
+            <strong>${R(c.p25)} – ${R(c.p75)}</strong> (median ${R(c.medianPrice)}), across
+            <strong>${c.size}</strong> listing${c.size === 1 ? '' : 's'}${c.anchorBasis === 'delisted' ? ' incl. recently sold' : ''}.</p>
+            <p class="vt-ask">If you're listing it, price around <strong>${R(e.askingCeiling)}</strong> — the top of what comparable cars actually ask.</p>
+          </div>
+
+          ${reasons ? `<details class="vt-why"><summary>How sure is this?</summary><ul>${reasons}</ul></details>` : ''}
+
+          <div class="vt-cta">
+            <a class="vt-btn-primary" href="/listings/submit/">List it for sale, free →</a>
+            <a class="vt-btn-ghost" href="/market/${esc(d.model)}/">See the live ${esc(c.label.replace(/^[0-9–\s]+/, ''))} market →</a>
+          </div>
+          <p class="vt-disc">${esc(d.caveat)}</p>
+        </div>`;
+    }
+
+    function renderNone(d) {
+      const c = d.cohort || {};
+      return `
+        <div class="vt-card">
+          ${confBadge('none')}
+          <p class="vt-lead">Not enough comparable listings yet</p>
+          <p class="vt-band">${esc(d.caveat)}</p>
+          <div class="vt-cta">
+            <a class="vt-btn-primary" href="/listings/submit/">List it for sale, free →</a>
+            <a class="vt-btn-ghost" href="/contact/">Ask for a manual valuation →</a>
+          </div>
+        </div>`;
+    }
+
+    function renderError(msg) {
+      out.innerHTML = `<div class="vt-card vt-err"><p>${esc(msg)}</p></div>`;
+    }
+
+    form.addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const fd = new FormData(form);
+      const payload = {
+        model: fd.get('model') || '',
+        year: Number(fd.get('year')),
+        mileage: Number(fd.get('mileage')),
+        condition: fd.get('condition') || 'good',
+        province: fd.get('province') || '',
+        website: fd.get('website') || '',
+        utm_source: utm,
+        source_path: location.pathname,
+      };
+      if (!payload.model || !payload.year || !(payload.mileage >= 0)) {
+        renderError('Please pick a model, year and mileage.');
+        out.hidden = false;
+        return;
+      }
+      const btn = form.querySelector('.vt-submit');
+      const label = btn.textContent;
+      btn.disabled = true; btn.textContent = 'CRUNCHING THE MARKET…';
+      out.hidden = false;
+      out.innerHTML = '<div class="vt-card vt-skeleton"><div></div><div></div></div>';
+      track('valuation_computed');
+      try {
+        const res = await fetch('/api/valuation', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (!res.ok) { renderError(data.error || 'Something went wrong. Please try again.'); return; }
+        data.model = payload.model;
+        out.innerHTML = data.estimate ? renderEstimate(data) : renderNone(data);
+        out.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        const h = out.querySelector('.vt-lead'); if (h) h.setAttribute('tabindex', '-1'), h.focus();
+      } catch {
+        renderError('Network error. Please try again.');
+      } finally {
+        btn.disabled = false; btn.textContent = label;
+      }
+    });
+  });
+</script>
+
+<style>
+  .vt { background: #fff; border: 1px solid #DDD9D3; border-radius: 0.875rem; padding: 1.75rem 1.5rem; box-shadow: 0 2px 12px rgba(0,0,0,0.05); }
+  .vt-h { font-family: var(--font-heading); font-weight: 700; text-transform: uppercase; font-size: clamp(1.25rem, 3vw, 1.6rem); color: #111; line-height: 1.05; margin-bottom: 1.25rem; }
+  .vt-grid { display: grid; grid-template-columns: 1fr; gap: 0.875rem; }
+  @media (min-width: 560px) { .vt-grid { grid-template-columns: 1fr 1fr; } }
+  .vt-field { display: flex; flex-direction: column; gap: 0.35rem; }
+  .vt-field > span { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #6B7280; }
+  .vt-field em { font-style: normal; color: #9CA3AF; font-weight: 600; }
+  .vt-field select, .vt-field input { width: 100%; padding: 0.7rem 0.75rem; border: 1px solid #DDD9D3; border-radius: 0.5rem; font: inherit; font-size: 0.95rem; color: #111; background: #fff; }
+  .vt-field select:focus, .vt-field input:focus { outline: 2px solid #F5A623; border-color: #F5A623; }
+
+  .vt-cond { border: 0; padding: 0; margin: 1.1rem 0 0.25rem; }
+  .vt-cond legend { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #6B7280; margin-bottom: 0.45rem; }
+  .vt-pills { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .vt-pill { position: relative; }
+  .vt-pill input { position: absolute; opacity: 0; inset: 0; cursor: pointer; }
+  .vt-pill span { display: inline-block; padding: 0.5rem 0.9rem; border: 1px solid #DDD9D3; border-radius: 999px; font-size: 0.85rem; font-weight: 600; color: #374151; cursor: pointer; transition: all 0.12s; }
+  .vt-pill input:checked + span { background: #111; color: #fff; border-color: #111; }
+  .vt-pill input:focus-visible + span { outline: 2px solid #F5A623; }
+
+  .vt-hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+
+  .vt-submit { margin-top: 1.25rem; width: 100%; padding: 0.95rem; background: #F5A623; color: #111; font-family: var(--font-heading); font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; font-size: 1rem; border: 0; border-radius: 0.5rem; cursor: pointer; transition: background 0.15s; }
+  .vt-submit:hover { background: #D4881A; }
+  .vt-submit:disabled { opacity: 0.7; cursor: wait; }
+  .vt-mini { margin-top: 0.6rem; font-size: 0.72rem; color: #9CA3AF; text-align: center; }
+
+  .vt-result { margin-top: 1.25rem; }
+  .vt-card { border: 1px solid #EAE8E3; border-radius: 0.75rem; padding: 1.4rem 1.25rem; background: #FBFAF7; }
+  .vt-err { background: #FEF2F2; border-color: #FECACA; color: #991B1B; }
+  .vt-badge { display: inline-block; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; padding: 0.22rem 0.6rem; border: 1px solid; border-radius: 999px; }
+  .vt-lead { margin-top: 0.7rem; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #6B7280; }
+  .vt-big { font-family: var(--font-heading); font-weight: 700; font-size: clamp(2rem, 7vw, 2.75rem); color: #111; line-height: 1; margin-top: 0.15rem; }
+  .vt-band { font-size: 0.9rem; color: #4A4A4A; margin-top: 0.35rem; }
+  .vt-band strong { color: #111; }
+  .vt-market { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #EAE8E3; font-size: 0.9rem; color: #4A4A4A; line-height: 1.65; }
+  .vt-market strong { color: #111; }
+  .vt-ask { margin-top: 0.5rem; }
+  .vt-why { margin-top: 0.9rem; font-size: 0.82rem; color: #6B7280; }
+  .vt-why summary { cursor: pointer; font-weight: 600; color: #D4881A; }
+  .vt-why ul { margin: 0.5rem 0 0 1rem; }
+  .vt-why li { margin-bottom: 0.25rem; }
+  .vt-cta { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 1.2rem; }
+  .vt-btn-primary { background: #F5A623; color: #111; font-weight: 700; font-size: 0.85rem; padding: 0.7rem 1.1rem; border-radius: 0.5rem; text-decoration: none; }
+  .vt-btn-primary:hover { background: #D4881A; }
+  .vt-btn-ghost { color: #111; font-weight: 700; font-size: 0.85rem; padding: 0.7rem 1.1rem; border: 1px solid #DDD9D3; border-radius: 0.5rem; text-decoration: none; }
+  .vt-btn-ghost:hover { border-color: #111; }
+  .vt-disc { margin-top: 1.1rem; font-size: 0.72rem; color: #9CA3AF; line-height: 1.55; }
+  .vt-skeleton div { height: 1.5rem; background: linear-gradient(90deg,#EFEDE8,#F7F5F1,#EFEDE8); border-radius: 0.4rem; margin-bottom: 0.6rem; animation: vtpulse 1.2s ease-in-out infinite; }
+  .vt-skeleton div:first-child { height: 2.75rem; width: 60%; }
+  @keyframes vtpulse { 50% { opacity: 0.5; } }
+</style>

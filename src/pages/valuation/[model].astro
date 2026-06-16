@@ -1,0 +1,173 @@
+---
+// Per-model valuation landing page — the citeable surface (real dated numbers
+// LLMs/search can quote). The embedded tool is the converting surface.
+export const prerender = false;
+
+import Base from '@/layouts/Base.astro';
+import ValuationTool from '@/components/ValuationTool.astro';
+import { db } from '@/db/index';
+import { listings } from '@/db/schema';
+import { and, eq, gt } from 'drizzle-orm';
+import { LC_MODEL_SLUG_SET, modelLabel, modelEra } from '@/lib/sources/normalize';
+import { VALUATION_DISCLAIMER } from '@/lib/valuation';
+
+const { model } = Astro.params;
+if (!model || !LC_MODEL_SLUG_SET.has(model)) return Astro.redirect('/valuation/');
+
+// Model-wide asking distribution (used, for-sale, priced) — the lede numbers.
+const rows = db.select({ price: listings.price, year: listings.year, mileage: listings.mileage })
+  .from(listings)
+  .where(and(
+    eq(listings.status, 'active'),
+    eq(listings.listing_type, 'for_sale'),
+    eq(listings.model, model),
+    eq(listings.new_or_used, 'Used'),
+    gt(listings.price, 0),
+  ))
+  .all();
+
+const prices = rows.map(r => r.price).sort((a, b) => a - b);
+const count = prices.length;
+const thin = count < 5;
+
+function pctl(s: number[], p: number): number {
+  if (!s.length) return 0;
+  if (s.length === 1) return s[0];
+  const i = p * (s.length - 1), lo = Math.floor(i), hi = Math.ceil(i);
+  return lo === hi ? s[lo] : s[lo] + (s[hi] - s[lo]) * (i - lo);
+}
+const median = Math.round(pctl(prices, 0.5));
+const p25 = Math.round(pctl(prices, 0.25));
+const p75 = Math.round(pctl(prices, 0.75));
+const lo = prices[0] ?? 0;
+const hi = prices[count - 1] ?? 0;
+
+// By-year breakdown (only when we have data)
+const byYear = new Map<number, number[]>();
+for (const r of rows) (byYear.get(r.year) ?? byYear.set(r.year, []).get(r.year)!).push(r.price);
+const yearRows = [...byYear.entries()]
+  .map(([year, ps]) => ({ year, count: ps.length, avg: Math.round(ps.reduce((s, p) => s + p, 0) / ps.length), min: Math.min(...ps), max: Math.max(...ps) }))
+  .sort((a, b) => b.year - a.year);
+
+const label = modelLabel(model);                 // "79 Series"
+const fullName = `Land Cruiser ${label}`;
+const era = modelEra(model);
+const R = (n: number) => 'R' + Math.round(n).toLocaleString('en-ZA');
+const updated = new Date();
+const updatedStr = updated.toLocaleDateString('en-ZA', { day: 'numeric', month: 'long', year: 'numeric' });
+
+const lede = thin
+  ? `We don't yet track enough ${fullName} listings in South Africa to publish a reliable value range. Use the tool below for a manual valuation request.`
+  : `A used ${fullName} in South Africa is worth roughly ${R(p25)}–${R(p75)} (median ${R(median)}), based on ${count} listings currently for sale, ranging ${R(lo)} to ${R(hi)}. Mileage, condition and spec move an individual car within that range.`;
+
+const schema = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'WebApplication',
+      'name': `${fullName} Valuation Tool`,
+      'applicationCategory': 'FinanceApplication',
+      'operatingSystem': 'Web',
+      'url': `https://landcruisersa.co.za/valuation/${model}/`,
+      'offers': { '@type': 'Offer', 'price': '0', 'priceCurrency': 'ZAR' },
+    },
+    ...(thin ? [] : [{
+      '@type': 'Dataset',
+      'name': `${fullName} Resale Values — South Africa`,
+      'description': `Used ${fullName} asking prices in South Africa: median ${R(median)}, typical range ${R(p25)}–${R(p75)}, across ${count} listings. Updated ${updated.toISOString().slice(0, 10)}.`,
+      'url': `https://landcruisersa.co.za/valuation/${model}/`,
+      'creator': { '@type': 'Organization', 'name': 'Land Cruiser SA', 'url': 'https://landcruisersa.co.za' },
+      'dateModified': updated.toISOString(),
+      'spatialCoverage': 'South Africa',
+      'variableMeasured': ['median asking price', 'price range', 'listing count'],
+      'isBasedOn': `https://landcruisersa.co.za/market/${model}/`,
+    }]),
+    {
+      '@type': 'FAQPage',
+      'mainEntity': [{
+        '@type': 'Question',
+        'name': `What is a ${fullName} worth in South Africa?`,
+        'acceptedAnswer': { '@type': 'Answer', 'text': lede + ' ' + VALUATION_DISCLAIMER },
+      }],
+    },
+  ],
+};
+---
+
+<Base
+  title={`${fullName} Value in South Africa — What's It Worth?`}
+  description={thin
+    ? `Valuation tool for the Toyota ${fullName} in South Africa. Get a realistic private-sale estimate from live market data.`
+    : `What is a ${fullName} worth in South Africa? Median ${R(median)}, typical range ${R(p25)}–${R(p75)} across ${count} listings. Free instant valuation. Updated ${updatedStr}.`}
+  schema={schema}
+  noindex={thin}
+>
+  <div class="val-page">
+    <div class="val-wrap">
+      <p class="eyebrow"><a href="/valuation/">Valuation</a> · Updated {updatedStr}{era ? ` · ${era}` : ''}</p>
+      <h1>{fullName} Value in South Africa</h1>
+      <p class="intro">{lede}</p>
+
+      {!thin && (
+        <div class="stat-grid">
+          <div class="stat"><p class="stat-v">{R(median)}</p><p class="stat-l">Median Asking</p></div>
+          <div class="stat"><p class="stat-v">{R(p25)}–{R(p75)}</p><p class="stat-l">Typical Range</p></div>
+          <div class="stat"><p class="stat-v">{count}</p><p class="stat-l">Listings Tracked</p></div>
+        </div>
+      )}
+
+      <ValuationTool model={model} heading={`What's your ${label} worth?`} />
+
+      {!thin && yearRows.length > 0 && (
+        <>
+          <h2>{label} Asking Price by Year</h2>
+          <table class="market-table">
+            <thead><tr><th>Year</th><th>For Sale</th><th>Average Asking</th><th>Range</th></tr></thead>
+            <tbody>
+              {yearRows.map(r => (
+                <tr>
+                  <td class="m-name">{r.year}</td>
+                  <td>{r.count}</td>
+                  <td class="m-price">{R(r.avg)}</td>
+                  <td>{r.count > 1 ? `${R(r.min)} – ${R(r.max)}` : R(r.min)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
+      )}
+
+      <p class="foot-note">
+        Built from seller asking prices aggregated across major South African platforms and recently-sold
+        listings — not confirmed transaction prices. {VALUATION_DISCLAIMER}
+        {' '}See the full <a href={`/market/${model}/`}>{label} market data</a> or
+        {' '}<a href={`/listings/?model=${model}`}>browse {label} listings</a>.
+      </p>
+    </div>
+  </div>
+</Base>
+
+<style>
+  .val-page { background: #F5F3EE; min-height: 100vh; padding: 3rem 0 5rem; }
+  .val-wrap { max-width: 720px; margin: 0 auto; padding: 0 1.5rem; }
+  .eyebrow { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.16em; color: #D4881A; margin-bottom: 0.6rem; }
+  .eyebrow a { color: #D4881A; text-decoration: none; }
+  .eyebrow a:hover { text-decoration: underline; }
+  h1 { font-family: var(--font-heading); font-weight: 700; text-transform: uppercase; font-size: clamp(1.625rem, 4.5vw, 2.4rem); color: #111; line-height: 1.04; margin-bottom: 1rem; }
+  .intro { font-size: 0.95rem; color: #4A4A4A; line-height: 1.7; margin-bottom: 1.5rem; }
+  h2 { font-family: var(--font-heading); font-weight: 700; text-transform: uppercase; font-size: 1.05rem; color: #111; margin: 2.25rem 0 0.875rem; }
+
+  .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; margin-bottom: 1.75rem; }
+  .stat { background: #fff; border-radius: 0.75rem; padding: 1rem 1.125rem; box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
+  .stat-v { font-family: var(--font-heading); font-weight: 700; font-size: 1.1rem; color: #111; line-height: 1.1; }
+  .stat-l { font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #9CA3AF; margin-top: 0.3rem; }
+
+  .market-table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 0.75rem; overflow: hidden; font-size: 0.875rem; box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
+  .market-table th { background: #111; color: rgba(255,255,255,0.85); text-align: left; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; padding: 0.75rem 1rem; }
+  .market-table td { padding: 0.875rem 1rem; border-bottom: 1px solid #F0EDE8; color: #374151; }
+  .market-table tr:last-child td { border-bottom: none; }
+  .m-name { font-weight: 700; color: #111; }
+  .m-price { font-weight: 700; color: #D4881A; }
+  .foot-note { font-size: 0.75rem; color: #9CA3AF; line-height: 1.6; margin-top: 1.5rem; }
+  .foot-note a { color: #D4881A; }
+</style>

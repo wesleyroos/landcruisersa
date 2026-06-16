@@ -116,6 +116,58 @@ db.exec(`
 `);
 db.exec(`CREATE INDEX IF NOT EXISTS finance_leads_created ON finance_leads (created_at)`);
 
+// Valuation tool requests — anonymous estimate snapshot, optionally upgraded to a
+// lead. A NEW table uses CREATE TABLE IF NOT EXISTS (the finance_leads pattern);
+// do NOT add these columns to REQUIRED_COLS — that guard is for the listings
+// table only and would falsely fail the boot.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS valuation_requests (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    model          TEXT    NOT NULL,
+    year           INTEGER NOT NULL,
+    mileage        INTEGER NOT NULL,
+    province       TEXT,
+    condition      TEXT,
+    sell_low       INTEGER,
+    sell_mid       INTEGER,
+    sell_high      INTEGER,
+    asking_ceiling INTEGER,
+    confidence     TEXT,
+    cohort_size    INTEGER,
+    cohort_label   TEXT,
+    anchor_basis   TEXT,
+    vin            TEXT,
+    vin_valid      INTEGER NOT NULL DEFAULT 0,
+    name           TEXT,
+    email          TEXT,
+    phone          TEXT,
+    consent             INTEGER NOT NULL DEFAULT 0,
+    dealer_offer_optin  INTEGER NOT NULL DEFAULT 0,
+    referred_at         INTEGER,
+    source         TEXT    NOT NULL DEFAULT 'valuation_tool',
+    source_path    TEXT,
+    utm_source     TEXT,
+    created_at     INTEGER NOT NULL
+  )
+`);
+db.exec(`CREATE INDEX IF NOT EXISTS valuation_requests_created ON valuation_requests (created_at)`);
+db.exec(`CREATE INDEX IF NOT EXISTS valuation_requests_model ON valuation_requests (model, year)`);
+db.exec(`CREATE INDEX IF NOT EXISTS valuation_requests_vin ON valuation_requests (vin)`);
+db.exec(`CREATE INDEX IF NOT EXISTS valuation_requests_dealer ON valuation_requests (dealer_offer_optin, referred_at)`);
+// Idempotent future-column home (CREATE TABLE IF NOT EXISTS never alters an
+// existing table). Add addValCol('col','col TYPE') here for any column added
+// after first ship, so existing prod DBs upgrade without a manual migration.
+const valCols = new Set(
+  db.prepare("SELECT name FROM pragma_table_info('valuation_requests')").all().map(r => r.name)
+);
+const addValCol = (col, def) => {
+  if (!valCols.has(col)) {
+    db.exec(`ALTER TABLE valuation_requests ADD COLUMN ${def}`);
+    console.log(`[migrate] Added valuation_requests column: ${col}`);
+  }
+};
+void addValCol; // referenced once a post-ship column is needed
+
 db.exec(`
   CREATE TABLE IF NOT EXISTS view_events (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
