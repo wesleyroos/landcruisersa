@@ -55,21 +55,20 @@ ${listing.description ? listing.description.slice(0, 200).trim() + (listing.desc
 const listingUrl = listing.slug ? `https://landcruisersa.co.za/listings/${listing.slug}/` : '';
 const waSpec = [
   `*${listing.title}*`,
-  listing.price ? `💰 R${listing.price.toLocaleString('en-ZA')}` : '💰 POA',
   '',
-  `📅 Year: ${listing.year}`,
-  `🚙 Model: ${modelLabel}`,
-  listing.mileage ? `🛣️ Mileage: ${listing.mileage.toLocaleString('en-ZA')} km` : null,
-  transStr ? `⚙️ Transmission: ${transStr}` : null,
-  listing.fuel_type ? `⛽ Fuel: ${listing.fuel_type}` : null,
-  listing.fuel_consumption ? `📊 Consumption: ${listing.fuel_consumption} L/100km` : null,
-  listing.power_kw ? `🔋 Power: ${listing.power_kw} kW` : null,
-  listing.seats ? `💺 Seats: ${listing.seats}` : null,
-  listing.colour ? `🎨 Colour: ${listing.colour}` : null,
-  listing.new_or_used ? `🏷️ Condition: ${listing.new_or_used}` : null,
-  listing.province ? `📍 Province: ${listing.province}` : null,
+  `Year: ${listing.year}`,
+  `Model: ${modelLabel}`,
+  listing.mileage ? `Mileage: ${listing.mileage.toLocaleString('en-ZA')} km` : null,
+  transStr ? `Transmission: ${transStr}` : null,
+  listing.fuel_type ? `Fuel: ${listing.fuel_type}` : null,
+  listing.fuel_consumption ? `Consumption: ${listing.fuel_consumption} L/100km` : null,
+  listing.power_kw ? `Power: ${listing.power_kw} kW` : null,
+  listing.seats ? `Seats: ${listing.seats}` : null,
+  listing.colour ? `Colour: ${listing.colour}` : null,
+  listing.new_or_used ? `Condition: ${listing.new_or_used}` : null,
+  listing.province ? `Province: ${listing.province}` : null,
   listing.description ? `\n${listing.description.trim()}` : null,
-  listingUrl ? `\n🔗 ${listingUrl}` : null,
+  listingUrl ? `\n${listingUrl}` : null,
 ].filter(line => line !== null).join('\n');
 ---
 
