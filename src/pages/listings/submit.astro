@@ -645,7 +645,12 @@ import Base from '@/layouts/Base.astro';
     color: #6B7280; line-height: 1.5; cursor: pointer;
   }
   .dealer-consent strong { color: #374151; font-weight: 700; }
-  .dealer-consent input { margin-top: 0.1rem; flex-shrink: 0; width: 1rem; height: 1rem; accent-color: #F5A623; cursor: pointer; }
+  .field label.dealer-consent input {
+    -webkit-appearance: auto; appearance: auto;
+    width: 1rem; height: 1rem; min-width: 1rem; margin-top: 0.1rem; padding: 0;
+    border: none; border-radius: 0; background: none; box-shadow: none;
+    flex-shrink: 0; accent-color: #F5A623; cursor: pointer;
+  }
   .field-row {
     display: grid;
     grid-template-columns: 1fr 1fr;
