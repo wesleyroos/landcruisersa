@@ -42,8 +42,15 @@ echo "── $(date '+%Y-%m-%d %H:%M:%S') starting local ingests ──"
 if is_scheduled autotrader; then
   if at_due; then
     "$NODE" --experimental-strip-types src/scripts/ingest-autotrader.ts && date +%s > "$AT_MARKER" || echo "[cron] autotrader failed"
-    # AT post-processing from this residential IP (AT blocks Fly): fill missing
-    # descriptions, then copy AT-hosted images to R2 (AT rate-limits hotlinks).
+    # AT post-processing from this residential IP (AT blocks Fly):
+    # 1) Fill full galleries for listings the search tile capped at 1 image (the
+    #    SSR tile only exposes all photos for premium listings). Fetched DIRECTLY
+    #    from this residential IP — the in-scraper /api/proxy/images path runs on
+    #    Fly, which AT blocks. Bounded batch + polite delay, ONCE per daily AT run
+    #    (NOT a separate hourly agent — that hammered AT 24×/day and re-blocked the
+    #    IP). Runs before rehost so the new images get copied to R2 the same pass.
+    BATCH_SIZE=150 DELAY_MS=2500 "$NODE" --experimental-strip-types scripts/backfill-at-images.ts || echo "[cron] at-image-gallery-backfill failed"
+    # 2) Fill missing descriptions, then 3) copy AT-hosted images to R2.
     "$NODE" --experimental-strip-types src/scripts/backfill-at-descriptions.ts || echo "[cron] at-desc-backfill failed"
     "$NODE" --experimental-strip-types src/scripts/rehost-at-images.ts || echo "[cron] at-image-rehost failed"
   else
