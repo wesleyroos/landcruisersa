@@ -1,6 +1,7 @@
 export const NAV_LINKS = [
   { label: 'Listings', href: '/listings/' },
-  { label: 'Value My Cruiser', href: '/valuation/' },
+  // 'Value My Cruiser' (/valuation/) intentionally NOT in nav yet — soft-hidden
+  // until launch. Pages are live at direct URLs but undiscoverable.
   { label: 'Market Data', href: '/market/' },
   { label: 'Useful Info', href: '/useful-info/' },
   { label: 'Models', href: '/models/', children: [

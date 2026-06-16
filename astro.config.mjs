@@ -40,19 +40,9 @@ export default defineConfig({
         'https://landcruisersa.co.za/listings/model/300-series/',
         'https://landcruisersa.co.za/listings/model/prado/',
         'https://landcruisersa.co.za/listings/model/fj-cruiser/',
-        // Valuation tool — hub + per-model citeable pages
-        'https://landcruisersa.co.za/valuation/',
-        'https://landcruisersa.co.za/valuation/76-series/',
-        'https://landcruisersa.co.za/valuation/78-series/',
-        'https://landcruisersa.co.za/valuation/79-series/',
-        'https://landcruisersa.co.za/valuation/80-series/',
-        'https://landcruisersa.co.za/valuation/100-series/',
-        'https://landcruisersa.co.za/valuation/200-series/',
-        'https://landcruisersa.co.za/valuation/300-series/',
-        'https://landcruisersa.co.za/valuation/prado-150/',
-        'https://landcruisersa.co.za/valuation/prado-250/',
-        'https://landcruisersa.co.za/valuation/fj-cruiser/',
-        'https://landcruisersa.co.za/valuation/land-cruiser-fj/',
+        // Valuation tool (/valuation/) intentionally OMITTED from the sitemap
+        // until launch — soft-hidden so it isn't indexed/findable yet. Re-add
+        // the hub + 11 per-model URLs when going live.
         // Live market data pages (AI/search citation layer)
         'https://landcruisersa.co.za/market/',
         'https://landcruisersa.co.za/market/70-series/',
@@ -73,8 +63,10 @@ export default defineConfig({
         'https://landcruisersa.co.za/market/fortuner-gd6/',
         'https://landcruisersa.co.za/market/fortuner-d4d/',
       ],
-      // Keep admin pages out of the sitemap
-      filter: (page) => !page.includes('/admin/'),
+      // Keep admin pages out of the sitemap. Also the valuation tool — it's
+      // soft-hidden until launch (the /valuation/ hub is auto-discovered, so it
+      // must be filtered out explicitly). Remove the /valuation check at launch.
+      filter: (page) => !page.includes('/admin/') && !page.includes('/valuation'),
     }),
   ],
   vite: {
