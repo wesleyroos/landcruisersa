@@ -55,12 +55,17 @@ export function normalizeModel(raw: string, year?: number): string {
   return 'other';
 }
 
-// Canonical Land Cruiser model slugs — the 12 we surface and value. Single
-// source of truth for the valuation tool's model picker, route allowlist and
-// sitemap. Validate membership with LC_MODEL_SLUG_SET (do NOT use normalizeModel,
-// which maps free text and can fall through to 'other'/hilux/fortuner).
+// Land Cruiser model slugs the valuation tool offers — the single source of
+// truth for the model picker, route allowlist and sitemap. Validate membership
+// with LC_MODEL_SLUG_SET (NOT normalizeModel, which maps free text and can fall
+// through to 'other'/hilux/fortuner).
+//
+// NB: the bare '70-series' is deliberately EXCLUDED. The 70 Series is a family
+// (76 wagon / 78 Troopcarrier / 79 bakkie), so offering it as a peer is
+// confusing and its mixed cohort is noisy — owners pick the specific body below.
+// '70-series' remains a valid INGEST slug (see MODEL_MAP) and shows on /market/.
 export const LC_MODEL_SLUGS = [
-  '70-series', '76-series', '78-series', '79-series', '80-series', '100-series',
+  '76-series', '78-series', '79-series', '80-series', '100-series',
   '200-series', '300-series', 'prado-150', 'prado-250', 'fj-cruiser', 'land-cruiser-fj',
 ] as const;
 export const LC_MODEL_SLUG_SET: ReadonlySet<string> = new Set(LC_MODEL_SLUGS);
@@ -71,6 +76,25 @@ export const MODEL_LAUNCH_YEAR: Record<string, number> = {
   '300-series': 2021,
   'prado-250': 2024,
   'land-cruiser-fj': 2026,
+};
+
+// Production-year bounds per model — drives the valuation year picker (client
+// rebuilds the year dropdown on model change) and server-side validation, so a
+// user can't value a "2015 Prado 250" (launched 2024) or a pre-2026 FJ. Bounds
+// are generous on the low end to avoid rejecting genuine early imports; the
+// upper bound is capped to the current year + 1 at use sites.
+export const MODEL_YEAR_RANGE: Record<string, [number, number]> = {
+  '76-series':       [2000, 2026],
+  '78-series':       [2000, 2026],
+  '79-series':       [1985, 2026],
+  '80-series':       [1989, 1998],
+  '100-series':      [1997, 2008],
+  '200-series':      [2007, 2022],
+  '300-series':      [2021, 2026],
+  'prado-150':       [2002, 2024],
+  'prado-250':       [2024, 2026],
+  'fj-cruiser':      [2006, 2024],
+  'land-cruiser-fj': [2026, 2027],
 };
 
 const PROVINCE_MAP: Record<string, string> = {

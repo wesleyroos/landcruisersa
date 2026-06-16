@@ -4,7 +4,7 @@ import type { APIRoute } from 'astro';
 import { db } from '@/db/index';
 import { valuationRequests } from '@/db/schema';
 import { valuate, VALUATION_DISCLAIMER } from '@/lib/valuation';
-import { LC_MODEL_SLUG_SET } from '@/lib/sources/normalize';
+import { LC_MODEL_SLUG_SET, MODEL_YEAR_RANGE, modelLabel } from '@/lib/sources/normalize';
 
 const CUR_YEAR = new Date().getFullYear();
 
@@ -59,8 +59,10 @@ export const POST: APIRoute = async ({ request }) => {
   if (!LC_MODEL_SLUG_SET.has(model)) {
     return new Response(JSON.stringify({ error: 'Please choose a Land Cruiser model.' }), { status: 400 });
   }
-  if (!Number.isFinite(year) || year < 1980 || year > CUR_YEAR + 1) {
-    return new Response(JSON.stringify({ error: 'Please enter a valid year.' }), { status: 400 });
+  const [rMin, rMax] = MODEL_YEAR_RANGE[model] ?? [1980, CUR_YEAR + 1];
+  const minY = rMin, maxY = Math.min(rMax, CUR_YEAR + 1);
+  if (!Number.isFinite(year) || year < minY || year > maxY) {
+    return new Response(JSON.stringify({ error: `The ${modelLabel(model)} was sold from ${minY} to ${maxY} — please pick a year in that range.` }), { status: 400 });
   }
   if (!Number.isFinite(mileage) || mileage < 0 || mileage > 600000) {
     return new Response(JSON.stringify({ error: 'Please enter mileage between 0 and 600,000 km.' }), { status: 400 });

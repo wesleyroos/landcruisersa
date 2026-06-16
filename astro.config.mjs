@@ -42,7 +42,6 @@ export default defineConfig({
         'https://landcruisersa.co.za/listings/model/fj-cruiser/',
         // Valuation tool — hub + per-model citeable pages
         'https://landcruisersa.co.za/valuation/',
-        'https://landcruisersa.co.za/valuation/70-series/',
         'https://landcruisersa.co.za/valuation/76-series/',
         'https://landcruisersa.co.za/valuation/78-series/',
         'https://landcruisersa.co.za/valuation/79-series/',

@@ -134,8 +134,12 @@ function computeFromCohort(input: ValuationInput, c: CohortStats): Valuation {
   if (c.medianPrice > 0) w = Math.max(w, 0.5 * (c.p75 - c.p25) / c.medianPrice);
 
   // Realistic-sell band (NO condition/extras — a buyer won't pay for self-report).
+  // Symmetric around the mileage-adjusted mid. NB: no cohort-p25 compound floor —
+  // it inverted the band (sellLow > sellMid) for high-mileage cars whose estimate
+  // legitimately falls below the cohort's 25th percentile. The mileage cap (±15%)
+  // and the discount already bound how low the mid can go.
   const sellMid = base * (1 - d);
-  const sellLow = Math.max(sellMid * (1 - w), c.p25 * (1 - d)); // compound floor: never below the cohort's own p25
+  const sellLow = sellMid * (1 - w);
   const sellHigh = sellMid * (1 + w);
 
   // Suggested asking ceiling — anchored to the cohort's own upper quartile, never

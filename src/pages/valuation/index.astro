@@ -4,8 +4,9 @@ export const prerender = false;
 import Base from '@/layouts/Base.astro';
 import ValuationTool from '@/components/ValuationTool.astro';
 import { valuate, VALUATION_DISCLAIMER, type Valuation } from '@/lib/valuation';
-import { LC_MODEL_SLUGS, LC_MODEL_SLUG_SET, modelLabel } from '@/lib/sources/normalize';
+import { LC_MODEL_SLUGS, LC_MODEL_SLUG_SET, MODEL_YEAR_RANGE, modelLabel } from '@/lib/sources/normalize';
 
+const CUR_YEAR = new Date().getFullYear();
 const R = (n: number) => 'R' + Math.round(n).toLocaleString('en-ZA');
 
 // No-JS fallback: the tool's form posts here; compute server-side and render.
@@ -20,7 +21,9 @@ if (Astro.request.method === 'POST') {
       const cr = String(fd.get('condition') ?? 'good');
       const condition = (['excellent', 'good', 'fair', 'rough'].includes(cr) ? cr : 'good') as
         'excellent' | 'good' | 'fair' | 'rough';
-      if (LC_MODEL_SLUG_SET.has(model) && Number.isFinite(year) && Number.isFinite(mileage) && mileage >= 0 && mileage <= 600000) {
+      const range = MODEL_YEAR_RANGE[model];
+      const okYear = Number.isFinite(year) && year >= (range ? range[0] : 1980) && year <= Math.min(range ? range[1] : CUR_YEAR + 1, CUR_YEAR + 1);
+      if (LC_MODEL_SLUG_SET.has(model) && okYear && Number.isFinite(mileage) && mileage >= 0 && mileage <= 600000) {
         const result = valuate({ model, year, mileage, condition });
         if (result.available) posted = { model, year, mileage, result };
       }
@@ -74,22 +77,14 @@ const schema = {
     <div class="val-wrap">
       <p class="eyebrow">Free Valuation · Updated {updatedStr}</p>
       <h1>What's My Land Cruiser Worth?</h1>
-      <p class="intro">
-        Get a realistic private-sale estimate for any Toyota Land Cruiser in South Africa — built
-        from <strong>live market asking prices</strong> we aggregate across every platform, not a generic
-        book value. Enter your details below.
-      </p>
+      <p class="intro">A realistic estimate for any Land Cruiser in South Africa — from <strong>live market prices</strong>, not a generic book value.</p>
 
       {posted && posted.result.available && (
-        <div class="ssr-result">
-          <p class="ssr-lead">Realistic private-sale estimate · {posted.result.cohort.label}</p>
-          <p class="ssr-big">{R(posted.result.sellMid)}</p>
-          <p class="ssr-band">likely range <strong>{R(posted.result.sellLow)} – {R(posted.result.sellHigh)}</strong></p>
-          <p class="ssr-mkt">
-            Comparable cars ask <strong>{R(posted.result.cohort.p25)} – {R(posted.result.cohort.p75)}</strong>
-            (median {R(posted.result.cohort.medianPrice)}, {posted.result.cohort.size} listings).
-            If listing, price around <strong>{R(posted.result.askingCeiling)}</strong>.
-          </p>
+        <div class="ssr-vr">
+          <p class="ssr-q">Your {posted.year} {modelLabel(posted.model)} could sell for about</p>
+          <p class="ssr-hero">{R(posted.result.sellMid)}</p>
+          <p class="ssr-range">likely <strong>{R(posted.result.sellLow)} – {R(posted.result.sellHigh)}</strong> · to list, ask around <strong>{R(posted.result.askingCeiling)}</strong></p>
+          <a class="ssr-btn" href="/listings/submit/">List it for sale, free →</a>
           <p class="ssr-disc">{VALUATION_DISCLAIMER}</p>
         </div>
       )}
@@ -121,13 +116,13 @@ const schema = {
   .intro { font-size: 0.95rem; color: #4A4A4A; line-height: 1.7; margin-bottom: 1.75rem; }
   .intro strong { color: #111; }
 
-  .ssr-result { background: #fff; border: 1px solid #DDD9D3; border-radius: 0.875rem; padding: 1.4rem 1.25rem; margin-bottom: 1.5rem; }
-  .ssr-lead { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #6B7280; }
-  .ssr-big { font-family: var(--font-heading); font-weight: 700; font-size: clamp(2rem, 7vw, 2.6rem); color: #111; line-height: 1; margin-top: 0.2rem; }
-  .ssr-band { font-size: 0.9rem; color: #4A4A4A; margin-top: 0.35rem; }
-  .ssr-band strong, .ssr-mkt strong { color: #111; }
-  .ssr-mkt { font-size: 0.9rem; color: #4A4A4A; margin-top: 0.7rem; line-height: 1.6; }
-  .ssr-disc { font-size: 0.72rem; color: #9CA3AF; margin-top: 0.9rem; line-height: 1.55; }
+  .ssr-vr { background: #111; border-radius: 0.875rem; padding: 1.6rem 1.25rem; margin-bottom: 1.5rem; color: #fff; text-align: center; }
+  .ssr-q { font-size: 0.85rem; color: rgba(255,255,255,0.6); }
+  .ssr-hero { font-family: var(--font-heading); font-weight: 700; font-size: clamp(2.25rem, 9vw, 3.25rem); color: #F5A623; line-height: 1; margin: 0.25rem 0; }
+  .ssr-range { font-size: 0.85rem; color: rgba(255,255,255,0.7); line-height: 1.6; }
+  .ssr-range strong { color: #fff; }
+  .ssr-btn { display: inline-block; margin-top: 1.1rem; background: #F5A623; color: #111; font-family: var(--font-heading); font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; font-size: 0.85rem; padding: 0.7rem 1.3rem; border-radius: 0.5rem; text-decoration: none; }
+  .ssr-disc { font-size: 0.68rem; color: rgba(255,255,255,0.4); margin-top: 0.9rem; line-height: 1.5; }
 
   .val-models { margin-top: 2.5rem; }
   .val-models h2 { font-family: var(--font-heading); font-weight: 700; text-transform: uppercase; font-size: 1.05rem; color: #111; margin-bottom: 0.9rem; }
