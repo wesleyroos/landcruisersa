@@ -146,6 +146,10 @@ const postedCount = (db.select({ n: sql<number>`count(*)` }).from(listings)
 const dealerOptinCount = (db.select({ n: sql<number>`count(*)` }).from(listings)
   .where(and(eq(listings.status, 'active'), eq(listings.dealer_offer_optin, true))).get())?.n ?? 0;
 
+// Private-seller (own submissions, not scraped) count for the filter toggle
+const privateCount = (db.select({ n: sql<number>`count(*)` }).from(listings)
+  .where(and(eq(listings.status, 'active'), eq(listings.source, 'own'))).get())?.n ?? 0;
+
 // IG media stats — only fetched in the Posted view so normal page loads stay fast.
 // Step 1: fetch media list, match to listings by timestamp (±2 min window)
 // Step 2: for each match, fetch insights (views, saves, shares)
@@ -380,6 +384,9 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
       </select>
     </div>
     <div class="filter-meta">
+      <a href={buildFilterUrl({ source: fSource === 'own' ? '' : 'own', page: '' })} class={`af-posted-toggle${fSource === 'own' ? ' active' : ''}`}>
+        👤 Private sellers ({privateCount})
+      </a>
       <a href={buildFilterUrl({ drops: fDrops ? '' : '1', page: '' })} class={`af-posted-toggle af-drops-toggle${fDrops ? ' active' : ''}`}>
         ▼ Price Drops ({droppedActiveCount})
       </a>
