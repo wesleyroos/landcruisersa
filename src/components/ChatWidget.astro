@@ -56,16 +56,15 @@
       const name = (fd.get('name') || '').toString().trim();
       const email = (fd.get('email') || '').toString().trim();
       const phone = (fd.get('phone') || '').toString().trim();
-      let message = (fd.get('message') || '').toString().trim();
+      const message = (fd.get('message') || '').toString().trim();
       function showErr(m) { if (err) { err.textContent = m; err.hidden = false; } }
       if (!name || !email || !message) { showErr('Please add your name, email and message.'); return; }
-      if (phone) message = 'Phone: ' + phone + '\n\n' + message;
       if (err) err.hidden = true;
       send.disabled = true; const label = send.textContent; send.textContent = 'Sending…';
       try {
         const res = await fetch('/api/contact', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, email, subject: 'general', message }),
+          body: JSON.stringify({ name, email, phone, subject: 'general', message, source_path: location.pathname }),
         });
         if (res.ok) {
           form.hidden = true; if (done) done.hidden = false;

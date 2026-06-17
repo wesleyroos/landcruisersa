@@ -30,6 +30,8 @@ export const POST: APIRoute = async ({ request }) => {
   }
 
   const { name, email, subject, message } = body;
+  const phone = (body.phone ?? '').toString().trim();
+  const sourcePath = (body.source_path ?? '').toString().trim();
 
   if (!name?.trim() || !email?.trim() || !message?.trim()) {
     return new Response(JSON.stringify({ error: 'Name, email and message are required.' }), { status: 400 });
@@ -43,9 +45,9 @@ export const POST: APIRoute = async ({ request }) => {
     db.insert(enquiries).values({
       name: name.trim(),
       email: email.trim(),
-      phone: null,
+      phone: phone || null,
       message: message.trim(),
-      source_path: `contact:${subject || 'general'}`,
+      source_path: sourcePath || request.headers.get('referer') || `contact:${subject || 'general'}`,
       created_at: new Date(),
     }).run();
   } catch (err) {
@@ -65,6 +67,7 @@ export const POST: APIRoute = async ({ request }) => {
         <table style="border-collapse:collapse;width:100%;max-width:600px">
           <tr><td style="padding:8px 0;color:#666;width:120px"><strong>From</strong></td><td style="padding:8px 0">${name.trim()}</td></tr>
           <tr><td style="padding:8px 0;color:#666"><strong>Email</strong></td><td style="padding:8px 0"><a href="mailto:${email.trim()}">${email.trim()}</a></td></tr>
+          ${phone ? `<tr><td style="padding:8px 0;color:#666"><strong>Phone</strong></td><td style="padding:8px 0">${phone.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</td></tr>` : ''}
           <tr><td style="padding:8px 0;color:#666"><strong>Topic</strong></td><td style="padding:8px 0">${subjectLabel}</td></tr>
           <tr><td style="padding:8px 0;color:#666;vertical-align:top"><strong>Message</strong></td><td style="padding:8px 0;white-space:pre-wrap">${message.trim().replace(/</g, '&lt;').replace(/>/g, '&gt;')}</td></tr>
         </table>
