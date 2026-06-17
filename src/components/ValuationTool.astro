@@ -12,7 +12,7 @@ const { model = '', heading = "What's your Land Cruiser worth?" } = Astro.props;
 // Body-style / era hints so the 70-family and Prado/FJ pairs are unambiguous.
 const HINTS: Record<string, string> = {
   '76-series': 'Station Wagon', '78-series': 'Troopcarrier', '79-series': 'Pickup / Bakkie', '100-series': 'incl. 105',
-  'prado-150': '2009–2024', 'prado-250': '2024 on', 'fj-cruiser': '2011–2023', 'land-cruiser-fj': '2026 on',
+  'prado-90': '1996–2002', 'prado-120': '2003–2009', 'prado-150': '2009–2024', 'prado-250': '2024 on', 'fj-cruiser': '2011–2023', 'land-cruiser-fj': '2026 on',
 };
 const MODELS = LC_MODEL_SLUGS.map(s => ({ slug: s, label: modelLabel(s) + (HINTS[s] ? ` — ${HINTS[s]}` : '') }));
 const PROVINCES = ['Gauteng', 'Western Cape', 'KwaZulu-Natal', 'Eastern Cape', 'Limpopo', 'Mpumalanga', 'North West', 'Free State', 'Northern Cape'];

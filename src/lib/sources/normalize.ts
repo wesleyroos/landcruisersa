@@ -43,8 +43,14 @@ function hiluxFortunerEra(raw: string, year?: number): 'gd6' | 'd4d' {
 export function normalizeModel(raw: string, year?: number): string {
   for (const [re, slug] of MODEL_MAP) {
     if (re.test(raw)) {
-      // Prado 250-series launched in 2024; catch-all 'prado' pattern defaults to 150
-      if (slug === 'prado-150' && year && year >= 2024) return 'prado-250';
+      // The generic 'prado' match defaults to the J150; split the other Prado
+      // generations out by model year (they don't overlap in SA):
+      //   J90 ≤2002 · J120 2003–2008 · J150 2009–2023 · J250 2024+
+      if (slug === 'prado-150' && year) {
+        if (year >= 2024) return 'prado-250';
+        if (year <= 2002) return 'prado-90';
+        if (year <= 2008) return 'prado-120';
+      }
       // New Land Cruiser FJ launched 2026; older "Land Cruiser FJ" listings are FJ Cruisers
       if (slug === 'land-cruiser-fj' && year && year <= 2025) return 'fj-cruiser';
       // Hilux / Fortuner → engine-era slugs (hilux-gd6, fortuner-d4d, …)
@@ -66,7 +72,7 @@ export function normalizeModel(raw: string, year?: number): string {
 // '70-series' remains a valid INGEST slug (see MODEL_MAP) and shows on /market/.
 export const LC_MODEL_SLUGS = [
   '76-series', '78-series', '79-series', '80-series', '100-series',
-  '200-series', '300-series', 'prado-150', 'prado-250', 'fj-cruiser', 'land-cruiser-fj',
+  '200-series', '300-series', 'prado-90', 'prado-120', 'prado-150', 'prado-250', 'fj-cruiser', 'land-cruiser-fj',
 ] as const;
 export const LC_MODEL_SLUG_SET: ReadonlySet<string> = new Set(LC_MODEL_SLUGS);
 
@@ -91,6 +97,8 @@ export const MODEL_YEAR_RANGE: Record<string, [number, number]> = {
   '100-series':      [1997, 2008],
   '200-series':      [2007, 2022],
   '300-series':      [2021, 2026],
+  'prado-90':        [1996, 2003],
+  'prado-120':       [2002, 2009],
   'prado-150':       [2009, 2024],
   'prado-250':       [2024, 2026],
   'fj-cruiser':      [2011, 2024],

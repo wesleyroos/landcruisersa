@@ -306,15 +306,25 @@ db.exec(`
     WHERE source_id IS NOT NULL
 `);
 
-// Data fix: prado with wrong model slug (e.g. from old normalize or bad ingest)
+// Data fix: prado with wrong model slug (e.g. from old normalize or bad ingest).
+// Assign by model year across all SA generations (mirrors normalizeModel):
+//   J90 ≤2002 · J120 2003–2008 · J150 2009–2023 · J250 2024+
 db.exec(`
   UPDATE listings
-  SET model = CASE WHEN year >= 2024 THEN 'prado-250' ELSE 'prado-150' END
+  SET model = CASE
+    WHEN year >= 2024 THEN 'prado-250'
+    WHEN year <= 2002 THEN 'prado-90'
+    WHEN year <= 2008 THEN 'prado-120'
+    ELSE 'prado-150'
+  END
   WHERE LOWER(title) LIKE '%prado%'
-    AND model NOT IN ('prado-150', 'prado-250')
+    AND model NOT IN ('prado-90', 'prado-120', 'prado-150', 'prado-250')
 `);
-// Data fix: prado-250 launched 2024 — upgrade any stale prado-150 rows
+// Split the generic prado-150 bucket onto the correct generation by year.
+// Idempotent — a no-op once every row is on its right slug.
 db.exec(`UPDATE listings SET model = 'prado-250' WHERE model = 'prado-150' AND year >= 2024`);
+db.exec(`UPDATE listings SET model = 'prado-120' WHERE model = 'prado-150' AND year BETWEEN 2003 AND 2008`);
+db.exec(`UPDATE listings SET model = 'prado-90'  WHERE model = 'prado-150' AND year IS NOT NULL AND year <= 2002`);
 
 // Data fix: split flat hilux/fortuner (collected before the era split existed)
 // into engine-era slugs. Title 'D-4D' forces d4d even on a 2016+ row; otherwise
@@ -328,7 +338,7 @@ for (const base of ['hilux', 'fortuner']) {
 db.exec(`
   UPDATE price_events
   SET model = (SELECT model FROM listings WHERE listings.slug = price_events.slug)
-  WHERE model IN ('hilux', 'fortuner')
+  WHERE model IN ('hilux', 'fortuner', 'prado-150')
     AND EXISTS (SELECT 1 FROM listings WHERE listings.slug = price_events.slug)
 `);
 
