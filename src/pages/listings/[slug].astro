@@ -5,6 +5,7 @@ import Base from '@/layouts/Base.astro';
 import { db } from '@/db/index';
 import { listings } from '@/db/schema';
 import { and, eq, ne } from 'drizzle-orm';
+import { modelLabel, LC_MODEL_SLUG_SET } from '@/lib/sources/normalize';
 
 const { slug } = Astro.params;
 const [listing] = await db.select().from(listings).where(eq(listings.slug, slug!));
@@ -17,6 +18,9 @@ if (!listing || listing.status === 'pending') {
 const isSold = listing.status === 'sold';
 const isExternal = Boolean(listing.source_url);
 const isShowOff = listing.listing_type === 'show_off';
+
+const mLabel = modelLabel(listing.model);
+const valuationHref = LC_MODEL_SLUG_SET.has(listing.model) ? `/valuation/${listing.model}/` : '/valuation/';
 
 const SOURCE_LABEL: Record<string, string> = {
   autotrader: 'AutoTrader',
@@ -321,6 +325,15 @@ const vehicleSchema: Record<string, unknown> = {
         <div class="card">
           <h2 class="card-heading">{isShowOff ? 'Build Story' : 'About this vehicle'}</h2>
           <p class="description-text">{listing.description}</p>
+        </div>
+
+        <!-- Value-my-Cruiser CTA -->
+        <div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;background:#111">
+          <div>
+            <h2 class="card-heading" style="color:#fff">Own a {mLabel}?</h2>
+            <p style="color:rgba(255,255,255,0.7);font-size:0.9rem;margin-top:0.3rem">Free instant estimate of what yours is worth — from live market prices.</p>
+          </div>
+          <a href={valuationHref} style="background:#F5A623;color:#111;font-family:var(--font-heading);font-weight:700;text-transform:uppercase;letter-spacing:0.03em;font-size:0.85rem;padding:0.7rem 1.2rem;border-radius:0.5rem;text-decoration:none;white-space:nowrap">Value my {mLabel} →</a>
         </div>
 
         <!-- Mods (show_off only) -->

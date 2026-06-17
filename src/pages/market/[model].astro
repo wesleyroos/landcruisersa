@@ -7,7 +7,7 @@ import Base from '@/layouts/Base.astro';
 import { db } from '@/db/index';
 import { listings, priceEvents } from '@/db/schema';
 import { sql, eq, and, gt, gte, desc } from 'drizzle-orm';
-import { segmentForModel, modelLabel, modelEra } from '@/lib/sources/normalize';
+import { segmentForModel, modelLabel, modelEra, LC_MODEL_SLUG_SET } from '@/lib/sources/normalize';
 
 const { model } = Astro.params;
 
@@ -199,6 +199,9 @@ const datasetSchema = {
         ? <>{' '}Browse all current {mLabel} listings at <a href={`/listings/?model=${model}`}>landcruisersa.co.za/listings</a>.</>
         : <>{' '}We track {mLabel} prices for market data; individual {mLabel} listings are not yet published on Land Cruiser SA.</>
       }
+      {LC_MODEL_SLUG_SET.has(model!) && (
+        <>{' '}Own one? <a href={`/valuation/${model}/`}>See what your {mLabel} is worth →</a></>
+      )}
     </p>
   </div>
 </div>
