@@ -85,15 +85,15 @@ export const MODEL_LAUNCH_YEAR: Record<string, number> = {
 // upper bound is capped to the current year + 1 at use sites.
 export const MODEL_YEAR_RANGE: Record<string, [number, number]> = {
   '76-series':       [2000, 2026],
-  '78-series':       [2000, 2026],
+  '78-series':       [2011, 2026],
   '79-series':       [1985, 2026],
   '80-series':       [1989, 1998],
   '100-series':      [1997, 2008],
   '200-series':      [2007, 2022],
   '300-series':      [2021, 2026],
-  'prado-150':       [2002, 2024],
+  'prado-150':       [2009, 2024],
   'prado-250':       [2024, 2026],
-  'fj-cruiser':      [2006, 2024],
+  'fj-cruiser':      [2011, 2024],
   'land-cruiser-fj': [2026, 2027],
 };
 
