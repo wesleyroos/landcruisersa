@@ -22,6 +22,5 @@ export const NAV_LINKS = [
   ]},
   { label: '4x4 Training', href: '/training/' },
   { label: 'Partners', href: '/partners/' },
-  { label: 'Advertise', href: '/advertise-with-us/' },
   { label: 'Contact', href: '/contact/' },
 ];
