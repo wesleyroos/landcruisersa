@@ -17,7 +17,7 @@
     </div>
     <div class="cw-body">
       <div class="cw-bubble">Hi 👋 Ask us anything about a Land Cruiser and we'll get back to you.</div>
-      <form class="cw-form" id="cw-form" novalidate>
+      <form class="cw-form" id="cw-form" method="POST" action="/api/enquiry" novalidate>
         <input class="cw-in" name="name" placeholder="Your name" maxlength="120" autocomplete="name" />
         <input class="cw-in" name="phone" placeholder="Phone / WhatsApp" maxlength="40" inputmode="tel" autocomplete="tel" />
         <input class="cw-in" name="email" type="email" placeholder="Email (optional)" maxlength="160" autocomplete="email" />
@@ -70,7 +70,11 @@
         if (!res.ok) { showErr(data.error || 'Something went wrong. Please try again.'); return; }
         form.hidden = true; if (done) done.hidden = false;
         try { window.plausible && window.plausible('enquiry_sent'); } catch {}
-      } catch { showErr('Network error. Please try again.'); }
+      } catch {
+        // fetch was blocked/failed (e.g. a browser extension or network). Fall
+        // back to a classic form POST, which content blockers don't intercept.
+        try { form.submit(); return; } catch { showErr('Could not send. Please email wesley@landcruisersa.co.za.'); }
+      }
       finally { send.disabled = false; send.textContent = label; }
     });
   })();

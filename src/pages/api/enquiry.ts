@@ -22,20 +22,39 @@ const clientIp = (request: Request) =>
   || (request.headers.get('x-forwarded-for') ?? '').split(',')[0].trim()
   || 'unknown';
 
+// Minimal self-contained pages for the no-JS / native-form-POST fallback path
+// (when the JS fetch is blocked by an extension, the form submits classically).
+const page = (title: string, body: string) =>
+  `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title} — Land Cruiser SA</title><style>body{font-family:system-ui,-apple-system,sans-serif;background:#F5F3EE;color:#111;display:flex;min-height:100vh;align-items:center;justify-content:center;margin:0;padding:1.5rem}.c{background:#fff;border:1px solid #DDD9D3;border-radius:.9rem;padding:2rem;max-width:420px;text-align:center}h1{font-size:1.3rem;margin:0 0 .5rem}p{color:#4A4A4A;line-height:1.5}a{display:inline-block;margin-top:1.2rem;background:#F5A623;color:#111;font-weight:700;text-decoration:none;padding:.7rem 1.3rem;border-radius:.5rem}</style></head><body><div class="c">${body}</div></body></html>`;
+const THANKS = page('Message sent', '<h1>Message sent 🙌</h1><p>Thanks — we\'ll be in touch soon.</p><a href="/">Back to Land Cruiser SA</a>');
+
 export const POST: APIRoute = async ({ request }) => {
+  const ct = request.headers.get('content-type') || '';
+  const isForm = !ct.includes('application/json'); // native form fallback vs JS fetch
+
+  // Response helpers — HTML for the native path, JSON for the fetch path.
+  const ok = () => isForm
+    ? new Response(THANKS, { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8' } })
+    : new Response(JSON.stringify({ ok: true }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  const fail = (msg: string, code: number) => isForm
+    ? new Response(page('Sorry', `<h1>Couldn't send that</h1><p>${esc(msg)}</p><a href="/">Back</a>`), { status: code, headers: { 'Content-Type': 'text/html; charset=utf-8' } })
+    : new Response(JSON.stringify({ error: msg }), { status: code, headers: { 'Content-Type': 'application/json' } });
+
   let body: Record<string, unknown>;
-  try { body = await request.json(); } catch {
-    return new Response(JSON.stringify({ error: 'Invalid request.' }), { status: 400 });
+  try {
+    if (isForm) {
+      const fd = await request.formData();
+      body = Object.fromEntries([...fd.entries()].map(([k, v]) => [k, String(v)]));
+    } else {
+      body = await request.json();
+    }
+  } catch {
+    return fail('Invalid request.', 400);
   }
 
-  // Honeypot — silently accept bots. NB: named 'lcsa_hp' (NOT 'website') so
-  // browser autofill never fills it and blocks real people.
-  if (String(body.lcsa_hp ?? '').trim() !== '') {
-    return new Response(JSON.stringify({ ok: true }), { status: 200 });
-  }
-  if (rateLimited(clientIp(request))) {
-    return new Response(JSON.stringify({ error: 'Too many messages — please try again shortly.' }), { status: 429 });
-  }
+  // Honeypot — named 'lcsa_hp' (NOT 'website') so browser autofill can't trip it.
+  if (String(body.lcsa_hp ?? '').trim() !== '') return ok();
+  if (rateLimited(clientIp(request))) return fail('Too many messages — please try again shortly.', 429);
 
   const name = String(body.name ?? '').trim().slice(0, 120);
   const phone = String(body.phone ?? '').trim().slice(0, 40);
@@ -43,19 +62,15 @@ export const POST: APIRoute = async ({ request }) => {
   const message = String(body.message ?? '').trim().slice(0, 2000);
   const source_path = String(body.source_path ?? '').trim().slice(0, 160) || null;
 
-  if (!name || !message) {
-    return new Response(JSON.stringify({ error: 'Please add your name and a message.' }), { status: 400 });
-  }
-  if (!phone && !email) {
-    return new Response(JSON.stringify({ error: 'Please leave a phone number or email so we can reply.' }), { status: 400 });
-  }
+  if (!name || !message) return fail('Please add your name and a message.', 400);
+  if (!phone && !email) return fail('Please leave a phone number or email so we can reply.', 400);
 
   // DB first — never lose an enquiry to an email hiccup.
   try {
     db.insert(enquiries).values({ name, phone: phone || null, email: email || null, message, source_path, created_at: new Date() }).run();
   } catch (err) {
     console.error('[enquiry] DB insert failed:', err);
-    return new Response(JSON.stringify({ error: 'Could not send your message. Please try again.' }), { status: 500 });
+    return fail('Could not send your message. Please try again.', 500);
   }
 
   const resendKey = import.meta.env.RESEND_API_KEY ?? process.env.RESEND_API_KEY ?? '';
@@ -86,5 +101,5 @@ export const POST: APIRoute = async ({ request }) => {
     }
   }
 
-  return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  return ok();
 };
