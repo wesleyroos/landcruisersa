@@ -43,6 +43,12 @@ async function fetchAtImages(sourceUrl: string): Promise<string[]> {
     signal: AbortSignal.timeout(15_000),
   });
 
+  // Hard block — abort the whole run (never march to the next listing).
+  if (res.status === 429 || res.status === 503) {
+    const e = new Error(`rate-limited (${res.status})`) as Error & { rateLimited?: boolean };
+    e.rateLimited = true;
+    throw e;
+  }
   if (!res.ok) return [];
 
   const html = await res.text();
@@ -83,7 +89,10 @@ async function run() {
 
   console.log(`[at-images] ${pending.length} listings need images`);
 
-  let updated = 0, failed = 0, empty = 0;
+  let updated = 0, failed = 0, empty = 0, consecutiveEmpty = 0;
+  // A soft block returns 200 with a challenge page (zero images), not a 503 — so
+  // a run of empties is itself a block signal. Bail before we dig the hole deeper.
+  const EMPTY_ABORT = 8;
 
   for (const listing of pending) {
     process.stdout.write(`  ${listing.source_id} (${listing.photo_count} photos) → `);
@@ -92,6 +101,10 @@ async function run() {
     try {
       imgs = await fetchAtImages(listing.source_url);
     } catch (err) {
+      if ((err as { rateLimited?: boolean })?.rateLimited) {
+        process.stdout.write(`\n[at-images] ABORTING — AutoTrader is rate-limiting this IP. Backing off; the next scheduled run resumes.\n`);
+        break;
+      }
       process.stdout.write(`fetch error: ${String(err).slice(0, 60)}\n`);
       failed++;
       await delay(DELAY_MS);
@@ -101,9 +114,14 @@ async function run() {
     if (imgs.length < MIN_PHOTOS) {
       process.stdout.write(`only ${imgs.length} found — skipping\n`);
       empty++;
+      if (++consecutiveEmpty >= EMPTY_ABORT) {
+        process.stdout.write(`\n[at-images] ABORTING — ${EMPTY_ABORT} empty fetches in a row looks like a soft block, not missing photos. Backing off.\n`);
+        break;
+      }
       await delay(DELAY_MS);
       continue;
     }
+    consecutiveEmpty = 0;
 
     try {
       await updatePhotos('autotrader', listing.source_id, imgs);

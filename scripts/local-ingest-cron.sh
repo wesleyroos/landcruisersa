@@ -49,7 +49,7 @@ if is_scheduled autotrader; then
     #    Fly, which AT blocks. Bounded batch + polite delay, ONCE per daily AT run
     #    (NOT a separate hourly agent — that hammered AT 24×/day and re-blocked the
     #    IP). Runs before rehost so the new images get copied to R2 the same pass.
-    BATCH_SIZE=150 DELAY_MS=2500 "$NODE" --experimental-strip-types scripts/backfill-at-images.ts || echo "[cron] at-image-gallery-backfill failed"
+    BATCH_SIZE=80 DELAY_MS=3500 "$NODE" --experimental-strip-types scripts/backfill-at-images.ts || echo "[cron] at-image-gallery-backfill failed"
     # 2) Fill missing descriptions, then 3) copy AT-hosted images to R2.
     "$NODE" --experimental-strip-types src/scripts/backfill-at-descriptions.ts || echo "[cron] at-desc-backfill failed"
     "$NODE" --experimental-strip-types src/scripts/rehost-at-images.ts || echo "[cron] at-image-rehost failed"
