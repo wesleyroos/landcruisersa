@@ -179,6 +179,26 @@ export const valuationRequests = sqliteTable('valuation_requests', {
 
 export type ValuationRequest = typeof valuationRequests.$inferSelect;
 
+// Owner feedback on a valuation ("spot on / too high / too low" + optional note
+// and their own figure). A calibration signal — surfaces where the model is off
+// by model/spec, and the free-text note captures extras we can't see. Anonymous
+// (no contact). Linked to the valuation_requests snapshot via draft_id.
+export const valuationFeedback = sqliteTable('valuation_feedback', {
+  id:            integer('id').primaryKey({ autoIncrement: true }),
+  draft_id:      integer('draft_id'),        // the valuation_requests row being rated
+  model:         text('model'),
+  year:          integer('year'),
+  mileage:       integer('mileage'),
+  spec:          text('spec'),               // cohort/spec label, e.g. "2022–2024 GR-Sport 300 Series"
+  estimate_mid:  integer('estimate_mid'),     // the realistic-sell figure they're rating
+  verdict:       text('verdict'),            // 'spot_on' | 'too_high' | 'too_low'
+  user_estimate: integer('user_estimate'),    // what they think it's worth (optional)
+  note:          text('note'),               // free text (optional) — extras/context
+  source_path:   text('source_path'),
+  created_at:    integer('created_at', { mode: 'timestamp' }).notNull(),
+});
+export type ValuationFeedback = typeof valuationFeedback.$inferSelect;
+
 // Price changes observed by the aggregator — fuels price-trend content and
 // "price drop" surfacing. One row per observed change, captured at ingest.
 export const priceEvents = sqliteTable('price_events', {

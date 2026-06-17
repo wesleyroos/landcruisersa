@@ -161,6 +161,40 @@ const specYearsJson = JSON.stringify(getSpecYearRanges());
 
     function track(name) { try { window.plausible && window.plausible(name); } catch {} }
 
+    // ── Valuation feedback (calibration signal → DB + email) ──
+    let lastResult = null, lastVerdict = '';
+    function sendFeedback(verdict, note, userEstimate) {
+      if (!lastResult) return;
+      track('valuation_feedback_' + verdict);
+      try {
+        fetch('/api/valuation-feedback', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...lastResult, verdict, note: note || '', userEstimate: userEstimate || null, website: '', source_path: location.pathname }),
+        });
+      } catch {}
+    }
+    out.addEventListener('click', function (ev) {
+      const box = out.querySelector('[data-fb-box]');
+      if (!box) return;
+      const vb = ev.target.closest('[data-v]');
+      if (vb) {
+        lastVerdict = vb.getAttribute('data-v');
+        sendFeedback(lastVerdict, '', null);
+        box.innerHTML = '<span class="vr-fb-q">Thanks 🙏 — anything we couldn’t see?</span>'
+          + '<input class="vr-fb-in" data-fb-est type="number" inputmode="numeric" placeholder="What it\x27s really worth (R)">'
+          + '<textarea class="vr-fb-note" data-fb-note rows="2" placeholder="Extras, service history, why it\x27s off…"></textarea>'
+          + '<button type="button" class="vr-fb-send" data-fb-send>Send</button>';
+        return;
+      }
+      if (ev.target.closest('[data-fb-send]')) {
+        const est = box.querySelector('[data-fb-est]');
+        const note = box.querySelector('[data-fb-note]');
+        const nv = note ? note.value.trim() : '', ev2 = est ? est.value.trim() : '';
+        if (nv || ev2) sendFeedback(lastVerdict, nv, ev2 || null);
+        box.innerHTML = '<span class="vr-fb-q">Thanks — noted. 🙏</span>';
+      }
+    });
+
     function confBadge(c) {
       const map = { high: ['High confidence', '#34D399'], medium: ['Good estimate', '#FBBF24'], low: ['Rough estimate', '#FB923C'], none: ['Not enough data', '#9CA3AF'] };
       const [label, col] = map[c] || map.none;
@@ -191,6 +225,14 @@ const specYearsJson = JSON.stringify(getSpecYearRanges());
               <p class="vr-disc">${esc(d.caveat)}</p>
             </div>
           </details>
+          <div class="vr-fb" data-fb-box>
+            <span class="vr-fb-q">Is this accurate?</span>
+            <span class="vr-fb-btns">
+              <button type="button" class="vr-fb-b" data-v="spot_on">Spot on</button>
+              <button type="button" class="vr-fb-b" data-v="too_low">Too low</button>
+              <button type="button" class="vr-fb-b" data-v="too_high">Too high</button>
+            </span>
+          </div>
         </div>`;
     }
 
@@ -248,6 +290,10 @@ const specYearsJson = JSON.stringify(getSpecYearRanges());
         data.modelText = modelText;
         data.vehicle = 'Your ' + payload.year + ' ' + modelText;
         out.innerHTML = data.estimate ? renderEstimate(data) : renderNone(data);
+        if (data.estimate) {
+          lastResult = { draftId: data.draftId, model: payload.model, year: payload.year, mileage: payload.mileage,
+            spec: (data.cohort && data.cohort.label) || payload.model, estimateMid: data.estimate.sellMid };
+        }
         out.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         const h = out.querySelector('.vr-q'); if (h) { h.setAttribute('tabindex', '-1'); h.focus(); }
       } catch {
@@ -322,6 +368,16 @@ const specYearsJson = JSON.stringify(getSpecYearRanges());
   .vt .vr-link { display: inline-block; margin-top: 0.75rem; color: #F5A623; text-decoration: none; font-weight: 600; }
   .vt .vr-link:hover { text-decoration: underline; }
   .vt .vr-disc { margin-top: 0.85rem; font-size: 0.68rem; color: rgba(255,255,255,0.4); line-height: 1.5; }
+
+  .vt .vr-fb { margin-top: 1.1rem; padding-top: 0.9rem; border-top: 1px solid rgba(255,255,255,0.1); display: flex; flex-wrap: wrap; align-items: center; gap: 0.55rem; }
+  .vt .vr-fb-q { font-size: 0.78rem; color: rgba(255,255,255,0.55); }
+  .vt .vr-fb-btns { display: inline-flex; gap: 0.4rem; flex-wrap: wrap; }
+  .vt .vr-fb-b { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.85); border: 1px solid rgba(255,255,255,0.15); border-radius: 999px; padding: 0.3rem 0.8rem; font-size: 0.78rem; font-weight: 600; cursor: pointer; transition: all 0.12s; }
+  .vt .vr-fb-b:hover { background: #F5A623; color: #111; border-color: #F5A623; }
+  .vt .vr-fb-in, .vt .vr-fb-note { width: 100%; padding: 0.5rem 0.65rem; border-radius: 0.4rem; border: 1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.06); color: #fff; font: inherit; font-size: 0.85rem; }
+  .vt .vr-fb-in::placeholder, .vt .vr-fb-note::placeholder { color: rgba(255,255,255,0.4); }
+  .vt .vr-fb-send { background: #F5A623; color: #111; border: 0; border-radius: 0.4rem; padding: 0.45rem 1rem; font-weight: 700; font-size: 0.8rem; cursor: pointer; }
+  .vt .vr-fb-send:hover { background: #D4881A; }
 
   .vt .vr-none-h { font-family: var(--font-heading); font-weight: 700; text-transform: uppercase; font-size: 1.35rem; color: #fff; margin-top: 0.3rem; }
   .vt .vr-none-t { font-size: 0.85rem; color: rgba(255,255,255,0.6); margin: 0.55rem auto 0; max-width: 360px; line-height: 1.6; }

@@ -168,6 +168,27 @@ const addValCol = (col, def) => {
 };
 void addValCol; // referenced once a post-ship column is needed
 
+// Owner feedback on valuations — calibration signal. New table → CREATE TABLE
+// IF NOT EXISTS (NOT REQUIRED_COLS, which guards the listings table only).
+db.exec(`
+  CREATE TABLE IF NOT EXISTS valuation_feedback (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    draft_id      INTEGER,
+    model         TEXT,
+    year          INTEGER,
+    mileage       INTEGER,
+    spec          TEXT,
+    estimate_mid  INTEGER,
+    verdict       TEXT,
+    user_estimate INTEGER,
+    note          TEXT,
+    source_path   TEXT,
+    created_at    INTEGER NOT NULL
+  )
+`);
+db.exec(`CREATE INDEX IF NOT EXISTS valuation_feedback_created ON valuation_feedback (created_at)`);
+db.exec(`CREATE INDEX IF NOT EXISTS valuation_feedback_model ON valuation_feedback (model, verdict)`);
+
 db.exec(`
   CREATE TABLE IF NOT EXISTS view_events (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
