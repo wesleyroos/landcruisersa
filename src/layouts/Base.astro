@@ -117,6 +117,26 @@ const ogImage = new URL(image, SITE.url).href;
         }
       } catch {}
     </script>
+
+    <!-- LLM-citation capture: when the visit was referred by an AI assistant
+         (plain link, no utm param), log the source + landing page once per
+         session. Server re-classifies the host; this just pre-filters. -->
+    <script>
+      try {
+        const ref = document.referrer;
+        if (ref && !sessionStorage.getItem('lcsa_ref_sent')) {
+          const h = new URL(ref).hostname.toLowerCase().replace(/^www\./, '');
+          const isAi = /(^|\.)(chatgpt\.com|openai\.com|gemini\.google\.com|bard\.google\.com|perplexity\.ai|copilot\.microsoft\.com|claude\.ai|deepseek\.com|grok\.com|x\.ai|mistral\.ai|you\.com|poe\.com|phind\.com)$/.test(h);
+          if (isAi) {
+            sessionStorage.setItem('lcsa_ref_sent', '1');
+            navigator.sendBeacon('/api/track-referral', JSON.stringify({
+              referrer: ref,
+              landing_path: location.pathname,
+            }));
+          }
+        }
+      } catch {}
+    </script>
   </head>
   <body class="min-h-screen flex flex-col">
     <Nav />

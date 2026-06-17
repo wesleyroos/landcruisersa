@@ -79,6 +79,19 @@ export const visitEvents = sqliteTable('visit_events', {
   created_at:   integer('created_at', { mode: 'timestamp' }).notNull(),
 });
 
+// First-party LLM-citation ledger. visit_events only catches ?utm_source= links;
+// LLM citations arrive as plain links carrying a Referer (no utm param), so a
+// client beacon reads document.referrer and logs the AI host + landing page here.
+// This captures the hero metric (AI-referred traffic) losslessly — not sampled by
+// Plausible — and answers "which guide got cited?", which Plausible can't at this volume.
+export const aiReferrals = sqliteTable('ai_referrals', {
+  id:            integer('id').primaryKey({ autoIncrement: true }),
+  referrer_host: text('referrer_host').notNull(),  // e.g. 'chatgpt.com', 'gemini.google.com'
+  source:        text('source').notNull(),          // normalised: 'chatgpt' | 'gemini' | 'perplexity' | 'copilot' | 'claude' | ...
+  landing_path:  text('landing_path'),
+  created_at:    integer('created_at', { mode: 'timestamp' }).notNull(),
+});
+
 export const partnerClicks = sqliteTable('partner_clicks', {
   id:           integer('id').primaryKey({ autoIncrement: true }),
   partner_slug: text('partner_slug').notNull(),

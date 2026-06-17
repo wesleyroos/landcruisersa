@@ -189,6 +189,20 @@ db.exec(`
 db.exec(`CREATE INDEX IF NOT EXISTS valuation_feedback_created ON valuation_feedback (created_at)`);
 db.exec(`CREATE INDEX IF NOT EXISTS valuation_feedback_model ON valuation_feedback (model, verdict)`);
 
+// First-party LLM-citation ledger (visit_events only logs ?utm_source= links;
+// LLM citations carry a Referer but no utm param). New table → CREATE TABLE IF NOT EXISTS.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS ai_referrals (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    referrer_host TEXT NOT NULL,
+    source        TEXT NOT NULL,
+    landing_path  TEXT,
+    created_at    INTEGER NOT NULL
+  )
+`);
+db.exec(`CREATE INDEX IF NOT EXISTS ai_referrals_created ON ai_referrals (created_at)`);
+db.exec(`CREATE INDEX IF NOT EXISTS ai_referrals_source ON ai_referrals (source, created_at)`);
+
 // General enquiries from the floating chat widget.
 db.exec(`
   CREATE TABLE IF NOT EXISTS enquiries (
