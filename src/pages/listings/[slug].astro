@@ -5,7 +5,9 @@ import Base from '@/layouts/Base.astro';
 import { db } from '@/db/index';
 import { listings } from '@/db/schema';
 import { and, eq, ne } from 'drizzle-orm';
-import { modelLabel, LC_MODEL_SLUG_SET } from '@/lib/sources/normalize';
+// NB: do NOT import modelLabel/normalize here — this page already pulls modelLabel
+// transitively via getMarketPosition, and a second direct import creates a
+// bundler init-order crash ("Cannot access 'modelLabel2' before initialization").
 
 const { slug } = Astro.params;
 const [listing] = await db.select().from(listings).where(eq(listings.slug, slug!));
@@ -19,8 +21,9 @@ const isSold = listing.status === 'sold';
 const isExternal = Boolean(listing.source_url);
 const isShowOff = listing.listing_type === 'show_off';
 
-const mLabel = modelLabel(listing.model);
-const valuationHref = LC_MODEL_SLUG_SET.has(listing.model) ? `/valuation/${listing.model}/` : '/valuation/';
+const mLabel = listing.model.replace(/-/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()).replace(/Fj/, 'FJ');
+// /valuation/<model>/ redirects to the hub for non-valuation slugs (70-series/other), so this is safe.
+const valuationHref = `/valuation/${listing.model}/`;
 
 const SOURCE_LABEL: Record<string, string> = {
   autotrader: 'AutoTrader',
