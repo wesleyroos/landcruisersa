@@ -25,6 +25,7 @@ export const GET: APIRoute = async ({ request }) => {
       source: listings.source,
       source_id: listings.source_id,
       source_url: listings.source_url,
+      segment: listings.segment,
       last_polled_at: listings.last_polled_at,
     })
     .from(listings)

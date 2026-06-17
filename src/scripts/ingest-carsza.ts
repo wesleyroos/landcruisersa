@@ -13,7 +13,12 @@ async function ingest() {
   }
   if (!TOKEN) throw new Error('INGEST_TOKEN not set');
 
-  await applyExtraSegments('carsza');
+  const collectExtra = await applyExtraSegments('carsza');
+  // Segments this run actually crawled. The liveness sweep below must only reap
+  // within these — otherwise turning Hilux/Fortuner collection off makes the
+  // sweep treat every un-crawled toyota-4x4 listing as "delisted" and mass-purge
+  // it (this happened 2026-06-16: 3,631 listings wrongly removed in one run).
+  const scrapedSegments = new Set(['land-cruiser', ...(collectExtra ? ['toyota-4x4'] : [])]);
   console.log('[carsza] discovering listings (drives headed Chrome — local only)…');
   const refs = await CarsZaAdapter.discover();
   console.log(`[carsza] found ${refs.length} refs`);
@@ -51,19 +56,29 @@ async function ingest() {
     else skipped++;
   }
 
-  // Liveness: the sweep above saw every live cars.co.za Land Cruiser, so any
-  // active carsza listing NOT in this run has been delisted — mark it removed.
-  // (The GH Actions poller can't do this; Cloudflare blocks datacenter IPs.)
+  // Liveness sweep: this run saw every live cars.co.za listing in the segments it
+  // crawled, so any active carsza listing in THOSE segments not seen here has been
+  // delisted — mark it removed. (The poller can't do this for carsza: Cloudflare
+  // blocks datacenter IPs.) Two guards keep it from purging good data:
+  //   1. Segment-scoped — only reap segments crawled this run (`scrapedSegments`),
+  //      so toggling Hilux/Fortuner off never deletes the un-crawled segment.
+  //   2. Circuit breaker — if an implausibly large share would be removed, skip
+  //      the whole sweep and log it. That signals a partial scrape / block, not a
+  //      real mass-delisting (a 6h window never delists a quarter of the market).
+  const REAP_CAP_FRACTION = 0.25;
   let removed = 0;
   try {
     const liveRes = await fetch(`${SITE_URL}/api/aggregated/live`, {
       headers: { Authorization: `Bearer ${TOKEN}` },
     });
     if (liveRes.ok) {
-      const live = await liveRes.json() as Array<{ source: string; source_id: string }>;
+      const live = await liveRes.json() as Array<{ source: string; source_id: string; segment: string }>;
       const seen = new Set(refs.map(r => r.source_id));
-      const gone = live.filter(l => l.source === 'carsza' && !seen.has(l.source_id));
-      if (gone.length > 0) {
+      const inScope = live.filter(l => l.source === 'carsza' && scrapedSegments.has(l.segment));
+      const gone = inScope.filter(l => !seen.has(l.source_id));
+      if (gone.length > 0 && gone.length / inScope.length > REAP_CAP_FRACTION) {
+        console.warn(`[carsza] liveness sweep SKIPPED — ${gone.length}/${inScope.length} (${Math.round(100 * gone.length / inScope.length)}%) in-scope listings would be removed; treating as a partial scrape/block, not a mass delisting`);
+      } else if (gone.length > 0) {
         const statusRes = await fetch(`${SITE_URL}/api/aggregated/status`, {
           method: 'POST',
           headers: { Authorization: `Bearer ${TOKEN}`, 'Content-Type': 'application/json' },
