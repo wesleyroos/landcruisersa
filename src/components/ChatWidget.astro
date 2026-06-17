@@ -23,6 +23,7 @@
         <input class="cw-in" name="email" type="email" placeholder="Email (optional)" maxlength="160" autocomplete="email" />
         <textarea class="cw-in" name="message" placeholder="Your message…" rows="3" maxlength="2000"></textarea>
         <div class="cw-hp" aria-hidden="true"><input name="lcsa_hp" tabindex="-1" autocomplete="off" /></div>
+        <input type="hidden" name="source_path" id="cw-src" />
         <p class="cw-err" id="cw-err" hidden></p>
         <button type="submit" class="cw-send" id="cw-send">Send message</button>
       </form>
@@ -39,8 +40,9 @@
     if (!toggle || !panel || !form) return;
     const x = document.getElementById('cw-x');
     const err = document.getElementById('cw-err');
-    const done = document.getElementById('cw-done');
     const send = document.getElementById('cw-send');
+    const src = document.getElementById('cw-src');
+    if (src) src.value = location.pathname; // carry the page through the native POST
 
     function open() { panel.hidden = false; requestAnimationFrame(() => panel.classList.add('cw-open')); toggle.classList.add('cw-active'); toggle.setAttribute('aria-expanded', 'true'); }
     function close() { panel.classList.remove('cw-open'); toggle.classList.remove('cw-active'); toggle.setAttribute('aria-expanded', 'false'); setTimeout(() => { panel.hidden = true; }, 200); }
@@ -48,34 +50,23 @@
     if (x) x.addEventListener('click', close);
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && toggle.classList.contains('cw-active')) close(); });
 
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
+    // PLAIN native form POST — no fetch. JS only validates; on valid input it
+    // lets the browser submit the form normally (to /api/message, which returns
+    // a "Message sent" page). A real form submission isn't a background request,
+    // so content/ad blockers don't intercept it the way they do fetch/XHR.
+    form.addEventListener('submit', (e) => {
       const f = new FormData(form);
-      const payload = {
-        name: (f.get('name') || '').toString().trim(),
-        phone: (f.get('phone') || '').toString().trim(),
-        email: (f.get('email') || '').toString().trim(),
-        message: (f.get('message') || '').toString().trim(),
-        lcsa_hp: (f.get('lcsa_hp') || '').toString(),
-        source_path: location.pathname,
-      };
+      const name = (f.get('name') || '').toString().trim();
+      const phone = (f.get('phone') || '').toString().trim();
+      const email = (f.get('email') || '').toString().trim();
+      const message = (f.get('message') || '').toString().trim();
       function showErr(m) { if (err) { err.textContent = m; err.hidden = false; } }
-      if (!payload.name || !payload.message) return showErr('Please add your name and a message.');
-      if (!payload.phone && !payload.email) return showErr('Add a phone number or email so we can reply.');
+      if (!name || !message) { e.preventDefault(); showErr('Please add your name and a message.'); return; }
+      if (!phone && !email) { e.preventDefault(); showErr('Add a phone number or email so we can reply.'); return; }
+      // valid → do NOT preventDefault; the browser performs the native POST
       if (err) err.hidden = true;
-      send.disabled = true; const label = send.textContent; send.textContent = 'Sending…';
-      try {
-        const res = await fetch('/api/message', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-        const data = await res.json();
-        if (!res.ok) { showErr(data.error || 'Something went wrong. Please try again.'); return; }
-        form.hidden = true; if (done) done.hidden = false;
-        try { window.plausible && window.plausible('enquiry_sent'); } catch {}
-      } catch {
-        // fetch was blocked/failed (e.g. a browser extension or network). Fall
-        // back to a classic form POST, which content blockers don't intercept.
-        try { form.submit(); return; } catch { showErr('Could not send. Please email wesley@landcruisersa.co.za.'); }
-      }
-      finally { send.disabled = false; send.textContent = label; }
+      send.disabled = true; send.textContent = 'Sending…';
+      try { window.plausible && window.plausible('enquiry_sent'); } catch {}
     });
   })();
 </script>
