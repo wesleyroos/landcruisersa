@@ -1,7 +1,7 @@
 ---
 // Floating "chat-style" enquiry widget, site-wide (rendered in Base.astro).
-// Brand-orange. Posts a short form to /api/message → DB + email both addresses.
-// Not real WhatsApp — a familiar chat UX for a general enquiry.
+// Brand-orange. Submits via fetch to the proven /api/contact endpoint (same flow
+// as the contact page) → emails. Not real WhatsApp — a familiar chat UX.
 ---
 
 <div class="cw">
@@ -17,13 +17,11 @@
     </div>
     <div class="cw-body">
       <div class="cw-bubble">Hi 👋 Ask us anything about a Land Cruiser and we'll get back to you.</div>
-      <form class="cw-form" id="cw-form" method="POST" action="/api/message" novalidate>
+      <form class="cw-form" id="cw-form" novalidate>
         <input class="cw-in" name="name" placeholder="Your name" maxlength="120" autocomplete="name" />
-        <input class="cw-in" name="phone" placeholder="Phone / WhatsApp" maxlength="40" inputmode="tel" autocomplete="tel" />
-        <input class="cw-in" name="email" type="email" placeholder="Email (optional)" maxlength="160" autocomplete="email" />
+        <input class="cw-in" name="email" type="email" placeholder="Email" maxlength="160" autocomplete="email" />
+        <input class="cw-in" name="phone" placeholder="Phone (optional)" maxlength="40" inputmode="tel" autocomplete="tel" />
         <textarea class="cw-in" name="message" placeholder="Your message…" rows="3" maxlength="2000"></textarea>
-        <div class="cw-hp" aria-hidden="true"><input name="lcsa_hp" tabindex="-1" autocomplete="off" /></div>
-        <input type="hidden" name="source_path" id="cw-src" />
         <p class="cw-err" id="cw-err" hidden></p>
         <button type="submit" class="cw-send" id="cw-send">Send message</button>
       </form>
@@ -41,8 +39,7 @@
     const x = document.getElementById('cw-x');
     const err = document.getElementById('cw-err');
     const send = document.getElementById('cw-send');
-    const src = document.getElementById('cw-src');
-    if (src) src.value = location.pathname; // carry the page through the native POST
+    const done = document.getElementById('cw-done');
 
     function open() { panel.hidden = false; requestAnimationFrame(() => panel.classList.add('cw-open')); toggle.classList.add('cw-active'); toggle.setAttribute('aria-expanded', 'true'); }
     function close() { panel.classList.remove('cw-open'); toggle.classList.remove('cw-active'); toggle.setAttribute('aria-expanded', 'false'); setTimeout(() => { panel.hidden = true; }, 200); }
@@ -50,23 +47,37 @@
     if (x) x.addEventListener('click', close);
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && toggle.classList.contains('cw-active')) close(); });
 
-    // PLAIN native form POST — no fetch. JS only validates; on valid input it
-    // lets the browser submit the form normally (to /api/message, which returns
-    // a "Message sent" page). A real form submission isn't a background request,
-    // so content/ad blockers don't intercept it the way they do fetch/XHR.
-    form.addEventListener('submit', (e) => {
-      const f = new FormData(form);
-      const name = (f.get('name') || '').toString().trim();
-      const phone = (f.get('phone') || '').toString().trim();
-      const email = (f.get('email') || '').toString().trim();
-      const message = (f.get('message') || '').toString().trim();
+    // EXACTLY the contact form's flow: fetch POST to the proven /api/contact and
+    // show the result in-widget. Phone (optional) is folded into the message,
+    // since /api/contact emails name/email/subject/message.
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fd = new FormData(form);
+      const name = (fd.get('name') || '').toString().trim();
+      const email = (fd.get('email') || '').toString().trim();
+      const phone = (fd.get('phone') || '').toString().trim();
+      let message = (fd.get('message') || '').toString().trim();
       function showErr(m) { if (err) { err.textContent = m; err.hidden = false; } }
-      if (!name || !message) { e.preventDefault(); showErr('Please add your name and a message.'); return; }
-      if (!phone && !email) { e.preventDefault(); showErr('Add a phone number or email so we can reply.'); return; }
-      // valid → do NOT preventDefault; the browser performs the native POST
+      if (!name || !email || !message) { showErr('Please add your name, email and message.'); return; }
+      if (phone) message = 'Phone: ' + phone + '\n\n' + message;
       if (err) err.hidden = true;
-      send.disabled = true; send.textContent = 'Sending…';
-      try { window.plausible && window.plausible('enquiry_sent'); } catch {}
+      send.disabled = true; const label = send.textContent; send.textContent = 'Sending…';
+      try {
+        const res = await fetch('/api/contact', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, email, subject: 'general', message }),
+        });
+        if (res.ok) {
+          form.hidden = true; if (done) done.hidden = false;
+          try { window.plausible && window.plausible('enquiry_sent'); } catch {}
+        } else {
+          showErr('Something went wrong. Please try again.');
+          send.disabled = false; send.textContent = label;
+        }
+      } catch {
+        showErr('Could not send. Please try again.');
+        send.disabled = false; send.textContent = label;
+      }
     });
   })();
 </script>
