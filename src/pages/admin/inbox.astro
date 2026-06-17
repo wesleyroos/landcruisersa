@@ -1,0 +1,175 @@
+---
+export const prerender = false;
+
+import AdminLayout from '@/layouts/AdminLayout.astro';
+import { db } from '@/db/index';
+import { enquiries, valuationFeedback, valuationRequests } from '@/db/schema';
+import { desc, sql } from 'drizzle-orm';
+
+const cookie = Astro.cookies.get('lcsa_admin');
+const adminSecret = import.meta.env.ADMIN_SECRET ?? process.env.ADMIN_SECRET ?? '';
+if (!cookie || cookie.value !== adminSecret) {
+  return Astro.redirect('/admin/login');
+}
+
+// ── Enquiries (chat widget) ──
+const recentEnquiries = db.select().from(enquiries).orderBy(desc(enquiries.created_at)).limit(50).all();
+
+// ── Valuation feedback ──
+const recentFeedback = db.select().from(valuationFeedback).orderBy(desc(valuationFeedback.created_at)).limit(50).all();
+const fbAgg = db.select({
+  model: valuationFeedback.model,
+  verdict: valuationFeedback.verdict,
+  n: sql<number>`cast(count(*) as int)`,
+}).from(valuationFeedback).groupBy(valuationFeedback.model, valuationFeedback.verdict).all();
+// pivot model → {spot_on, too_low, too_high, total}
+const fbByModel = new Map<string, { spot_on: number; too_low: number; too_high: number; total: number }>();
+for (const r of fbAgg) {
+  const m = r.model ?? 'unknown';
+  const row = fbByModel.get(m) ?? { spot_on: 0, too_low: 0, too_high: 0, total: 0 };
+  if (r.verdict === 'spot_on') row.spot_on += r.n;
+  else if (r.verdict === 'too_low') row.too_low += r.n;
+  else if (r.verdict === 'too_high') row.too_high += r.n;
+  row.total += r.n;
+  fbByModel.set(m, row);
+}
+const fbModelRows = [...fbByModel.entries()].map(([model, v]) => ({ model, ...v })).sort((a, b) => b.total - a.total);
+
+// ── Valuation activity ──
+const valTotal = (db.select({ n: sql<number>`cast(count(*) as int)` }).from(valuationRequests).get())?.n ?? 0;
+const valByModel = db.select({
+  model: valuationRequests.model,
+  n: sql<number>`cast(count(*) as int)`,
+  avgMid: sql<number>`cast(avg(sell_mid) as int)`,
+}).from(valuationRequests).groupBy(valuationRequests.model).orderBy(sql`count(*) desc`).all();
+const recentVal = db.select().from(valuationRequests).orderBy(desc(valuationRequests.created_at)).limit(25).all();
+
+const fmt = (d: Date | null) => d ? new Date(d).toLocaleString('en-ZA', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—';
+const R = (n: number | null) => (n == null ? '—' : 'R' + Math.round(n).toLocaleString('en-ZA'));
+const VERDICT = { spot_on: '✅ Spot on', too_low: '⬇️ Too low', too_high: '⬆️ Too high' } as Record<string, string>;
+---
+
+<AdminLayout title="Inbox" activePage="inbox">
+  <div class="ib">
+
+    <section class="card">
+      <h2>Enquiries <span class="count">{recentEnquiries.length}</span></h2>
+      <p class="sub">Messages from the site chat widget. Also emailed to you.</p>
+      {recentEnquiries.length === 0 ? <p class="empty">No enquiries yet.</p> : (
+        <table>
+          <thead><tr><th>When</th><th>Name</th><th>Phone</th><th>Email</th><th>Message</th><th>Page</th></tr></thead>
+          <tbody>
+            {recentEnquiries.map(e => (
+              <tr>
+                <td class="nowrap muted">{fmt(e.created_at)}</td>
+                <td class="b">{e.name ?? '—'}</td>
+                <td class="nowrap">{e.phone ? <a href={`tel:${e.phone}`}>{e.phone}</a> : '—'}</td>
+                <td>{e.email ? <a href={`mailto:${e.email}`}>{e.email}</a> : '—'}</td>
+                <td class="msg">{e.message}</td>
+                <td class="muted small">{e.source_path ?? '—'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </section>
+
+    <section class="card">
+      <h2>Valuation feedback</h2>
+      <p class="sub">Where owners say the estimate is off — a calibration signal, not gospel (sellers skew high).</p>
+      {fbModelRows.length === 0 ? <p class="empty">No feedback yet.</p> : (
+        <table class="agg">
+          <thead><tr><th>Model</th><th>Total</th><th>✅ Spot on</th><th>⬇️ Too low</th><th>⬆️ Too high</th></tr></thead>
+          <tbody>
+            {fbModelRows.map(r => (
+              <tr>
+                <td class="b">{r.model}</td><td>{r.total}</td>
+                <td>{r.spot_on}</td>
+                <td class={r.too_low > r.spot_on ? 'flag' : ''}>{r.too_low}</td>
+                <td class={r.too_high > r.spot_on ? 'flag' : ''}>{r.too_high}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      {recentFeedback.length > 0 && (
+        <>
+          <h3>Recent feedback</h3>
+          <table>
+            <thead><tr><th>When</th><th>Verdict</th><th>Vehicle</th><th>Our est.</th><th>Their figure</th><th>Note</th></tr></thead>
+            <tbody>
+              {recentFeedback.map(f => (
+                <tr>
+                  <td class="nowrap muted">{fmt(f.created_at)}</td>
+                  <td class="nowrap">{VERDICT[f.verdict ?? ''] ?? f.verdict}</td>
+                  <td class="small">{f.spec ?? f.model}</td>
+                  <td class="nowrap">{R(f.estimate_mid)}</td>
+                  <td class="nowrap b">{R(f.user_estimate)}</td>
+                  <td class="msg">{f.note ?? '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
+      )}
+    </section>
+
+    <section class="card">
+      <h2>Valuation activity <span class="count">{valTotal}</span></h2>
+      <p class="sub">What people are valuing — market intel + which models drive the tool.</p>
+      {valByModel.length === 0 ? <p class="empty">No valuations yet.</p> : (
+        <table class="agg">
+          <thead><tr><th>Model</th><th>Valuations</th><th>Avg sell est.</th></tr></thead>
+          <tbody>
+            {valByModel.map(v => (
+              <tr><td class="b">{v.model}</td><td>{v.n}</td><td>{R(v.avgMid)}</td></tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      {recentVal.length > 0 && (
+        <>
+          <h3>Recent valuations</h3>
+          <table>
+            <thead><tr><th>When</th><th>Vehicle</th><th>km</th><th>Sell est.</th><th>Conf.</th></tr></thead>
+            <tbody>
+              {recentVal.map(v => (
+                <tr>
+                  <td class="nowrap muted">{fmt(v.created_at)}</td>
+                  <td class="small">{v.cohort_label ?? `${v.year ?? ''} ${v.model ?? ''}`}</td>
+                  <td class="nowrap">{v.mileage != null ? v.mileage.toLocaleString('en-ZA') : '—'}</td>
+                  <td class="nowrap b">{R(v.sell_mid)}</td>
+                  <td class="small muted">{v.confidence ?? '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
+      )}
+    </section>
+
+  </div>
+</AdminLayout>
+
+<style>
+  .ib { display: flex; flex-direction: column; gap: 1.5rem; max-width: 1100px; }
+  .card { background: #fff; border: 1px solid #E5E7EB; border-radius: 0.75rem; padding: 1.25rem 1.5rem; }
+  h2 { font-size: 1rem; font-weight: 700; color: #111; display: flex; align-items: center; gap: 0.5rem; }
+  h3 { font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #6B7280; margin: 1.5rem 0 0.5rem; }
+  .count { background: #F5A623; color: #111; font-size: 0.7rem; font-weight: 700; padding: 0.1rem 0.5rem; border-radius: 999px; }
+  .sub { font-size: 0.8rem; color: #6B7280; margin: 0.3rem 0 1rem; }
+  .empty { font-size: 0.875rem; color: #9CA3AF; padding: 0.5rem 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.8125rem; }
+  th { text-align: left; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #9CA3AF; padding: 0.5rem 0.6rem; border-bottom: 1px solid #E5E7EB; }
+  td { padding: 0.55rem 0.6rem; border-bottom: 1px solid #F3F4F6; color: #374151; vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  .b { font-weight: 700; color: #111; }
+  .muted { color: #9CA3AF; }
+  .small { font-size: 0.72rem; }
+  .nowrap { white-space: nowrap; }
+  .msg { max-width: 320px; }
+  td a { color: #D4881A; text-decoration: none; }
+  td a:hover { text-decoration: underline; }
+  .agg td, .agg th { text-align: left; }
+  .flag { background: #FEF3C7; font-weight: 700; color: #92400E; }
+</style>
