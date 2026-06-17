@@ -4,9 +4,12 @@ import type { APIRoute } from 'astro';
 import { getCredentials, postListingToInstagram, buildCaptionWithAIHashtags } from '@/lib/instagram';
 import { db } from '@/db/index';
 import { listings } from '@/db/schema';
+import { requireAdmin, unauthorized } from '@/lib/admin-auth';
 import { eq } from 'drizzle-orm';
 
-export const POST: APIRoute = async ({ request }) => {
+export const POST: APIRoute = async ({ request, cookies }) => {
+  if (!requireAdmin(cookies)) return unauthorized();
+
   const creds = await getCredentials();
   if (!creds) {
     return new Response(JSON.stringify({ error: 'Instagram not connected' }), { status: 401 });

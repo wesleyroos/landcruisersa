@@ -5,6 +5,7 @@ import { db } from '@/db/index';
 import { listings } from '@/db/schema';
 import { offMarketPatch } from '@/lib/listing-status';
 import { sendSellerLiveEmail } from '@/lib/seller-live-email';
+import { requireAdmin, unauthorized } from '@/lib/admin-auth';
 import { eq } from 'drizzle-orm';
 
 const UPDATABLE_FIELDS = [
@@ -13,7 +14,9 @@ const UPDATABLE_FIELDS = [
   'mods', 'seller_name', 'seller_email', 'seller_phone',
 ];
 
-export const PATCH: APIRoute = async ({ params, request }) => {
+export const PATCH: APIRoute = async ({ params, request, cookies }) => {
+  if (!requireAdmin(cookies)) return unauthorized();
+
   const id = Number(params.id);
   if (isNaN(id)) {
     return new Response(JSON.stringify({ error: 'Invalid id' }), { status: 400 });
@@ -67,7 +70,9 @@ export const PATCH: APIRoute = async ({ params, request }) => {
   });
 };
 
-export const DELETE: APIRoute = async ({ params }) => {
+export const DELETE: APIRoute = async ({ params, cookies }) => {
+  if (!requireAdmin(cookies)) return unauthorized();
+
   const id = Number(params.id);
   if (isNaN(id)) {
     return new Response(JSON.stringify({ error: 'Invalid id' }), { status: 400 });

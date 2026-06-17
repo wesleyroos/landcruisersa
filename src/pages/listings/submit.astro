@@ -257,6 +257,9 @@ import Base from '@/layouts/Base.astro';
     </div>
 
     <div class="fields">
+      <!-- Honeypot: hidden from humans, bots fill it → server discards the submission. -->
+      <input id="lcsa_hp" name="lcsa_hp" type="text" tabindex="-1" autocomplete="off" aria-hidden="true"
+             style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;pointer-events:none" />
       <div class="field">
         <label for="f-name">Full Name *</label>
         <input id="f-name" type="text" autocomplete="name" placeholder="Your name" />
@@ -1022,6 +1025,7 @@ import Base from '@/layouts/Base.astro';
       seller_phone: phone,
       dealer_offer_optin: selectedType === 'for_sale'
         && (document.getElementById('f-dealer-optin') as HTMLInputElement).checked,
+      lcsa_hp: (document.getElementById('lcsa_hp') as HTMLInputElement).value,
     };
 
     try {

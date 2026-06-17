@@ -3,9 +3,12 @@ export const prerender = false;
 import type { APIRoute } from 'astro';
 import { db } from '@/db/index';
 import { listings } from '@/db/schema';
+import { requireAdmin, unauthorized } from '@/lib/admin-auth';
 import { eq } from 'drizzle-orm';
 
-export const GET: APIRoute = ({ url }) => {
+export const GET: APIRoute = ({ url, cookies }) => {
+  if (!requireAdmin(cookies)) return unauthorized();
+
   const id = Number(url.searchParams.get('id'));
   if (!id) {
     return new Response(JSON.stringify({ error: 'id required' }), { status: 400 });

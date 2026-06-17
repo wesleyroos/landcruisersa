@@ -4,6 +4,8 @@ import type { APIRoute } from 'astro';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { randomBytes } from 'crypto';
 import sharp from 'sharp';
+import { requireAdmin } from '@/lib/admin-auth';
+import { rateLimited, clientIp } from '@/lib/rate-limit';
 
 // Keep memory low on the 256MB Fly machine: one image at a time.
 sharp.concurrency(1);
@@ -30,7 +32,14 @@ const R2_SECRET_ACCESS_KEY = import.meta.env.R2_SECRET_ACCESS_KEY ?? process.env
 const R2_BUCKET = import.meta.env.R2_BUCKET ?? process.env.R2_BUCKET ?? 'landcruisersa';
 const R2_PUBLIC_URL = import.meta.env.R2_PUBLIC_URL ?? process.env.R2_PUBLIC_URL ?? 'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev';
 
-export const POST: APIRoute = async ({ request }) => {
+export const POST: APIRoute = async ({ request, cookies }) => {
+  // Public sellers upload listing photos here, so this can't be admin-only —
+  // but throttle anonymous callers to stop bucket/bandwidth flooding. Admins
+  // (bulk-editing galleries) bypass the limit. ~40/hr covers a full submission.
+  if (!requireAdmin(cookies) && rateLimited(`upload:${clientIp(request)}`, 40, 60 * 60 * 1000)) {
+    return new Response(JSON.stringify({ error: 'Too many uploads — please try again shortly.' }), { status: 429 });
+  }
+
   if (!R2_ENDPOINT || !R2_ACCESS_KEY_ID || !R2_SECRET_ACCESS_KEY) {
     return new Response(JSON.stringify({ error: 'Storage not configured' }), { status: 503 });
   }
