@@ -127,6 +127,27 @@ function firstPhoto(photos: string) {
           ))}
         </div>
       </div>
+      <div class="relative" id="year-filter">
+        <button type="button" id="year-btn" aria-expanded="false"
+          class="border border-[#DDD9D3] rounded-xl px-4 py-2.5 text-sm bg-white focus:outline-none focus:border-[#F5A623] transition-colors cursor-pointer min-h-[44px] flex items-center gap-2 justify-between min-w-[140px]">
+          <span id="year-label" class="truncate">Any Year</span>
+          <svg width="10" height="6" viewBox="0 0 10 6" class="flex-shrink-0"><path d="M1 1l4 4 4-4" stroke="#9CA3AF" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <div id="year-panel" class="absolute z-30 mt-1 w-72 bg-white border border-[#DDD9D3] rounded-xl shadow-lg py-1 hidden">
+          <button type="button" class="year-preset w-full text-left px-4 py-2 text-sm hover:bg-[#F5F3EE]" data-min="" data-max="">Any Year</button>
+          <button type="button" class="year-preset w-full text-left px-4 py-2 text-sm hover:bg-[#F5F3EE]" data-min="2020" data-max="">2020 &amp; newer</button>
+          <button type="button" class="year-preset w-full text-left px-4 py-2 text-sm hover:bg-[#F5F3EE]" data-min="2010" data-max="2019">2010 – 2019</button>
+          <button type="button" class="year-preset w-full text-left px-4 py-2 text-sm hover:bg-[#F5F3EE]" data-min="2000" data-max="2009">2000 – 2009</button>
+          <button type="button" class="year-preset w-full text-left px-4 py-2 text-sm hover:bg-[#F5F3EE]" data-min="" data-max="1999">Pre-2000</button>
+          <div class="border-t border-[#EEE] my-1"></div>
+          <div class="px-3 py-2 flex items-center gap-1.5">
+            <input type="number" inputmode="numeric" min="1980" max="2100" id="year-min" placeholder="From" class="w-full min-w-0 border border-[#DDD9D3] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#F5A623]" />
+            <span class="text-[#9CA3AF]">–</span>
+            <input type="number" inputmode="numeric" min="1980" max="2100" id="year-max" placeholder="To" class="w-full min-w-0 border border-[#DDD9D3] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#F5A623]" />
+            <button type="button" id="year-apply" class="flex-shrink-0 px-3 py-1.5 rounded-lg text-sm font-bold bg-[#111111] text-white hover:bg-[#F5A623] hover:text-[#111111] transition-colors">Go</button>
+          </div>
+        </div>
+      </div>
       <div class="relative" id="ms-province">
         <button type="button" id="ms-province-btn" aria-expanded="false"
           class="border border-[#DDD9D3] rounded-xl px-4 py-2.5 text-sm bg-white focus:outline-none focus:border-[#F5A623] transition-colors cursor-pointer min-h-[44px] flex items-center gap-2 justify-between min-w-[150px]">
@@ -604,6 +625,69 @@ function firstPhoto(photos: string) {
     if ((e as KeyboardEvent).key === 'Enter') { e.preventDefault(); applyCustomPrice(); }
   }));
 
+  // ── Year dropdown (presets + custom min/max) ─────────────────────────────
+  const yearBtn = document.getElementById('year-btn')!;
+  const yearPanel = document.getElementById('year-panel')!;
+  const yearLabelEl = document.getElementById('year-label')!;
+  const yearMinInput = document.getElementById('year-min') as HTMLInputElement;
+  const yearMaxInput = document.getElementById('year-max') as HTMLInputElement;
+  const yearPresets = Array.from(document.querySelectorAll<HTMLButtonElement>('.year-preset'));
+  let yearMin = 0;
+  let yearMax = Infinity;
+
+  function yearFilterLabel(min: number, max: number): string {
+    if (min <= 0 && !isFinite(max)) return 'Any Year';
+    if (min <= 0) return 'Up to ' + max;
+    if (!isFinite(max)) return min + ' & newer';
+    if (min === max) return String(min);
+    return min + ' – ' + max;
+  }
+  function closeYearPanel() {
+    yearPanel.classList.add('hidden');
+    yearBtn.setAttribute('aria-expanded', 'false');
+  }
+  function setYear(min: number, max: number) {
+    yearMin = min;
+    yearMax = max;
+    yearLabelEl.textContent = yearFilterLabel(min, max);
+    applyFilters();
+  }
+  function resetYear() {
+    yearMinInput.value = '';
+    yearMaxInput.value = '';
+    yearMin = 0;
+    yearMax = Infinity;
+    yearLabelEl.textContent = 'Any Year';
+  }
+  yearBtn.addEventListener('click', () => {
+    const open = yearPanel.classList.toggle('hidden');
+    yearBtn.setAttribute('aria-expanded', String(!open));
+  });
+  document.addEventListener('click', e => {
+    if (!document.getElementById('year-filter')!.contains(e.target as Node)) closeYearPanel();
+  });
+  yearPresets.forEach(btn => btn.addEventListener('click', () => {
+    const min = btn.dataset.min ? Number(btn.dataset.min) : 0;
+    const max = btn.dataset.max ? Number(btn.dataset.max) : Infinity;
+    yearMinInput.value = min > 0 ? String(min) : '';
+    yearMaxInput.value = isFinite(max) ? String(max) : '';
+    setYear(min, max);
+    closeYearPanel();
+  }));
+  function applyCustomYear() {
+    let lo = Number(yearMinInput.value) || 0;
+    let hi = yearMaxInput.value ? Number(yearMaxInput.value) : Infinity;
+    if (isFinite(hi) && lo > hi) { const t = lo; lo = hi; hi = t; } // swap if reversed
+    yearMinInput.value = lo > 0 ? String(lo) : '';
+    yearMaxInput.value = isFinite(hi) ? String(hi) : '';
+    setYear(lo, hi);
+    closeYearPanel();
+  }
+  document.getElementById('year-apply')!.addEventListener('click', applyCustomYear);
+  [yearMinInput, yearMaxInput].forEach(inp => inp.addEventListener('keydown', e => {
+    if ((e as KeyboardEvent).key === 'Enter') { e.preventDefault(); applyCustomYear(); }
+  }));
+
   const PAGE_SIZE = 18;
   let activeType = 'all';
   let currentPage = 1;
@@ -628,10 +712,13 @@ function firstPhoto(photos: string) {
 
     const typeMatch = showingSold || activeType === 'all' || l.type === activeType;
 
+    const yearOk = (yearMin <= 0 && !isFinite(yearMax)) || (l.year >= yearMin && l.year <= yearMax);
+
     return modelMatch &&
       (selectedProvinces.length === 0 || selectedProvinces.includes(l.province)) &&
       priceOk &&
       mileageOk &&
+      yearOk &&
       typeMatch;
   }
 
@@ -720,7 +807,8 @@ function firstPhoto(photos: string) {
   const clearBtnBar = document.getElementById('clear-filters-bar') as HTMLButtonElement | null;
   function anyFilterActive(): boolean {
     return selectedModels.length > 0 || selectedProvinces.length > 0 ||
-      selectedMileages.length > 0 || priceMin > 0 || isFinite(priceMax) || activeType !== 'all';
+      selectedMileages.length > 0 || priceMin > 0 || isFinite(priceMax) ||
+      yearMin > 0 || isFinite(yearMax) || activeType !== 'all';
   }
   function clearAllFilters() {
     msBoxes.forEach(b => { b.checked = false; });
@@ -730,6 +818,7 @@ function firstPhoto(photos: string) {
     mileBoxes.forEach(b => { b.checked = false; });
     updateMileageLabel();
     resetPrice();
+    resetYear();
     activeType = 'all';
     typePills.forEach(p => p.classList.toggle('active', p.dataset.type === 'all'));
     applyFilters();
