@@ -73,9 +73,12 @@ export const POST: APIRoute = async ({ request }) => {
     return new Response(JSON.stringify({ error: 'Could not save feedback.' }), { status: 500 });
   }
 
-  // Best-effort email to both addresses.
+  // Email only when the user finalises with detail (the "Send" step). A bare
+  // verdict click still lands in the DB + Plausible, but doesn't email — so one
+  // feedback session = at most one (detailed) email, never the old two.
+  const notify = body.email === true;
   const resendKey = import.meta.env.RESEND_API_KEY ?? process.env.RESEND_API_KEY ?? '';
-  if (resendKey) {
+  if (resendKey && notify) {
     try {
       await fetch('https://api.resend.com/emails', {
         method: 'POST',

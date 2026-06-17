@@ -55,6 +55,28 @@ async function aiVisitors(params: Record<string, string>): Promise<{ total: numb
   return { total: ai.reduce((s, x) => s + (x.visitors ?? 0), 0), sources: ai.sort((a, b) => b.visitors - a.visitors) };
 }
 
+// First-party LLM-citation data from our own ai_referrals table — the thing
+// Plausible can't give us: WHICH guide each LLM cited. Wrapped so a missing table
+// (e.g. local dev) never breaks the page.
+function aiReferralsFirstParty() {
+  const secs = (days: number) => Math.floor((Date.now() - days * 86_400_000) / 1000);
+  const s7 = secs(7), s14 = secs(14), s30 = secs(30);
+  const n = (q: string) => db.get<{ n: number }>(sql.raw(q))?.n ?? 0;
+  try {
+    return {
+      last7: n(`SELECT count(*) n FROM ai_referrals WHERE created_at >= ${s7}`),
+      prior7: n(`SELECT count(*) n FROM ai_referrals WHERE created_at >= ${s14} AND created_at < ${s7}`),
+      d30: n(`SELECT count(*) n FROM ai_referrals WHERE created_at >= ${s30}`),
+      bySource: db.all<{ source: string; n: number }>(sql.raw(
+        `SELECT source, count(*) n FROM ai_referrals WHERE created_at >= ${s30} GROUP BY source ORDER BY n DESC`)),
+      topPages: db.all<{ landing_path: string; n: number }>(sql.raw(
+        `SELECT landing_path, count(*) n FROM ai_referrals WHERE created_at >= ${s30} AND landing_path IS NOT NULL GROUP BY landing_path ORDER BY n DESC LIMIT 8`)),
+    };
+  } catch {
+    return { last7: 0, prior7: 0, d30: 0, bySource: [], topPages: [] };
+  }
+}
+
 export type TrafficSummary = Awaited<ReturnType<typeof getTrafficSummary>>;
 
 export async function getTrafficSummary() {
@@ -100,5 +122,6 @@ export async function getTrafficSummary() {
       leadPct: pct(c30.financeLeads, v30),
     },
     topGuides,
+    aiFirstParty: aiReferralsFirstParty(),
   };
 }

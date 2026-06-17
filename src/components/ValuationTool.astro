@@ -163,13 +163,15 @@ const specYearsJson = JSON.stringify(getSpecYearRanges());
 
     // ── Valuation feedback (calibration signal → DB + email) ──
     let lastResult = null, lastVerdict = '';
-    function sendFeedback(verdict, note, userEstimate) {
+    // email=true only on the final "Send" (with detail). The bare verdict click
+    // still records to DB + Plausible, but stays silent — no duplicate email.
+    function sendFeedback(verdict, note, userEstimate, email) {
       if (!lastResult) return;
       track('valuation_feedback_' + verdict);
       try {
         fetch('/api/valuation-feedback', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ...lastResult, verdict, note: note || '', userEstimate: userEstimate || null, lcsa_hp: '', source_path: location.pathname }),
+          body: JSON.stringify({ ...lastResult, verdict, note: note || '', userEstimate: userEstimate || null, email: email === true, lcsa_hp: '', source_path: location.pathname }),
         });
       } catch {}
     }
@@ -190,7 +192,7 @@ const specYearsJson = JSON.stringify(getSpecYearRanges());
         const est = box.querySelector('[data-fb-est]');
         const note = box.querySelector('[data-fb-note]');
         const nv = note ? note.value.trim() : '', ev2 = est ? est.value.trim() : '';
-        if (nv || ev2) sendFeedback(lastVerdict, nv, ev2 || null);
+        if (nv || ev2) sendFeedback(lastVerdict, nv, ev2 || null, true);
         box.innerHTML = '<span class="vr-fb-q">Thanks — noted. 🙏</span>';
       }
     });

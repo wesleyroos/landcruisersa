@@ -113,6 +113,48 @@ function trend(last: number, prior: number) {
           )}
         </div>
       </div>
+
+      {/* LLM citations (first-party) — the thing Plausible can't show: WHICH guide each AI cited */}
+      <div style="background:linear-gradient(135deg,#FFF7ED,#FFEDD5);border:1px solid #F5A623;border-radius:12px;padding:16px;margin-top:12px;">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:12px;flex-wrap:wrap;">
+          <div style="font-size:12px;color:#B45309;font-weight:700;text-transform:uppercase;letter-spacing:.05em;">🔗 LLM citations — first-party (30d)</div>
+          <div style="font-size:11px;color:#9CA3AF;">Captured directly from referrers — which guide each AI cited. Not Plausible-sampled.</div>
+        </div>
+
+        {t.aiFirstParty.d30 === 0 ? (
+          <div style="font-size:13px;color:#92400E;background:#FEF3C7;border-radius:8px;padding:10px 12px;">
+            No LLM citations captured yet — this fills in as ChatGPT / Gemini / Perplexity / Copilot start linking to your pages. (Tracking went live 2026-06-17; expect a slow trickle at current traffic.)
+          </div>
+        ) : (
+          <div style="display:grid;grid-template-columns:230px 1fr;gap:20px;">
+            {/* left: count + trend + per-source */}
+            <div>
+              <div style="font-size:32px;font-weight:800;color:#111;line-height:1.1;">{fmt(t.aiFirstParty.d30)}</div>
+              <div style="font-size:12px;color:#6B7280;margin-bottom:4px;">cited visits · 30d</div>
+              <div style={`font-size:12px;font-weight:600;color:${trend(t.aiFirstParty.last7, t.aiFirstParty.prior7).col};`}>
+                {trend(t.aiFirstParty.last7, t.aiFirstParty.prior7).txt} <span style="color:#9CA3AF;font-weight:400;">7d vs prior</span>
+              </div>
+              <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px;">
+                {t.aiFirstParty.bySource.map(s => (
+                  <span style="font-size:12px;background:#fff;border:1px solid #FCD34D;border-radius:999px;padding:2px 10px;color:#374151;">{s.source} <strong>{fmt(s.n)}</strong></span>
+                ))}
+              </div>
+            </div>
+            {/* right: which pages got cited */}
+            <div>
+              <div style="font-size:11px;color:#6B7280;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">Top cited pages</div>
+              <div style="display:flex;flex-direction:column;gap:6px;">
+                {t.aiFirstParty.topPages.map(p => (
+                  <div style="display:flex;justify-content:space-between;gap:10px;font-size:13px;color:#374151;">
+                    <a href={p.landing_path} target="_blank" style="color:#4F46E5;text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{p.landing_path}</a>
+                    <span style="font-weight:700;white-space:nowrap;">{fmt(p.n)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </section>
   )}
 
