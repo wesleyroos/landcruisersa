@@ -14,6 +14,8 @@ export const NAV_LINKS = [
     { label: 'Land Cruiser 200 Series', href: '/models/200-series/' },
     { label: 'Land Cruiser 300 Series', href: '/models/300-series/' },
     { label: '— Prado —', href: '/models/' },
+    { label: 'Prado 90 Series', href: '/models/prado-90/' },
+    { label: 'Prado 120 Series', href: '/models/prado-120/' },
     { label: 'Prado 150 Series', href: '/models/prado-150/' },
     { label: 'Prado 250 Series', href: '/models/prado-250/' },
     { label: '— FJ Line —', href: '/models/' },
