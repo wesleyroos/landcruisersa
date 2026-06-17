@@ -1,5 +1,6 @@
 import { getCohortStats, getModelSupply, type CohortStats } from '@/lib/market-position';
 import { MODEL_LAUNCH_YEAR, modelLabel } from '@/lib/sources/normalize';
+import { axesFor, titleMatches, specLabel, type SpecAxis, type SpecSelection } from '@/lib/spec';
 
 // Land Cruiser valuation engine. Turns user-entered (model, year, mileage,
 // condition) into an HONEST realistic-sell range plus a suggested asking ceiling,
@@ -33,6 +34,11 @@ export interface ValuationInput {
   mileage: number;
   condition?: 'excellent' | 'good' | 'fair' | 'rough';
   province?: string; // captured for routing, not used in the math
+  // Spec (optional) — scopes the cohort to the owner's actual trim/engine/body.
+  // The single biggest price driver; see src/lib/spec.ts.
+  engine?: string;
+  grade?: string;
+  body?: string;
 }
 
 export interface CohortContext {
@@ -81,9 +87,30 @@ function roundRand(x: number): number {
 }
 
 export function valuate(input: ValuationInput): Valuation | NoValuation {
-  // target: 10 — seek a stable cohort so a thin (5-comp) year-window doesn't
-  // land on a noisy median that values an older year above a newer one.
-  const c = getCohortStats({ model: input.model, year: input.year }, { target: 10 });
+  const sel: SpecSelection = { engine: input.engine, grade: input.grade, body: input.body };
+  const requested = axesFor(input.model).filter(a => sel[a]); // axes the user gave & the model supports
+
+  // Spec-aware cohort with a relaxation ladder: try the full spec, then drop the
+  // least price-critical axis at a time (body → engine → grade), finally the
+  // whole model. A spec-matched cohort needs only 6 comps (a slightly looser but
+  // SPEC-CORRECT estimate beats a tight wrong-spec one); whole-model seeks 10.
+  const dropPriority: SpecAxis[] = ['body', 'engine', 'grade'];
+  const attempts: SpecAxis[][] = [[...requested]];
+  let cur = [...requested];
+  while (cur.length) {
+    const drop = dropPriority.find(a => cur.includes(a))!;
+    cur = cur.filter(a => a !== drop);
+    attempts.push([...cur]);
+  }
+
+  let c: CohortStats | null = null;
+  let usedAxes: SpecAxis[] = [];
+  for (const ax of attempts) {
+    const match = ax.length ? (t: string) => titleMatches(input.model, t, sel, ax) : undefined;
+    c = getCohortStats({ model: input.model, year: input.year }, { target: ax.length ? 6 : 10, match });
+    if (c) { usedAxes = ax; break; }
+  }
+
   if (!c) {
     return {
       available: false,
@@ -93,10 +120,15 @@ export function valuate(input: ValuationInput): Valuation | NoValuation {
       modelLabel: modelLabel(input.model),
     };
   }
-  return computeFromCohort(input, c);
+
+  const usedSel: SpecSelection = {};
+  for (const a of usedAxes) usedSel[a] = sel[a];
+  const relaxed = usedAxes.length < requested.length;
+  return computeFromCohort(input, c, specLabel(input.model, usedSel), relaxed);
 }
 
-function computeFromCohort(input: ValuationInput, c: CohortStats): Valuation {
+function computeFromCohort(input: ValuationInput, c: CohortStats, specText: string, relaxed: boolean): Valuation {
+  const cohortLabel = `${input.year - c.span}–${input.year + c.span} ${specText ? specText + ' ' : ''}${modelLabel(input.model)}`;
   const launch = MODEL_LAUNCH_YEAR[input.model] ?? 0;
   const isYoung =
     (CUR_YEAR - input.year) <= 2 ||
@@ -125,6 +157,7 @@ function computeFromCohort(input: ValuationInput, c: CohortStats): Valuation {
   // user). NB: every v1 estimate is asking-price-based by design — that honesty
   // lives in the disclaimer and the sell discount, not a per-result penalty.
   const reasons: string[] = [];
+  if (relaxed) reasons.push(`Few exact-spec listings — widened to ${specText ? specText + ' ' : 'all '}${modelLabel(input.model)} comparables.`);
   if (c.span === 3) reasons.push('Widened to a 7-year span to find enough comparable vehicles.');
   if (!mileageAdjusted) reasons.push('Mileage not factored — too few comparable listings report it.');
   else if (c.kmCompCount < 5) reasons.push('Mileage factored from a small sample.');
@@ -164,7 +197,7 @@ function computeFromCohort(input: ValuationInput, c: CohortStats): Valuation {
     mileageAdjusted,
     isYoung,
     cohort: {
-      label: c.cohortLabel,
+      label: cohortLabel,
       size: c.cohortSize,
       medianPrice: c.medianPrice,
       p25: c.p25,

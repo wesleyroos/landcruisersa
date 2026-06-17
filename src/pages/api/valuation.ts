@@ -5,6 +5,7 @@ import { db } from '@/db/index';
 import { valuationRequests } from '@/db/schema';
 import { valuate, VALUATION_DISCLAIMER } from '@/lib/valuation';
 import { LC_MODEL_SLUG_SET, MODEL_YEAR_RANGE, modelLabel } from '@/lib/sources/normalize';
+import { isSpecValue } from '@/lib/spec';
 
 const CUR_YEAR = new Date().getFullYear();
 
@@ -68,7 +69,14 @@ export const POST: APIRoute = async ({ request }) => {
     return new Response(JSON.stringify({ error: 'Please enter mileage between 0 and 600,000 km.' }), { status: 400 });
   }
 
-  const v = valuate({ model, year, mileage, condition, province: province ?? undefined });
+  // Spec (optional) — sanitise against the model's real options; drop anything unknown.
+  const pick = (axis: 'engine' | 'grade' | 'body') => {
+    const val = String(body[axis] ?? '').trim();
+    return val && isSpecValue(model, axis, val) ? val : undefined;
+  };
+  const engine = pick('engine'), grade = pick('grade'), bodyspec = pick('body');
+
+  const v = valuate({ model, year, mileage, condition, province: province ?? undefined, engine, grade, body: bodyspec });
 
   // Anonymous snapshot — best-effort; never block the estimate on a write hiccup.
   let draftId: number | null = null;

@@ -39,9 +39,12 @@ interface CohortOpts {
   // makes an older year value higher than a newer one. Default 5 preserves the
   // legacy getMarketPosition behaviour exactly.
   target?: number;          // default 5
+  // Optional title predicate to scope the cohort to a spec (trim/engine/body).
+  // Applied to the pool before the year window widens. Omitted = whole model.
+  match?: (title: string) => boolean;
 }
 
-type CohortRow = { price: number; mileage: number; year: number };
+type CohortRow = { price: number; mileage: number; year: number; title: string };
 
 function pctl(sorted: number[], p: number): number {
   if (sorted.length === 0) return 0;
@@ -88,8 +91,9 @@ export function getCohortStats(
   input: { model: string; year: number },
   opts: CohortOpts = {},
 ): CohortStats | null {
-  const { excludeId, includeNew = false, preferDelisted = false, trim = true, delistedMonths = 6, target = 5 } = opts;
+  const { excludeId, includeNew = false, preferDelisted = false, trim = true, delistedMonths = 6, target = 5, match } = opts;
   const { model, year } = input;
+  const scope = (pool: CohortRow[]) => (match ? pool.filter(r => match(r.title)) : pool);
 
   let chosen: { rows: CohortRow[]; span: 1 | 2 | 3 } | null = null;
   let anchorBasis: 'delisted' | 'active' = 'active';
@@ -107,9 +111,9 @@ export function getCohortStats(
       gte(listings.off_market_at, since),
     ];
     if (!includeNew) conds.push(eq(listings.new_or_used, 'Used'));
-    const pool = db.select({ price: listings.price, mileage: listings.mileage, year: listings.year })
+    const pool = db.select({ price: listings.price, mileage: listings.mileage, year: listings.year, title: listings.title })
       .from(listings).where(and(...conds)).all();
-    const d = expand(pool, year, target);
+    const d = expand(scope(pool), year, target);
     if (d) { chosen = d; anchorBasis = 'delisted'; }
   }
 
@@ -123,9 +127,9 @@ export function getCohortStats(
     ];
     if (!includeNew) conds.push(eq(listings.new_or_used, 'Used'));
     if (excludeId != null) conds.push(ne(listings.id, excludeId));
-    const pool = db.select({ price: listings.price, mileage: listings.mileage, year: listings.year })
+    const pool = db.select({ price: listings.price, mileage: listings.mileage, year: listings.year, title: listings.title })
       .from(listings).where(and(...conds)).all();
-    const a = expand(pool, year, target);
+    const a = expand(scope(pool), year, target);
     if (a) { chosen = a; anchorBasis = 'active'; }
   }
 

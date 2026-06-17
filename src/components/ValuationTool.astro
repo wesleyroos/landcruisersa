@@ -1,5 +1,6 @@
 ---
 import { LC_MODEL_SLUGS, MODEL_YEAR_RANGE, modelLabel } from '@/lib/sources/normalize';
+import { SPEC_OPTIONS } from '@/lib/spec';
 
 interface Props {
   model?: string;     // preselect a model (per-model pages)
@@ -23,9 +24,17 @@ const CONDITIONS = [
 const years: number[] = [];
 for (let y = new Date().getFullYear(); y >= 1990; y--) years.push(y);
 const yearRangesJson = JSON.stringify(MODEL_YEAR_RANGE);
+
+// Client-safe spec map (value+label only — the RegExp matchers stay server-side).
+const specPicker = Object.fromEntries(
+  Object.entries(SPEC_OPTIONS).map(([m, axes]) => [
+    m, Object.fromEntries(Object.entries(axes).map(([ax, opts]) => [ax, opts!.map(o => ({ value: o.value, label: o.label }))])),
+  ]),
+);
+const specPickerJson = JSON.stringify(specPicker);
 ---
 
-<div class="vt" data-preset-model={model} data-year-ranges={yearRangesJson}>
+<div class="vt" data-preset-model={model} data-year-ranges={yearRangesJson} data-spec={specPickerJson}>
   <form class="vt-form" id="vt-form" method="POST" action="/valuation/" novalidate>
     <h2 class="vt-h">{heading}</h2>
 
@@ -60,6 +69,8 @@ const yearRangesJson = JSON.stringify(MODEL_YEAR_RANGE);
       </label>
     </div>
 
+    <div class="vt-spec" id="vt-spec"></div>
+
     <fieldset class="vt-cond">
       <legend>Condition</legend>
       <div class="vt-pills" role="radiogroup" aria-label="Condition">
@@ -93,10 +104,16 @@ const yearRangesJson = JSON.stringify(MODEL_YEAR_RANGE);
     // Constrain the year dropdown to the selected model's production years, so
     // you can't value a 2015 Prado 250 (launched 2024) or a pre-2026 FJ.
     const yearRanges = (() => { try { return JSON.parse(root.dataset.yearRanges || '{}'); } catch { return {}; } })();
+    const specMap = (() => { try { return JSON.parse(root.dataset.spec || '{}'); } catch { return {}; } })();
     const mSel = form.querySelector('select[name="model"]');
     const ySel = form.querySelector('select[name="year"]');
+    const specBox = root.querySelector('#vt-spec');
     const NOW = new Date().getFullYear();
+    const AXIS_LABEL = { grade: 'Variant', engine: 'Engine', body: 'Body' };
+    const AXIS_ORDER = ['grade', 'engine', 'body'];
+
     function rebuildYears() {
+      if (!ySel) return;
       const r = yearRanges[mSel.value];
       const lo = r ? r[0] : 1990;
       const hi = r ? Math.min(r[1], NOW + 1) : NOW;
@@ -105,9 +122,22 @@ const yearRangesJson = JSON.stringify(MODEL_YEAR_RANGE);
       for (let y = hi; y >= lo; y--) html += '<option value="' + y + '"' + (String(y) === cur ? ' selected' : '') + '>' + y + '</option>';
       ySel.innerHTML = html;
     }
-    if (mSel && ySel) {
-      mSel.addEventListener('change', rebuildYears);
-      if (mSel.value) rebuildYears(); // preset model on per-model pages
+
+    function rebuildSpec() {
+      if (!specBox) return;
+      const axes = specMap[mSel.value] || {};
+      const keys = AXIS_ORDER.filter(a => axes[a]);
+      specBox.innerHTML = keys.map(a => {
+        const opts = ['<option value="">Any / not sure</option>']
+          .concat(axes[a].map(o => '<option value="' + o.value + '">' + o.label + '</option>')).join('');
+        return '<label class="vt-field"><span>' + AXIS_LABEL[a] + '</span><select data-axis="' + a + '">' + opts + '</select></label>';
+      }).join('');
+    }
+
+    function onModelChange() { rebuildYears(); rebuildSpec(); }
+    if (mSel) {
+      mSel.addEventListener('change', onModelChange);
+      if (mSel.value) onModelChange(); // preset model on per-model pages
     }
 
     const R = (n) => 'R' + Math.round(Number(n)).toLocaleString('en-ZA');
@@ -168,13 +198,16 @@ const yearRangesJson = JSON.stringify(MODEL_YEAR_RANGE);
       const fd = new FormData(form);
       const modelSel = form.querySelector('select[name="model"]');
       const modelText = (modelSel && modelSel.selectedOptions[0] && modelSel.value)
-        ? modelSel.selectedOptions[0].textContent.trim() : 'Land Cruiser';
+        ? modelSel.selectedOptions[0].textContent.trim().split(' — ')[0] : 'Land Cruiser';
+      const spec = { engine: '', grade: '', body: '' };
+      root.querySelectorAll('#vt-spec select[data-axis]').forEach(s => { spec[s.dataset.axis] = s.value || ''; });
       const payload = {
         model: fd.get('model') || '',
         year: Number(fd.get('year')),
         mileage: Number(fd.get('mileage')),
         condition: fd.get('condition') || 'good',
         province: fd.get('province') || '',
+        engine: spec.engine, grade: spec.grade, body: spec.body,
         website: fd.get('website') || '',
         utm_source: utm,
         source_path: location.pathname,
@@ -216,6 +249,9 @@ const yearRangesJson = JSON.stringify(MODEL_YEAR_RANGE);
   .vt-h { font-family: var(--font-heading); font-weight: 700; text-transform: uppercase; font-size: clamp(1.25rem, 3vw, 1.6rem); color: #111; line-height: 1.05; margin-bottom: 1.25rem; }
   .vt-grid { display: grid; grid-template-columns: 1fr; gap: 0.875rem; }
   @media (min-width: 560px) { .vt-grid { grid-template-columns: 1fr 1fr; } }
+  .vt-spec { display: grid; grid-template-columns: 1fr; gap: 0.875rem; margin-top: 0.875rem; }
+  @media (min-width: 560px) { .vt-spec { grid-template-columns: 1fr 1fr; } }
+  .vt-spec:empty { display: none; }
   .vt-field { display: flex; flex-direction: column; gap: 0.35rem; }
   .vt-field > span { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #6B7280; }
   .vt-field em { font-style: normal; color: #9CA3AF; font-weight: 600; }
