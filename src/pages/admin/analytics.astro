@@ -2,15 +2,120 @@
 export const prerender = false;
 
 import AdminLayout from '@/layouts/AdminLayout.astro';
+import { getTrafficSummary } from '@/lib/traffic-summary';
 
 const cookie = Astro.cookies.get('lcsa_admin');
 const adminSecret = import.meta.env.ADMIN_SECRET ?? process.env.ADMIN_SECRET ?? '';
 if (!cookie || cookie.value !== adminSecret) {
   return Astro.redirect('/admin/login');
 }
+
+// Never let an analytics hiccup take down the page — fall back to the embed.
+let t: Awaited<ReturnType<typeof getTrafficSummary>> | null = null;
+try { t = await getTrafficSummary(); } catch { t = null; }
+
+const fmt = (n: number) => n.toLocaleString('en-ZA');
+// 7-day trend badge: last 7 days vs the 7 days before.
+function trend(last: number, prior: number) {
+  if (prior === 0 && last === 0) return { txt: '—', col: '#9CA3AF' };
+  if (prior === 0) return { txt: `+${last} new`, col: '#16A34A' };
+  const d = last - prior;
+  const pct = Math.round((d / prior) * 100);
+  if (d === 0) return { txt: 'flat', col: '#9CA3AF' };
+  return { txt: `${d > 0 ? '▲' : '▼'} ${Math.abs(pct)}%`, col: d > 0 ? '#16A34A' : '#DC2626' };
+}
 ---
 
 <AdminLayout title="Analytics" activePage="analytics">
+  {t && (
+    <section style="margin-bottom: 28px;">
+      {!t.apiConfigured && (
+        <div style="background:#FEF3C7;border:1px solid #FCD34D;border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:13px;color:#92400E;">
+          Live traffic metrics need <code>PLAUSIBLE_API_KEY</code> set in this environment
+          (<code>fly secrets set PLAUSIBLE_API_KEY=…</code>). Conversion counts below come straight from the database and are accurate regardless.
+        </div>
+      )}
+
+      <h2 style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#6B7280;margin:0 0 12px;">Last 30 days · business view</h2>
+
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;">
+        {/* Visitors */}
+        <div style="background:#fff;border:1px solid #E5E7EB;border-radius:12px;padding:16px;">
+          <div style="font-size:12px;color:#6B7280;font-weight:600;">Visitors</div>
+          <div style="font-size:28px;font-weight:800;color:#111;line-height:1.2;">{fmt(t.visitors.d30)}</div>
+          <div style={`font-size:12px;font-weight:600;color:${trend(t.visitors.last7, t.visitors.prior7).col};`}>
+            {trend(t.visitors.last7, t.visitors.prior7).txt} <span style="color:#9CA3AF;font-weight:400;">7d vs prior</span>
+          </div>
+        </div>
+
+        {/* AI-referred — the hero metric */}
+        <div style="background:linear-gradient(135deg,#FFF7ED,#FFEDD5);border:1px solid #F5A623;border-radius:12px;padding:16px;">
+          <div style="font-size:12px;color:#B45309;font-weight:700;">🤖 AI-referred</div>
+          <div style="font-size:28px;font-weight:800;color:#111;line-height:1.2;">{fmt(t.ai.d30)}</div>
+          <div style={`font-size:12px;font-weight:600;color:${trend(t.ai.last7, t.ai.prior7).col};`}>
+            {trend(t.ai.last7, t.ai.prior7).txt} <span style="color:#9CA3AF;font-weight:400;">7d vs prior</span>
+          </div>
+        </div>
+
+        {/* Valuations */}
+        <div style="background:#fff;border:1px solid #E5E7EB;border-radius:12px;padding:16px;">
+          <div style="font-size:12px;color:#6B7280;font-weight:600;">Valuations</div>
+          <div style="font-size:28px;font-weight:800;color:#111;line-height:1.2;">{fmt(t.conversions30.valuations)}</div>
+          <div style="font-size:12px;color:#9CA3AF;font-weight:400;">{t.rates30.valuationPct}% of visitors</div>
+        </div>
+
+        {/* Enquiries */}
+        <div style="background:#fff;border:1px solid #E5E7EB;border-radius:12px;padding:16px;">
+          <div style="font-size:12px;color:#6B7280;font-weight:600;">Enquiries</div>
+          <div style="font-size:28px;font-weight:800;color:#111;line-height:1.2;">{fmt(t.conversions30.enquiries)}</div>
+          <div style="font-size:12px;color:#9CA3AF;font-weight:400;">{t.rates30.enquiryPct}% of visitors</div>
+        </div>
+
+        {/* Finance leads */}
+        <div style="background:#fff;border:1px solid #E5E7EB;border-radius:12px;padding:16px;">
+          <div style="font-size:12px;color:#6B7280;font-weight:600;">Finance leads</div>
+          <div style="font-size:28px;font-weight:800;color:#111;line-height:1.2;">{fmt(t.conversions30.financeLeads)}</div>
+          <div style="font-size:12px;color:#9CA3AF;font-weight:400;">{t.rates30.leadPct}% of visitors</div>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;">
+        {/* AI source breakdown */}
+        <div style="background:#fff;border:1px solid #E5E7EB;border-radius:12px;padding:16px;">
+          <div style="font-size:12px;color:#6B7280;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;">AI sources (30d)</div>
+          {t.ai.sources.length === 0 ? (
+            <div style="font-size:13px;color:#9CA3AF;">No AI-referred visits captured yet.</div>
+          ) : (
+            <div style="display:flex;flex-direction:column;gap:6px;">
+              {t.ai.sources.map(s => (
+                <div style="display:flex;justify-content:space-between;font-size:13px;color:#374151;">
+                  <span>{s.source}</span><span style="font-weight:700;">{fmt(s.visitors)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Top guides */}
+        <div style="background:#fff;border:1px solid #E5E7EB;border-radius:12px;padding:16px;">
+          <div style="font-size:12px;color:#6B7280;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;">Top guides (30d)</div>
+          {t.topGuides.length === 0 ? (
+            <div style="font-size:13px;color:#9CA3AF;">No guide traffic captured yet.</div>
+          ) : (
+            <div style="display:flex;flex-direction:column;gap:6px;">
+              {t.topGuides.map(g => (
+                <div style="display:flex;justify-content:space-between;gap:10px;font-size:13px;color:#374151;">
+                  <a href={g.page} target="_blank" style="color:#4F46E5;text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{g.page.replace('/useful-info/', '').replace(/\/$/, '')}</a>
+                  <span style="font-weight:700;white-space:nowrap;">{fmt(g.visitors)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
+  )}
+
   <iframe
     plausible-embed
     src="https://plausible.io/share/landcruisersa.co.za?auth=_D3eoc_KfXn4Z7mLWbyoV&embed=true&theme=light"
