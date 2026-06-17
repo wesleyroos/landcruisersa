@@ -2,6 +2,7 @@
 import '../styles/global.css';
 import Nav from '@/components/Nav.astro';
 import Footer from '@/components/Footer.astro';
+import ChatWidget from '@/components/ChatWidget.astro';
 import { SITE } from '@/data/site';
 
 interface Props {
@@ -123,5 +124,6 @@ const ogImage = new URL(image, SITE.url).href;
       <slot />
     </main>
     <Footer />
+    <ChatWidget />
   </body>
 </html>

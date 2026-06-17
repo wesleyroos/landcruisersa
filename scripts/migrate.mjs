@@ -189,6 +189,20 @@ db.exec(`
 db.exec(`CREATE INDEX IF NOT EXISTS valuation_feedback_created ON valuation_feedback (created_at)`);
 db.exec(`CREATE INDEX IF NOT EXISTS valuation_feedback_model ON valuation_feedback (model, verdict)`);
 
+// General enquiries from the floating chat widget.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS enquiries (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    name        TEXT,
+    phone       TEXT,
+    email       TEXT,
+    message     TEXT NOT NULL,
+    source_path TEXT,
+    created_at  INTEGER NOT NULL
+  )
+`);
+db.exec(`CREATE INDEX IF NOT EXISTS enquiries_created ON enquiries (created_at)`);
+
 db.exec(`
   CREATE TABLE IF NOT EXISTS view_events (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,

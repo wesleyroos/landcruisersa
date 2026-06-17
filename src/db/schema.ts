@@ -199,6 +199,19 @@ export const valuationFeedback = sqliteTable('valuation_feedback', {
 });
 export type ValuationFeedback = typeof valuationFeedback.$inferSelect;
 
+// General enquiries from the floating chat widget (site-wide). DB-first then
+// emailed to both addresses.
+export const enquiries = sqliteTable('enquiries', {
+  id:          integer('id').primaryKey({ autoIncrement: true }),
+  name:        text('name'),
+  phone:       text('phone'),
+  email:       text('email'),
+  message:     text('message').notNull(),
+  source_path: text('source_path'),
+  created_at:  integer('created_at', { mode: 'timestamp' }).notNull(),
+});
+export type Enquiry = typeof enquiries.$inferSelect;
+
 // Price changes observed by the aggregator — fuels price-trend content and
 // "price drop" surfacing. One row per observed change, captured at ingest.
 export const priceEvents = sqliteTable('price_events', {
