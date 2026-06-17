@@ -34,6 +34,11 @@ interface CohortOpts {
   preferDelisted?: boolean; // default false
   trim?: boolean;           // drop price outliers (IQR fence); default true
   delistedMonths?: number;  // delisted-pool lookback; default 6
+  // Comps to seek before the year window stops widening. The valuation engine
+  // uses 10 so a thin (e.g. 5-comp) cohort doesn't land on a noisy median that
+  // makes an older year value higher than a newer one. Default 5 preserves the
+  // legacy getMarketPosition behaviour exactly.
+  target?: number;          // default 5
 }
 
 type CohortRow = { price: number; mileage: number; year: number };
@@ -59,13 +64,17 @@ function priceTrim(rows: CohortRow[]): CohortRow[] {
 }
 
 // Widen the year window (±1 → ±2 → ±3) until there are enough comparables to
-// make an honest claim. Older vehicles are sparse in any single year.
-function expand(pool: CohortRow[], year: number): { rows: CohortRow[]; span: 1 | 2 | 3 } | null {
+// make an honest claim. Older vehicles are sparse in any single year. Prefer the
+// tightest window that reaches `target` comps (keeps age-resolution where data
+// is dense); if no window reaches it, fall back to the widest (±3) with the
+// absolute minimum of 5 — more comps there means a more stable median.
+function expand(pool: CohortRow[], year: number, target: number): { rows: CohortRow[]; span: 1 | 2 | 3 } | null {
   for (let span = 1; span <= 3; span++) {
     const rows = pool.filter(r => r.year >= year - span && r.year <= year + span);
-    if (rows.length >= 5) return { rows, span: span as 1 | 2 | 3 };
+    if (rows.length >= target) return { rows, span: span as 1 | 2 | 3 };
   }
-  return null;
+  const rows = pool.filter(r => r.year >= year - 3 && r.year <= year + 3);
+  return rows.length >= 5 ? { rows, span: 3 } : null;
 }
 
 // Active same-model supply across every platform (matches the legacy
@@ -79,7 +88,7 @@ export function getCohortStats(
   input: { model: string; year: number },
   opts: CohortOpts = {},
 ): CohortStats | null {
-  const { excludeId, includeNew = false, preferDelisted = false, trim = true, delistedMonths = 6 } = opts;
+  const { excludeId, includeNew = false, preferDelisted = false, trim = true, delistedMonths = 6, target = 5 } = opts;
   const { model, year } = input;
 
   let chosen: { rows: CohortRow[]; span: 1 | 2 | 3 } | null = null;
@@ -100,7 +109,7 @@ export function getCohortStats(
     if (!includeNew) conds.push(eq(listings.new_or_used, 'Used'));
     const pool = db.select({ price: listings.price, mileage: listings.mileage, year: listings.year })
       .from(listings).where(and(...conds)).all();
-    const d = expand(pool, year);
+    const d = expand(pool, year, target);
     if (d) { chosen = d; anchorBasis = 'delisted'; }
   }
 
@@ -116,7 +125,7 @@ export function getCohortStats(
     if (excludeId != null) conds.push(ne(listings.id, excludeId));
     const pool = db.select({ price: listings.price, mileage: listings.mileage, year: listings.year })
       .from(listings).where(and(...conds)).all();
-    const a = expand(pool, year);
+    const a = expand(pool, year, target);
     if (a) { chosen = a; anchorBasis = 'active'; }
   }
 

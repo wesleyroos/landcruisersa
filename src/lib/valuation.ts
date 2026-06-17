@@ -81,7 +81,9 @@ function roundRand(x: number): number {
 }
 
 export function valuate(input: ValuationInput): Valuation | NoValuation {
-  const c = getCohortStats({ model: input.model, year: input.year });
+  // target: 10 — seek a stable cohort so a thin (5-comp) year-window doesn't
+  // land on a noisy median that values an older year above a newer one.
+  const c = getCohortStats({ model: input.model, year: input.year }, { target: 10 });
   if (!c) {
     return {
       available: false,
@@ -142,10 +144,14 @@ function computeFromCohort(input: ValuationInput, c: CohortStats): Valuation {
   const sellLow = sellMid * (1 - w);
   const sellHigh = sellMid * (1 + w);
 
-  // Suggested asking ceiling — anchored to the cohort's own upper quartile, never
-  // advising above the 90th percentile of real comparable asking prices.
+  // "Typical asking" for a car like this = the mileage/condition-adjusted asking
+  // MIDPOINT (not an inflated ceiling). Kept at/above the top of the realistic-
+  // sell band (you list above what you'll take) and never above the 90th pct of
+  // real comparable asking. NB: previously base×(1+w) clamped up to p75, which
+  // printed a "list at" number ~21% above the sell estimate AND above the shown
+  // range — confusing, and it ignored the subject's mileage at the p75 floor.
   const condFactor = 1 + (CONDITION_FACTOR[input.condition ?? 'good'] ?? 0);
-  const askingCeiling = clamp(base * condFactor * (1 + w), c.p75, c.p90);
+  const askingCeiling = clamp(base * condFactor, sellHigh, c.p90);
 
   return {
     available: true,
