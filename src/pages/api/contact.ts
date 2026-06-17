@@ -1,6 +1,8 @@
 export const prerender = false;
 
 import type { APIRoute } from 'astro';
+import { db } from '@/db/index';
+import { enquiries } from '@/db/schema';
 
 const SUBJECT_LABELS: Record<string, string> = {
   general: 'General Enquiry',
@@ -34,6 +36,21 @@ export const POST: APIRoute = async ({ request }) => {
   }
 
   const subjectLabel = SUBJECT_LABELS[subject] ?? 'General Enquiry';
+
+  // Best-effort capture to the inbox (chat widget + contact page both POST here).
+  // Wrapped so a DB hiccup can NEVER affect the email path below.
+  try {
+    db.insert(enquiries).values({
+      name: name.trim(),
+      email: email.trim(),
+      phone: null,
+      message: message.trim(),
+      source_path: `contact:${subject || 'general'}`,
+      created_at: new Date(),
+    }).run();
+  } catch (err) {
+    console.error('[contact] enquiries insert failed (non-fatal):', err);
+  }
 
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
