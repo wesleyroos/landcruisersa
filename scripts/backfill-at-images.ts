@@ -12,11 +12,18 @@
  * Processes BATCH_SIZE listings per run, so it's safe to run frequently via cron.
  */
 
+import { reportRun } from '../src/lib/sources/report.ts';
+
 const SITE_URL   = process.env.SITE_URL   ?? 'https://landcruisersa.fly.dev';
 const TOKEN      = process.env.INGEST_TOKEN ?? '';
 const BATCH_SIZE = parseInt(process.env.BATCH_SIZE ?? '30', 10);
 const DELAY_MS   = parseInt(process.env.DELAY_MS   ?? '2000', 10); // ms between AT fetches
 const MIN_PHOTOS = 2;
+// Segments to backfill galleries for. Default Land Cruiser only — Hilux/Fortuner
+// are aggregate /market data and never show a photo gallery, so fetching their
+// images is wasted (and risky) per-listing volume. To make them public WITH
+// photos later, set BACKFILL_SEGMENTS="land-cruiser,toyota-4x4" in the cron.
+const SEGMENTS   = process.env.BACKFILL_SEGMENTS ?? 'land-cruiser';
 
 const BROWSER_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
 
@@ -77,7 +84,7 @@ async function run() {
   console.log(`[at-images] starting — batch=${BATCH_SIZE}, delay=${DELAY_MS}ms`);
 
   const data = await apiGet(
-    `/api/aggregated/needs-images?source=autotrader&min_photos=${MIN_PHOTOS}&limit=${BATCH_SIZE}`
+    `/api/aggregated/needs-images?source=autotrader&min_photos=${MIN_PHOTOS}&limit=${BATCH_SIZE}&segments=${encodeURIComponent(SEGMENTS)}`
   ) as { results: Array<{ source_id: string; source_url: string; photo_count: number }> };
 
   const pending = data.results;
@@ -90,6 +97,7 @@ async function run() {
   console.log(`[at-images] ${pending.length} listings need images`);
 
   let updated = 0, failed = 0, empty = 0, consecutiveEmpty = 0;
+  let aborted = false, abortNote = '';
   // A soft block returns 200 with a challenge page (zero images), not a 503 — so
   // a run of empties is itself a block signal. Bail before we dig the hole deeper.
   const EMPTY_ABORT = 8;
@@ -103,6 +111,7 @@ async function run() {
     } catch (err) {
       if ((err as { rateLimited?: boolean })?.rateLimited) {
         process.stdout.write(`\n[at-images] ABORTING — AutoTrader is rate-limiting this IP. Backing off; the next scheduled run resumes.\n`);
+        aborted = true; abortNote = 'rate-limited (429/503) — aborted';
         break;
       }
       process.stdout.write(`fetch error: ${String(err).slice(0, 60)}\n`);
@@ -116,6 +125,7 @@ async function run() {
       empty++;
       if (++consecutiveEmpty >= EMPTY_ABORT) {
         process.stdout.write(`\n[at-images] ABORTING — ${EMPTY_ABORT} empty fetches in a row looks like a soft block, not missing photos. Backing off.\n`);
+        aborted = true; abortNote = `${EMPTY_ABORT} empty fetches in a row — likely a soft block, aborted`;
         break;
       }
       await delay(DELAY_MS);
@@ -135,7 +145,16 @@ async function run() {
     await delay(DELAY_MS);
   }
 
-  console.log(`[at-images] done — updated: ${updated}, empty: ${empty}, failed: ${failed}`);
+  console.log(`[at-images] done — updated: ${updated}, empty: ${empty}, failed: ${failed}${aborted ? ' (ABORTED)' : ''}`);
+  // Surface health on /admin/scrapers (source 'at-images') — a rate-limit abort
+  // shows red there with the reason, the same place scraper health is watched.
+  await reportRun('at-images', {
+    found: pending.length,
+    updated,
+    skipped: empty + failed,
+    ok: !aborted,
+    note: aborted ? abortNote : undefined,
+  });
 }
 
 run().catch(err => {

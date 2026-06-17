@@ -3,7 +3,7 @@ export const prerender = false;
 import type { APIRoute } from 'astro';
 import { db } from '@/db/index';
 import { listings } from '@/db/schema';
-import { eq, and, ne, sql } from 'drizzle-orm';
+import { eq, and, ne, sql, inArray } from 'drizzle-orm';
 
 function checkToken(request: Request): boolean {
   const auth = request.headers.get('authorization') ?? '';
@@ -24,6 +24,20 @@ export const GET: APIRoute = async ({ request, url }) => {
   const minPhotos = Math.max(1, parseInt(url.searchParams.get('min_photos') ?? '2', 10));
   const limit = Math.min(200, parseInt(url.searchParams.get('limit') ?? '50', 10));
   const offset = Math.max(0, parseInt(url.searchParams.get('offset') ?? '0', 10));
+  // Optional segment scope, e.g. ?segments=land-cruiser — lets the backfill skip
+  // galleries for data-only segments (Hilux/Fortuner are aggregate /market data,
+  // never shown with a photo gallery, so fetching their images is wasted — and
+  // risky — per-listing volume). Widen by passing more segments. Empty = all.
+  const segParam = url.searchParams.get('segments');
+  const segments = segParam ? segParam.split(',').map(s => s.trim()).filter(Boolean) : [];
+
+  const conds = [
+    eq(listings.status, 'active'),
+    eq(listings.source, source),
+    ne(listings.source, 'own'),
+    sql`json_array_length(${listings.photos}) < ${minPhotos}`,
+  ];
+  if (segments.length) conds.push(inArray(listings.segment, segments));
 
   const rows = await db
     .select({
@@ -32,14 +46,7 @@ export const GET: APIRoute = async ({ request, url }) => {
       photo_count: sql<number>`json_array_length(${listings.photos})`,
     })
     .from(listings)
-    .where(
-      and(
-        eq(listings.status, 'active'),
-        eq(listings.source, source),
-        ne(listings.source, 'own'),
-        sql`json_array_length(${listings.photos}) < ${minPhotos}`,
-      )
-    )
+    .where(and(...conds))
     .limit(limit)
     .offset(offset);
 

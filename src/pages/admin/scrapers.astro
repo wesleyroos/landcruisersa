@@ -248,6 +248,44 @@ function fmtModel(m: string): string {
     })}
   </div>
 
+  <!-- Background jobs (not source ingests) — their own health so a rate-limit
+       abort is visible here, not just in the logs. -->
+  <p class="section-head" style="margin-top:1.5rem">Background jobs</p>
+  <div class="health-grid">
+    {(() => {
+      const jr = runsBySource.get('at-images') ?? [];
+      const jl = jr[0];
+      const st = !jl ? 'ok' : (jl.ok ? 'ok' : 'down');
+      return (
+        <div class={`hcard hcard-${st}`}>
+          <div class="hcard-top">
+            <span class={`dot dot-${st}`}></span>
+            <span class="hcard-name">AT Image Backfill</span>
+          </div>
+          {jl ? (
+            <>
+              <p class="hcard-last">
+                Last run {ago(jl.run_at)} — {jl.updated} galleries filled, {jl.skipped} skipped
+              </p>
+              {!jl.ok && <p class="hcard-reason reason-down">⚠ {jl.note ?? 'aborted'}</p>}
+              <p class="rh-label">Recent runs — galleries filled <span class="rh-dir">newest ←→ oldest</span></p>
+              <div class="run-history">
+                {jr.slice(0, 6).map(r => (
+                  <div class={`run-pill${r.ok ? '' : ' run-fail'}`} title={r.ok ? r.run_at.toLocaleString('en-ZA') : `${r.run_at.toLocaleString('en-ZA')} — ${r.note ?? 'failed'}`}>
+                    <span class="rp-found">{r.ok ? r.updated : '✕'}</span>
+                    <span class="rp-time">{ago(r.run_at)}</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <p class="hcard-last">No backfill runs recorded yet — fills missing AutoTrader photo galleries on each daily run (Land Cruiser only by default).</p>
+          )}
+        </div>
+      );
+    })()}
+  </div>
+
   <!-- TOOLS — manual runs; local dev only (AT blocks Fly IPs) -->
   {import.meta.env.DEV && (
     <div class="tools-row">
