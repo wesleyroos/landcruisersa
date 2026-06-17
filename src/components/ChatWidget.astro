@@ -1,6 +1,6 @@
 ---
 // Floating "chat-style" enquiry widget, site-wide (rendered in Base.astro).
-// Brand-orange. Posts a short form to /api/enquiry → DB + email both addresses.
+// Brand-orange. Posts a short form to /api/message → DB + email both addresses.
 // Not real WhatsApp — a familiar chat UX for a general enquiry.
 ---
 
@@ -17,7 +17,7 @@
     </div>
     <div class="cw-body">
       <div class="cw-bubble">Hi 👋 Ask us anything about a Land Cruiser and we'll get back to you.</div>
-      <form class="cw-form" id="cw-form" method="POST" action="/api/enquiry" novalidate>
+      <form class="cw-form" id="cw-form" method="POST" action="/api/message" novalidate>
         <input class="cw-in" name="name" placeholder="Your name" maxlength="120" autocomplete="name" />
         <input class="cw-in" name="phone" placeholder="Phone / WhatsApp" maxlength="40" inputmode="tel" autocomplete="tel" />
         <input class="cw-in" name="email" type="email" placeholder="Email (optional)" maxlength="160" autocomplete="email" />
@@ -65,7 +65,7 @@
       if (err) err.hidden = true;
       send.disabled = true; const label = send.textContent; send.textContent = 'Sending…';
       try {
-        const res = await fetch('/api/enquiry', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        const res = await fetch('/api/message', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
         const data = await res.json();
         if (!res.ok) { showErr(data.error || 'Something went wrong. Please try again.'); return; }
         form.hidden = true; if (done) done.hidden = false;
