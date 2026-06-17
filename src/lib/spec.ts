@@ -55,10 +55,10 @@ export const SPEC_OPTIONS: Record<string, Partial<Record<SpecAxis, SpecOption[]>
     // the only honest way to separate the cohorts: 1HD-FTE turbo diesel & 4.7 V8
     // = the IFS "100" (VX); 1HZ NA diesel & 4.5 petrol = the solid-axle "105" (GX).
     engine: [
-      { value: 'td',     label: '4.2 turbo diesel', re: /1hd|4\.?2\s*t|\btd\b|turbo|tdi/i },
-      { value: 'v8',     label: '4.7 V8 petrol',    re: /4\.?7|v8/i },
-      { value: 'petrol', label: '4.5 petrol',       re: /4\.?5|4500|1fz|efi/i },
-      { value: 'nad',    label: '4.2 NA diesel',    re: /4\.?2|1hz/i },
+      { value: 'td',     label: '4.2 turbo diesel (100)', re: /1hd|4\.?2\s*t|\btd\b|turbo|tdi/i },
+      { value: 'v8',     label: '4.7 V8 petrol (100)',    re: /4\.?7|v8/i },
+      { value: 'petrol', label: '4.5 petrol (105)',       re: /4\.?5|4500|1fz|efi/i },
+      { value: 'nad',    label: '4.2 NA diesel (105)',    re: /4\.?2|1hz/i },
     ],
   },
   // 78-series omitted: the SA 78 is a single 4.2 1HZ diesel, one grade, one body —
