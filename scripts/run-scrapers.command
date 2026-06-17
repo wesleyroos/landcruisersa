@@ -12,7 +12,7 @@
 cd "$(dirname "$0")/.." || { echo "Repo not found"; exit 1; }
 echo "── Running Land Cruiser SA scrapers ($(date '+%Y-%m-%d %H:%M')) ──"
 echo ""
-./scripts/local-ingest-cron.sh
+zsh ./scripts/local-ingest-cron.sh
 echo ""
 echo "── Done. Press Return to close this window ──"
 read
