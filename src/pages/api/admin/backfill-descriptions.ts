@@ -1,6 +1,7 @@
 export const prerender = false;
 
 import type { APIRoute } from 'astro';
+import { spawn } from 'child_process';
 
 function checkAdmin(cookies: { get(name: string): { value: string } | undefined }): boolean {
   const token = cookies.get('lcsa_admin')?.value;
@@ -8,102 +9,61 @@ function checkAdmin(cookies: { get(name: string): { value: string } | undefined 
   return Boolean(token && secret && token === secret);
 }
 
-import { fetchAtDetails } from '@/lib/sources/at-details';
-
-// Prod URL + token — always talk to prod so local runs fetch AT pages from a
-// non-blocked IP and still write descriptions into the real database.
-const SITE_URL = process.env.SITE_URL ?? import.meta.env.SITE_URL ?? 'https://landcruisersa.fly.dev';
-const TOKEN    = process.env.INGEST_TOKEN ?? import.meta.env.INGEST_TOKEN ?? '';
-
-const CONCURRENCY = 4;
-
-export const GET: APIRoute = async ({ cookies }) => {
+// AT description backfill button. Spawns the SAME canonical script the daily
+// cron runs (src/scripts/backfill-at-descriptions.ts) against PROD — so button
+// and schedule share one code path. Every protection (block-abort, health
+// reporting to /admin/scrapers) lives in the script and applies here too. This
+// endpoint is a thin SSE streamer; it never touches the local dev DB.
+export const GET: APIRoute = async ({ cookies, request }) => {
   if (!checkAdmin(cookies)) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
   }
+
+  const siteUrl = import.meta.env.SITE_URL ?? process.env.SITE_URL ?? 'https://landcruisersa.co.za';
+  const ingestToken = import.meta.env.INGEST_TOKEN ?? process.env.INGEST_TOKEN ?? '';
+  const childEnv: NodeJS.ProcessEnv = {
+    ...process.env,
+    SITE_URL: siteUrl,
+    INGEST_TOKEN: ingestToken,
+  };
 
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream({
     async start(controller) {
-      // Guard against the client disconnecting mid-stream — writing to a closed
-      // controller throws an uncaught error that crashes the whole server.
       let closed = false;
+      let child: ReturnType<typeof spawn> | null = null;
+
       const send = (data: object) => {
         if (closed) return;
         try { controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`)); }
         catch { closed = true; }
       };
-      const safeClose = () => { if (!closed) { try { controller.close(); } catch { /* noop */ } closed = true; } };
+      const onAbort = () => { closed = true; child?.kill(); };
+      request.signal.addEventListener('abort', onAbort);
 
-      // Always fetch pending list from prod so local runs see the real AT listings
-      let pending: { id: number; source_id: string; source_url: string; colour: string }[] = [];
-      try {
-        const r = await fetch(`${SITE_URL}/api/admin/listings-missing-descriptions`, {
-          headers: { Authorization: `Bearer ${TOKEN}` },
-        });
-        const data = await r.json() as { listings: typeof pending };
-        pending = data.listings ?? [];
-      } catch (err) {
-        send({ type: 'error', message: 'Failed to fetch pending listings from prod' });
-        safeClose();
-        return;
-      }
+      send({ type: 'start' });
 
-      send({ type: 'start', total: pending.length });
+      const proc = spawn('node', ['--experimental-strip-types', 'src/scripts/backfill-at-descriptions.ts'], {
+        cwd: process.cwd(),
+        env: childEnv,
+      });
+      child = proc;
 
-      if (pending.length === 0) {
-        send({ type: 'done', updated: 0, skipped: 0, failed: 0 });
-        safeClose();
-        return;
-      }
+      const emit = (text: string) => {
+        for (const line of text.split('\n').filter(l => l.trim())) send({ type: 'log', text: line });
+      };
+      proc.stdout.on('data', (c: Buffer) => emit(c.toString()));
+      proc.stderr.on('data', (c: Buffer) => emit(c.toString()));
 
-      let updated = 0, skipped = 0, failed = 0;
+      await new Promise<number>(resolve => {
+        proc.on('close', code => resolve(code ?? 0));
+        proc.on('error', () => resolve(1));
+      });
 
-      for (let i = 0; i < pending.length; i += CONCURRENCY) {
-        const chunk = pending.slice(i, i + CONCURRENCY);
-
-        await Promise.all(chunk.map(async listing => {
-          if (!listing.source_url) { skipped++; return; }
-
-          let description = '', colour = '';
-          try {
-            ({ description, colour } = await fetchAtDetails(listing.source_url));
-          } catch {
-            failed++;
-            send({ type: 'progress', source_id: listing.source_id, ok: false, reason: 'fetch error' });
-            return;
-          }
-
-          if (!description && !colour) {
-            skipped++;
-            send({ type: 'progress', source_id: listing.source_id, ok: false, reason: 'no data found' });
-            return;
-          }
-
-          // Patch prod DB via API
-          try {
-            await fetch(`${SITE_URL}/api/admin/patch-listing`, {
-              method: 'POST',
-              headers: { Authorization: `Bearer ${TOKEN}`, 'Content-Type': 'application/json' },
-              body: JSON.stringify({ source_id: listing.source_id, description, colour }),
-            });
-            updated++;
-            send({ type: 'progress', source_id: listing.source_id, ok: true });
-          } catch {
-            failed++;
-            send({ type: 'progress', source_id: listing.source_id, ok: false, reason: 'patch failed' });
-          }
-        }));
-
-        send({ type: 'batch', done: Math.min(i + CONCURRENCY, pending.length), total: pending.length, updated, skipped, failed });
-
-        if (i + CONCURRENCY < pending.length) await new Promise(r => setTimeout(r, 800));
-      }
-
-      send({ type: 'done', updated, skipped, failed });
-      try { (await import('fs')).writeFileSync('/tmp/lcsa-desc-backfill.log', new Date().toISOString()); } catch {}
-      safeClose();
+      request.signal.removeEventListener('abort', onAbort);
+      send({ type: 'done' });
+      if (!closed) { try { controller.close(); } catch { /* already closed */ } }
     },
   });
 

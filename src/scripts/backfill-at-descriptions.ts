@@ -23,8 +23,13 @@ async function run() {
   if (targets.length === 0) { await reportRun('at-desc-backfill', { found: 0 }); return; }
 
   let updated = 0, skipped = 0, failed = 0;
+  // Block-abort (constitution #3): if whole batches keep failing, AutoTrader is
+  // blocking this IP — stop, don't grind every listing into the wall.
+  let consecFailBatches = 0, aborted = false;
+  const ABORT_BATCHES = 3; // ~12 consecutive failed fetches = a block, not bad luck
 
   for (let i = 0; i < targets.length; i += CONCURRENCY) {
+    const u0 = updated, f0 = failed;
     await Promise.all(targets.slice(i, i + CONCURRENCY).map(async t => {
       if (!t.source_url) { skipped++; return; }
       let description = '', colour = '';
@@ -41,11 +46,24 @@ async function run() {
         if (r.ok) updated++; else failed++;
       } catch { failed++; }
     }));
+    if (updated === u0 && failed > f0) {
+      if (++consecFailBatches >= ABORT_BATCHES) {
+        console.warn(`[at-desc-backfill] ABORTING — ${consecFailBatches} batches all failed; AutoTrader is likely blocking this IP. Backing off.`);
+        aborted = true;
+        break;
+      }
+    } else {
+      consecFailBatches = 0;
+    }
     await new Promise(r => setTimeout(r, 800)); // polite pacing between batches
   }
 
-  console.log(`[at-desc-backfill] done — updated: ${updated}, skipped: ${skipped}, failed: ${failed}`);
-  await reportRun('at-desc-backfill', { found: targets.length, updated, skipped });
+  console.log(`[at-desc-backfill] done — updated: ${updated}, skipped: ${skipped}, failed: ${failed}${aborted ? ' (ABORTED)' : ''}`);
+  await reportRun('at-desc-backfill', {
+    found: targets.length, updated, skipped,
+    ok: !aborted,
+    note: aborted ? 'rate-limited / block — aborted' : undefined,
+  });
 }
 
 run().catch(async err => {

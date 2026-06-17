@@ -688,11 +688,12 @@ function fmtModel(m: string): string {
             let ev: Record<string, unknown>;
             try { ev = JSON.parse(part.slice(6)); } catch { continue; }
             if (ev.type === 'start') {
-              statusEl.textContent = ev.total === 0 ? 'All descriptions filled.' : `0 / ${ev.total} processed…`;
-            } else if (ev.type === 'batch') {
-              statusEl.textContent = `${ev.done} / ${ev.total} — ${ev.updated} updated`;
+              statusEl.textContent = 'Starting…';
+            } else if (ev.type === 'log') {
+              const line = String(ev.text ?? '').trim();
+              if (line) statusEl.textContent = line.slice(0, 100);
             } else if (ev.type === 'done') {
-              statusEl.textContent = `Done — ${ev.updated} updated, ${ev.skipped} skipped, ${ev.failed} failed`;
+              statusEl.textContent = 'Done — see the AT desc-backfill health for the result.';
               const el = document.getElementById('desc-backfill-last-run');
               if (el) el.textContent = fmtTime(Date.now());
             }

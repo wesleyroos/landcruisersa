@@ -19,11 +19,12 @@ const TOKEN      = process.env.INGEST_TOKEN ?? '';
 const BATCH_SIZE = parseInt(process.env.BATCH_SIZE ?? '30', 10);
 const DELAY_MS   = parseInt(process.env.DELAY_MS   ?? '2000', 10); // ms between AT fetches
 const MIN_PHOTOS = 2;
-// Segments to backfill galleries for. Default Land Cruiser only — Hilux/Fortuner
-// are aggregate /market data and never show a photo gallery, so fetching their
-// images is wasted (and risky) per-listing volume. To make them public WITH
-// photos later, set BACKFILL_SEGMENTS="land-cruiser,toyota-4x4" in the cron.
-const SEGMENTS   = process.env.BACKFILL_SEGMENTS ?? 'land-cruiser';
+// Segments to backfill galleries for. Hilux/Fortuner detail pages ARE publicly
+// viewable (not just /market aggregates), so they need galleries too — default
+// covers both. The cost is more block-sensitive per-listing fetches, kept
+// sustainable by the bounded batch + 503/soft-block abort. Narrow to ease load
+// with e.g. BACKFILL_SEGMENTS="land-cruiser".
+const SEGMENTS   = process.env.BACKFILL_SEGMENTS ?? 'land-cruiser,toyota-4x4';
 
 const BROWSER_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
 
