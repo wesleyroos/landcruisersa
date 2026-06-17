@@ -1,9 +1,7 @@
 export const prerender = false;
 
 import type { APIRoute } from 'astro';
-import { db } from '@/db/index';
-import { listings } from '@/db/schema';
-import { eq, and, sql } from 'drizzle-orm';
+import { spawn } from 'child_process';
 
 function checkAdmin(cookies: { get(name: string): { value: string } | undefined }): boolean {
   const token = cookies.get('lcsa_admin')?.value;
@@ -11,99 +9,65 @@ function checkAdmin(cookies: { get(name: string): { value: string } | undefined 
   return Boolean(token && secret && token === secret);
 }
 
-const BROWSER_UA =
-  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
-
-async function fetchAtImages(sourceUrl: string): Promise<string[]> {
-  const res = await fetch(sourceUrl, {
-    headers: { 'User-Agent': BROWSER_UA, Accept: 'text/html,application/xhtml+xml' },
-    signal: AbortSignal.timeout(12_000),
-  });
-  if (!res.ok) return [];
-  const html = await res.text();
-  const seen = new Set<string>();
-  const imgs: string[] = [];
-  for (const m of html.matchAll(/https:\/\/img\.autotrader\.co\.za\/(\d+)/g)) {
-    if (!seen.has(m[1])) { seen.add(m[1]); imgs.push(m[0]); }
-  }
-  return imgs.slice(0, 20);
-}
-
-function delay(ms: number) {
-  return new Promise(r => setTimeout(r, ms));
-}
-
-// Streams progress as Server-Sent Events so the connection stays alive past
-// Fly's 15-second response-header timeout.
-export const GET: APIRoute = async ({ cookies }) => {
+// AT image backfill button. Spawns the SAME canonical script the daily cron
+// runs (scripts/backfill-at-images.ts) against PROD — so the button and the
+// scheduled run share one code path. Every protection (503/soft-block abort,
+// Land-Cruiser-only segment gate, health reporting to /admin/scrapers) lives in
+// the script and therefore applies here too. This endpoint is a thin streamer;
+// it never touches the local dev DB.
+export const GET: APIRoute = async ({ cookies, request }) => {
   if (!checkAdmin(cookies)) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
   }
+
+  const siteUrl = import.meta.env.SITE_URL ?? process.env.SITE_URL ?? 'https://landcruisersa.co.za';
+  const ingestToken = import.meta.env.INGEST_TOKEN ?? process.env.INGEST_TOKEN ?? '';
+  const childEnv: NodeJS.ProcessEnv = {
+    ...process.env,
+    SITE_URL: siteUrl,
+    INGEST_TOKEN: ingestToken,
+    // Match the cron's polite settings so button and schedule behave identically.
+    BATCH_SIZE: process.env.BATCH_SIZE ?? '80',
+    DELAY_MS: process.env.DELAY_MS ?? '3500',
+  };
 
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream({
     async start(controller) {
-      // Guard against the client disconnecting mid-stream — writing to a closed
-      // controller throws an uncaught error that crashes the whole server.
       let closed = false;
+      let child: ReturnType<typeof spawn> | null = null;
+
       const send = (data: object) => {
         if (closed) return;
         try { controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`)); }
         catch { closed = true; }
       };
-      const safeClose = () => { if (!closed) { try { controller.close(); } catch { /* noop */ } closed = true; } };
+      const onAbort = () => { closed = true; child?.kill(); };
+      request.signal.addEventListener('abort', onAbort);
 
-      const pending = await db
-        .select({ source_id: listings.source_id, source_url: listings.source_url })
-        .from(listings)
-        .where(and(
-          eq(listings.status, 'active'),
-          eq(listings.source, 'autotrader'),
-          sql`json_array_length(${listings.photos}) < 2`,
-        ))
-        .limit(10);
+      send({ type: 'start' });
 
-      send({ type: 'start', total: pending.length });
+      const proc = spawn('node', ['--experimental-strip-types', 'scripts/backfill-at-images.ts'], {
+        cwd: process.cwd(),
+        env: childEnv,
+      });
+      child = proc;
 
-      if (pending.length === 0) {
-        send({ type: 'done', updated: 0, empty: 0, failed: 0 });
-        safeClose();
-        return;
-      }
+      const emit = (text: string) => {
+        for (const line of text.split('\n').filter(l => l.trim())) send({ type: 'log', text: line });
+      };
+      proc.stdout.on('data', (c: Buffer) => emit(c.toString()));
+      proc.stderr.on('data', (c: Buffer) => emit(c.toString()));
 
-      let updated = 0, empty = 0, failed = 0;
+      await new Promise<number>(resolve => {
+        proc.on('close', code => resolve(code ?? 0));
+        proc.on('error', () => resolve(1));
+      });
 
-      for (const listing of pending) {
-        let imgs: string[] = [];
-        try {
-          imgs = await fetchAtImages(listing.source_url!);
-        } catch {
-          failed++;
-          send({ type: 'progress', source_id: listing.source_id, ok: false, reason: 'fetch error' });
-          await delay(1_500);
-          continue;
-        }
-
-        if (imgs.length < 2) {
-          empty++;
-          send({ type: 'progress', source_id: listing.source_id, ok: false, reason: `${imgs.length} found` });
-          await delay(1_500);
-          continue;
-        }
-
-        await db
-          .update(listings)
-          .set({ photos: JSON.stringify(imgs) })
-          .where(and(eq(listings.source, 'autotrader'), eq(listings.source_id, listing.source_id!)));
-
-        updated++;
-        send({ type: 'progress', source_id: listing.source_id, ok: true, photos: imgs.length });
-        await delay(1_500);
-      }
-
-      send({ type: 'done', updated, empty, failed });
-      safeClose();
+      request.signal.removeEventListener('abort', onAbort);
+      send({ type: 'done' });
+      if (!closed) { try { controller.close(); } catch { /* already closed */ } }
     },
   });
 

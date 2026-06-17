@@ -638,13 +638,13 @@ function fmtModel(m: string): string {
             let ev: Record<string, unknown>;
             try { ev = JSON.parse(part.slice(6)); } catch { continue; }
             if (ev.type === 'start') {
-              statusEl.textContent = ev.total === 0 ? 'Nothing to backfill.' : `Processing ${ev.total} listings…`;
-            } else if (ev.type === 'progress') {
-              statusEl.textContent = ev.ok
-                ? `${ev.source_id}: ${ev.photos} photos saved`
-                : `${ev.source_id}: ${ev.reason}`;
+              statusEl.textContent = 'Starting…';
+            } else if (ev.type === 'log') {
+              // The script streams its stdout; show the latest meaningful line.
+              const line = String(ev.text ?? '').trim();
+              if (line) statusEl.textContent = line.slice(0, 100);
             } else if (ev.type === 'done') {
-              statusEl.textContent = `Done — ${ev.updated} updated, ${ev.empty} empty, ${ev.failed} failed`;
+              statusEl.textContent = 'Done — see the “AT Image Backfill” card above for the result.';
               const el = document.getElementById('backfill-last-run');
               if (el) el.textContent = fmtTime(Date.now());
             }
