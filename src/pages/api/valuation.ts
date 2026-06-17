@@ -39,7 +39,8 @@ export const POST: APIRoute = async ({ request }) => {
   }
 
   // Honeypot — a filled hidden field means a bot. Ack silently, do nothing.
-  if (String(body.website ?? '').trim() !== '') {
+  // Named 'lcsa_hp' (NOT 'website') so browser autofill can't trip it.
+  if (String(body.lcsa_hp ?? '').trim() !== '') {
     return new Response(JSON.stringify({ ok: true, estimate: null }), { status: 200 });
   }
 

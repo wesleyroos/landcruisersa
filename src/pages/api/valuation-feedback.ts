@@ -39,8 +39,8 @@ export const POST: APIRoute = async ({ request }) => {
     return new Response(JSON.stringify({ error: 'Invalid request.' }), { status: 400 });
   }
 
-  // Honeypot — silently accept bots, do nothing.
-  if (String(body.website ?? '').trim() !== '') {
+  // Honeypot — silently accept bots, do nothing. Named 'lcsa_hp' (not 'website').
+  if (String(body.lcsa_hp ?? '').trim() !== '') {
     return new Response(JSON.stringify({ ok: true }), { status: 200 });
   }
   if (rateLimited(clientIp(request))) {

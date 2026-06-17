@@ -22,7 +22,7 @@
         <input class="cw-in" name="phone" placeholder="Phone / WhatsApp" maxlength="40" inputmode="tel" autocomplete="tel" />
         <input class="cw-in" name="email" type="email" placeholder="Email (optional)" maxlength="160" autocomplete="email" />
         <textarea class="cw-in" name="message" placeholder="Your message…" rows="3" maxlength="2000"></textarea>
-        <div class="cw-hp" aria-hidden="true"><input name="website" tabindex="-1" autocomplete="off" /></div>
+        <div class="cw-hp" aria-hidden="true"><input name="lcsa_hp" tabindex="-1" autocomplete="off" /></div>
         <p class="cw-err" id="cw-err" hidden></p>
         <button type="submit" class="cw-send" id="cw-send">Send message</button>
       </form>
@@ -56,7 +56,7 @@
         phone: (f.get('phone') || '').toString().trim(),
         email: (f.get('email') || '').toString().trim(),
         message: (f.get('message') || '').toString().trim(),
-        website: (f.get('website') || '').toString(),
+        lcsa_hp: (f.get('lcsa_hp') || '').toString(),
         source_path: location.pathname,
       };
       function showErr(m) { if (err) { err.textContent = m; err.hidden = false; } }

@@ -87,7 +87,7 @@ const specYearsJson = JSON.stringify(getSpecYearRanges());
 
     {/* honeypot — visually hidden, off the tab order */}
     <div class="vt-hp" aria-hidden="true">
-      <label>Leave this empty<input type="text" name="website" tabindex="-1" autocomplete="off" /></label>
+      <label>Leave this empty<input type="text" name="lcsa_hp" tabindex="-1" autocomplete="off" /></label>
     </div>
 
     <button type="submit" class="vt-submit">SEE MY ESTIMATE →</button>
@@ -169,7 +169,7 @@ const specYearsJson = JSON.stringify(getSpecYearRanges());
       try {
         fetch('/api/valuation-feedback', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ...lastResult, verdict, note: note || '', userEstimate: userEstimate || null, website: '', source_path: location.pathname }),
+          body: JSON.stringify({ ...lastResult, verdict, note: note || '', userEstimate: userEstimate || null, lcsa_hp: '', source_path: location.pathname }),
         });
       } catch {}
     }
@@ -265,7 +265,7 @@ const specYearsJson = JSON.stringify(getSpecYearRanges());
         condition: fd.get('condition') || 'good',
         province: fd.get('province') || '',
         engine: spec.engine, grade: spec.grade, body: spec.body,
-        website: fd.get('website') || '',
+        lcsa_hp: fd.get('lcsa_hp') || '',
         utm_source: utm,
         source_path: location.pathname,
       };
