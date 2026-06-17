@@ -1,6 +1,7 @@
 ---
 import { LC_MODEL_SLUGS, MODEL_YEAR_RANGE, modelLabel } from '@/lib/sources/normalize';
 import { SPEC_OPTIONS } from '@/lib/spec';
+import { getSpecYearRanges } from '@/lib/spec-years';
 
 interface Props {
   model?: string;     // preselect a model (per-model pages)
@@ -32,9 +33,10 @@ const specPicker = Object.fromEntries(
   ]),
 );
 const specPickerJson = JSON.stringify(specPicker);
+const specYearsJson = JSON.stringify(getSpecYearRanges());
 ---
 
-<div class="vt" data-preset-model={model} data-year-ranges={yearRangesJson} data-spec={specPickerJson}>
+<div class="vt" data-preset-model={model} data-year-ranges={yearRangesJson} data-spec={specPickerJson} data-spec-years={specYearsJson}>
   <form class="vt-form" id="vt-form" method="POST" action="/valuation/" novalidate>
     <h2 class="vt-h">{heading}</h2>
 
@@ -105,6 +107,7 @@ const specPickerJson = JSON.stringify(specPicker);
     // you can't value a 2015 Prado 250 (launched 2024) or a pre-2026 FJ.
     const yearRanges = (() => { try { return JSON.parse(root.dataset.yearRanges || '{}'); } catch { return {}; } })();
     const specMap = (() => { try { return JSON.parse(root.dataset.spec || '{}'); } catch { return {}; } })();
+    const specYears = (() => { try { return JSON.parse(root.dataset.specYears || '{}'); } catch { return {}; } })();
     const mSel = form.querySelector('select[name="model"]');
     const ySel = form.querySelector('select[name="year"]');
     const specBox = root.querySelector('#vt-spec');
@@ -125,12 +128,23 @@ const specPickerJson = JSON.stringify(specPicker);
 
     function rebuildSpec() {
       if (!specBox) return;
+      // preserve current selections across a rebuild
+      const cur = {};
+      specBox.querySelectorAll('select[data-axis]').forEach(s => { cur[s.dataset.axis] = s.value; });
       const axes = specMap[mSel.value] || {};
       const keys = AXIS_ORDER.filter(a => axes[a]);
+      const yr = ySel ? parseInt(ySel.value, 10) : NaN;
+      const ranges = specYears[mSel.value] || {};
       specBox.innerHTML = keys.map(a => {
-        const opts = ['<option value="">Any / not sure</option>']
-          .concat(axes[a].map(o => '<option value="' + o.value + '">' + o.label + '</option>')).join('');
-        return '<label class="vt-field"><span>' + AXIS_LABEL[a] + '</span><select data-axis="' + a + '">' + opts + '</select></label>';
+        // data-driven year-gate: once a year is chosen, only show spec values
+        // observed in that year's listings (a 2.8 GD-6 79 won't show for 2009).
+        let opts = axes[a];
+        if (yr) opts = opts.filter(o => { const r = ranges[a] && ranges[a][o.value]; return r && yr >= r[0] && yr <= r[1]; });
+        const prev = cur[a] || '';
+        const keep = opts.some(o => o.value === prev);
+        const optHtml = ['<option value="">Any / not sure</option>']
+          .concat(opts.map(o => '<option value="' + o.value + '"' + (o.value === prev && keep ? ' selected' : '') + '>' + o.label + '</option>')).join('');
+        return '<label class="vt-field"><span>' + AXIS_LABEL[a] + '</span><select data-axis="' + a + '">' + optHtml + '</select></label>';
       }).join('');
     }
 
@@ -139,6 +153,7 @@ const specPickerJson = JSON.stringify(specPicker);
       mSel.addEventListener('change', onModelChange);
       if (mSel.value) onModelChange(); // preset model on per-model pages
     }
+    if (ySel) ySel.addEventListener('change', rebuildSpec); // spec availability depends on year
 
     const R = (n) => 'R' + Math.round(Number(n)).toLocaleString('en-ZA');
     const esc = (s) => String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
