@@ -3,6 +3,7 @@ import { listings, viewEvents } from '@/db/schema';
 import { and, eq, gt, sql, isNull } from 'drizzle-orm';
 import { getRecentPriceChanges } from './price-changes';
 import { getMarketPosition } from './market-position';
+import { modelFamily, LC_SEGMENT } from './sources/normalize';
 
 // ─── "What should we post to IG today?" ──────────────────────────────────────
 // Deterministic scoring over the signals that picked winners by hand:
@@ -71,6 +72,7 @@ export function getPostSuggestions(limit = 3): PostSuggestion[] {
       gt(listings.price, 0),
       isNull(listings.ig_posted_at),
       sql`json_array_length(photos) >= 4`,
+      eq(listings.segment, LC_SEGMENT),   // LC only — never suggest a Hilux/Fortuner for the LC IG
     ))
     .all();
 
@@ -105,6 +107,9 @@ export function getPostSuggestions(limit = 3): PostSuggestion[] {
     .limit(5)
     .all()
     .map(r => r.model);
+  // Diversify at the FAMILY level, not the exact slug — else posting a prado-150
+  // leaves prado-250/120/90 unpenalised and the suggestions homogenise into Prados.
+  const recentlyPostedFamilies = recentlyPostedModels.map(m => modelFamily(m));
   const ROT_WEIGHTS = [22, 16, 11, 7, 4]; // index = how many posts ago
 
   const now = Date.now();
@@ -132,11 +137,17 @@ export function getPostSuggestions(limit = 3): PostSuggestion[] {
 
     if ((c.description ?? '').length >= 200) score += 5;
 
+    const candFamily = modelFamily(c.model);
     let rot = 0;
-    recentlyPostedModels.forEach((m, i) => { if (m === c.model) rot += ROT_WEIGHTS[i] ?? 0; });
+    recentlyPostedFamilies.forEach((f, i) => { if (f === candFamily) rot += ROT_WEIGHTS[i] ?? 0; });
     if (rot > 0) {
       score -= rot;
-      reasons.push(`recently posted ${c.model.replace(/-/g, ' ')} — rotation penalty −${rot}`);
+      const famLabel = candFamily === 'prado' ? 'Prado'
+        : candFamily === '70-series' ? '70 Series'
+        : candFamily === 'fj' ? 'FJ'
+        : candFamily === 'main-line' ? 'main-line LC'
+        : c.model.replace(/-/g, ' ');
+      reasons.push(`recently posted ${famLabel} — rotation penalty −${rot}`);
     }
 
     const change = changes.get(c.slug) ?? 0;

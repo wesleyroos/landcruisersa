@@ -76,6 +76,21 @@ export const LC_MODEL_SLUGS = [
 ] as const;
 export const LC_MODEL_SLUG_SET: ReadonlySet<string> = new Set(LC_MODEL_SLUGS);
 
+// Model FAMILIES — so IG-post diversity works at the family level: posting one
+// Prado should suppress ALL Prado slugs (prado-90/120/150/250), not just the
+// exact one. Keep in lockstep with LC_MODEL_SLUGS; a slug missing here falls back
+// to its own slug (its own rotation bucket), which silently re-creates the
+// per-slug bug for that model — so add new slugs here too.
+export const MODEL_FAMILY: Record<string, string> = {
+  'prado-90': 'prado', 'prado-120': 'prado', 'prado-150': 'prado', 'prado-250': 'prado',
+  '76-series': '70-series', '78-series': '70-series', '79-series': '70-series', '70-series': '70-series',
+  'fj-cruiser': 'fj', 'land-cruiser-fj': 'fj',
+  '80-series': 'main-line', '100-series': 'main-line', '200-series': 'main-line', '300-series': 'main-line',
+};
+export function modelFamily(model: string): string {
+  return MODEL_FAMILY[model] ?? model;
+}
+
 // Launch years for young-cohort detection in the valuation engine — models too
 // new to have a meaningful used-market depreciation signal.
 export const MODEL_LAUNCH_YEAR: Record<string, number> = {

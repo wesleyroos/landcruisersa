@@ -5,6 +5,7 @@ import AdminLayout from '@/layouts/AdminLayout.astro';
 import AdminIgPost from '@/components/AdminIgPost.astro';
 import { getCredentials } from '@/lib/instagram';
 import { getPostSuggestions } from '@/lib/post-suggestions';
+import { modelFamily, modelLabel } from '@/lib/sources/normalize';
 import { db } from '@/db/index';
 import { listings, clickEvents, priceEvents } from '@/db/schema';
 import { desc, eq, and, or, gte, lte, sql, like, isNotNull, inArray } from 'drizzle-orm';
@@ -139,6 +140,7 @@ const igConnected = !!creds;
 const igSuggestions = igConnected ? getPostSuggestions(12) : [];
 const igPick = igSuggestions[0];
 const igMore = igSuggestions.slice(1);
+const igMoreNonPrado = igMore.filter(s => modelFamily(s.model) !== 'prado').length;
 
 // Posted count for the filter toggle
 const postedCount = (db.select({ n: sql<number>`count(*)` }).from(listings)
@@ -297,8 +299,8 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
 
   <!-- IG SUGGESTION SHORTLIST — skim the whole ranked list and post from here -->
   {igMore.length > 0 && (
-    <details class="sug-panel" open>
-      <summary class="sug-summary">📣 More IG suggestions <span class="sug-count">{igMore.length}</span></summary>
+    <details class="sug-panel">
+      <summary class="sug-summary">📣 More IG suggestions <span class="sug-count">{igMore.length}</span>{igMoreNonPrado > 0 && <span class="sug-count sug-count-np">{igMoreNonPrado} non-Prado</span>}</summary>
       <div class="sug-list">
         {igMore.map((s, i) => (
           <div class="sug-row">
@@ -311,6 +313,7 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
             </a>
             <div class="sug-info">
               <p class="sug-title-row">
+                <span class={`sug-model${modelFamily(s.model) === 'prado' ? ' sug-model-prado' : ''}`}>{modelLabel(s.model)}</span>
                 <a href={`/admin/listings/${s.id}`} class="sug-title">{s.title}</a>
                 <span class="sug-price">R{s.price.toLocaleString('en-ZA')}</span>
                 {s.dropAmount > 0 && <span class="pick-drop">▼ R{s.dropAmount.toLocaleString('en-ZA')}</span>}
@@ -613,6 +616,9 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
   .sug-summary::after { content: '▾'; margin-left: auto; color: #9CA3AF; }
   .sug-panel[open] .sug-summary::after { content: '▴'; }
   .sug-count { background: #FEF3C7; color: #92400E; font-size: 0.6rem; padding: 0.1rem 0.45rem; border-radius: 9999px; letter-spacing: 0; }
+  .sug-count-np { background: #F0FDF4; color: #166534; }
+  .sug-model { font-size: 0.55rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; padding: 0.12rem 0.4rem; border-radius: 9999px; flex-shrink: 0; background: #FEF3C7; color: #92400E; }
+  .sug-model-prado { background: #F3F4F6; color: #9CA3AF; }
   .sug-list { display: flex; flex-direction: column; border-top: 1.5px solid #F3F4F6; }
   .sug-row {
     display: flex; align-items: center; gap: 0.75rem; padding: 0.6rem 1rem;
