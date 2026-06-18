@@ -100,18 +100,20 @@ const waSpec = [
       <span class={`status-badge status-${listing.status}`}>{listing.status}</span>
       <span class={`type-badge type-${listing.listing_type}`}>{listing.listing_type === 'for_sale' ? 'For Sale' : '★ Show Off'}</span>
     </div>
-    {listing.source_url && (
-      <a href={listing.source_url} target="_blank" rel="noopener" class="view-link">
-        View on {portalLabel}
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-      </a>
-    )}
-    {listing.status === 'active' && listing.slug && (
-      <a href={`/listings/${listing.slug}/`} target="_blank" class="view-link">
-        View on site
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-      </a>
-    )}
+    <div class="header-actions">
+      {listing.source_url && (
+        <a href={listing.source_url} target="_blank" rel="noopener" class="view-link">
+          View on {portalLabel}
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+        </a>
+      )}
+      {listing.status === 'active' && listing.slug && (
+        <a href={`/listings/${listing.slug}/`} target="_blank" class="view-link">
+          View on site
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+        </a>
+      )}
+    </div>
   </div>
 
   <div class="edit-grid">
@@ -389,8 +391,9 @@ const waSpec = [
   }
   .back-link:hover { color: #111; }
   .header-badges { display: flex; gap: 0.5rem; }
+  .header-actions { display: flex; gap: 0.5rem; margin-left: auto; flex-wrap: wrap; }
   .view-link {
-    display: inline-flex; align-items: center; gap: 0.3rem; margin-left: auto;
+    display: inline-flex; align-items: center; gap: 0.3rem;
     font-size: 0.72rem; font-weight: 700; color: #6B7280; text-decoration: none;
     border: 1.5px solid #E5E7EB; border-radius: 0.5rem; padding: 0.35rem 0.75rem;
     transition: all 0.15s;
