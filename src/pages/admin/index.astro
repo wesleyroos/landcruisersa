@@ -134,9 +134,11 @@ const active = db.select().from(listings)
 const creds = await getCredentials();
 const igConnected = !!creds;
 
-// Daily IG pick — same scoring the morning email uses
-const igSuggestions = igConnected ? getPostSuggestions(3) : [];
+// IG suggestions — same scoring the morning email uses. Show the whole ranked
+// shortlist (not just the top pick) so it can be skimmed and posted from here.
+const igSuggestions = igConnected ? getPostSuggestions(12) : [];
 const igPick = igSuggestions[0];
+const igMore = igSuggestions.slice(1);
 
 // Posted count for the filter toggle
 const postedCount = (db.select({ n: sql<number>`count(*)` }).from(listings)
@@ -288,16 +290,39 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
           {igPick.dropAmount > 0 && <span class="pick-drop">▼ R{igPick.dropAmount.toLocaleString('en-ZA')}</span>}
         </p>
         <p class="pick-reasons">{igPick.reasons.slice(0, 3).join(' · ')}</p>
-        {igSuggestions.length > 1 && (
-          <p class="pick-runners">
-            Runners-up: {igSuggestions.slice(1).map((s, i) => (
-              <>{i > 0 && ' · '}<a href={`/admin/listings/${s.id}`}>{s.title}</a></>
-            ))}
-          </p>
-        )}
       </div>
       <button class="btn btn-post" data-action="post" data-id={igPick.id}>Post to IG</button>
     </div>
+  )}
+
+  <!-- IG SUGGESTION SHORTLIST — skim the whole ranked list and post from here -->
+  {igMore.length > 0 && (
+    <details class="sug-panel" open>
+      <summary class="sug-summary">📣 More IG suggestions <span class="sug-count">{igMore.length}</span></summary>
+      <div class="sug-list">
+        {igMore.map((s, i) => (
+          <div class="sug-row">
+            <span class="sug-rank">#{i + 2}</span>
+            <a href={`/admin/listings/${s.id}`} class="sug-thumb-link">
+              {s.photo
+                ? <img class="sug-thumb" src={s.photo} alt={s.title} loading="lazy" />
+                : <div class="sug-thumb sug-thumb-empty">🚗</div>
+              }
+            </a>
+            <div class="sug-info">
+              <p class="sug-title-row">
+                <a href={`/admin/listings/${s.id}`} class="sug-title">{s.title}</a>
+                <span class="sug-price">R{s.price.toLocaleString('en-ZA')}</span>
+                {s.dropAmount > 0 && <span class="pick-drop">▼ R{s.dropAmount.toLocaleString('en-ZA')}</span>}
+              </p>
+              <p class="sug-reasons">{s.reasons.slice(0, 3).join(' · ')}</p>
+            </div>
+            <span class="sug-score" title="Suggestion score">{s.score}</span>
+            <button class="btn btn-post sug-post" data-action="post" data-id={s.id}>Post</button>
+          </div>
+        ))}
+      </div>
+    </details>
   )}
 
   <!-- FILTER BAR -->
@@ -576,6 +601,42 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
   .pick-runners { font-size: 0.68rem; color: #9CA3AF; margin-top: 0.35rem; }
   .pick-runners a { color: #6B7280; text-decoration: none; }
   .pick-runners a:hover { color: #111; text-decoration: underline; }
+
+  /* IG SUGGESTION SHORTLIST */
+  .sug-panel { border: 1.5px solid #E5E7EB; border-radius: 0.75rem; margin-bottom: 1.25rem; background: #fff; }
+  .sug-summary {
+    list-style: none; cursor: pointer; padding: 0.75rem 1rem;
+    font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em; color: #6B7280;
+    display: flex; align-items: center; gap: 0.5rem;
+  }
+  .sug-summary::-webkit-details-marker { display: none; }
+  .sug-summary::after { content: '▾'; margin-left: auto; color: #9CA3AF; }
+  .sug-panel[open] .sug-summary::after { content: '▴'; }
+  .sug-count { background: #FEF3C7; color: #92400E; font-size: 0.6rem; padding: 0.1rem 0.45rem; border-radius: 9999px; letter-spacing: 0; }
+  .sug-list { display: flex; flex-direction: column; border-top: 1.5px solid #F3F4F6; }
+  .sug-row {
+    display: flex; align-items: center; gap: 0.75rem; padding: 0.6rem 1rem;
+    border-bottom: 1px solid #F3F4F6;
+  }
+  .sug-row:last-child { border-bottom: none; }
+  .sug-row:hover { background: #FFFBF0; }
+  .sug-rank { font-size: 0.7rem; font-weight: 700; color: #D1D5DB; width: 1.75rem; flex-shrink: 0; text-align: center; }
+  .sug-thumb-link { flex-shrink: 0; display: block; }
+  .sug-thumb { width: 56px; height: 42px; object-fit: cover; border-radius: 0.375rem; background: #F3F4F6; display: block; }
+  .sug-thumb-empty { display: flex; align-items: center; justify-content: center; font-size: 1.1rem; }
+  .sug-info { flex: 1; min-width: 0; }
+  .sug-title-row { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+  .sug-title { font-size: 0.82rem; font-weight: 700; color: #111; text-decoration: none; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sug-title:hover { color: #D4881A; }
+  .sug-price { font-size: 0.72rem; font-weight: 600; color: #6B7280; }
+  .sug-reasons { font-size: 0.66rem; color: #9CA3AF; margin-top: 0.15rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sug-score { font-size: 0.7rem; font-weight: 700; color: #B45309; background: #FFFBEB; padding: 0.15rem 0.5rem; border-radius: 9999px; flex-shrink: 0; }
+  .sug-post { flex-shrink: 0; padding: 0.35rem 0.7rem; }
+  @media (max-width: 640px) {
+    .sug-score { display: none; }
+    .sug-reasons { white-space: normal; }
+    .sug-rank { width: 1.25rem; }
+  }
 
   /* FILTER BAR */
   .filter-bar {
