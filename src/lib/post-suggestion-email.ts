@@ -1,6 +1,5 @@
 import { db } from '@/db/index';
-import { siteConfig } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
 import { getPostSuggestions, type PostSuggestion } from './post-suggestions';
 
 // Shared "email today's IG pick" logic, used by both the server-side scheduler
@@ -14,6 +13,33 @@ const LAST_SENT_KEY = 'ig_suggestion_last_sent';
 function sastDateString(): string {
   return new Date(Date.now() + 2 * 3600 * 1000).toISOString().slice(0, 10);
 }
+const nowSec = () => Math.floor(Date.now() / 1000);
+
+// Atomically claim today as "sent" in a SINGLE conditional write — the upsert
+// only changes a row when today isn't already stored, so changes>0 means THIS
+// caller won the day. We claim BEFORE sending (and release on failure): the old
+// "send then mark" left a read→send→write gap, so any tick whose mark didn't
+// land (write contention, a restart mid-send, two overlapping ticks) re-sent —
+// which is exactly how one morning produced six identical emails.
+function claimToday(today: string): boolean {
+  const r = db.run(sql`
+    INSERT INTO site_config (key, value, updated_at)
+    VALUES (${LAST_SENT_KEY}, ${today}, ${nowSec()})
+    ON CONFLICT(key) DO UPDATE SET value = ${today}, updated_at = ${nowSec()}
+      WHERE site_config.value <> ${today}
+  `);
+  return Number(r.changes) > 0;
+}
+function markToday(today: string): void {
+  db.run(sql`
+    INSERT INTO site_config (key, value, updated_at)
+    VALUES (${LAST_SENT_KEY}, ${today}, ${nowSec()})
+    ON CONFLICT(key) DO UPDATE SET value = ${today}, updated_at = ${nowSec()}
+  `);
+}
+function releaseToday(today: string): void {
+  db.run(sql`UPDATE site_config SET value = '' WHERE key = ${LAST_SENT_KEY} AND value = ${today}`);
+}
 
 export interface SendResult {
   emailed: boolean;
@@ -24,9 +50,9 @@ export interface SendResult {
 export async function sendPostSuggestionEmail({ force = false }: { force?: boolean } = {}): Promise<SendResult> {
   const today = sastDateString();
 
-  if (!force) {
-    const row = db.select().from(siteConfig).where(eq(siteConfig.key, LAST_SENT_KEY)).get();
-    if (row?.value === today) return { emailed: false, skipped: 'already-sent-today', suggestions: [] };
+  // Claim the day up front so concurrent / duplicate ticks no-op (force bypasses).
+  if (!force && !claimToday(today)) {
+    return { emailed: false, skipped: 'already-sent-today', suggestions: [] };
   }
 
   const suggestions = getPostSuggestions(3);
@@ -70,14 +96,11 @@ export async function sendPostSuggestionEmail({ force = false }: { force?: boole
     emailed = Boolean(res?.ok);
   }
 
-  // Only mark the day done once an email actually went out, so a failed send
-  // lets the backup trigger retry later.
-  if (emailed) {
-    db.insert(siteConfig)
-      .values({ key: LAST_SENT_KEY, value: today, updated_at: new Date() })
-      .onConflictDoUpdate({ target: siteConfig.key, set: { value: today, updated_at: new Date() } })
-      .run();
-  }
+  // The day was claimed before sending. If nothing actually went out, release the
+  // claim so the backup trigger can retry later; a forced send still stamps it so
+  // the scheduler then no-ops.
+  if (!emailed && !force) releaseToday(today);
+  else if (force && emailed) markToday(today);
 
   return { emailed, suggestions };
 }
