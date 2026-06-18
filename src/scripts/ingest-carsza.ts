@@ -30,25 +30,46 @@ async function ingest() {
   }
 
   let created = 0, updated = 0, skipped = 0;
+  // Survive a transient network blip on upload: one failed POST should skip that
+  // listing, not crash the whole run after minutes of Chrome scraping (this is
+  // what failed 2026-06-18 — discovery found 5,092 then a single ETIMEDOUT to
+  // prod killed the lot). But if uploads keep failing the server/network is down,
+  // so abort cleanly (bylaw #3) rather than grind through thousands of timeouts.
+  let consecFail = 0, aborted = false;
+  const ABORT_CONSEC = 5;
 
   for (const ref of refs) {
     const listing = await CarsZaAdapter.fetchListing(ref);
     if (!listing) { skipped++; continue; }
 
-    const res = await fetch(`${SITE_URL}/api/ingest`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${TOKEN}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(listing),
-    });
+    let res: Response;
+    try {
+      res = await fetch(`${SITE_URL}/api/ingest`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${TOKEN}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(listing),
+      });
+    } catch (err) {
+      // Network-level error (timeout/DNS/connection) — fetch throws, no response.
+      skipped++;
+      if (++consecFail >= ABORT_CONSEC) {
+        console.error(`[carsza] ABORTING — ${consecFail} uploads failed in a row; prod unreachable (${String(err).slice(0, 80)}). Discovery was fine; re-run when the network is back.`);
+        aborted = true;
+        break;
+      }
+      continue;
+    }
 
     if (!res.ok) {
       console.error(`[carsza] ingest failed for ${ref.source_id}: ${res.status}`);
       skipped++;
+      consecFail = 0; // got a response — the network is up; this is a per-listing issue
       continue;
     }
+    consecFail = 0;
 
     const result = await res.json() as { action?: string };
     if (result.action === 'created') created++;
@@ -65,9 +86,12 @@ async function ingest() {
   //   2. Circuit breaker — if an implausibly large share would be removed, skip
   //      the whole sweep and log it. That signals a partial scrape / block, not a
   //      real mass-delisting (a 6h window never delists a quarter of the market).
+  //   3. Never sweep after an aborted upload — `seen` is incomplete, so the
+  //      set-difference is meaningless (the >25% breaker would catch it, but
+  //      don't even attempt a reconcile off a partial run).
   const REAP_CAP_FRACTION = 0.25;
   let removed = 0;
-  try {
+  if (!aborted) try {
     const liveRes = await fetch(`${SITE_URL}/api/aggregated/live`, {
       headers: { Authorization: `Bearer ${TOKEN}` },
     });
@@ -93,8 +117,13 @@ async function ingest() {
     console.error('[carsza] liveness sweep failed:', err);
   }
 
-  console.log(`[carsza] done — created: ${created}, updated: ${updated}, skipped: ${skipped}, removed: ${removed}`);
-  await reportRun('carsza', { found: refs.length, created, updated, skipped, removed, sourceTotal: discoverStats.sourceTotal, capHit: discoverStats.capHit });
+  console.log(`[carsza] done — created: ${created}, updated: ${updated}, skipped: ${skipped}, removed: ${removed}${aborted ? ' (ABORTED — partial, prod unreachable)' : ''}`);
+  await reportRun('carsza', {
+    found: refs.length, created, updated, skipped, removed,
+    ok: !aborted,
+    note: aborted ? 'upload aborted — prod unreachable mid-run' : undefined,
+    sourceTotal: discoverStats.sourceTotal, capHit: discoverStats.capHit,
+  });
 }
 
 ingest().catch(async err => {
