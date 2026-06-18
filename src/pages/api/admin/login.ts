@@ -16,6 +16,15 @@ export const POST: APIRoute = async ({ request, cookies, redirect }) => {
       sameSite: 'strict',
       maxAge: 60 * 60 * 24 * 7,
     });
+    // JS-readable flag (NOT the secret) so client-side third-party scripts
+    // (e.g. Hotjar) can exclude admin sessions on prerendered pages too.
+    cookies.set('lcsa_is_admin', '1', {
+      path: '/',
+      httpOnly: false,
+      secure: import.meta.env.PROD,
+      sameSite: 'strict',
+      maxAge: 60 * 60 * 24 * 7,
+    });
     return redirect('/admin');
   }
 

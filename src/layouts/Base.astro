@@ -99,6 +99,27 @@ const ogImage = new URL(image, SITE.url).href;
       gtag('config', 'G-BSFMBFSSLN');
     </script>
 
+    <!-- Hotjar (session recordings + heatmaps). Skipped for admin sessions and
+         /admin routes so our own browsing doesn't pollute recordings or burn
+         the free-tier session quota. lcsa_is_admin is a JS-readable flag set at
+         login (the real auth cookie is httpOnly). -->
+    <script>
+      try {
+        var isAdmin = /(^|;\s*)lcsa_is_admin=1(;|$)/.test(document.cookie)
+          || location.pathname.indexOf('/admin') === 0;
+        if (!isAdmin) {
+          (function(h,o,t,j,a,r){
+            h.hj=h.hj||function(){(h.hj.q=h.hj.q||[]).push(arguments)};
+            h._hjSettings={hjid:3686369,hjsv:6};
+            a=o.getElementsByTagName('head')[0];
+            r=o.createElement('script');r.async=1;
+            r.src=t+h._hjSettings.hjid+j+h._hjSettings.hjsv;
+            a.appendChild(r);
+          })(window,document,'https://static.hotjar.com/c/hotjar-','.js?sv=');
+        }
+      } catch {}
+    </script>
+
     <!-- Persist UTM source for session-level attribution (e.g. link-in-bio → listing view),
          and log the campaign link click itself — once per session -->
     <script>
