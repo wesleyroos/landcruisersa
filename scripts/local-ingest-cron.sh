@@ -58,13 +58,24 @@ if is_scheduled autotrader; then
     #    separate Jimny site. Gated on JIMNY_INGEST_TOKEN (.env); no-op if unset.
     #    Brief breather so we don't burst AutoTrader straight after the LC crawl.
     if [ -n "${JIMNY_INGEST_TOKEN:-}" ]; then
-      echo "[cron] jimny: crawling Suzuki Jimny → ${JIMNY_SITE_URL:-https://jimnysa.fly.dev}"
+      JURL="${JIMNY_SITE_URL:-https://jimnysa.fly.dev}"
+      echo "[cron] jimny: crawling Suzuki Jimny → $JURL"
       sleep 120
-      SCRAPE_SEGMENT=jimny SITE_URL="${JIMNY_SITE_URL:-https://jimnysa.fly.dev}" INGEST_TOKEN="$JIMNY_INGEST_TOKEN" \
-        "$NODE" --experimental-strip-types src/scripts/ingest-autotrader.ts || echo "[cron] jimny autotrader failed"
-      # Fill full galleries for Jimny listings (AT search tiles expose only 1 image).
-      SITE_URL="${JIMNY_SITE_URL:-https://jimnysa.fly.dev}" INGEST_TOKEN="$JIMNY_INGEST_TOKEN" BACKFILL_SEGMENTS=jimny BATCH_SIZE=80 DELAY_MS=3500 \
-        "$NODE" --experimental-strip-types scripts/backfill-at-images.ts || echo "[cron] jimny at-image-backfill failed"
+      # All Jimny ingests: Jimny segment only, routed to Jimny SA. carsza needs
+      # this Mac (Cloudflare); wbc is API-based; adios is skipped (no Jimny stock).
+      jimny() { SCRAPE_SEGMENT=jimny SITE_URL="$JURL" INGEST_TOKEN="$JIMNY_INGEST_TOKEN" "$NODE" --experimental-strip-types "$@"; }
+      jimny src/scripts/ingest-autotrader.ts || echo "[cron] jimny autotrader failed"
+      jimny src/scripts/ingest-carsza.ts      || echo "[cron] jimny carsza failed"
+      jimny src/scripts/ingest-wbc.ts         || echo "[cron] jimny wbc failed"
+      # Fill full galleries for Jimny AT listings (search tiles expose only 1 image).
+      BACKFILL_SEGMENTS=jimny BATCH_SIZE=80 DELAY_MS=3500 jimny scripts/backfill-at-images.ts || echo "[cron] jimny at-image-backfill failed"
+      # Rehost AT images to jimnysa's R2 (AT CDN 503s hotlinks). Map JIMNY_R2_* → R2_*.
+      if [ -n "${JIMNY_R2_ENDPOINT:-}" ]; then
+        R2_ENDPOINT="$JIMNY_R2_ENDPOINT" R2_PUBLIC_URL="$JIMNY_R2_PUBLIC_URL" R2_BUCKET="$JIMNY_R2_BUCKET" \
+          R2_ACCESS_KEY_ID="$JIMNY_R2_ACCESS_KEY_ID" R2_SECRET_ACCESS_KEY="$JIMNY_R2_SECRET_ACCESS_KEY" \
+          SITE_URL="$JURL" INGEST_TOKEN="$JIMNY_INGEST_TOKEN" \
+          "$NODE" --experimental-strip-types src/scripts/rehost-at-images.ts || echo "[cron] jimny at-image-rehost failed"
+      fi
     fi
   else
     echo "[cron] autotrader ran <20h ago — skipping (daily cadence)"

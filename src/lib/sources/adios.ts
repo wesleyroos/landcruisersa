@@ -116,8 +116,20 @@ function normalizeAdiosListing(item: VehicaListing): NormalizedListing | null {
 // Cache from discover() so fetchListing can look up by ID without re-fetching.
 const _listingCache = new Map<string, VehicaListing>();
 
+// Adios 4x4 is a Pretoria Land Cruiser / Toyota 4x4 specialist — its entire
+// inventory is Land Cruisers (+ the odd vintage Toyota / Lexus). The Vehica API
+// DOES honour taxonomy filters (make/model), so a Jimny run asks for Suzuki Jimny
+// explicitly; in practice this returns zero (Adios carries no Jimny). The gate is
+// here purely so a SCRAPE_SEGMENT=jimny run can NEVER dump Adios's Land Cruisers
+// onto the Jimny site — it asks for Jimny and gets nothing, rather than the
+// unfiltered full inventory. Land Cruiser runs are unchanged (no query params).
+function listingsQuery(): string {
+  if (process.env.SCRAPE_SEGMENT === 'jimny') return '?make=suzuki&model=jimny&per_page=100';
+  return '?per_page=100';
+}
+
 async function fetchAllListings(): Promise<VehicaListing[]> {
-  const res = await fetch(`${API}?per_page=100`, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+  const res = await fetch(`${API}${listingsQuery()}`, { headers: { 'User-Agent': 'Mozilla/5.0' } });
   if (!res.ok) return [];
   const data = await res.json() as VehicaResponse;
   return data.results ?? [];

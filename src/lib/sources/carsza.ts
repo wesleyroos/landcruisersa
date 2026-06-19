@@ -32,10 +32,21 @@ const LC_MODELS = [
 ];
 // Adjacent Toyota 4x4s — collected for data, gated, not shown on the LC site
 const EXTRA_MODELS = ['Hilux', 'Fortuner'];
-// Built per-run inside discover() so the Hilux/Fortuner toggle is read at
-// runtime (after applyExtraSegments), not frozen at module load.
-function searchModels(): string[] {
-  return collectExtraSegments() ? [...LC_MODELS, ...EXTRA_MODELS] : LC_MODELS;
+// Suzuki Jimny — crawled ONLY when SCRAPE_SEGMENT=jimny (the separate Jimny SA
+// ingest run, which posts to jimnysa). Land Cruiser runs never touch this.
+const JIMNY_TARGETS: SearchTarget[] = [{ make: 'Suzuki', model: 'Jimny' }];
+
+interface SearchTarget {
+  make: string;
+  model: string;
+}
+
+// Built per-run inside discover() so both the jimny gate and the Hilux/Fortuner
+// toggle are read at runtime (after applyExtraSegments), not frozen at module load.
+function searchTargets(): SearchTarget[] {
+  if (process.env.SCRAPE_SEGMENT === 'jimny') return JIMNY_TARGETS;
+  const models = collectExtraSegments() ? [...LC_MODELS, ...EXTRA_MODELS] : LC_MODELS;
+  return models.map(model => ({ make: 'Toyota', model }));
 }
 
 interface CarsZaRecord {
@@ -148,8 +159,8 @@ export const CarsZaAdapter: SourceAdapter = {
     let reportedTotal = 0;
     const { browser, page } = await launchSession();
     try {
-      for (const model of searchModels()) {
-        const filter = `make_model_variant[Toyota][${encodeURIComponent(model)}][All]`;
+      for (const { make, model } of searchTargets()) {
+        const filter = `make_model_variant[${encodeURIComponent(make)}][${encodeURIComponent(model)}][All]`;
         let offset = 0;
         let total = Infinity;
         while (offset < total) {

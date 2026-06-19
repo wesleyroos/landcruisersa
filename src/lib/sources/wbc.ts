@@ -93,6 +93,9 @@ async function getPowToken(): Promise<string> {
 // Built per-run inside discover() so the Hilux/Fortuner toggle is read at
 // runtime (after applyExtraSegments), not frozen at module load.
 function searchQueries(): string[] {
+  // Suzuki Jimny — queried ONLY for the separate Jimny SA ingest run
+  // (SCRAPE_SEGMENT=jimny). Land Cruiser runs never touch this.
+  if (process.env.SCRAPE_SEGMENT === 'jimny') return ['Suzuki Jimny'];
   return [
     'Toyota Land Cruiser', 'Toyota Prado', 'Toyota FJ Cruiser',
     ...(collectExtraSegments() ? ['Toyota Hilux', 'Toyota Fortuner'] : []),
@@ -174,6 +177,17 @@ interface WbcVehicle {
   Images?: { other?: string[]; external?: string[] };
 }
 
+function isJimny(v: WbcVehicle): boolean {
+  return v.Make === 'Suzuki' && /\bjimny\b/i.test(v.Model ?? '');
+}
+
+// Match the vehicle for whichever segment this run targets. The Jimny gate is
+// the ONLY behaviour change when SCRAPE_SEGMENT=jimny; LC runs are unaffected.
+function isWanted(v: WbcVehicle): boolean {
+  if (process.env.SCRAPE_SEGMENT === 'jimny') return isJimny(v);
+  return isLandCruiser(v);
+}
+
 function isLandCruiser(v: WbcVehicle): boolean {
   if (v.Make !== 'Toyota') return false;
   const model = v.Model ?? '';
@@ -237,7 +251,7 @@ export const WbcAdapter: SourceAdapter = {
       reportedTotal += total;
       let matched = 0;
       for (const v of vehicles) {
-        if (!isLandCruiser(v) || !v.StockNumber || v.Status !== 'For Sale') continue;
+        if (!isWanted(v) || !v.StockNumber || v.Status !== 'For Sale') continue;
         if (cache.has(v.StockNumber)) continue;
         cache.set(v.StockNumber, normalizeWbc(v));
         matched++;
@@ -282,7 +296,7 @@ export const WbcAdapter: SourceAdapter = {
     const body = await res.json() as { result?: boolean; data?: WbcVehicle };
     if (!body.result || !body.data) return null;
     const v = body.data;
-    if (!isLandCruiser(v)) return null;
+    if (!isWanted(v)) return null;
     return normalizeWbc(v);
   },
 
