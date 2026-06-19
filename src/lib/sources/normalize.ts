@@ -22,12 +22,16 @@ const MODEL_MAP: [RegExp, string][] = [
   // Listed after every Land Cruiser pattern so LC always wins the match.
   [/\bfortuner\b/i,                                  'fortuner'],
   [/\bhilux\b/i,                                     'hilux'],
+  // ── Suzuki Jimny ── collected only when the Jimny scraper runs (SCRAPE_SEGMENT=jimny);
+  // routed to Jimny SA, never shown on the Land Cruiser site. Listed last so LC always wins.
+  [/\bjimny\b/i,                                      'jimny'],
 ];
 
 // Adjacent Toyota-4x4 segment — collected for data and shown on the public
 // market pages, but kept out of the LC classifieds. Drives the `segment` column.
 export const LC_SEGMENT = 'land-cruiser';
 export function segmentForModel(model: string): string {
+  if (model.startsWith('jimny')) return 'jimny'; // routed to Jimny SA, not stored/shown here
   return (model.startsWith('hilux') || model.startsWith('fortuner')) ? 'toyota-4x4' : LC_SEGMENT;
 }
 
@@ -55,6 +59,12 @@ export function normalizeModel(raw: string, year?: number): string {
       if (slug === 'land-cruiser-fj' && year && year <= 2025) return 'fj-cruiser';
       // Hilux / Fortuner → engine-era slugs (hilux-gd6, fortuner-d4d, …)
       if (slug === 'hilux' || slug === 'fortuner') return `${slug}-${hiluxFortunerEra(raw, year)}`;
+      // Suzuki Jimny → generation split by engine keyword, else year (4th-gen launched late 2018)
+      if (slug === 'jimny') {
+        if (/1\.?3\b/.test(raw)) return 'jimny-1-3';
+        if (/1\.?5\b/.test(raw)) return 'jimny';
+        return (year && year <= 2018) ? 'jimny-1-3' : 'jimny';
+      }
       return slug;
     }
   }

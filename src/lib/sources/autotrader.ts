@@ -36,9 +36,15 @@ const EXTRA_SEARCH_URLS = [
   `${BASE}/cars-for-sale/toyota/hilux`,
   `${BASE}/cars-for-sale/toyota/fortuner`,
 ];
+// Suzuki Jimny — crawled ONLY when SCRAPE_SEGMENT=jimny (the separate Jimny SA
+// ingest run, which posts to jimnysa). Land Cruiser runs never touch this.
+const JIMNY_SEARCH_URLS = [
+  `${BASE}/cars-for-sale/suzuki/jimny`,
+];
 // Built per-run inside discover() so the Hilux/Fortuner toggle is read at
 // runtime (after applyExtraSegments), not frozen at module load.
 function searchUrls(): string[] {
+  if (process.env.SCRAPE_SEGMENT === 'jimny') return JIMNY_SEARCH_URLS;
   return collectExtraSegments() ? [...LC_SEARCH_URLS, ...EXTRA_SEARCH_URLS] : LC_SEARCH_URLS;
 }
 
