@@ -81,9 +81,9 @@ const schema = {
 
       {posted && posted.result.available && (
         <div class="ssr-vr">
-          <p class="ssr-q">Your {posted.year} {modelLabel(posted.model)} could sell for about</p>
-          <p class="ssr-hero">{R(posted.result.sellMid)}</p>
-          <p class="ssr-range">likely <strong>{R(posted.result.sellLow)} – {R(posted.result.sellHigh)}</strong> · to list, ask around <strong>{R(posted.result.askingCeiling)}</strong></p>
+          <p class="ssr-q">List your {posted.year} {modelLabel(posted.model)} for around</p>
+          <p class="ssr-hero">{R(posted.result.askingCeiling)}</p>
+          <p class="ssr-range">likely sells for <strong>{R(posted.result.sellMid)}</strong> · market range {R(posted.result.sellLow)} – {R(posted.result.sellHigh)}</p>
           <a class="ssr-btn" href="/listings/submit/">List it for sale, free →</a>
           <p class="ssr-disc">{VALUATION_DISCLAIMER}</p>
         </div>

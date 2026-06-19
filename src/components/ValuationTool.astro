@@ -209,14 +209,14 @@ const specYearsJson = JSON.stringify(getSpecYearRanges());
       return `
         <div class="vr">
           ${confBadge(e.confidence)}
-          <p class="vr-q">${esc(d.vehicle)} could sell for about</p>
-          <p class="vr-hero">${R(e.sellMid)}</p>
+          <p class="vr-q">${esc(d.vehicle)} — list it for around</p>
+          <p class="vr-hero">${R(e.askingCeiling)}</p>
           <div class="vr-range">
             <span class="vr-end">${R(e.sellLow)}</span>
             <span class="vr-track"><span class="vr-pin"></span></span>
             <span class="vr-end">${R(e.sellHigh)}</span>
           </div>
-          <p class="vr-ask">Want to list it? Ask around <strong>${R(e.askingCeiling)}</strong></p>
+          <p class="vr-ask">Likely sells for about <strong>${R(e.sellMid)}</strong></p>
           <a class="vr-btn" href="/listings/submit/">List my ${esc(d.modelText)} — free →</a>
           <details class="vr-more">
             <summary>How we got this</summary>
