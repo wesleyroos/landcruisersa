@@ -62,6 +62,9 @@ if is_scheduled autotrader; then
       sleep 120
       SCRAPE_SEGMENT=jimny SITE_URL="${JIMNY_SITE_URL:-https://jimnysa.fly.dev}" INGEST_TOKEN="$JIMNY_INGEST_TOKEN" \
         "$NODE" --experimental-strip-types src/scripts/ingest-autotrader.ts || echo "[cron] jimny autotrader failed"
+      # Fill full galleries for Jimny listings (AT search tiles expose only 1 image).
+      SITE_URL="${JIMNY_SITE_URL:-https://jimnysa.fly.dev}" INGEST_TOKEN="$JIMNY_INGEST_TOKEN" BACKFILL_SEGMENTS=jimny BATCH_SIZE=80 DELAY_MS=3500 \
+        "$NODE" --experimental-strip-types scripts/backfill-at-images.ts || echo "[cron] jimny at-image-backfill failed"
     fi
   else
     echo "[cron] autotrader ran <20h ago — skipping (daily cadence)"
