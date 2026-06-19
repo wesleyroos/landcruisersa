@@ -53,6 +53,16 @@ if is_scheduled autotrader; then
     # 2) Fill missing descriptions, then 3) copy AT-hosted images to R2.
     "$NODE" --experimental-strip-types src/scripts/backfill-at-descriptions.ts || echo "[cron] at-desc-backfill failed"
     "$NODE" --experimental-strip-types src/scripts/rehost-at-images.ts || echo "[cron] at-image-rehost failed"
+
+    # ── Jimny SA — same AutoTrader scraper, Jimny segment only, routed to the
+    #    separate Jimny site. Gated on JIMNY_INGEST_TOKEN (.env); no-op if unset.
+    #    Brief breather so we don't burst AutoTrader straight after the LC crawl.
+    if [ -n "${JIMNY_INGEST_TOKEN:-}" ]; then
+      echo "[cron] jimny: crawling Suzuki Jimny → ${JIMNY_SITE_URL:-https://jimnysa.fly.dev}"
+      sleep 120
+      SCRAPE_SEGMENT=jimny SITE_URL="${JIMNY_SITE_URL:-https://jimnysa.fly.dev}" INGEST_TOKEN="$JIMNY_INGEST_TOKEN" \
+        "$NODE" --experimental-strip-types src/scripts/ingest-autotrader.ts || echo "[cron] jimny autotrader failed"
+    fi
   else
     echo "[cron] autotrader ran <20h ago — skipping (daily cadence)"
   fi
