@@ -347,7 +347,14 @@ function fmtModel(m: string): string {
   {import.meta.env.DEV && (
     <div id="ingest-modal" class="modal-backdrop" hidden>
       <div class="modal">
-        <p class="modal-title">Select Sources</p>
+        <p class="modal-title">Run Ingest</p>
+        <p class="modal-label">Segments</p>
+        <div class="modal-sources modal-segments">
+          <label class="source-opt"><input type="checkbox" name="segment" value="land-cruiser" checked /> Land Cruiser</label>
+          <label class="source-opt"><input type="checkbox" name="segment" value="jimny" checked /> Jimny</label>
+        </div>
+        <p class="modal-label">Sources</p>
+        <p class="modal-hint">Jimny only crawls AutoTrader, WBC &amp; Cars.co.za; Adios &amp; We Buy Bakkies are Land&nbsp;Cruiser-only.</p>
         <div class="modal-sources">
           <label class="source-opt"><input type="checkbox" name="source" value="autotrader" checked /> AutoTrader</label>
           <label class="source-opt"><input type="checkbox" name="source" value="wbc" checked /> WBC</label>
@@ -534,7 +541,10 @@ function fmtModel(m: string): string {
     confirmBtn?.addEventListener('click', async () => {
       const checked = [...ingestModal.querySelectorAll<HTMLInputElement>('input[name="source"]:checked')]
         .map(el => el.value);
+      const segments = [...ingestModal.querySelectorAll<HTMLInputElement>('input[name="segment"]:checked')]
+        .map(el => el.value);
       if (!checked.length) { alert('Select at least one source.'); return; }
+      if (!segments.length) { alert('Select at least one segment (Land Cruiser and/or Jimny).'); return; }
 
       ingestModal.hidden = true;
       ingestBtn!.disabled = true;
@@ -544,12 +554,20 @@ function fmtModel(m: string): string {
       (progressFill as HTMLElement).style.width = '0%';
       progressLbl.textContent = 'Starting…';
 
+      // Keyed by `${segment}:${source}` so the same source under both segments
+      // doesn't collide.
       const sourceResults: Record<string, { created: number; updated: number; ok: boolean }> = {};
       const summaryRe = /\] done — created: (\d+), updated: (\d+)/;
+      const SEG_LABELS: Record<string, string> = { 'land-cruiser': 'LC', 'jimny': 'Jimny' };
+      const SRC_LABELS: Record<string, string> = {
+        autotrader: 'AT', wbc: 'WBC', adios: 'Adios', wbb: 'WBB', carsza: 'Cars.co.za',
+        'gallery-backfill': 'Galleries', 'image-rehost': 'Image rehost',
+      };
+      let currentSegment = '';
       let currentSource = '';
 
       try {
-        const url = `/api/admin/run-ingest?sources=${checked.join(',')}`;
+        const url = `/api/admin/run-ingest?segments=${segments.join(',')}&sources=${checked.join(',')}`;
         const res = await fetch(url);
         if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
         const reader = res.body.getReader();
@@ -565,17 +583,22 @@ function fmtModel(m: string): string {
             if (!part.startsWith('data: ')) continue;
             let ev: Record<string, unknown>;
             try { ev = JSON.parse(part.slice(6)); } catch { continue; }
-            if (ev.type === 'script-start') {
+            if (ev.type === 'segment-start') {
+              currentSegment = String(ev.segment);
+              statusEl.textContent = `${SEG_LABELS[currentSegment] ?? currentSegment}…`;
+            } else if (ev.type === 'script-start') {
               currentSource = String(ev.name);
-              statusEl.textContent = `Running ${currentSource}…`;
+              const seg = SEG_LABELS[String(ev.segment ?? currentSegment)] ?? '';
+              const lbl = SRC_LABELS[currentSource] ?? currentSource;
+              statusEl.textContent = `Running ${seg ? seg + ' · ' : ''}${lbl}…`;
               (progressFill as HTMLElement).style.width = '0%';
-              progressLbl.textContent = `${currentSource} · Starting…`;
+              progressLbl.textContent = `${seg ? seg + ' · ' : ''}${lbl} · Starting…`;
             } else if (ev.type === 'log') {
               const text = String(ev.text);
               statusEl.textContent = text.slice(0, 80);
               const m = summaryRe.exec(text);
               if (m && currentSource) {
-                sourceResults[currentSource] = { created: Number(m[1]), updated: Number(m[2]), ok: true };
+                sourceResults[`${currentSegment}:${currentSource}`] = { created: Number(m[1]), updated: Number(m[2]), ok: true };
               }
             } else if (ev.type === 'progress') {
               const done = Number(ev.done), total = Number(ev.total) || 1;
@@ -583,15 +606,22 @@ function fmtModel(m: string): string {
               (progressFill as HTMLElement).style.width = pct + '%';
               const phase = ev.phase === 'discover' ? 'Discovering' : 'Importing';
               const detail = ev.sub ? String(ev.sub) : `${Math.floor(done).toLocaleString()}/${total.toLocaleString()}`;
-              progressLbl.textContent = `${currentSource ? currentSource + ' · ' : ''}${phase} ${pct}% — ${detail}`;
+              const seg = SEG_LABELS[currentSegment] ?? '';
+              const lbl = SRC_LABELS[currentSource] ?? currentSource;
+              progressLbl.textContent = `${seg ? seg + ' · ' : ''}${lbl ? lbl + ' · ' : ''}${phase} ${pct}% — ${detail}`;
             } else if (ev.type === 'script-done') {
-              if (!sourceResults[currentSource]) {
-                sourceResults[currentSource] = { created: 0, updated: 0, ok: Boolean(ev.ok) };
+              const key = `${ev.segment ?? currentSegment}:${ev.name ?? currentSource}`;
+              if (!sourceResults[key]) {
+                sourceResults[key] = { created: 0, updated: 0, ok: Boolean(ev.ok) };
               }
             } else if (ev.type === 'done') {
-              const LABELS: Record<string, string> = { autotrader: 'AT', wbc: 'WBC', adios: 'Adios', wbb: 'WBB', carsza: 'Cars.co.za' };
               const summary = Object.entries(sourceResults)
-                .map(([src, r]) => `${LABELS[src] ?? src.toUpperCase()} +${r.created} new`)
+                // The image steps don't report a created count — drop them from the headline.
+                .filter(([key]) => !key.endsWith(':gallery-backfill') && !key.endsWith(':image-rehost'))
+                .map(([key, r]) => {
+                  const [seg, src] = key.split(':');
+                  return `${SEG_LABELS[seg] ?? seg} ${SRC_LABELS[src] ?? src} +${r.created}`;
+                })
                 .join(' · ');
               statusEl.textContent = summary || 'Done.';
               (progressFill as HTMLElement).style.width = '100%';
@@ -865,6 +895,9 @@ function fmtModel(m: string): string {
     padding: 1.5rem; width: 100%; max-width: 320px; box-shadow: 0 8px 32px rgba(0,0,0,0.12);
   }
   .modal-title { font-size: 0.8rem; font-weight: 700; color: #111111; margin-bottom: 1rem; }
+  .modal-label { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #888; margin: 0 0 0.5rem; }
+  .modal-hint { font-size: 0.7rem; color: #999; margin: -0.25rem 0 0.625rem; line-height: 1.4; }
+  .modal-segments { flex-direction: row; gap: 0.5rem; margin-bottom: 1.25rem; }
   .modal-sources { display: flex; flex-direction: column; gap: 0.625rem; margin-bottom: 1.25rem; }
   .source-opt {
     display: flex; align-items: center; gap: 0.625rem;
