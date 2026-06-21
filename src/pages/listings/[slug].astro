@@ -1372,15 +1372,29 @@ const vehicleSchema: Record<string, unknown> = {
   const lbCounter = document.getElementById('lb-counter');
   let current = 0;
 
+  // Preload photos so a swipe shows the next image instantly instead of
+  // kicking off an on-demand fetch (the source of the sluggish feel).
+  const preloaded = new Set();
+  function preload(i) {
+    const idx = (i + photos.length) % photos.length;
+    if (preloaded.has(idx) || !photos[idx]) return;
+    preloaded.add(idx);
+    new Image().src = photos[idx];
+  }
+
   function render() {
     lbImg.src = photos[current];
     lbCounter.textContent = `${current + 1} / ${photos.length}`;
+    preload(current + 1);   // keep immediate neighbours warm
+    preload(current - 1);
   }
   function open(index) {
     current = index;
     lbImg.style.transition = '';
     lbImg.style.transform = '';
     render();
+    // warm the whole gallery in the background so every swipe is instant
+    photos.forEach((_, i) => preload(i));
     lb.classList.add('lb-open');
     document.body.style.overflow = 'hidden';
   }
