@@ -2,7 +2,6 @@ export const prerender = false;
 
 import type { APIRoute } from 'astro';
 import { spawn } from 'child_process';
-import { writeFileSync } from 'fs';
 
 function checkAdmin(cookies: { get(name: string): { value: string } | undefined }): boolean {
   const token = cookies.get('lcsa_admin')?.value;
@@ -170,7 +169,8 @@ export const GET: APIRoute = async ({ cookies, url, request }) => {
       }
 
       request.signal.removeEventListener('abort', onAbort);
-      try { writeFileSync('/tmp/lcsa-poll.log', new Date().toISOString()); } catch {}
+      // "Last run" is driven by the ingest_runs table now (each spawned script
+      // reports via reportRun on completion) — no /tmp marker to write here.
       send({ type: 'done' });
       if (!closed) { try { controller.close(); } catch { /* already closed */ } }
     },
