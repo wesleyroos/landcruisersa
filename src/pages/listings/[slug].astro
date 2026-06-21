@@ -1372,10 +1372,15 @@ const vehicleSchema: Record<string, unknown> = {
   const lbCounter = document.getElementById('lb-counter');
   let current = 0;
 
-  function open(index) {
-    current = index;
+  function render() {
     lbImg.src = photos[current];
     lbCounter.textContent = `${current + 1} / ${photos.length}`;
+  }
+  function open(index) {
+    current = index;
+    lbImg.style.transition = '';
+    lbImg.style.transform = '';
+    render();
     lb.classList.add('lb-open');
     document.body.style.overflow = 'hidden';
   }
@@ -1383,8 +1388,8 @@ const vehicleSchema: Record<string, unknown> = {
     lb.classList.remove('lb-open');
     document.body.style.overflow = '';
   }
-  function prev() { open((current - 1 + photos.length) % photos.length); }
-  function next() { open((current + 1) % photos.length); }
+  function prev() { current = (current - 1 + photos.length) % photos.length; render(); }
+  function next() { current = (current + 1) % photos.length; render(); }
 
   document.querySelectorAll('.lb-trigger').forEach(btn => {
     btn.addEventListener('click', () => open(Number(btn.dataset.index)));
@@ -1398,6 +1403,43 @@ const vehicleSchema: Record<string, unknown> = {
     if (e.key === 'Escape') close();
     if (e.key === 'ArrowLeft') prev();
     if (e.key === 'ArrowRight') next();
+  });
+
+  /* ─ Touch swipe (mobile) ─ image follows the finger, snaps past a threshold.
+     Axis-locked so vertical scroll and pinch-zoom (2 fingers) still work. */
+  let startX = 0, startY = 0, dx = 0, dragging = false, axis = null;
+  const SWIPE_THRESHOLD = 50;
+
+  lb.addEventListener('touchstart', e => {
+    if (e.touches.length !== 1) { dragging = false; return; }
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+    dx = 0; axis = null; dragging = true;
+    lbImg.style.transition = 'none';
+  }, { passive: true });
+
+  lb.addEventListener('touchmove', e => {
+    if (!dragging || e.touches.length !== 1) return;
+    const mvX = e.touches[0].clientX - startX;
+    const mvY = e.touches[0].clientY - startY;
+    if (axis === null) {
+      if (Math.abs(mvX) < 8 && Math.abs(mvY) < 8) return;
+      axis = Math.abs(mvX) > Math.abs(mvY) ? 'x' : 'y';
+    }
+    if (axis !== 'x') return;          // vertical / pinch → leave to the browser
+    dx = mvX;
+    e.preventDefault();                // stop the page from scrolling sideways
+    lbImg.style.transform = `translateX(${dx}px)`;
+  }, { passive: false });
+
+  lb.addEventListener('touchend', () => {
+    if (!dragging) return;
+    dragging = false;
+    lbImg.style.transition = 'transform 0.2s ease';
+    if (axis === 'x' && Math.abs(dx) > SWIPE_THRESHOLD) {
+      dx < 0 ? next() : prev();
+    }
+    lbImg.style.transform = '';
   });
 </script>
 
