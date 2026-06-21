@@ -4,6 +4,7 @@ import type { APIRoute } from 'astro';
 import { db } from '@/db/index';
 import { ingestRuns } from '@/db/schema';
 import { inArray, desc } from 'drizzle-orm';
+import { requireAdmin, unauthorized } from '@/lib/admin-auth';
 
 // "Last run" comes from the durable ingest_runs table — written by reportRun()
 // on EVERY scheduled and manual run, on whichever machine did the work (the
@@ -46,7 +47,8 @@ function nextHour(): number {
   return next.getTime();
 }
 
-export const GET: APIRoute = () => {
+export const GET: APIRoute = ({ cookies }) => {
+  if (!requireAdmin(cookies)) return unauthorized();
   return new Response(JSON.stringify({
     ingest:      { lastRun: lastRunFor(INGEST_SOURCES), nextRun: next4Hour() },
     backfill:    { lastRun: lastRunFor(IMAGE_BACKFILL), nextRun: nextHour() },
