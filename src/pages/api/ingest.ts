@@ -49,8 +49,13 @@ export const POST: APIRoute = async ({ request }) => {
   const photoJson = JSON.stringify(Array.isArray(photos) ? photos : []);
   const base = slugify(`${year}-${title}`);
 
-  // Upsert by (source, source_id) — update if exists, insert if new
-  const existing = await db.select({ id: listings.id, slug: listings.slug, price: listings.price, model: listings.model })
+  // Upsert by (source, source_id) — update if exists, insert if new.
+  // colour/description are pulled so a re-ingest can preserve enriched values when
+  // the incoming source carries none (see the coalesce in the update branch below).
+  const existing = await db.select({
+    id: listings.id, slug: listings.slug, price: listings.price, model: listings.model,
+    colour: listings.colour, description: listings.description, photos: listings.photos,
+  })
     .from(listings)
     .where(and(eq(listings.source, String(source)), eq(listings.source_id, String(source_id))))
     .limit(1);
@@ -68,6 +73,11 @@ export const POST: APIRoute = async ({ request }) => {
         recorded_at: new Date(),
       });
     }
+    // Preserve the richer gallery on re-ingest (see the photos note in .set() below).
+    const incomingPhotos = Array.isArray(photos) ? photos : [];
+    let existingPhotoCount = 0;
+    try { const p = JSON.parse(existing[0].photos); if (Array.isArray(p)) existingPhotoCount = p.length; } catch { /* keep 0 */ }
+
     await db.update(listings).set({
       title: String(title),
       model: String(model),
@@ -77,9 +87,17 @@ export const POST: APIRoute = async ({ request }) => {
       province: String(province ?? ''),
       new_or_used: (new_or_used as 'New' | 'Used') ?? 'Used',
       transmission: (transmission as 'manual' | 'automatic') ?? 'manual',
-      colour: String(colour ?? ''),
-      description: String(description ?? ''),
-      photos: photoJson,
+      // AutoTrader (and adios) search tiles carry NO colour/description — those are
+      // filled later by the desc-backfill. Coalesce so a re-ingest never overwrites
+      // an enriched value with the empty string a tile sends; otherwise every daily
+      // crawl wiped ~6k rows blank and the backfill lost thousands racing AT's limiter.
+      colour: String(colour ?? '').trim() ? String(colour) : existing[0].colour,
+      description: String(description ?? '').trim() ? String(description) : existing[0].description,
+      // Don't let a re-ingest shrink a gallery: AT search tiles expose ~1 image, but
+      // the image-backfill fills (and rehosts to R2) the full set. Keep the larger
+      // existing gallery so daily crawls stop reverting it to the tile image — which
+      // also stops the rehost re-copying ~33k images to R2 every run.
+      photos: incomingPhotos.length > existingPhotoCount ? photoJson : existing[0].photos,
       seller_name: String(seller_name ?? 'Dealer'),
       seller_email: 'info@landcruisersa.co.za',
       seller_phone: '000 000 0000',

@@ -9,8 +9,18 @@ export async function fetchAtDetails(sourceUrl: string): Promise<{ description: 
     headers: { 'User-Agent': BROWSER_UA, Accept: 'text/html,application/xhtml+xml' },
     signal: AbortSignal.timeout(15_000),
   });
-  if (!res.ok) return { description: '', colour: '' };
+  // A removed listing (404) is a genuine "nothing here" — return empty so the
+  // backfill counts it as a skip. But any other non-OK, and the tiny shell AT
+  // serves when it rate-limits/blocks an IP, must THROW: the backfill counts a
+  // throw as a failure (so its block-abort can engage), whereas an empty return
+  // is miscounted as "this listing has no description" and the run grinds on
+  // through thousands of blocked fetches, marking them all permanently empty.
+  if (res.status === 404) return { description: '', colour: '' };
+  if (!res.ok) throw new Error(`AutoTrader returned ${res.status} for ${sourceUrl}`);
   const html = await res.text();
+  if (html.length < 5000 || /Just a moment|cf-challenge|cf-browser-verification|Attention Required/i.test(html)) {
+    throw new Error(`AutoTrader served a block/challenge page for ${sourceUrl}`);
+  }
 
   const decode = (s: string) =>
     s.replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
