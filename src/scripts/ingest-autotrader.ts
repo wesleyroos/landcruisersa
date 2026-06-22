@@ -8,6 +8,9 @@ const SITE_URL = process.env.SITE_URL ?? 'https://landcruisersa.fly.dev';
 const TOKEN = process.env.INGEST_TOKEN ?? '';
 const RESEND_KEY = process.env.RESEND_API_KEY ?? '';
 const NOTIFY_EMAIL = process.env.NOTIFY_EMAIL ?? '';
+// This script is shared by the Jimny pass (SCRAPE_SEGMENT=jimny). Tag alerts so a
+// Jimny issue isn't mistaken for the LC scraper being broken.
+const ALERT_TAG = process.env.SCRAPE_SEGMENT === 'jimny' ? '[JimnySA]' : '[LCSA]';
 
 async function sendAlert(subject: string, body: string) {
   if (!RESEND_KEY || !NOTIFY_EMAIL) return;
@@ -38,7 +41,7 @@ async function ingest() {
   // Zero-result guard: if discover returns nothing, something is broken — abort
   if (refs.length === 0) {
     await sendAlert(
-      '[LCSA] AutoTrader ingest: zero results (scraper may be broken)',
+      `${ALERT_TAG} AutoTrader ingest: zero results (scraper may be broken)`,
       'AutoTrader discover() returned 0 results. The scraper may be blocked or the API changed.\n\nNo changes were made to the DB.',
     );
     await reportRun('autotrader', { found: 0, ok: false, note: 'discovery returned zero results' });
@@ -112,7 +115,7 @@ async function ingest() {
 
 ingest().catch(async (err) => {
   console.error('[autotrader] fatal error:', err);
-  await sendAlert('[LCSA] AutoTrader ingest error', String(err));
+  await sendAlert(`${ALERT_TAG} AutoTrader ingest error`, String(err));
   await reportRun('autotrader', { ok: false, note: String(err).slice(0, 200) });
   process.exit(1);
 });
