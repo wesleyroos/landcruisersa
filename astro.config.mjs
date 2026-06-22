@@ -8,6 +8,12 @@ export default defineConfig({
   site: 'https://landcruisersa.co.za',
   // 'static' = static by default; individual pages/endpoints use `export const prerender = false` to opt into SSR
   output: 'static',
+  // 301 redirects for renamed posts — preserve SEO equity from old URLs.
+  // (Middleware can't do this in static output: it doesn't run for paths with no page.)
+  redirects: {
+    '/useful-info/hiring-a-land-cruiser-in-sa': '/useful-info/land-cruiser-rental-south-africa/',
+    '/useful-info/hiring-a-fully-equipped-land-cruiser-for-ultimate-overlanding-adventures-in-south-africa': '/useful-info/land-cruiser-rental-south-africa/',
+  },
   security: {
     checkOrigin: false,
   },
