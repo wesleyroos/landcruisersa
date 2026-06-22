@@ -131,6 +131,13 @@ const active = db.select().from(listings)
   .orderBy(desc(listings.created_at))
   .limit(PAGE_SIZE).offset((safePage - 1) * PAGE_SIZE).all();
 
+// Sold: most recent first, so they don't vanish after being marked sold and we
+// can eyeball asking-vs-sold. Capped — the full history lives in insights.
+const sold = db.select().from(listings)
+  .where(eq(listings.status, 'sold'))
+  .orderBy(desc(listings.off_market_at), desc(listings.created_at))
+  .limit(PAGE_SIZE).all();
+
 // ─── Instagram publishing ─────────────────────────────────────────────────────
 const creds = await getCredentials();
 const igConnected = !!creds;
@@ -248,6 +255,7 @@ function formatDate(d: Date | null) {
 const grouped: { label: string; status: string; items: Listing[]; total: number }[] = [
   { label: 'Pending Approval', status: 'pending', items: pending, total: pendingCount },
   { label: 'Active',           status: 'active',  items: active,  total: activeCount  },
+  { label: 'Sold',             status: 'sold',    items: sold,    total: soldCount    },
 ];
 ---
 
@@ -472,6 +480,11 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
                   </span>
                   {l.listing_type === 'for_sale' && (
                     <span class="lcard-price">{formatPrice(l.price)}</span>
+                  )}
+                  {l.status === 'sold' && (
+                    l.sold_price
+                      ? <span class="chg-chip chg-sold">✓ Sold R{l.sold_price.toLocaleString('en-ZA')}{l.price > 0 && l.sold_price !== l.price ? ` (${l.sold_price < l.price ? '▼' : '▲'} R${Math.abs(l.price - l.sold_price).toLocaleString('en-ZA')})` : ''}</span>
+                      : <span class="chg-chip chg-sold-missing">Sold — add price</span>
                   )}
                   {priceChange.has(l.slug) && (priceChange.get(l.slug)! < 0
                     ? <span class="chg-chip chg-drop">▼ R{Math.abs(priceChange.get(l.slug)!).toLocaleString('en-ZA')}</span>
@@ -767,6 +780,8 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
   }
   .chg-drop  { background: #F0FDF4; color: #166534; }
   .chg-raise { background: #FAFAFA; color: #B91C1C; opacity: 0.8; }
+  .chg-sold  { background: #111111; color: #FFFFFF; }
+  .chg-sold-missing { background: #FEF3C7; color: #92400E; }
   .af-drops-toggle.active { background: #166534; border-color: #166534; }
 
   .lcard-title {

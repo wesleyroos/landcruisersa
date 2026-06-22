@@ -158,6 +158,10 @@ const waSpec = [
               </select>
             </div>
           </div>
+          <div class="field" id="sold-price-field" style={listing.status === 'sold' ? '' : 'display:none'}>
+            <label>Sold price (R) <span class="label-hint">actual amount it sold for — feeds valuation &amp; price-trend data</span></label>
+            <input type="number" name="sold_price" value={listing.sold_price ?? ''} min="0" placeholder={`Asking was R${listing.price.toLocaleString('en-ZA')}`} />
+          </div>
           <div class="field">
             <label>Featured</label>
             <select name="featured" id="f-featured">
@@ -624,12 +628,19 @@ const waSpec = [
   const typeSelect = document.getElementById('f-listing-type');
   const saleFields = document.getElementById('sale-fields');
   const modsField = document.getElementById('mods-field');
+  const statusSelect = form.querySelector('select[name="status"]');
+  const soldPriceField = document.getElementById('sold-price-field');
 
   // Toggle sale/show-off fields
   typeSelect.addEventListener('change', () => {
     const isShowOff = typeSelect.value === 'show_off';
     saleFields.style.display = isShowOff ? 'none' : '';
     modsField.style.display  = isShowOff ? '' : 'none';
+  });
+
+  // Reveal the sold-price field only when status is Sold
+  statusSelect.addEventListener('change', () => {
+    soldPriceField.style.display = statusSelect.value === 'sold' ? '' : 'none';
   });
 
   form.addEventListener('submit', async (e) => {
@@ -644,6 +655,8 @@ const waSpec = [
     if (data.year)    data.year    = Number(data.year);
     if (data.price)   data.price   = Number(data.price);
     if (data.mileage) data.mileage = Number(data.mileage);
+    // Sold price: send a number if filled, else null to clear it
+    data.sold_price = data.sold_price ? Number(data.sold_price) : null;
     // Coerce boolean fields
     if ('featured' in data) data.featured = data.featured === 'true';
     if ('dealer_offer_optin' in data) data.dealer_offer_optin = data.dealer_offer_optin === 'true';

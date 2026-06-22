@@ -9,7 +9,7 @@ import { requireAdmin, unauthorized } from '@/lib/admin-auth';
 import { eq } from 'drizzle-orm';
 
 const UPDATABLE_FIELDS = [
-  'status', 'listing_type', 'featured', 'dealer_offer_optin', 'title', 'model', 'year', 'price', 'mileage',
+  'status', 'listing_type', 'featured', 'dealer_offer_optin', 'title', 'model', 'year', 'price', 'sold_price', 'mileage',
   'province', 'new_or_used', 'transmission', 'fuel_type', 'colour', 'description',
   'mods', 'seller_name', 'seller_email', 'seller_phone',
 ];

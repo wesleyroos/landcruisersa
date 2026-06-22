@@ -8,6 +8,7 @@ export const listings = sqliteTable('listings', {
   model:        text('model').notNull(),        // '70-series' | '76-series' | '79-series' | '100-series' | '200-series' | '300-series' | 'other'
   year:         integer('year').notNull(),
   price:        integer('price').notNull(),     // 0 for show_off listings
+  sold_price:   integer('sold_price'),          // actual transacted price, recorded when marked sold (own listings)
   mileage:      integer('mileage').notNull(),   // 0 for show_off listings
   province:     text('province').notNull(),
   new_or_used:  text('new_or_used').notNull().default('Used'), // 'New' | 'Used'
