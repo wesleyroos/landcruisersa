@@ -34,6 +34,7 @@ const data = rawListings.map(l => ({
   mileage: l.mileage, province: l.province, transmission: l.transmission,
   colour: l.colour, photo: firstPhoto(l.photos), type: l.listing_type,
   status: l.status, nu: l.new_or_used, drop: priceChanges.get(l.slug) ?? 0,
+  featured: l.featured,
 }));
 const dataJson = JSON.stringify(data).replace(/</g, '\\u003c');
 
@@ -236,6 +237,7 @@ function firstPhoto(photos: string) {
               decoding="async"
             />
             <div class="absolute top-3 left-3 flex gap-1.5 flex-wrap">
+              {l.featured && <span class="card-badge card-badge-featured">★ Featured</span>}
               <span class={`card-badge ${l.type === 'show_off' ? 'card-badge-show' : ''}`}>
                 {l.type === 'show_off' ? '★ ' : ''}{l.model.replaceAll('-', ' ').toUpperCase()}
               </span>
@@ -346,6 +348,11 @@ function firstPhoto(photos: string) {
   }
   .card-badge-sold { background: #dc2626; }
   .card-badge-drop { background: #166534; }
+  .card-badge-featured {
+    background: #F5A623;
+    color: #111111;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.25);
+  }
   .was-price {
     display: block; font-family: var(--font-body); font-weight: 500;
     font-size: 0.72rem; color: #9CA3AF; text-decoration: line-through;
@@ -427,6 +434,7 @@ function firstPhoto(photos: string) {
     slug: string; title: string; model: string; year: number; price: number;
     mileage: number; province: string; transmission: string; colour: string;
     photo: string; type: string; status: string; nu: string; drop: number;
+    featured: boolean;
   };
   const DATA: Listing[] = JSON.parse(document.getElementById('listings-data')!.textContent || '[]');
 
@@ -449,6 +457,7 @@ function firstPhoto(photos: string) {
         : 'bg-white border-[#DDD9D3] hover:border-[#F5A623] hover:shadow-md'
     } ${isSold ? 'is-sold' : ''}`;
     const badges =
+      (l.featured ? '<span class="card-badge card-badge-featured">★ Featured</span>' : '') +
       `<span class="card-badge ${isShow ? 'card-badge-show' : ''}">${isShow ? '★ ' : ''}${esc(l.model.replaceAll('-', ' ').toUpperCase())}</span>` +
       (isSold ? '<span class="card-badge card-badge-sold">Sold</span>' : '') +
       (!isSold && l.drop < 0 ? `<span class="card-badge card-badge-drop">▼ R${za(Math.abs(l.drop))}</span>` : '');
