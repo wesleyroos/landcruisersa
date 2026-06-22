@@ -92,3 +92,30 @@ date, compare to baseline, mark HIT / MISS / PARTIAL, and write the lesson.
 - **Lesson:** _tbd_
 
 ---
+
+## P4 — Per-model tyre-size content cluster (Tier 2)
+
+- **Opened:** 2026-06-22
+- **Review on:** 2026-07-20 *(early checkpoint — new pages need time to index/rank; expect a leading indicator, not a final verdict. Re-arm a later review if promising.)*
+- **Surfaces:** 5 new spoke pages — `/useful-info/land-cruiser-79-tyre-size/`,
+  `-80-series-`, `-100-series-`, `-200-series-`, `-300-series-tyre-size/` — plus the
+  existing tyres hub, now linking to each (hub-and-spoke).
+- **Thesis:** GSC shows a per-model long-tail ("79 tyre size", "100 series tyre size",
+  etc.) that the single hub page only partly captures. Dedicated, genuinely distinct
+  per-model pages (accurate specs from the hub table + real model context: cab split,
+  IFS vs solid axle, 18"/20" rims, TPMS) should capture more of that long-tail and
+  rank for each model's query. Specs sourced from the hub table Wesley maintains — he
+  should sanity-check them.
+- **Metric:** per-model tyre-size queries in the GSC `tyreQueries` array (those naming
+  a model — 79/80/100/200/300 — and tyre/tyre-size). Measured by combined impressions,
+  distinct query count, and combined clicks.
+- **Baseline (28d to 2026-06-19, GSC — the long-tail before the cluster existed):**
+  - ~46 combined impressions across the per-model variants (79≈14, 100 variants≈27, 200≈3, 300≈1, 80≈1); ~1–2 combined clicks; only a couple of distinct queries with real presence.
+- **Predictions (review 2026-07-20):**
+  1. Combined per-model tyre-size impressions grow from ~46 → **≥ 90**.
+  2. At least **4 distinct** per-model tyre-size queries (across 79/80/100/200/300) show impressions.
+  3. The cluster earns **≥ 3 combined clicks** on per-model tyre-size queries (from ~1–2).
+- **Result:** _pending 2026-07-20_
+- **Lesson:** _tbd_
+
+---
