@@ -251,6 +251,17 @@ db.exec(`
   )
 `);
 
+// Rental operator outbound clicks — first-party demand data (which operators
+// users want), feeds Phase-3 booking-partner prioritisation. New table → IF NOT
+// EXISTS pattern, NOT REQUIRED_COLS (that guard is for the listings table only).
+db.exec(`
+  CREATE TABLE IF NOT EXISTS rental_clicks (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    operator_slug TEXT    NOT NULL,
+    created_at    INTEGER NOT NULL
+  )
+`);
+
 // Scraper health — one row per ingest run, reported by the ingest scripts
 db.exec(`
   CREATE TABLE IF NOT EXISTS ingest_runs (

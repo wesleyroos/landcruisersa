@@ -93,6 +93,12 @@ export const aiReferrals = sqliteTable('ai_referrals', {
   created_at:    integer('created_at', { mode: 'timestamp' }).notNull(),
 });
 
+export const rentalClicks = sqliteTable('rental_clicks', {
+  id:            integer('id').primaryKey({ autoIncrement: true }),
+  operator_slug: text('operator_slug').notNull(),
+  created_at:    integer('created_at', { mode: 'timestamp' }).notNull(),
+});
+
 export const partnerClicks = sqliteTable('partner_clicks', {
   id:           integer('id').primaryKey({ autoIncrement: true }),
   partner_slug: text('partner_slug').notNull(),
