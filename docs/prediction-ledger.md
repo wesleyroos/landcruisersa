@@ -119,3 +119,28 @@ date, compare to baseline, mark HIT / MISS / PARTIAL, and write the lesson.
 - **Lesson:** _tbd_
 
 ---
+
+## P5 — Rental article: rename + retarget to "rental"
+
+- **Opened:** 2026-06-22
+- **Review on:** 2026-07-20
+- **Surface:** rental guide — **slug changed** `hiring-a-land-cruiser-in-sa` →
+  `land-cruiser-rental-south-africa` (301s in middleware from both old slugs); title +
+  metaTitle + metaDescription retargeted from "hiring" to "rental"; dead link removed
+  (landcruiserhire.com), Britz dropped (no Land Cruisers), 5 verified operators swapped in.
+- **Thesis:** the page already ranks #3.5 for "land cruiser rental south africa" at ~14%
+  CTR despite "hiring" in the slug/title. Matching the URL + title to the converting
+  query should hold/strengthen it long-term, and the content is now genuinely the best
+  rental resource (accurate, current operators).
+- **Risk:** changing the URL of the best-ranked page carries short-term ranking
+  volatility even with a clean 301 — watch for a dip that should recover.
+- **Metric/where:** GSC `topQueries`, query `land cruiser rental south africa`.
+- **Baseline (28d to 2026-06-19):** 5 clicks · 36 impressions · 13.9% CTR · pos 3.5.
+- **Predictions (review 2026-07-20):**
+  1. Position holds top-5 — **≤ 4** (no 301 damage).
+  2. Clicks grow from 5 → **≥ 8**.
+  3. No drop below pos 6 for "land cruiser rental" / "land cruiser for hire" either.
+- **Result:** _pending 2026-07-20_
+- **Lesson:** _tbd_
+
+---

@@ -6,6 +6,15 @@ export const onRequest = defineMiddleware(async ({ url, cookies, redirect, reque
   ensurePostSuggestionScheduler();
 
   const path = url.pathname;
+
+  // 301 redirects for renamed posts — preserve SEO equity from old URLs.
+  const REDIRECTS: Record<string, string> = {
+    '/useful-info/hiring-a-land-cruiser-in-sa': '/useful-info/land-cruiser-rental-south-africa/',
+    '/useful-info/hiring-a-fully-equipped-land-cruiser-for-ultimate-overlanding-adventures-in-south-africa': '/useful-info/land-cruiser-rental-south-africa/',
+  };
+  const dest = REDIRECTS[path.replace(/\/$/, '')];
+  if (dest) return redirect(dest, 301);
+
   const isAdminArea = path.startsWith('/admin');
   const isLoginPage = path === '/admin/login' || path === '/admin/login/';
   const isLoginApi = path === '/api/admin/login';
