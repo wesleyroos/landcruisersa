@@ -40,6 +40,32 @@ date, compare to baseline, mark HIT / MISS / PARTIAL, and write the lesson.
 
 ---
 
+## P3 — Conversion: in-content CTAs on the top guides (Tier 3)
+
+- **Opened:** 2026-06-22
+- **Review on:** 2026-07-20
+- **Surfaces:** the three highest-traffic guides — tyres, 300-price, rooftop-tent.
+- **Thesis:** These guides pull traffic but leak it (tyres bounces at 93%). The
+  sidebar CTA is generic and below the fold on mobile. Add a contextual in-content
+  CTA (`PostCTA.astro`) right where the reader gets their answer, routing to a
+  revenue surface. Internal links so the session continues (drops bounce) AND
+  funnels to conversion: tyres/rooftop → 4x4 Mega World partner hub + listings;
+  300-price → valuation tool + 300-series listings.
+- **Metric:** bounce rate (Plausible) = the clean proxy for "did the reader take a
+  second step." Scored from the report endpoint's new `bounce` array.
+- **Baselines (30d to 2026-06-22, Plausible):**
+  - tyres: **93%** bounce (42 visitors) ← the big leak
+  - rooftop: 55% bounce (31 visitors)
+  - 300-price: 50% bounce (10 visitors — small sample, low confidence)
+- **Predictions (review 2026-07-20):**
+  1. *(PRIMARY)* tyres bounce drops from 93% → **≤ 80%**.
+  2. rooftop bounce drops from 55% → **≤ 48%**.
+  3. 300-price bounce drops from 50% → **≤ 45%**. *(Caveat: tiny sample; treat as directional.)*
+- **Result:** _pending 2026-07-20_
+- **Lesson:** _tbd_
+
+---
+
 ## P2 — Content-gap harvest (300 price + roof tent)
 
 - **Opened:** 2026-06-22

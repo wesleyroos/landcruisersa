@@ -77,6 +77,22 @@ function aiReferralsFirstParty() {
   }
 }
 
+// Per-page bounce rate + visitors for a set of paths — used by the read-only
+// report endpoint so scheduled ledger reviews can score conversion bets (Tier 3
+// CTAs aim to drop bounce by routing readers to a second page).
+export async function pageBounceRates(paths: string[], period = '30d') {
+  return Promise.all(paths.map(async (page) => {
+    const r = await plausible('aggregate', {
+      period, metrics: 'visitors,bounce_rate', filters: `event:page==${page}`,
+    });
+    return {
+      page,
+      visitors: r?.results?.visitors?.value ?? 0,
+      bounceRate: r?.results?.bounce_rate?.value ?? null,
+    };
+  }));
+}
+
 export type TrafficSummary = Awaited<ReturnType<typeof getTrafficSummary>>;
 
 export async function getTrafficSummary() {
