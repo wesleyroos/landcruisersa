@@ -36,6 +36,8 @@ const IMAGES = [
   // 300 Series (hero is a GR Sport on all-terrains)
   { localPath: `${DL}/300 series 45254364.jpg`, filename: 'land-cruiser-300-series-tyre-size.jpg' },
   { localPath: `${DL}/300 series 47994410.jpg`, filename: 'land-cruiser-300-series-tyre-size-2.jpg' },
+  // Bull bar guide hero — LC 100 with a bull bar + light bar (replaces a Hilux image)
+  { localPath: `${DL}/100 series tyres 46481629.jpg`, filename: 'land-cruiser-bull-bar-buyers-guide-lc100.jpg' },
 ];
 
 const CONTENT_TYPES = {
