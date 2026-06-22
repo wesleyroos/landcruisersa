@@ -39,3 +39,30 @@ date, compare to baseline, mark HIT / MISS / PARTIAL, and write the lesson.
 - **Lesson:** _tbd_
 
 ---
+
+## P2 — Content-gap harvest (300 price + roof tent)
+
+- **Opened:** 2026-06-22
+- **Review on:** 2026-07-20
+- **Surfaces:** `/useful-info/land-cruiser-300-price-south-africa/` and `/useful-info/best-rooftop-tent-for-a-land-cruiser/`
+- **Thesis:** Two pages rank on page 2 for queries with real demand — we already have
+  the content, we're just not matching the exact query in the title/meta. Repackage
+  for relevance to climb onto page 1. (Different pages + different queries from P1, so
+  measurement stays clean. Deliberately did NOT re-touch the tyres page, to protect P1.)
+- **Changes (isolated to on-page relevance — no routing/internal-linking):**
+  - **300 price:** metaTitle now leads with "Toyota" (the query includes it) + "(2026)";
+    added `updatedAt` for freshness. Query: "toyota land cruiser 300 price south africa".
+  - **Roof tent:** page had no metaTitle/metaDescription (SERP showed a bare title +
+    excerpt) and never used the "roof tent" variant — added both, with "roof tent" in
+    the description. Query: "land cruiser roof tent".
+- **Baselines (28d to 2026-06-19, GSC):**
+  - "toyota land cruiser 300 price south africa": 74 impr · 1 click · 1.4% CTR · pos 10.1
+  - "land cruiser roof tent": 29 impr · 1 click · 3.4% CTR · pos 11.7
+- **Predictions (28d window, review 2026-07-20):**
+  1. "toyota land cruiser 300 price south africa" moves onto page 1 — **position ≤ 8** (from 10.1). *(Caveat: page was only ~1 week old at baseline, so some lift may be natural ageing, not the title change.)*
+  2. "land cruiser roof tent" moves onto page 1 — **position ≤ 9** (from 11.7).
+  3. Combined clicks for the two queries rise from 2 → **≥ 6**.
+- **Result:** _pending 2026-07-20_
+- **Lesson:** _tbd_
+
+---
