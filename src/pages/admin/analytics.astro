@@ -3,6 +3,7 @@ export const prerender = false;
 
 import AdminLayout from '@/layouts/AdminLayout.astro';
 import { getTrafficSummary } from '@/lib/traffic-summary';
+import { getGscSummary } from '@/lib/gsc-summary';
 
 const cookie = Astro.cookies.get('lcsa_admin');
 const adminSecret = import.meta.env.ADMIN_SECRET ?? process.env.ADMIN_SECRET ?? '';
@@ -13,6 +14,11 @@ if (!cookie || cookie.value !== adminSecret) {
 // Never let an analytics hiccup take down the page — fall back to the embed.
 let t: Awaited<ReturnType<typeof getTrafficSummary>> | null = null;
 try { t = await getTrafficSummary(); } catch { t = null; }
+
+// Google Search Console — the actual search queries. Independent of Plausible so
+// one failing never blocks the other.
+let g: Awaited<ReturnType<typeof getGscSummary>> | null = null;
+try { g = await getGscSummary(); } catch { g = null; }
 
 const fmt = (n: number) => n.toLocaleString('en-ZA');
 // 7-day trend badge: last 7 days vs the 7 days before.
@@ -157,6 +163,102 @@ function trend(last: number, prior: number) {
       </div>
     </section>
   )}
+
+  {/* ── Google Search Console: the actual search queries ───────────────────── */}
+  <section style="margin-bottom:28px;">
+    <h2 style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#6B7280;margin:0 0 12px;">🔍 Search queries · Google Search Console</h2>
+
+    {(!g || !g.configured) && (
+      <div style="background:#FEF3C7;border:1px solid #FCD34D;border-radius:8px;padding:10px 14px;font-size:13px;color:#92400E;">
+        Search Console data needs a service-account key in <code>GSC_SERVICE_ACCOUNT_JSON</code>
+        (<code>fly secrets set GSC_SERVICE_ACCOUNT_JSON=$(base64 &lt; key.json)</code>), and the service
+        account added as a user on the GSC property. Once set, the queries you rank for show up here.
+      </div>
+    )}
+
+    {g && g.configured && !g.authOk && (
+      <div style="background:#FEE2E2;border:1px solid #FCA5A5;border-radius:8px;padding:10px 14px;font-size:13px;color:#991B1B;">
+        Key is present but Google rejected it. Check: API enabled, key valid, and the service-account
+        email added as a user on the <code>landcruisersa.co.za</code> property in Search Console.
+      </div>
+    )}
+
+    {g && g.configured && g.authOk && (
+      <>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:12px;">
+          <div style="background:#fff;border:1px solid #E5E7EB;border-radius:12px;padding:16px;">
+            <div style="font-size:12px;color:#6B7280;font-weight:600;">Clicks</div>
+            <div style="font-size:28px;font-weight:800;color:#111;line-height:1.2;">{fmt(g.totals.clicks)}</div>
+            <div style="font-size:12px;color:#9CA3AF;">{g.range.startDate} → {g.range.endDate}</div>
+          </div>
+          <div style="background:#fff;border:1px solid #E5E7EB;border-radius:12px;padding:16px;">
+            <div style="font-size:12px;color:#6B7280;font-weight:600;">Impressions</div>
+            <div style="font-size:28px;font-weight:800;color:#111;line-height:1.2;">{fmt(g.totals.impressions)}</div>
+            <div style="font-size:12px;color:#9CA3AF;">search appearances</div>
+          </div>
+          <div style="background:#fff;border:1px solid #E5E7EB;border-radius:12px;padding:16px;">
+            <div style="font-size:12px;color:#6B7280;font-weight:600;">Avg CTR</div>
+            <div style="font-size:28px;font-weight:800;color:#111;line-height:1.2;">{g.avgCtr}%</div>
+            <div style="font-size:12px;color:#9CA3AF;">clicks ÷ impressions</div>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          {/* Top queries by clicks */}
+          <div style="background:#fff;border:1px solid #E5E7EB;border-radius:12px;padding:16px;">
+            <div style="font-size:12px;color:#6B7280;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;">Top queries — by clicks</div>
+            {g.topQueries.length === 0 ? (
+              <div style="font-size:13px;color:#9CA3AF;">No query data in this window yet.</div>
+            ) : (
+              <div style="display:flex;flex-direction:column;gap:5px;">
+                {g.topQueries.map(r => (
+                  <div style="display:flex;justify-content:space-between;gap:10px;font-size:13px;color:#374151;">
+                    <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{r.key}</span>
+                    <span style="white-space:nowrap;color:#9CA3AF;">{fmt(r.clicks)}c · {fmt(r.impressions)}i · #{r.position}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Content gaps: high impressions, off page 1, ~no clicks */}
+          <div style="background:linear-gradient(135deg,#EFF6FF,#DBEAFE);border:1px solid #93C5FD;border-radius:12px;padding:16px;">
+            <div style="font-size:12px;color:#1D4ED8;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">📈 Content gaps</div>
+            <div style="font-size:11px;color:#3B82F6;margin-bottom:10px;">High impressions, ranked off page 1, barely any clicks — demand you're not yet capturing.</div>
+            {g.contentGaps.length === 0 ? (
+              <div style="font-size:13px;color:#9CA3AF;">No clear gaps in this window.</div>
+            ) : (
+              <div style="display:flex;flex-direction:column;gap:5px;">
+                {g.contentGaps.map(r => (
+                  <div style="display:flex;justify-content:space-between;gap:10px;font-size:13px;color:#374151;">
+                    <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{r.key}</span>
+                    <span style="white-space:nowrap;color:#1D4ED8;font-weight:600;">{fmt(r.impressions)}i · #{r.position}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Tyre query panel — the thesis under test */}
+        <div style="background:#fff;border:1px solid #E5E7EB;border-radius:12px;padding:16px;margin-top:12px;">
+          <div style="font-size:12px;color:#6B7280;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;">🛞 Tyre-related queries</div>
+          {g.tyreQueries.length === 0 ? (
+            <div style="font-size:13px;color:#9CA3AF;">No tyre/wheel queries in this window yet.</div>
+          ) : (
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px 20px;">
+              {g.tyreQueries.map(r => (
+                <div style="display:flex;justify-content:space-between;gap:10px;font-size:13px;color:#374151;">
+                  <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{r.key}</span>
+                  <span style="white-space:nowrap;color:#9CA3AF;">{fmt(r.clicks)}c · {fmt(r.impressions)}i · #{r.position}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </>
+    )}
+  </section>
 
   <iframe
     plausible-embed
