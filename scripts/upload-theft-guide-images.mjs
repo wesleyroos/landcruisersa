@@ -24,6 +24,7 @@ const ROOT = '/Users/wesleyroos/Developer/LandCruiserSA/public/images/posts';
 const IMAGES = [
   { localPath: `${ROOT}/land-cruiser-theft-hijacking-protection.jpg`, filename: 'land-cruiser-theft-hijacking-protection.jpg' },
   { localPath: `${ROOT}/land-cruiser-ghost-immobiliser-install.jpg`, filename: 'land-cruiser-ghost-immobiliser-install.jpg' },
+  { localPath: `${ROOT}/land-cruiser-immobiliser-vs-tracker.jpg`, filename: 'land-cruiser-immobiliser-vs-tracker.jpg' },
 ];
 
 const CONTENT_TYPES = { '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp' };
