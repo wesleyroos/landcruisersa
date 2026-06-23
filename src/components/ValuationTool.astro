@@ -1,5 +1,5 @@
 ---
-import { LC_MODEL_SLUGS, MODEL_YEAR_RANGE, modelLabel } from '@/lib/sources/normalize';
+import { LC_MODEL_SLUGS, TOYOTA_4X4_SLUGS, MODEL_YEAR_RANGE, modelLabel } from '@/lib/sources/normalize';
 import { SPEC_OPTIONS } from '@/lib/spec';
 import { getSpecYearRanges } from '@/lib/spec-years';
 
@@ -7,14 +7,17 @@ interface Props {
   model?: string;     // preselect a model (per-model pages)
   heading?: string;
 }
-const { model = '', heading = "What's your Land Cruiser worth?" } = Astro.props;
+const { model = '', heading = "What's your Land Cruiser or 4x4 worth?" } = Astro.props;
 
 // Body-style / era hints so the 70-family and Prado/FJ pairs are unambiguous.
 const HINTS: Record<string, string> = {
   '76-series': 'Station Wagon', '78-series': 'Troopcarrier', '79-series': 'Pickup / Bakkie', '100-series': 'incl. 105',
   'prado-90': '1996–2002', 'prado-120': '2003–2009', 'prado-150': '2009–2024', 'prado-250': '2024 on', 'fj-cruiser': '2011–2023', 'land-cruiser-fj': '2026 on',
+  'fortuner-d4d': 'pre-2016', 'fortuner-gd6': '2016 on', 'hilux-d4d': 'pre-2016', 'hilux-gd6': '2016 on',
 };
-const MODELS = LC_MODEL_SLUGS.map(s => ({ slug: s, label: modelLabel(s) + (HINTS[s] ? ` — ${HINTS[s]}` : '') }));
+const mkOpt = (s: string) => ({ slug: s, label: modelLabel(s) + (HINTS[s] ? ` — ${HINTS[s]}` : '') });
+const LC_MODELS = LC_MODEL_SLUGS.map(mkOpt);
+const TX4_MODELS = TOYOTA_4X4_SLUGS.map(mkOpt);
 const PROVINCES = ['Gauteng', 'Western Cape', 'KwaZulu-Natal', 'Eastern Cape', 'Limpopo', 'Mpumalanga', 'North West', 'Free State', 'Northern Cape'];
 const CONDITIONS = [
   { v: 'excellent', l: 'Showroom' },
@@ -45,7 +48,12 @@ const specYearsJson = JSON.stringify(getSpecYearRanges());
         <span>Model</span>
         <select name="model" required>
           <option value="" disabled selected={!model}>Choose model…</option>
-          {MODELS.map(m => <option value={m.slug} selected={m.slug === model}>{m.label}</option>)}
+          <optgroup label="Land Cruiser">
+            {LC_MODELS.map(m => <option value={m.slug} selected={m.slug === model}>{m.label}</option>)}
+          </optgroup>
+          <optgroup label="Hilux & Fortuner">
+            {TX4_MODELS.map(m => <option value={m.slug} selected={m.slug === model}>{m.label}</option>)}
+          </optgroup>
         </select>
       </label>
 
@@ -95,6 +103,38 @@ const specYearsJson = JSON.stringify(getSpecYearRanges());
   </form>
 
   <div id="vt-result" class="vt-result" aria-live="polite" hidden></div>
+
+  {/* Certificate capture modal — contact required, then generate + email + download */}
+  <div class="vt-cm" id="vt-cert-modal" hidden>
+    <div class="vt-cm-back" data-cert-close></div>
+    <div class="vt-cm-card" role="dialog" aria-modal="true" aria-label="Get your valuation certificate">
+      <button type="button" class="vt-cm-x" data-cert-close aria-label="Close">×</button>
+
+      <div data-cert-body>
+        <h3 class="vt-cm-h">Get your valuation certificate</h3>
+        <p class="vt-cm-sub">A dated PDF for <span data-cert-vehicle>your vehicle</span> — download it instantly and we'll email you a copy.</p>
+        <form class="vt-cm-form" id="vt-cert-form" novalidate>
+          <label class="vt-cm-field"><span>Full name</span><input name="name" type="text" autocomplete="name" required /></label>
+          <label class="vt-cm-field"><span>Phone</span><input name="phone" type="tel" inputmode="tel" autocomplete="tel" required /></label>
+          <label class="vt-cm-field"><span>Email</span><input name="email" type="email" inputmode="email" autocomplete="email" required /></label>
+          <label class="vt-cm-check"><input type="checkbox" name="consent" required /> <span>I agree to Land Cruiser SA storing my details to send this certificate (<a href="/privacy-policy/" target="_blank">privacy policy</a>).</span></label>
+          <label class="vt-cm-check"><input type="checkbox" name="dealer" /> <span>I'd like a dealer to make me an offer for this vehicle <em>(optional)</em>.</span></label>
+          <div class="vt-cm-hp" aria-hidden="true"><input type="text" name="lcsa_hp" tabindex="-1" autocomplete="off" /></div>
+          <button type="submit" class="vt-cm-submit">Generate my certificate →</button>
+          <p class="vt-cm-status" data-cert-status aria-live="polite"></p>
+          <p class="vt-cm-fine">Indicative market estimate — not an accredited, finance, or independent valuation.</p>
+        </form>
+      </div>
+
+      <div class="vt-cm-done" data-cert-done hidden>
+        <div class="vt-cm-tick">✓</div>
+        <h3 class="vt-cm-h">Your certificate is ready</h3>
+        <p class="vt-cm-sub" data-cert-donemsg></p>
+        <a class="vt-cm-download" data-cert-download target="_blank" rel="noopener">⤓ Download certificate (PDF)</a>
+        <a class="vt-cm-verify" data-cert-verify target="_blank" rel="noopener">Verify online →</a>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -197,51 +237,92 @@ const specYearsJson = JSON.stringify(getSpecYearRanges());
       }
     });
 
-    // ── Certificate (PDF) ──
-    out.addEventListener('click', async function (ev) {
-      const toggle = ev.target.closest('[data-cert-email-toggle]');
-      if (toggle) {
-        const eb = out.querySelector('[data-cert-email]');
-        if (eb) { eb.hidden = !eb.hidden; toggle.style.display = 'none'; }
-        return;
-      }
-      const go = ev.target.closest('[data-cert-go]');
-      if (!go || !lastPayload) return;
-      const status = out.querySelector('[data-cert-status]');
-      const emailIn = out.querySelector('[data-cert-email-in]');
-      const consent = out.querySelector('[data-cert-consent]');
-      const email = emailIn ? emailIn.value.trim() : '';
-      const wantsEmail = !!email;
+    // ── Certificate (PDF) — modal captures contact, then generate → email → download ──
+    const modal = root.querySelector('#vt-cert-modal');
+    const certForm = modal ? modal.querySelector('#vt-cert-form') : null;
+    let lastModelText = 'your vehicle';
+
+    function openCertModal() {
+      if (!modal || !lastPayload) return;
+      const body = modal.querySelector('[data-cert-body]');
+      const done = modal.querySelector('[data-cert-done]');
+      const status = modal.querySelector('[data-cert-status]');
+      const veh = modal.querySelector('[data-cert-vehicle]');
+      if (done) done.hidden = true;
+      if (body) body.hidden = false;
       if (status) status.textContent = '';
-      if (wantsEmail && consent && !consent.checked) {
-        if (status) status.textContent = 'Please tick the consent box to email a copy.';
-        return;
-      }
-      const t = go.textContent;
-      go.disabled = true; go.textContent = 'Generating certificate…';
-      track('valuation_certificate');
-      try {
-        const res = await fetch('/api/valuation-certificate', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            ...lastPayload,
-            draftId: lastResult ? lastResult.draftId : null,
-            email: wantsEmail ? email : '',
-            consent: !!(consent && consent.checked),
-          }),
-        });
-        const data = await res.json();
-        if (!res.ok) { if (status) status.textContent = data.error || 'Could not generate the certificate.'; return; }
-        window.open(data.pdfUrl, '_blank');
-        if (status) status.innerHTML = 'Certificate <strong>' + esc(data.certId) + '</strong> ready'
-          + (data.emailed ? ' — sent to your email.' : '.')
-          + ' <a class="vr-cert-verify" href="' + esc(data.verifyUrl) + '" target="_blank">Verify →</a>';
-      } catch {
-        if (status) status.textContent = 'Network error. Please try again.';
-      } finally {
-        go.disabled = false; go.textContent = t;
-      }
+      if (veh) veh.textContent = lastModelText;
+      modal.hidden = false;
+      document.body.style.overflow = 'hidden';
+      const f = modal.querySelector('input[name="name"]'); if (f) f.focus();
+    }
+    function closeCertModal() {
+      if (!modal) return;
+      modal.hidden = true;
+      document.body.style.overflow = '';
+    }
+
+    out.addEventListener('click', function (ev) {
+      if (ev.target.closest('[data-cert-open]')) openCertModal();
     });
+    if (modal) {
+      modal.addEventListener('click', function (ev) {
+        if (ev.target.closest('[data-cert-close]')) closeCertModal();
+      });
+      document.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Escape' && !modal.hidden) closeCertModal();
+      });
+    }
+    if (certForm) {
+      certForm.addEventListener('submit', async function (ev) {
+        ev.preventDefault();
+        if (!lastPayload) return;
+        const fd = new FormData(certForm);
+        const status = modal.querySelector('[data-cert-status]');
+        const name = String(fd.get('name') || '').trim();
+        const phone = String(fd.get('phone') || '').trim();
+        const email = String(fd.get('email') || '').trim();
+        const consent = !!fd.get('consent');
+        const dealer = !!fd.get('dealer');
+        if (status) status.textContent = '';
+        if (!name) { if (status) status.textContent = 'Please enter your name.'; return; }
+        if (phone.replace(/\D/g, '').length < 7) { if (status) status.textContent = 'Please enter a valid phone number.'; return; }
+        if (!email.includes('@')) { if (status) status.textContent = 'Please enter a valid email — we email your certificate to you.'; return; }
+        if (!consent) { if (status) status.textContent = 'Please tick the consent box so we can send your certificate.'; return; }
+        const submit = certForm.querySelector('.vt-cm-submit');
+        const t = submit ? submit.textContent : '';
+        if (submit) { submit.disabled = true; submit.textContent = 'Generating…'; }
+        track('valuation_certificate');
+        try {
+          const res = await fetch('/api/valuation-certificate', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              ...lastPayload, draftId: lastResult ? lastResult.draftId : null,
+              name, phone, email, consent, dealer, lcsa_hp: String(fd.get('lcsa_hp') || ''),
+            }),
+          });
+          const data = await res.json();
+          if (!res.ok) { if (status) status.textContent = data.error || 'Could not generate the certificate.'; return; }
+          const body = modal.querySelector('[data-cert-body]');
+          const done = modal.querySelector('[data-cert-done]');
+          const dmsg = modal.querySelector('[data-cert-donemsg]');
+          const dl = modal.querySelector('[data-cert-download]');
+          const vf = modal.querySelector('[data-cert-verify]');
+          if (dl) dl.href = data.pdfUrl;
+          if (vf) vf.href = data.verifyUrl;
+          if (dmsg) dmsg.textContent = data.emailed
+            ? ('We’ve emailed a copy to ' + email + '. Certificate ' + data.certId + '.')
+            : ('Certificate ' + data.certId + '. (We couldn’t email it just now — you can still download it below.)');
+          if (body) body.hidden = true;
+          if (done) done.hidden = false;
+          track('valuation_certificate_done');
+        } catch {
+          if (status) status.textContent = 'Network error. Please try again.';
+        } finally {
+          if (submit) { submit.disabled = false; submit.textContent = t; }
+        }
+      });
+    }
 
     function confBadge(c) {
       const map = { high: ['High confidence', '#34D399'], medium: ['Good estimate', '#FBBF24'], low: ['Rough estimate', '#FB923C'], none: ['Not enough data', '#9CA3AF'] };
@@ -265,14 +346,8 @@ const specYearsJson = JSON.stringify(getSpecYearRanges());
           <p class="vr-ask">Likely sells for about <strong>${R(e.sellMid)}</strong></p>
           <a class="vr-btn" href="/listings/submit/">List my ${esc(d.modelText)} — free →</a>
           <div class="vr-cert">
-            <button type="button" class="vr-cert-btn" data-cert-go>⤓ Download valuation certificate (PDF)</button>
-            <button type="button" class="vr-cert-toggle" data-cert-email-toggle>Email me a copy</button>
-            <div class="vr-cert-email" data-cert-email hidden>
-              <input class="vr-cert-in" data-cert-email-in type="email" inputmode="email" placeholder="you@email.com" autocomplete="email">
-              <label class="vr-cert-consent"><input type="checkbox" data-cert-consent> I agree to Land Cruiser SA storing my email to send this certificate (<a href="/privacy-policy/" target="_blank">privacy policy</a>).</label>
-            </div>
-            <p class="vr-cert-note">A shareable, dated PDF of this estimate. Indicative — not an accredited or independent valuation.</p>
-            <p class="vr-cert-status" data-cert-status aria-live="polite"></p>
+            <button type="button" class="vr-cert-btn" data-cert-open>Want a valuation certificate?</button>
+            <p class="vr-cert-note">A dated PDF for your vehicle — download it and we'll email you a copy. Indicative, not an accredited or independent valuation.</p>
           </div>
           <details class="vr-more">
             <summary>How we got this</summary>
@@ -348,6 +423,7 @@ const specYearsJson = JSON.stringify(getSpecYearRanges());
         data.model = payload.model;
         data.modelText = modelText;
         data.vehicle = 'Your ' + payload.year + ' ' + modelText;
+        lastModelText = 'your ' + payload.year + ' ' + modelText;
         out.innerHTML = data.estimate ? renderEstimate(data) : renderNone(data);
         if (data.estimate) {
           lastResult = { draftId: data.draftId, model: payload.model, year: payload.year, mileage: payload.mileage,
@@ -445,6 +521,38 @@ const specYearsJson = JSON.stringify(getSpecYearRanges());
   .vt .vr-cert-status { margin-top: 0.55rem; font-size: 0.78rem; color: rgba(255,255,255,0.85); min-height: 1px; }
   .vt .vr-cert-status strong { color: #F5A623; font-family: "SFMono-Regular", Menlo, monospace; }
   .vt .vr-cert-verify { color: #F5A623; text-decoration: none; font-weight: 600; white-space: nowrap; }
+
+  /* Certificate capture modal */
+  .vt .vt-cm { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 1rem; }
+  .vt .vt-cm[hidden] { display: none; }
+  .vt .vt-cm-back { position: absolute; inset: 0; background: rgba(0,0,0,0.6); }
+  .vt .vt-cm-card { position: relative; z-index: 1; background: #fff; border-radius: 0.875rem; padding: 1.75rem 1.5rem; width: 100%; max-width: 420px; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.35); }
+  .vt .vt-cm-x { position: absolute; top: 0.5rem; right: 0.8rem; background: none; border: 0; font-size: 1.6rem; line-height: 1; color: #9CA3AF; cursor: pointer; }
+  .vt .vt-cm-x:hover { color: #111; }
+  .vt .vt-cm-h { font-family: var(--font-heading); font-weight: 700; text-transform: uppercase; font-size: 1.3rem; color: #111; line-height: 1.1; }
+  .vt .vt-cm-sub { font-size: 0.85rem; color: #6B7280; margin-top: 0.5rem; line-height: 1.5; }
+  .vt .vt-cm-sub [data-cert-vehicle] { color: #111; font-weight: 600; }
+  .vt .vt-cm-form { margin-top: 1.1rem; display: flex; flex-direction: column; gap: 0.7rem; }
+  .vt .vt-cm-field { display: flex; flex-direction: column; gap: 0.3rem; }
+  .vt .vt-cm-field > span { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #6B7280; }
+  .vt .vt-cm-field input { width: 100%; padding: 0.65rem 0.7rem; border: 1px solid #DDD9D3; border-radius: 0.5rem; font: inherit; font-size: 0.95rem; color: #111; }
+  .vt .vt-cm-field input:focus { outline: 2px solid #F5A623; border-color: #F5A623; }
+  .vt .vt-cm-check { display: flex; gap: 0.5rem; align-items: flex-start; font-size: 0.78rem; color: #4B5563; line-height: 1.4; }
+  .vt .vt-cm-check input { margin-top: 0.15rem; flex: none; }
+  .vt .vt-cm-check a { color: #D4881A; }
+  .vt .vt-cm-check em { font-style: normal; color: #9CA3AF; }
+  .vt .vt-cm-hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+  .vt .vt-cm-submit { margin-top: 0.4rem; width: 100%; padding: 0.85rem; background: #F5A623; color: #111; font-family: var(--font-heading); font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; font-size: 0.95rem; border: 0; border-radius: 0.5rem; cursor: pointer; }
+  .vt .vt-cm-submit:hover { background: #D4881A; }
+  .vt .vt-cm-submit:disabled { opacity: 0.7; cursor: wait; }
+  .vt .vt-cm-status { font-size: 0.8rem; color: #B91C1C; min-height: 1px; }
+  .vt .vt-cm-fine { font-size: 0.66rem; color: #9CA3AF; line-height: 1.4; }
+  .vt .vt-cm-done { text-align: center; padding: 0.5rem 0; }
+  .vt .vt-cm-tick { width: 48px; height: 48px; margin: 0 auto 0.6rem; border-radius: 50%; background: #ECFDF5; color: #059669; font-size: 1.6rem; display: flex; align-items: center; justify-content: center; }
+  .vt .vt-cm-download { display: inline-block; margin-top: 1rem; width: 100%; background: #F5A623; color: #111; font-family: var(--font-heading); font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; font-size: 0.9rem; padding: 0.8rem 1rem; border-radius: 0.5rem; text-decoration: none; }
+  .vt .vt-cm-download:hover { background: #D4881A; }
+  .vt .vt-cm-verify { display: inline-block; margin-top: 0.8rem; color: #D4881A; font-weight: 600; font-size: 0.82rem; text-decoration: none; }
+  .vt .vt-cm-verify:hover { text-decoration: underline; }
 
   .vt .vr-fb { margin-top: 1.1rem; padding-top: 0.9rem; border-top: 1px solid rgba(255,255,255,0.1); display: flex; flex-wrap: wrap; align-items: center; gap: 0.55rem; }
   .vt .vr-fb-q { font-size: 0.78rem; color: rgba(255,255,255,0.55); }

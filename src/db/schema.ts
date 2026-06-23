@@ -231,10 +231,13 @@ export const valuationCertificates = sqliteTable('valuation_certificates', {
   pdf_url:        text('pdf_url'),
   issued_at:      integer('issued_at', { mode: 'timestamp' }).notNull(),
   expires_at:     integer('expires_at', { mode: 'timestamp' }).notNull(),
-  // optional email delivery (PII — only when the user opted in)
+  // captured lead — contact is REQUIRED to download a certificate (PII)
+  name:           text('name'),
+  phone:          text('phone'),
   email:          text('email'),
   consent_at:     integer('consent_at', { mode: 'timestamp' }),
   emailed_at:     integer('emailed_at', { mode: 'timestamp' }),
+  dealer_offer_optin: integer('dealer_offer_optin', { mode: 'boolean' }).notNull().default(false),
   // attribution
   source_path:    text('source_path'),
   utm_source:     text('utm_source'),

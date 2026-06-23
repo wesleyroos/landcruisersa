@@ -3,14 +3,20 @@ export const prerender = false;
 
 import AdminLayout from '@/layouts/AdminLayout.astro';
 import { db } from '@/db/index';
-import { enquiries, valuationFeedback, valuationRequests } from '@/db/schema';
+import { enquiries, valuationFeedback, valuationRequests, valuationCertificates } from '@/db/schema';
 import { desc, sql } from 'drizzle-orm';
+import { modelLabel } from '@/lib/sources/normalize';
 
 const cookie = Astro.cookies.get('lcsa_admin');
 const adminSecret = import.meta.env.ADMIN_SECRET ?? process.env.ADMIN_SECRET ?? '';
 if (!cookie || cookie.value !== adminSecret) {
   return Astro.redirect('/admin/login');
 }
+
+// ── Certificate leads (contact captured to download a valuation certificate) ──
+const certs = db.select().from(valuationCertificates).orderBy(desc(valuationCertificates.issued_at)).limit(50).all();
+const certTotal = (db.select({ n: sql<number>`cast(count(*) as int)` }).from(valuationCertificates).get())?.n ?? 0;
+const dealerLeads = certs.filter(c => c.dealer_offer_optin).length;
 
 // ── Enquiries (chat widget) ──
 const recentEnquiries = db.select().from(enquiries).orderBy(desc(enquiries.created_at)).limit(50).all();
@@ -51,6 +57,30 @@ const VERDICT = { spot_on: '✅ Spot on', too_low: '⬇️ Too low', too_high: '
 
 <AdminLayout title="Inbox" activePage="inbox">
   <div class="ib">
+
+    <section class="card">
+      <h2>Certificate leads <span class="count">{certTotal}</span></h2>
+      <p class="sub">People who entered their contact details to download a valuation certificate — hot leads, emailed a copy. {dealerLeads} asked for a dealer offer.</p>
+      {certs.length === 0 ? <p class="empty">No certificate leads yet.</p> : (
+        <table>
+          <thead><tr><th>When</th><th>Name</th><th>Phone</th><th>Email</th><th>Vehicle</th><th>Est.</th><th>Dealer?</th><th>Cert</th></tr></thead>
+          <tbody>
+            {certs.map(c => (
+              <tr>
+                <td class="nowrap muted">{fmt(c.issued_at)}</td>
+                <td class="b">{c.name ?? '—'}</td>
+                <td class="nowrap">{c.phone ? <a href={`tel:${c.phone}`}>{c.phone}</a> : '—'}</td>
+                <td>{c.email ? <a href={`mailto:${c.email}`}>{c.email}</a> : '—'}</td>
+                <td class="small">{c.year} {modelLabel(c.model)}{c.spec_label ? ` ${c.spec_label}` : ''}</td>
+                <td class="nowrap b">{R(c.asking_ceiling)}</td>
+                <td class="nowrap">{c.dealer_offer_optin ? '✅' : '—'}</td>
+                <td class="nowrap small"><a href={`/valuation/certificate/${c.cert_id}`} target="_blank">{c.cert_id}</a></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </section>
 
     <section class="card">
       <h2>Enquiries <span class="count">{recentEnquiries.length}</span></h2>

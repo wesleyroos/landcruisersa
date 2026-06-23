@@ -113,6 +113,64 @@ export const SPEC_OPTIONS: Record<string, Partial<Record<SpecAxis, SpecOption[]>
       { value: 'gx', label: 'GX', re: /\bgx\b/i },
     ],
   },
+  // ── Toyota 4x4 (valuation tool) — engine & drivetrain are the price drivers.
+  // The 2.5 D-4D was 4x2-only (Raised Body); the 3.0 D-4D carried the 4x4.
+  'fortuner-d4d': {
+    engine: [
+      { value: '3.0d',   label: '3.0 D-4D',      re: /3\.?0/i },
+      { value: '2.5d',   label: '2.5 D-4D',      re: /2\.?5/i },
+      { value: 'petrol', label: '4.0 V6 petrol', re: /4\.?0|\bv6\b/i },
+    ],
+    body: [
+      { value: '4x4', label: '4x4',              re: /4\s?x\s?4|4wd/i },
+      { value: 'rb',  label: 'Raised Body (4x2)', re: /raised|r\/?b|\brb\b/i },
+    ],
+  },
+  'fortuner-gd6': {
+    engine: [
+      { value: '2.8gd',  label: '2.8 GD-6',      re: /2\.?8/i },
+      { value: '2.4gd',  label: '2.4 GD-6',      re: /2\.?4/i },
+      { value: 'petrol', label: '4.0 V6 petrol', re: /4\.?0|\bv6\b/i },
+    ],
+    body: [
+      { value: '4x4', label: '4x4', re: /4\s?x\s?4|4wd/i },
+      { value: '4x2', label: '4x2', re: /4\s?x\s?2|2wd/i },
+    ],
+  },
+  'hilux-d4d': {
+    engine: [
+      { value: '3.0d',   label: '3.0 D-4D',      re: /3\.?0/i },
+      { value: '2.5d',   label: '2.5 D-4D',      re: /2\.?5/i },
+      { value: '2.7p',   label: '2.7 petrol',    re: /2\.?7/i },
+      { value: 'petrol', label: '4.0 V6 petrol', re: /4\.?0|\bv6\b/i },
+    ],
+    body: [
+      { value: 'double', label: 'Double Cab', re: /double[\s-]?cab|\bd[\s\/]?cab\b/i },
+      { value: 'xtra',   label: 'Xtra Cab',   re: /xtra[\s-]?cab|extra[\s-]?cab|\bx[\s\/]?cab\b/i },
+      { value: 'single', label: 'Single Cab', re: /single[\s-]?cab|\bs[\s\/]?cab\b/i },
+    ],
+    grade: [
+      { value: '4x4', label: '4x4', re: /4\s?x\s?4|4wd/i },
+      { value: '4x2', label: '4x2', re: /4\s?x\s?2|2wd|raised|r\/?b/i },
+    ],
+  },
+  'hilux-gd6': {
+    engine: [
+      { value: '2.8gd',  label: '2.8 GD-6',      re: /2\.?8/i },
+      { value: '2.4gd',  label: '2.4 GD-6',      re: /2\.?4/i },
+      { value: '2.7p',   label: '2.7 petrol',    re: /2\.?7/i },
+      { value: 'petrol', label: '4.0 V6 petrol', re: /4\.?0|\bv6\b/i },
+    ],
+    body: [
+      { value: 'double', label: 'Double Cab', re: /double[\s-]?cab|\bd[\s\/]?cab\b/i },
+      { value: 'xtra',   label: 'Xtra Cab',   re: /xtra[\s-]?cab|extra[\s-]?cab|\bx[\s\/]?cab\b/i },
+      { value: 'single', label: 'Single Cab', re: /single[\s-]?cab|\bs[\s\/]?cab\b/i },
+    ],
+    grade: [
+      { value: '4x4', label: '4x4', re: /4\s?x\s?4|4wd/i },
+      { value: '4x2', label: '4x2', re: /4\s?x\s?2|2wd|raised|r\/?b/i },
+    ],
+  },
 };
 
 // First matching option value for an axis, or null if unknown / model has no axis.

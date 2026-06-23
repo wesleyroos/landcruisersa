@@ -86,6 +86,14 @@ export const LC_MODEL_SLUGS = [
 ] as const;
 export const LC_MODEL_SLUG_SET: ReadonlySet<string> = new Set(LC_MODEL_SLUGS);
 
+// Adjacent Toyota 4x4s (Hilux/Fortuner) we already aggregate and can value off
+// the same cohort engine (getCohortStats is segment-agnostic). Kept SEPARATE
+// from LC_MODEL_SLUGS — that list means "Land Cruiser" for IG/market/family
+// logic. ONLY the valuation tool spans both segments, via the sets below.
+export const TOYOTA_4X4_SLUGS = ['fortuner-d4d', 'fortuner-gd6', 'hilux-d4d', 'hilux-gd6'] as const;
+export const VALUATION_MODEL_SLUGS = [...LC_MODEL_SLUGS, ...TOYOTA_4X4_SLUGS] as const;
+export const VALUATION_MODEL_SLUG_SET: ReadonlySet<string> = new Set(VALUATION_MODEL_SLUGS);
+
 // Model FAMILIES — so IG-post diversity works at the family level: posting one
 // Prado should suppress ALL Prado slugs (prado-90/120/150/250), not just the
 // exact one. Keep in lockstep with LC_MODEL_SLUGS; a slug missing here falls back
@@ -128,6 +136,11 @@ export const MODEL_YEAR_RANGE: Record<string, [number, number]> = {
   'prado-250':       [2024, 2026],
   'fj-cruiser':      [2011, 2024],
   'land-cruiser-fj': [2026, 2027],
+  // Toyota 4x4 (valuation tool only) — split by engine era like prado-150/250.
+  'fortuner-d4d':    [2006, 2016],
+  'fortuner-gd6':    [2015, 2026],
+  'hilux-d4d':       [2005, 2016],
+  'hilux-gd6':       [2015, 2026],
 };
 
 const PROVINCE_MAP: Record<string, string> = {

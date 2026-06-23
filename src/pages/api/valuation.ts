@@ -4,7 +4,7 @@ import type { APIRoute } from 'astro';
 import { db } from '@/db/index';
 import { valuationRequests } from '@/db/schema';
 import { valuate, VALUATION_DISCLAIMER } from '@/lib/valuation';
-import { LC_MODEL_SLUG_SET, MODEL_YEAR_RANGE, modelLabel } from '@/lib/sources/normalize';
+import { VALUATION_MODEL_SLUG_SET, MODEL_YEAR_RANGE, modelLabel } from '@/lib/sources/normalize';
 import { isSpecValue } from '@/lib/spec';
 
 const CUR_YEAR = new Date().getFullYear();
@@ -58,7 +58,7 @@ export const POST: APIRoute = async ({ request }) => {
   const utm_source = String(body.utm_source ?? '').trim().slice(0, 32) || null;
   const source_path = String(body.source_path ?? '').trim().slice(0, 120) || null;
 
-  if (!LC_MODEL_SLUG_SET.has(model)) {
+  if (!VALUATION_MODEL_SLUG_SET.has(model)) {
     return new Response(JSON.stringify({ error: 'Please choose a Land Cruiser model.' }), { status: 400 });
   }
   const [rMin, rMax] = MODEL_YEAR_RANGE[model] ?? [1980, CUR_YEAR + 1];

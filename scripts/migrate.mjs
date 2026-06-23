@@ -217,15 +217,32 @@ db.exec(`
     pdf_url        TEXT,
     issued_at      INTEGER NOT NULL,
     expires_at     INTEGER NOT NULL,
+    name           TEXT,
+    phone          TEXT,
     email          TEXT,
     consent_at     INTEGER,
     emailed_at     INTEGER,
+    dealer_offer_optin INTEGER NOT NULL DEFAULT 0,
     source_path    TEXT,
     utm_source     TEXT
   )
 `);
 db.exec(`CREATE INDEX IF NOT EXISTS valuation_certificates_cert ON valuation_certificates (cert_id)`);
 db.exec(`CREATE INDEX IF NOT EXISTS valuation_certificates_draft ON valuation_certificates (draft_id)`);
+// Idempotent column adds — CREATE TABLE IF NOT EXISTS never alters an existing
+// table, so DBs created before the lead-capture columns get them here.
+const certCols = new Set(
+  db.prepare("SELECT name FROM pragma_table_info('valuation_certificates')").all().map(r => r.name)
+);
+const addCertCol = (col, def) => {
+  if (!certCols.has(col)) {
+    db.exec(`ALTER TABLE valuation_certificates ADD COLUMN ${def}`);
+    console.log(`[migrate] Added valuation_certificates column: ${col}`);
+  }
+};
+addCertCol('name',  'name  TEXT');
+addCertCol('phone', 'phone TEXT');
+addCertCol('dealer_offer_optin', 'dealer_offer_optin INTEGER NOT NULL DEFAULT 0');
 
 // First-party LLM-citation ledger (visit_events only logs ?utm_source= links;
 // LLM citations carry a Referer but no utm param). New table → CREATE TABLE IF NOT EXISTS.

@@ -5,7 +5,8 @@ import { and, eq, gt } from 'drizzle-orm';
 import { db } from '@/db/index';
 import { valuationCertificates } from '@/db/schema';
 import { valuate } from '@/lib/valuation';
-import { LC_MODEL_SLUG_SET, MODEL_YEAR_RANGE, modelLabel } from '@/lib/sources/normalize';
+import { VALUATION_MODEL_SLUG_SET, MODEL_YEAR_RANGE, modelLabel } from '@/lib/sources/normalize';
+import { valuationRequests } from '@/db/schema';
 import { isSpecValue, specLabel } from '@/lib/spec';
 import {
   mintCertId, buildCertificateHtml, renderPdf, sendCertificateEmail, type CertificateData,
@@ -60,11 +61,13 @@ export const POST: APIRoute = async ({ request }) => {
   const draftId = Number.isFinite(Number(body.draftId)) ? Math.round(Number(body.draftId)) : null;
   const utm_source = String(body.utm_source ?? '').trim().slice(0, 32) || null;
   const source_path = String(body.source_path ?? '').trim().slice(0, 120) || null;
+  const name = String(body.name ?? '').trim().slice(0, 120);
+  const phone = String(body.phone ?? '').trim().slice(0, 40);
   const emailRaw = String(body.email ?? '').trim().slice(0, 160);
   const consent = body.consent === true;
-  const wantsEmail = emailRaw.includes('@') && consent;
+  const dealerOptin = body.dealer === true || body.dealer_offer_optin === true;
 
-  if (!LC_MODEL_SLUG_SET.has(model)) return json({ error: 'Please choose a Land Cruiser model.' }, 400);
+  if (!VALUATION_MODEL_SLUG_SET.has(model)) return json({ error: 'Please choose a Land Cruiser or Toyota 4x4 model.' }, 400);
   const [rMin, rMax] = MODEL_YEAR_RANGE[model] ?? [1980, CUR_YEAR + 1];
   const minY = rMin, maxY = Math.min(rMax, CUR_YEAR + 1);
   if (!Number.isFinite(year) || year < minY || year > maxY) {
@@ -73,6 +76,13 @@ export const POST: APIRoute = async ({ request }) => {
   if (!Number.isFinite(mileage) || mileage < 0 || mileage > 600000) {
     return json({ error: 'Please enter mileage between 0 and 600,000 km.' }, 400);
   }
+
+  // Contact details are REQUIRED — the certificate is a gated lead and we email
+  // the user a copy, so name + phone + email + consent must all be present.
+  if (!name) return json({ error: 'Please enter your name.' }, 400);
+  if (phone.replace(/\D/g, '').length < 7) return json({ error: 'Please enter a valid phone number.' }, 400);
+  if (!emailRaw.includes('@') || emailRaw.length < 5) return json({ error: 'Please enter a valid email — we email your certificate to you.' }, 400);
+  if (!consent) return json({ error: 'Please tick the consent box so we can send your certificate.' }, 400);
 
   const pick = (axis: 'engine' | 'grade' | 'body') => {
     const val = String(body[axis] ?? '').trim();
@@ -135,14 +145,14 @@ export const POST: APIRoute = async ({ request }) => {
     return json({ error: 'Could not store the certificate, please retry.' }, 502);
   }
 
-  // Optional email (best-effort, consent-gated).
+  // Always email the certificate (email is required). Best-effort — a Resend
+  // failure must not fail the request; the user still has the download.
   let emailedAt: Date | null = null;
-  if (wantsEmail) {
-    const sent = await sendCertificateEmail(emailRaw, certData, pdf).catch(() => false);
-    if (sent) emailedAt = new Date();
-  }
+  const sent = await sendCertificateEmail(emailRaw, certData, pdf).catch(() => false);
+  if (sent) emailedAt = new Date();
 
-  // Persist the receipt (best-effort — still return the PDF if the insert hiccups).
+  // Persist the receipt + captured lead (best-effort — still return the PDF if
+  // the insert hiccups).
   try {
     db.insert(valuationCertificates).values({
       cert_id: certId, draft_id: draftId,
@@ -152,13 +162,23 @@ export const POST: APIRoute = async ({ request }) => {
       confidence: v.confidence,
       cohort_size: v.cohort.size, cohort_p25: v.cohort.p25, cohort_p75: v.cohort.p75, cohort_p90: v.cohort.p90,
       pdf_url: pdfUrl, issued_at: issuedAt, expires_at: expiresAt,
-      email: wantsEmail ? emailRaw : null,
-      consent_at: wantsEmail ? issuedAt : null,
-      emailed_at: emailedAt,
+      name, phone, email: emailRaw, consent_at: issuedAt, emailed_at: emailedAt,
+      dealer_offer_optin: dealerOptin,
       source_path, utm_source,
     }).run();
   } catch (err) {
     console.error('[cert] certificate insert failed:', err);
+  }
+
+  // Mirror the contact onto the canonical lead row (valuation_requests) so the
+  // dealer-sourcing loop + admin lead views see it. Best-effort, only if linked.
+  if (draftId) {
+    try {
+      db.update(valuationRequests).set({
+        name, phone, email: emailRaw, consent: true,
+        dealer_offer_optin: dealerOptin,
+      }).where(eq(valuationRequests.id, draftId)).run();
+    } catch (err) { console.error('[cert] draft lead update failed:', err); }
   }
 
   return json({

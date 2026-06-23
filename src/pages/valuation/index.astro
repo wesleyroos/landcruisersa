@@ -4,7 +4,7 @@ export const prerender = false;
 import Base from '@/layouts/Base.astro';
 import ValuationTool from '@/components/ValuationTool.astro';
 import { valuate, VALUATION_DISCLAIMER, type Valuation } from '@/lib/valuation';
-import { LC_MODEL_SLUGS, LC_MODEL_SLUG_SET, MODEL_YEAR_RANGE, modelLabel } from '@/lib/sources/normalize';
+import { LC_MODEL_SLUGS, VALUATION_MODEL_SLUG_SET, MODEL_YEAR_RANGE, modelLabel } from '@/lib/sources/normalize';
 
 const CUR_YEAR = new Date().getFullYear();
 const R = (n: number) => 'R' + Math.round(n).toLocaleString('en-ZA');
@@ -23,7 +23,7 @@ if (Astro.request.method === 'POST') {
         'excellent' | 'good' | 'fair' | 'rough';
       const range = MODEL_YEAR_RANGE[model];
       const okYear = Number.isFinite(year) && year >= (range ? range[0] : 1980) && year <= Math.min(range ? range[1] : CUR_YEAR + 1, CUR_YEAR + 1);
-      if (LC_MODEL_SLUG_SET.has(model) && okYear && Number.isFinite(mileage) && mileage >= 0 && mileage <= 600000) {
+      if (VALUATION_MODEL_SLUG_SET.has(model) && okYear && Number.isFinite(mileage) && mileage >= 0 && mileage <= 600000) {
         const result = valuate({ model, year, mileage, condition });
         if (result.available) posted = { model, year, mileage, result };
       }
