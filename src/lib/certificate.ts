@@ -1,6 +1,6 @@
 // Indicative valuation certificate — HTML template + PDF rendering (PDFShift) +
 // optional email delivery (Resend). The certificate is an INDICATIVE,
-// market-evidenced document, never an accredited/independent/finance valuation —
+// market-evidenced document — an indicative estimate, not a physical-inspection/accredited valuation —
 // that framing is printed on the artifact (watermark + disclaimer box). See
 // docs/valuation-certificate-spec.md.
 import { randomBytes } from 'node:crypto';
@@ -13,7 +13,7 @@ const SUPPORT_EMAIL = 'info@landcruisersa.co.za';
 export const CERT_DISCLAIMERS = [
   'Estimates from observed asking prices, not confirmed sale prices — and not a finance or insurance valuation.',
   'This is an indicative market estimate, not an accredited, finance, or insurance valuation.',
-  'Not an independent valuation for related-party or tax purposes — for those, obtain a valuation from a party unconnected to the transaction.',
+  'Prepared by Land Cruiser SA as an independent third party to your sale, from comparable market data — an indicative estimate, not a physical-inspection valuation. For a transaction between connected parties, ensure your valuer is independent of that specific transaction.',
   'Based on details declared by the requester; the vehicle was not physically inspected.',
 ];
 
@@ -206,7 +206,7 @@ export async function sendCertificateEmail(to: string, d: CertificateData, pdf: 
         <p style="margin:8px 0 0;font-size:13px;color:#374151;">Realistic-sell range <strong>${R(d.sellLow)} – ${R(d.sellHigh)}</strong></p>
       </div>
       <p style="font-size:13px;line-height:1.6;">Certificate <strong>${esc(d.certId)}</strong> — valid until ${fmtDate(d.expiresAt)}. Verify it any time at <a href="${esc(d.verifyUrl)}" style="color:#D4881A;">${esc(d.verifyUrl.replace(/^https?:\/\//, ''))}</a>.</p>
-      <p style="font-size:12px;line-height:1.6;color:#6B7280;">This is an indicative market estimate, not an accredited, finance, insurance, or independent valuation. Based on details you declared; the vehicle was not inspected.</p>
+      <p style="font-size:12px;line-height:1.6;color:#6B7280;">An indicative market estimate from comparable listings — independent of your sale, but not a physical-inspection, accredited, finance or insurance valuation. Based on details you declared; the vehicle was not inspected.</p>
       <p style="font-size:13px;margin-top:20px;">Thanks,<br/>The Land Cruiser SA team</p>
     </div>`;
   const res = await fetch('https://api.resend.com/emails', {
