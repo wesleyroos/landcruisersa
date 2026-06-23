@@ -1,0 +1,94 @@
+---
+export const prerender = false;
+
+import Base from '@/layouts/Base.astro';
+import { eq } from 'drizzle-orm';
+import { db } from '@/db/index';
+import { valuationCertificates } from '@/db/schema';
+import { modelLabel } from '@/lib/sources/normalize';
+
+const certId = String(Astro.params.certId ?? '');
+const R = (n: number) => 'R' + Math.round(n).toLocaleString('en-ZA');
+const fmtDate = (d: Date) => d.toLocaleDateString('en-ZA', { day: 'numeric', month: 'long', year: 'numeric' });
+const CONDITION_LABEL: Record<string, string> = { excellent: 'Showroom', good: 'Good', fair: 'Average', rough: 'Needs work' };
+
+let cert: typeof valuationCertificates.$inferSelect | null = null;
+try {
+  const rows = db.select().from(valuationCertificates).where(eq(valuationCertificates.cert_id, certId)).limit(1).all();
+  cert = rows[0] ?? null;
+} catch { cert = null; }
+
+if (!cert) return new Response('Certificate not found', { status: 404 });
+
+const expired = cert.expires_at.getTime() < Date.now();
+const vehicle = `${cert.year} ${modelLabel(cert.model)}${cert.spec_label ? ` — ${cert.spec_label}` : ''}`;
+---
+
+<Base
+  title={`Valuation Certificate ${cert.cert_id} — Land Cruiser SA`}
+  description={`Indicative market valuation certificate for a ${vehicle}.`}
+  noindex={true}
+>
+  <section class="max-w-2xl mx-auto px-5 py-12 md:py-16">
+    <a href="/valuation/" class="text-sm text-[#D4881A] font-semibold">← Value another vehicle</a>
+
+    <div class={`mt-5 inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider ${expired ? 'bg-gray-100 text-gray-500' : 'bg-green-50 text-green-700'}`}>
+      <span class={`inline-block w-2 h-2 rounded-full ${expired ? 'bg-gray-400' : 'bg-green-500'}`}></span>
+      {expired ? 'Expired' : 'Valid certificate'}
+    </div>
+
+    <h1 class="font-heading font-bold uppercase text-3xl md:text-4xl text-[#111] mt-4 leading-none">
+      Indicative<br/><span class="text-[#D4881A]">Market Valuation</span>
+    </h1>
+
+    <div class="flex flex-wrap gap-x-8 gap-y-2 mt-5 text-sm text-gray-700">
+      <div><span class="block text-[11px] uppercase tracking-wide text-gray-400 font-bold">Certificate No.</span><span class="font-mono font-bold">{cert.cert_id}</span></div>
+      <div><span class="block text-[11px] uppercase tracking-wide text-gray-400 font-bold">Issued</span>{fmtDate(cert.issued_at)}</div>
+      <div><span class="block text-[11px] uppercase tracking-wide text-gray-400 font-bold">Valid until</span>{fmtDate(cert.expires_at)}</div>
+    </div>
+
+    <div class="mt-8">
+      <p class="text-[11px] uppercase tracking-widest text-gray-400 font-bold mb-2">Vehicle</p>
+      <p class="text-2xl font-bold">{vehicle}</p>
+      <div class="flex flex-wrap gap-x-8 gap-y-2 mt-3 text-sm">
+        <div><span class="block text-[11px] uppercase tracking-wide text-gray-400 font-bold">Mileage</span>{cert.mileage.toLocaleString('en-ZA')} km</div>
+        {cert.condition && <div><span class="block text-[11px] uppercase tracking-wide text-gray-400 font-bold">Condition</span>{CONDITION_LABEL[cert.condition] ?? cert.condition}</div>}
+        {cert.province && <div><span class="block text-[11px] uppercase tracking-wide text-gray-400 font-bold">Province</span>{cert.province}</div>}
+      </div>
+      <p class="text-[11px] text-gray-400 italic mt-3">All vehicle details were declared by the requester and not independently verified.</p>
+    </div>
+
+    <div class="bg-[#111] rounded-2xl p-7 mt-6 text-center text-white">
+      <p class="text-xs text-white/60">Indicative market value (typical asking)</p>
+      <p class="font-heading font-bold text-5xl text-[#F5A623] my-2">{R(cert.asking_ceiling)}</p>
+      <p class="text-sm text-white/85">Realistic-sell range <strong class="text-white">{R(cert.sell_low)} – {R(cert.sell_high)}</strong></p>
+      <p class="text-sm text-white/60 mt-2">Typically sells for about <strong class="text-white">{R(cert.sell_mid)}</strong></p>
+    </div>
+
+    {cert.cohort_size && (
+      <div class="bg-[#F8F7F5] border border-[#E5E2DC] rounded-xl p-5 mt-5 text-sm leading-relaxed text-gray-700">
+        <p class="text-[11px] uppercase tracking-widest text-gray-400 font-bold mb-2">Methodology</p>
+        Based on <strong>{cert.cohort_size}</strong> comparable Land Cruiser SA listings ({cert.cohort_label})
+        observed up to {fmtDate(cert.issued_at)}. Median comparable asking adjusted for mileage and condition,
+        then discounted to a realistic private-sale figure.
+        {cert.cohort_p25 && cert.cohort_p75 && <> Observed market spread (25th–75th percentile): <strong>{R(cert.cohort_p25)} – {R(cert.cohort_p75)}</strong>.</>}
+      </div>
+    )}
+
+    {cert.pdf_url && (
+      <a href={cert.pdf_url} target="_blank" rel="noopener" class="inline-block mt-6 bg-[#F5A623] hover:bg-[#D4881A] text-[#111] font-heading font-bold uppercase tracking-wide text-sm px-6 py-3 rounded-lg">
+        Download PDF →
+      </a>
+    )}
+
+    <div class="border border-[#E5E2DC] rounded-xl p-5 mt-8 text-xs leading-relaxed text-gray-500">
+      <p class="font-bold uppercase tracking-widest text-gray-400 mb-2 text-[10px]">Important</p>
+      <ul class="list-disc pl-4 space-y-1">
+        <li>Estimates from observed asking prices, not confirmed sale prices — and not a finance or insurance valuation.</li>
+        <li>This is an indicative market estimate, not an accredited, finance, or insurance valuation.</li>
+        <li>Not an independent valuation for related-party or tax purposes — for those, obtain a valuation from a party unconnected to the transaction.</li>
+        <li>Based on details declared by the requester; the vehicle was not physically inspected.</li>
+      </ul>
+    </div>
+  </section>
+</Base>

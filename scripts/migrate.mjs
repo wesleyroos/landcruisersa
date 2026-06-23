@@ -190,6 +190,43 @@ db.exec(`
 db.exec(`CREATE INDEX IF NOT EXISTS valuation_feedback_created ON valuation_feedback (created_at)`);
 db.exec(`CREATE INDEX IF NOT EXISTS valuation_feedback_model ON valuation_feedback (model, verdict)`);
 
+// Indicative valuation certificates — issued PDF snapshots. New table → CREATE
+// TABLE IF NOT EXISTS (NOT REQUIRED_COLS). email/consent_at present only when the
+// user opted into "email me a copy". See docs/valuation-certificate-spec.md.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS valuation_certificates (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    cert_id        TEXT    NOT NULL UNIQUE,
+    draft_id       INTEGER,
+    model          TEXT    NOT NULL,
+    year           INTEGER NOT NULL,
+    mileage        INTEGER NOT NULL,
+    condition      TEXT,
+    province       TEXT,
+    spec_label     TEXT,
+    cohort_label   TEXT,
+    sell_low       INTEGER NOT NULL,
+    sell_mid       INTEGER NOT NULL,
+    sell_high      INTEGER NOT NULL,
+    asking_ceiling INTEGER NOT NULL,
+    confidence     TEXT    NOT NULL,
+    cohort_size    INTEGER,
+    cohort_p25     INTEGER,
+    cohort_p75     INTEGER,
+    cohort_p90     INTEGER,
+    pdf_url        TEXT,
+    issued_at      INTEGER NOT NULL,
+    expires_at     INTEGER NOT NULL,
+    email          TEXT,
+    consent_at     INTEGER,
+    emailed_at     INTEGER,
+    source_path    TEXT,
+    utm_source     TEXT
+  )
+`);
+db.exec(`CREATE INDEX IF NOT EXISTS valuation_certificates_cert ON valuation_certificates (cert_id)`);
+db.exec(`CREATE INDEX IF NOT EXISTS valuation_certificates_draft ON valuation_certificates (draft_id)`);
+
 // First-party LLM-citation ledger (visit_events only logs ?utm_source= links;
 // LLM citations carry a Referer but no utm param). New table → CREATE TABLE IF NOT EXISTS.
 db.exec(`

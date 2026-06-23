@@ -1,0 +1,54 @@
+---
+import Base from '@/layouts/Base.astro';
+const updated = new Date().toLocaleDateString('en-ZA', { day: 'numeric', month: 'long', year: 'numeric' });
+const SUPPORT = 'info@landcruisersa.co.za';
+---
+
+<Base
+  title="Privacy Policy — Land Cruiser SA"
+  description="How Land Cruiser SA collects, uses and protects your personal information, in line with South Africa's POPIA."
+>
+  <section class="max-w-2xl mx-auto px-5 py-12 md:py-16 prose-custom">
+    <h1 class="font-heading font-bold uppercase text-3xl md:text-4xl text-[#111] leading-none">Privacy Policy</h1>
+    <p class="text-sm text-gray-400 mt-2">Last updated {updated}</p>
+
+    <div class="mt-8 space-y-7 text-[15px] leading-relaxed text-gray-700">
+      <p>This policy explains how <strong>Land Cruiser SA</strong> ("we", "us") collects, uses and protects your personal information, in line with South Africa's <strong>Protection of Personal Information Act (POPIA)</strong>.</p>
+
+      <div>
+        <h2 class="font-heading font-bold uppercase text-lg text-[#111] mb-2">Who we are</h2>
+        <p>Land Cruiser SA operates the website landcruisersa.co.za. For any privacy matter, contact us at <a href={`mailto:${SUPPORT}`} class="text-[#D4881A] font-semibold">{SUPPORT}</a>.</p>
+      </div>
+
+      <div>
+        <h2 class="font-heading font-bold uppercase text-lg text-[#111] mb-2">What we collect & why</h2>
+        <ul class="list-disc pl-5 space-y-2">
+          <li><strong>Valuation certificate by email.</strong> If you ask us to email you a valuation certificate, we collect your <strong>email address</strong> for the sole purpose of sending you that certificate. We only do this when you tick the consent box.</li>
+          <li><strong>Vehicle details you enter</strong> (model, year, mileage, condition, province) are stored anonymously to improve our market estimates. On their own these do not identify you.</li>
+          <li><strong>Listing & enquiry details.</strong> If you submit a vehicle or contact us, we collect the name, email and phone number you provide so we can respond and manage your listing.</li>
+          <li><strong>Basic analytics.</strong> We use privacy-friendly analytics that do not track you across other websites.</li>
+        </ul>
+      </div>
+
+      <div>
+        <h2 class="font-heading font-bold uppercase text-lg text-[#111] mb-2">Lawful basis</h2>
+        <p>We process your email for a certificate on the basis of <strong>your consent</strong>, which you can withdraw at any time by emailing us. We process listing and enquiry details to take steps you have asked us to take.</p>
+      </div>
+
+      <div>
+        <h2 class="font-heading font-bold uppercase text-lg text-[#111] mb-2">How we use it — and how we don't</h2>
+        <p>We use your information only for the purpose you gave it to us. We do <strong>not</strong> sell your personal information, and we will not use your certificate email for marketing unless you separately opt in. We share information with third parties only where needed to provide the service you requested (for example, our email delivery provider).</p>
+      </div>
+
+      <div>
+        <h2 class="font-heading font-bold uppercase text-lg text-[#111] mb-2">Retention</h2>
+        <p>We keep personal information only as long as needed for the purpose it was collected, or as required by law, after which it is deleted.</p>
+      </div>
+
+      <div>
+        <h2 class="font-heading font-bold uppercase text-lg text-[#111] mb-2">Your rights</h2>
+        <p>Under POPIA you may request access to, correction of, or deletion of your personal information, and you may object to its processing or withdraw consent. To exercise any of these rights, email <a href={`mailto:${SUPPORT}`} class="text-[#D4881A] font-semibold">{SUPPORT}</a> and we will respond as soon as reasonably possible.</p>
+      </div>
+    </div>
+  </section>
+</Base>

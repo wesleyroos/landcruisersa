@@ -162,7 +162,7 @@ const specYearsJson = JSON.stringify(getSpecYearRanges());
     function track(name) { try { window.plausible && window.plausible(name); } catch {} }
 
     // ── Valuation feedback (calibration signal → DB + email) ──
-    let lastResult = null, lastVerdict = '';
+    let lastResult = null, lastVerdict = '', lastPayload = null;
     // email=true only on the final "Send" (with detail). The bare verdict click
     // still records to DB + Plausible, but stays silent — no duplicate email.
     function sendFeedback(verdict, note, userEstimate, email) {
@@ -197,6 +197,52 @@ const specYearsJson = JSON.stringify(getSpecYearRanges());
       }
     });
 
+    // ── Certificate (PDF) ──
+    out.addEventListener('click', async function (ev) {
+      const toggle = ev.target.closest('[data-cert-email-toggle]');
+      if (toggle) {
+        const eb = out.querySelector('[data-cert-email]');
+        if (eb) { eb.hidden = !eb.hidden; toggle.style.display = 'none'; }
+        return;
+      }
+      const go = ev.target.closest('[data-cert-go]');
+      if (!go || !lastPayload) return;
+      const status = out.querySelector('[data-cert-status]');
+      const emailIn = out.querySelector('[data-cert-email-in]');
+      const consent = out.querySelector('[data-cert-consent]');
+      const email = emailIn ? emailIn.value.trim() : '';
+      const wantsEmail = !!email;
+      if (status) status.textContent = '';
+      if (wantsEmail && consent && !consent.checked) {
+        if (status) status.textContent = 'Please tick the consent box to email a copy.';
+        return;
+      }
+      const t = go.textContent;
+      go.disabled = true; go.textContent = 'Generating certificate…';
+      track('valuation_certificate');
+      try {
+        const res = await fetch('/api/valuation-certificate', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...lastPayload,
+            draftId: lastResult ? lastResult.draftId : null,
+            email: wantsEmail ? email : '',
+            consent: !!(consent && consent.checked),
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) { if (status) status.textContent = data.error || 'Could not generate the certificate.'; return; }
+        window.open(data.pdfUrl, '_blank');
+        if (status) status.innerHTML = 'Certificate <strong>' + esc(data.certId) + '</strong> ready'
+          + (data.emailed ? ' — sent to your email.' : '.')
+          + ' <a class="vr-cert-verify" href="' + esc(data.verifyUrl) + '" target="_blank">Verify →</a>';
+      } catch {
+        if (status) status.textContent = 'Network error. Please try again.';
+      } finally {
+        go.disabled = false; go.textContent = t;
+      }
+    });
+
     function confBadge(c) {
       const map = { high: ['High confidence', '#34D399'], medium: ['Good estimate', '#FBBF24'], low: ['Rough estimate', '#FB923C'], none: ['Not enough data', '#9CA3AF'] };
       const [label, col] = map[c] || map.none;
@@ -218,6 +264,16 @@ const specYearsJson = JSON.stringify(getSpecYearRanges());
           </div>
           <p class="vr-ask">Likely sells for about <strong>${R(e.sellMid)}</strong></p>
           <a class="vr-btn" href="/listings/submit/">List my ${esc(d.modelText)} — free →</a>
+          <div class="vr-cert">
+            <button type="button" class="vr-cert-btn" data-cert-go>⤓ Download valuation certificate (PDF)</button>
+            <button type="button" class="vr-cert-toggle" data-cert-email-toggle>Email me a copy</button>
+            <div class="vr-cert-email" data-cert-email hidden>
+              <input class="vr-cert-in" data-cert-email-in type="email" inputmode="email" placeholder="you@email.com" autocomplete="email">
+              <label class="vr-cert-consent"><input type="checkbox" data-cert-consent> I agree to Land Cruiser SA storing my email to send this certificate (<a href="/privacy/" target="_blank">privacy policy</a>).</label>
+            </div>
+            <p class="vr-cert-note">A shareable, dated PDF of this estimate. Indicative — not an accredited or independent valuation.</p>
+            <p class="vr-cert-status" data-cert-status aria-live="polite"></p>
+          </div>
           <details class="vr-more">
             <summary>How we got this</summary>
             <div>
@@ -276,6 +332,7 @@ const specYearsJson = JSON.stringify(getSpecYearRanges());
         out.hidden = false;
         return;
       }
+      lastPayload = payload; // reused by the certificate endpoint
       const btn = form.querySelector('.vt-submit');
       const label = btn.textContent;
       btn.disabled = true; btn.textContent = 'CRUNCHING THE MARKET…';
@@ -370,6 +427,24 @@ const specYearsJson = JSON.stringify(getSpecYearRanges());
   .vt .vr-link { display: inline-block; margin-top: 0.75rem; color: #F5A623; text-decoration: none; font-weight: 600; }
   .vt .vr-link:hover { text-decoration: underline; }
   .vt .vr-disc { margin-top: 0.85rem; font-size: 0.68rem; color: rgba(255,255,255,0.4); line-height: 1.5; }
+
+  /* Certificate block */
+  .vt .vr-cert { margin-top: 1rem; }
+  .vt .vr-cert-btn { display: inline-block; width: 100%; background: rgba(255,255,255,0.08); color: #fff; border: 1px solid rgba(255,255,255,0.2); border-radius: 0.5rem; padding: 0.7rem 1rem; font-family: var(--font-heading); font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; font-size: 0.8rem; cursor: pointer; transition: all 0.12s; }
+  .vt .vr-cert-btn:hover { background: rgba(255,255,255,0.15); border-color: rgba(255,255,255,0.35); }
+  .vt .vr-cert-btn:disabled { opacity: 0.6; cursor: wait; }
+  .vt .vr-cert-toggle { display: block; margin: 0.6rem auto 0; background: none; border: 0; color: rgba(255,255,255,0.6); font-size: 0.78rem; text-decoration: underline; cursor: pointer; }
+  .vt .vr-cert-toggle:hover { color: #fff; }
+  .vt .vr-cert-email { margin-top: 0.7rem; display: flex; flex-direction: column; gap: 0.5rem; text-align: left; }
+  .vt .vr-cert-in { width: 100%; padding: 0.55rem 0.7rem; border-radius: 0.4rem; border: 1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.06); color: #fff; font: inherit; font-size: 0.85rem; }
+  .vt .vr-cert-in::placeholder { color: rgba(255,255,255,0.4); }
+  .vt .vr-cert-consent { display: flex; gap: 0.5rem; align-items: flex-start; font-size: 0.72rem; color: rgba(255,255,255,0.6); line-height: 1.4; }
+  .vt .vr-cert-consent input { margin-top: 0.15rem; flex: none; }
+  .vt .vr-cert-consent a { color: #F5A623; }
+  .vt .vr-cert-note { margin-top: 0.6rem; font-size: 0.66rem; color: rgba(255,255,255,0.4); line-height: 1.5; }
+  .vt .vr-cert-status { margin-top: 0.55rem; font-size: 0.78rem; color: rgba(255,255,255,0.85); min-height: 1px; }
+  .vt .vr-cert-status strong { color: #F5A623; font-family: "SFMono-Regular", Menlo, monospace; }
+  .vt .vr-cert-verify { color: #F5A623; text-decoration: none; font-weight: 600; white-space: nowrap; }
 
   .vt .vr-fb { margin-top: 1.1rem; padding-top: 0.9rem; border-top: 1px solid rgba(255,255,255,0.1); display: flex; flex-wrap: wrap; align-items: center; gap: 0.55rem; }
   .vt .vr-fb-q { font-size: 0.78rem; color: rgba(255,255,255,0.55); }

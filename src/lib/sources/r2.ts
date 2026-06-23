@@ -4,11 +4,17 @@
 // images. Run from the LOCAL ingest (residential IP); prod can't fetch AT.
 import { S3Client, PutObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
 
-const R2_ENDPOINT = process.env.R2_ENDPOINT;
-const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID;
-const R2_SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY;
-const R2_BUCKET = process.env.R2_BUCKET ?? 'landcruisersa';
-const R2_PUBLIC_URL = process.env.R2_PUBLIC_URL ?? 'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev';
+// Read from import.meta.env (Astro's SSR server populates it from .env) with a
+// process.env fallback (standalone ingest scripts + Fly prod set real env vars).
+// import.meta.env is undefined under plain node/tsx, so guard it rather than
+// member-accessing it (which would throw there).
+const IMENV: Record<string, string | undefined> = (import.meta as any).env ?? {};
+const envv = (k: string) => IMENV[k] ?? process.env[k];
+const R2_ENDPOINT = envv('R2_ENDPOINT');
+const R2_ACCESS_KEY_ID = envv('R2_ACCESS_KEY_ID');
+const R2_SECRET_ACCESS_KEY = envv('R2_SECRET_ACCESS_KEY');
+const R2_BUCKET = envv('R2_BUCKET') ?? 'landcruisersa';
+const R2_PUBLIC_URL = envv('R2_PUBLIC_URL') ?? 'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev';
 
 const AT_IMG = /^https:\/\/img\.autotrader\.co\.za\/(\d+)/;
 
@@ -27,6 +33,30 @@ function s3(): S3Client | null {
 
 export function r2Configured(): boolean {
   return Boolean(R2_ENDPOINT && R2_ACCESS_KEY_ID && R2_SECRET_ACCESS_KEY);
+}
+
+// Put an arbitrary object (e.g. a generated PDF) and return its public URL, or
+// null if R2 isn't configured / the upload fails. Used by the valuation
+// certificate endpoint to cache rendered PDFs by cert_id.
+export async function putToR2(
+  key: string,
+  body: Buffer | Uint8Array,
+  contentType: string,
+): Promise<string | null> {
+  const client = s3();
+  if (!client) return null;
+  try {
+    await client.send(new PutObjectCommand({
+      Bucket: R2_BUCKET,
+      Key: key,
+      Body: body,
+      ContentType: contentType,
+      CacheControl: 'public, max-age=31536000, immutable',
+    }));
+    return `${R2_PUBLIC_URL}/${key}`;
+  } catch {
+    return null;
+  }
 }
 
 async function objectExists(client: S3Client, key: string): Promise<boolean> {

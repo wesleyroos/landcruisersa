@@ -199,6 +199,49 @@ export const valuationRequests = sqliteTable('valuation_requests', {
 
 export type ValuationRequest = typeof valuationRequests.$inferSelect;
 
+// Indicative valuation certificate — a downloadable PDF issued off a valuation
+// result. The vehicle + valuation are denormalised here so the cert is an
+// immutable point-in-time snapshot (the live cohort moves; the certificate must
+// not). Anonymous by default; email/consent are present ONLY when the user opted
+// into "email me a copy" (the only PII this table holds). See
+// docs/valuation-certificate-spec.md.
+export const valuationCertificates = sqliteTable('valuation_certificates', {
+  id:             integer('id').primaryKey({ autoIncrement: true }),
+  cert_id:        text('cert_id').notNull().unique(),       // public slug, e.g. 'LCSA-2026-7F3K9Q'
+  draft_id:       integer('draft_id'),                       // → valuation_requests.id (linkage)
+  // vehicle (declared)
+  model:          text('model').notNull(),
+  year:           integer('year').notNull(),
+  mileage:        integer('mileage').notNull(),
+  condition:      text('condition'),
+  province:       text('province'),
+  spec_label:     text('spec_label'),                        // e.g. '2.5 D-4D Raised Body'
+  cohort_label:   text('cohort_label'),
+  // valuation as issued (immutable)
+  sell_low:       integer('sell_low').notNull(),
+  sell_mid:       integer('sell_mid').notNull(),
+  sell_high:      integer('sell_high').notNull(),
+  asking_ceiling: integer('asking_ceiling').notNull(),
+  confidence:     text('confidence').notNull(),
+  cohort_size:    integer('cohort_size'),
+  cohort_p25:     integer('cohort_p25'),
+  cohort_p75:     integer('cohort_p75'),
+  cohort_p90:     integer('cohort_p90'),
+  // artifact
+  pdf_url:        text('pdf_url'),
+  issued_at:      integer('issued_at', { mode: 'timestamp' }).notNull(),
+  expires_at:     integer('expires_at', { mode: 'timestamp' }).notNull(),
+  // optional email delivery (PII — only when the user opted in)
+  email:          text('email'),
+  consent_at:     integer('consent_at', { mode: 'timestamp' }),
+  emailed_at:     integer('emailed_at', { mode: 'timestamp' }),
+  // attribution
+  source_path:    text('source_path'),
+  utm_source:     text('utm_source'),
+});
+
+export type ValuationCertificate = typeof valuationCertificates.$inferSelect;
+
 // Owner feedback on a valuation ("spot on / too high / too low" + optional note
 // and their own figure). A calibration signal — surfaces where the model is off
 // by model/spec, and the free-text note captures extras we can't see. Anonymous
