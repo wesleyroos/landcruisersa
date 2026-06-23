@@ -119,7 +119,6 @@ const specYearsJson = JSON.stringify(getSpecYearRanges());
           <label class="vt-cm-field"><span>Email</span><input name="email" type="email" inputmode="email" autocomplete="email" required /></label>
           <label class="vt-cm-check"><input type="checkbox" name="consent" required /> <span>I agree to Land Cruiser SA storing my details to send this certificate (<a href="/privacy-policy/" target="_blank">privacy policy</a>).</span></label>
           <label class="vt-cm-check"><input type="checkbox" name="dealer" /> <span>I'd like a dealer to make me an offer for this vehicle <em>(optional)</em>.</span></label>
-          <div class="vt-cm-hp" aria-hidden="true"><input type="text" name="lcsa_hp" tabindex="-1" autocomplete="off" /></div>
           <button type="submit" class="vt-cm-submit">Generate my certificate →</button>
           <p class="vt-cm-status" data-cert-status aria-live="polite"></p>
           <p class="vt-cm-fine">Indicative market estimate — not an accredited, finance, or independent valuation.</p>
@@ -298,11 +297,11 @@ const specYearsJson = JSON.stringify(getSpecYearRanges());
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               ...lastPayload, draftId: lastResult ? lastResult.draftId : null,
-              name, phone, email, consent, dealer, lcsa_hp: String(fd.get('lcsa_hp') || ''),
+              name, phone, email, consent, dealer, lcsa_hp: '',
             }),
           });
           const data = await res.json();
-          if (!res.ok) { if (status) status.textContent = data.error || 'Could not generate the certificate.'; return; }
+          if (!res.ok || !data.pdfUrl) { if (status) status.textContent = data.error || 'Could not generate the certificate. Please try again.'; return; }
           const body = modal.querySelector('[data-cert-body]');
           const done = modal.querySelector('[data-cert-done]');
           const dmsg = modal.querySelector('[data-cert-donemsg]');
