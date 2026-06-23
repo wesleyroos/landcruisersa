@@ -144,3 +144,21 @@ date, compare to baseline, mark HIT / MISS / PARTIAL, and write the lesson.
 - **Lesson:** _tbd_
 
 ---
+
+## P6 — Vehicle-theft / security content cluster (cold-start citation bet)
+
+- **Opened:** 2026-06-23
+- **Review on:** 2026-07-20 *(early checkpoint — brand-new pages, slow indexing; expect a leading indicator, not a verdict. Re-arm a later review if promising.)*
+- **Surfaces:** new cluster — hub `/useful-info/land-cruiser-theft-hijacking-protection-south-africa/` + spoke `/useful-info/immobiliser-vs-tracker-south-africa/` (hub↔spoke linked).
+- **Thesis:** Unlike P1–P5 (which retarget existing impressions), this is a **cold start**: we had zero content and zero GSC footprint on vehicle theft/security. The bet is that genuine macro demand (SA ~60 hijackings/day; Land Cruiser/Prado/Fortuner on the 2026 target lists) plus citable, structured content (FAQPage schema, comparison table) will *create* a footprint where none existed — and that the credited, UTM-tagged Ghost outbound links generate measurable clicks. The outbound-click number is the **go/no-go signal** for any Ghost commercial conversation.
+- **Metric/where:** GSC `topQueries`/`contentGaps` for theft/hijack/immobiliser/tracker terms; Plausible "Outbound Link: Click → ghostsouthafrica.co.za".
+- **Baseline (2026-06-23):** ~0 GSC impressions on theft/security/immobiliser/tracker queries (no prior content); 0 outbound clicks to ghostsouthafrica.co.za.
+- **Predictions (review 2026-07-20, early checkpoint):**
+  1. The cluster earns **≥ 40 combined GSC impressions** on theft/security/immobiliser/tracker queries (from ~0).
+  2. **≥ 2 distinct** such queries show impressions.
+  3. **≥ 1 outbound click** to ghostsouthafrica.co.za recorded in Plausible. *(The precondition for Ghost outreach.)*
+- **Monetization gate (per LOCKED monetization philosophy):** even if clicks materialise, only pursue Ghost as revenue if it's a **trackable self-serve affiliate** — do NOT chase Ghost to negotiate/pay a referral (that's the leaky lead-gen the philosophy forbids). Absent a self-serve program, the cluster stays a pure authority/citation asset.
+- **Result:** _pending 2026-07-20_
+- **Lesson:** _tbd_
+
+---
