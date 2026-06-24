@@ -3,7 +3,7 @@ export const prerender = false;
 import type { APIRoute } from 'astro';
 import { db } from '@/db/index';
 import { listings } from '@/db/schema';
-import { eq, and, ne, sql, inArray } from 'drizzle-orm';
+import { eq, and, ne, sql, inArray, desc } from 'drizzle-orm';
 
 function checkToken(request: Request): boolean {
   const auth = request.headers.get('authorization') ?? '';
@@ -47,6 +47,11 @@ export const GET: APIRoute = async ({ request, url }) => {
     })
     .from(listings)
     .where(and(...conds))
+    // Public Land Cruiser listings jump the queue ahead of the data-only
+    // Hilux/Fortuner (a LC at 1 photo looks broken on the live site; HF galleries
+    // are nice-to-have). Newest first within each segment so fresh listings fill
+    // soonest.
+    .orderBy(sql`CASE WHEN ${listings.segment} = 'land-cruiser' THEN 0 ELSE 1 END`, desc(listings.created_at))
     .limit(limit)
     .offset(offset);
 
