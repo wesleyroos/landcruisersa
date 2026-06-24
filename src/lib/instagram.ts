@@ -188,13 +188,15 @@ async function publishMedia(userId: string, accessToken: string, creationId: str
 
 // ─── Caption builder ──────────────────────────────────────────────────────────
 
+// One tag per model — Instagram (Dec 2025) caps posts at ~5 hashtags and treats
+// more as spam, so every tag has to earn its place.
 const MODEL_TAGS: Record<string, string> = {
-  '70-series':  '#LC70 #LandCruiser70',
-  '76-series':  '#LC76 #LandCruiser76',
-  '79-series':  '#LC79 #LandCruiser79',
-  '100-series': '#LC100 #LandCruiser100',
-  '200-series': '#LC200 #LandCruiser200',
-  '300-series': '#LC300 #LandCruiser300',
+  '70-series':  '#LandCruiser70',
+  '76-series':  '#LandCruiser76',
+  '79-series':  '#LandCruiser79',
+  '100-series': '#LandCruiser100',
+  '200-series': '#LandCruiser200',
+  '300-series': '#LandCruiser300',
   'other':      '#LandCruiser',
 };
 
@@ -227,9 +229,11 @@ function buildCaptionBody(listing: Listing): string {
 
 function buildFallbackHashtags(listing: Listing): string {
   const modelTag = MODEL_TAGS[listing.model] ?? '#LandCruiser';
-  let tags = `#LandCruiserSA ${modelTag} #4x4SouthAfrica #4x4SA #OffRoad #LandCruiser #TLC`;
-  if (listing.listing_type === 'for_sale') tags += '\n#LandCruiserForSale #4x4ForSale';
-  return tags;
+  // Exactly 5 — Instagram's Dec-2025 cap; more reads as spam to the algorithm.
+  const tags = listing.listing_type === 'for_sale'
+    ? ['#LandCruiserSA', modelTag, '#LandCruiserForSale', '#4x4SouthAfrica', '#OffRoad']
+    : ['#LandCruiserSA', modelTag, '#4x4SouthAfrica', '#OverlandSA', '#OffRoad'];
+  return tags.join(' ');
 }
 
 export async function generateAIHashtags(listing: Listing): Promise<string> {
@@ -246,7 +250,9 @@ export async function generateAIHashtags(listing: Listing): Promise<string> {
       max_tokens: 150,
       messages: [{
         role: 'user',
-        content: `Generate Instagram hashtags for a Land Cruiser ${isForSale ? 'for sale' : 'community showcase'} post. Keep them relevant and specific.
+        content: `Generate Instagram hashtags for a Land Cruiser ${isForSale ? 'for sale' : 'community showcase'} post.
+
+Instagram now caps posts at 5 hashtags (Dec 2025) and treats more as spam, so return EXACTLY 5 — highly relevant and specific.
 
 Details:
 - ${listing.year} Land Cruiser ${modelLabel}
@@ -254,15 +260,16 @@ Details:
 ${isForSale ? `- Mileage: ${listing.mileage.toLocaleString('en-ZA')} km` : ''}
 ${listing.mods ? `- Mods: ${listing.mods}` : ''}
 
-Always include: #LandCruiserSA #LandCruiser #4x4SA #4x4SouthAfrica
-${isForSale ? 'Always include: #LandCruiserForSale #4x4ForSale' : ''}
+Must include #LandCruiserSA and a model tag (e.g. #LandCruiser79).${isForSale ? ' Must include #LandCruiserForSale.' : ''} Fill the rest with the most relevant 4x4 / overland / location tags.
 
-Return 12-16 hashtags as a single space-separated line, nothing else.`,
+Return exactly 5 hashtags as a single space-separated line, nothing else.`,
       }],
     });
 
     const text = message.content[0].type === 'text' ? message.content[0].text.trim() : '';
-    return text || buildFallbackHashtags(listing);
+    // Hard-cap at 5 regardless of what the model returns (Instagram spam signal).
+    const tags = text.match(/#[A-Za-z0-9_]+/g) ?? [];
+    return tags.length ? tags.slice(0, 5).join(' ') : buildFallbackHashtags(listing);
   } catch {
     return buildFallbackHashtags(listing);
   }
