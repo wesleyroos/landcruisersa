@@ -1,0 +1,113 @@
+---
+export const prerender = false;
+
+import AdminLayout from '@/layouts/AdminLayout.astro';
+import AdminIgPost from '@/components/AdminIgPost.astro';
+import AdminArticleIgPost from '@/components/AdminArticleIgPost.astro';
+import { getCollection } from 'astro:content';
+import { getCredentials } from '@/lib/instagram';
+import { getPostedArticles } from '@/lib/article-config';
+
+// Auth is enforced by middleware (guards all /admin pages).
+const creds = await getCredentials();
+const igConnected = !!creds;
+
+const postedArticles = igConnected ? getPostedArticles() : {};
+const igArticles = igConnected
+  ? (await getCollection('posts', p => !p.data.draft))
+      .sort((a, b) => b.data.publishedAt.valueOf() - a.data.publishedAt.valueOf())
+      .map(p => ({
+        slug:     p.slug,
+        title:    p.data.title,
+        category: p.data.category,
+        image:    p.data.featuredImage,
+        url:      `/useful-info/${p.slug}/`,
+        postedAt: postedArticles[p.slug]?.postedAt ?? null,
+      }))
+  : [];
+
+const fmtDate = (sec: number) =>
+  new Intl.DateTimeFormat('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(sec * 1000));
+---
+
+<AdminLayout title="Posts" activePage="posts">
+  <p class="page-intro">
+    Post a published guide's featured image to the Instagram feed — adds visual variety
+    beyond near-identical vehicle photos. Single image, posted manually.
+  </p>
+
+  {!igConnected && (
+    <div class="notice">Instagram isn't connected. Connect it in <a href="/admin/settings">Settings</a> before posting guides.</div>
+  )}
+
+  {igConnected && igArticles.length === 0 && (
+    <div class="notice">No published guides to post yet.</div>
+  )}
+
+  {igConnected && igArticles.length > 0 && (
+    <div class="guide-list">
+      {igArticles.map((a) => (
+        <div class="guide-row" data-ig-article-slot={a.slug}>
+          <a href={a.url} class="guide-thumb-link" target="_blank" rel="noopener">
+            <img class="guide-thumb" src={a.image} alt={a.title} loading="lazy" />
+          </a>
+          <div class="guide-info">
+            <p class="guide-cat">{a.category}</p>
+            <a href={a.url} class="guide-title" target="_blank" rel="noopener">{a.title}</a>
+            {a.postedAt && <p class="ig-posted-note">✓ Posted to IG {fmtDate(a.postedAt)}</p>}
+          </div>
+          <button class={`btn ${a.postedAt ? 'btn-repost' : 'btn-post'}`} data-action="post-article" data-slug={a.slug}>
+            {a.postedAt ? 'Repost' : 'Post to IG'}
+          </button>
+        </div>
+      ))}
+    </div>
+  )}
+
+  <!-- AdminIgPost renders the global .igp-* modal/toast styles the article kit reuses -->
+  <AdminIgPost />
+  <AdminArticleIgPost />
+</AdminLayout>
+
+<style is:global>
+  .page-intro { font-size: 0.85rem; color: #6B7280; margin-bottom: 1.25rem; max-width: 64ch; line-height: 1.6; }
+  .notice {
+    font-size: 0.85rem; color: #92400E; background: #FEF3C7;
+    border: 1px solid #FCD34D; border-radius: 0.5rem; padding: 0.75rem 1rem;
+  }
+  .notice a { color: #92400E; font-weight: 700; }
+
+  .guide-list { display: flex; flex-direction: column; gap: 0.5rem; }
+  .guide-row {
+    display: flex; align-items: center; gap: 0.875rem;
+    background: #fff; border: 1px solid #E5E7EB; border-radius: 0.75rem;
+    padding: 0.625rem 0.875rem;
+  }
+  .guide-thumb-link { flex-shrink: 0; line-height: 0; }
+  .guide-thumb { width: 72px; height: 54px; object-fit: cover; border-radius: 0.5rem; display: block; background: #F3F4F6; }
+  .guide-info { flex: 1; min-width: 0; }
+  .guide-cat { font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #F5A623; margin-bottom: 0.15rem; }
+  .guide-title {
+    font-size: 0.85rem; font-weight: 600; color: #111; text-decoration: none; display: block;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .guide-title:hover { color: #F5A623; }
+  .ig-posted-note { font-size: 0.7rem; color: #16A34A; font-weight: 600; margin-top: 0.25rem; }
+
+  .btn {
+    font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+    padding: 0.5rem 0.875rem; border-radius: 0.5rem; cursor: pointer;
+    border: 1.5px solid transparent; white-space: nowrap; flex-shrink: 0; transition: all 0.15s;
+  }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-post { background: #F5A623; color: #111111; }
+  .btn-post:hover:not(:disabled) { background: #D4881A; }
+  .btn-repost { background: #fff; color: #6B7280; border-color: #E5E7EB; }
+  .btn-repost:hover:not(:disabled) { color: #111111; border-color: #111111; }
+
+  @media (max-width: 768px) {
+    .guide-row { flex-wrap: wrap; }
+    .guide-info { flex-basis: calc(100% - 88px); }
+    .btn { width: 100%; margin-top: 0.25rem; }
+  }
+</style>

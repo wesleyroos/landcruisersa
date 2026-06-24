@@ -284,6 +284,72 @@ export async function buildCaptionWithAIHashtags(listing: Listing): Promise<stri
   return buildCaptionBody(listing) + '\n\n' + hashtags;
 }
 
+// ─── Article captions ─────────────────────────────────────────────────────────
+// Articles post the featured image + a caption built from the hand-written
+// excerpt. IG feed-caption URLs are not clickable, so the CTA points to the bio.
+
+export interface ArticleForPost {
+  title:   string;
+  excerpt: string;
+  tags?:   string[];
+}
+
+export const ARTICLE_CTA = '📖 Read the full guide — link in bio';
+
+function buildArticleFallbackHashtags(): string {
+  // Exactly 5 — Instagram's Dec-2025 cap (matches the listings convention).
+  return '#LandCruiserSA #LandCruiser #4x4SouthAfrica #OverlandSA #OffRoad';
+}
+
+function buildArticleCaptionBody(article: ArticleForPost): string {
+  return [article.title, '', article.excerpt.trim(), '', ARTICLE_CTA].join('\n');
+}
+
+export async function generateArticleHashtags(article: ArticleForPost): Promise<string> {
+  const apiKey = process.env.ANTHROPIC_API_KEY ?? import.meta.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return buildArticleFallbackHashtags();
+
+  try {
+    const client = new Anthropic({ apiKey });
+    const message = await client.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 80,
+      messages: [{
+        role: 'user',
+        content: `Generate Instagram hashtags for a Land Cruiser blog guide (South African audience). Keep them tightly relevant to the topic.
+
+Article: ${article.title}
+${article.tags?.length ? `Topics: ${article.tags.join(', ')}` : ''}
+
+Always include: #LandCruiserSA
+Instagram caps posts at 5 hashtags (Dec 2025) — return EXACTLY 5, highly relevant and specific.
+
+Return exactly 5 hashtags as a single space-separated line, nothing else.`,
+      }],
+    });
+
+    const text = message.content[0].type === 'text' ? message.content[0].text.trim() : '';
+    // Hard-cap at 5 to match this repo's listings convention (Instagram spam signal).
+    const tags = text.match(/#[A-Za-z0-9_]+/g) ?? [];
+    return tags.length ? tags.slice(0, 5).join(' ') : buildArticleFallbackHashtags();
+  } catch {
+    return buildArticleFallbackHashtags();
+  }
+}
+
+export async function buildArticleCaptionWithAIHashtags(article: ArticleForPost): Promise<string> {
+  const hashtags = await generateArticleHashtags(article);
+  return buildArticleCaptionBody(article) + '\n\n' + hashtags;
+}
+
+// ─── Generic single-image publish (articles) ──────────────────────────────────
+
+export async function publishImageToInstagram(creds: IgCredentials, imageUrl: string, caption: string): Promise<string> {
+  const containerId = await createSingleContainer(creds.userId, creds.accessToken, imageUrl, caption);
+  await waitForContainer(containerId, creds.accessToken);
+  return publishMedia(creds.userId, creds.accessToken, containerId);
+}
+
 // ─── Main post function ───────────────────────────────────────────────────────
 
 export async function postListingToInstagram(listing: Listing, creds: IgCredentials, customCaption?: string): Promise<string> {
