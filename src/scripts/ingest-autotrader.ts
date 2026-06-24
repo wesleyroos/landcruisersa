@@ -51,6 +51,11 @@ async function ingest() {
   let created = 0;
   let updated = 0;
   let skipped = 0;
+  // Survive a network blip on the upload to prod: one failed POST skips that
+  // listing, not the whole run (a single UND_ERR_BODY_TIMEOUT once killed it at
+  // 5,200/6,416). Abort cleanly if prod is genuinely unreachable.
+  let consecNetFail = 0, aborted = false;
+  const ABORT_CONSEC = 5;
 
   // Streamed to the admin "Run Ingest" progress bar (run-ingest.ts parses these).
   const progress = (done: number) =>
@@ -88,29 +93,46 @@ async function ingest() {
       } catch { /* proxy unavailable — continue with single image */ }
     }
 
-    const res = await fetch(`${SITE_URL}/api/ingest`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${TOKEN}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(listing),
-    });
-
-    if (!res.ok) {
-      console.error(`[autotrader] ingest failed for ${ref.source_id}: ${res.status}`);
+    let result: { action?: string };
+    try {
+      const res = await fetch(`${SITE_URL}/api/ingest`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${TOKEN}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(listing),
+      });
+      if (!res.ok) {
+        console.error(`[autotrader] ingest failed for ${ref.source_id}: ${res.status}`);
+        skipped++;
+        consecNetFail = 0; // got a response — network is up; per-listing issue (e.g. 400)
+        continue;
+      }
+      result = await res.json() as { action?: string };
+      consecNetFail = 0;
+    } catch (err) {
+      // Network-level error (timeout/connection) — fetch or body read throws.
       skipped++;
+      if (++consecNetFail >= ABORT_CONSEC) {
+        console.error(`[autotrader] ABORTING — ${consecNetFail} uploads failed in a row; prod unreachable (${String(err).slice(0, 80)}). Re-run when the network is back.`);
+        aborted = true;
+        break;
+      }
       continue;
     }
-
-    const result = await res.json() as { action?: string };
     if (result.action === 'created') created++;
     else if (result.action === 'updated') updated++;
   }
 
   progress(refs.length);
-  console.log(`[autotrader] done — created: ${created}, updated: ${updated}, skipped: ${skipped}`);
-  await reportRun('autotrader', { found: refs.length, created, updated, skipped, sourceTotal: discoverStats.sourceTotal, capHit: discoverStats.capHit });
+  console.log(`[autotrader] done — created: ${created}, updated: ${updated}, skipped: ${skipped}${aborted ? ' (ABORTED — partial, prod unreachable)' : ''}`);
+  await reportRun('autotrader', {
+    found: refs.length, created, updated, skipped,
+    ok: !aborted,
+    note: aborted ? 'upload aborted — prod unreachable mid-run' : undefined,
+    sourceTotal: discoverStats.sourceTotal, capHit: discoverStats.capHit,
+  });
 }
 
 ingest().catch(async (err) => {
