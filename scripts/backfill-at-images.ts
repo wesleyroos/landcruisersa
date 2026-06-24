@@ -13,6 +13,7 @@
  */
 
 import { reportRun } from '../src/lib/sources/report.ts';
+import { dispatcherFor } from '../src/lib/sources/proxy.ts';
 
 const SITE_URL   = process.env.SITE_URL   ?? 'https://landcruisersa.fly.dev';
 const TOKEN      = process.env.INGEST_TOKEN ?? '';
@@ -42,14 +43,17 @@ async function apiGet(path: string): Promise<unknown> {
 }
 
 async function fetchAtImages(sourceUrl: string): Promise<string[]> {
-  const res = await fetch(sourceUrl, {
+  const init: RequestInit & { dispatcher?: unknown } = {
     headers: {
       'User-Agent': BROWSER_UA,
       'Accept': 'text/html,application/xhtml+xml',
       'Accept-Language': 'en-ZA,en;q=0.9',
     },
     signal: AbortSignal.timeout(15_000),
-  });
+  };
+  const dispatcher = await dispatcherFor(sourceUrl);
+  if (dispatcher) init.dispatcher = dispatcher;
+  const res = await fetch(sourceUrl, init);
 
   // Hard block — abort the whole run (never march to the next listing).
   if (res.status === 429 || res.status === 503) {

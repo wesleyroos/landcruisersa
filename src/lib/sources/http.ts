@@ -16,6 +16,8 @@ export class RateLimitError extends Error {
   }
 }
 
+import { dispatcherFor } from './proxy.ts';
+
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
 export async function politeFetch(
@@ -40,10 +42,16 @@ export async function politeFetch(
     ...opts.headers,
   };
 
+  // Route AT scrape requests through the residential proxy (no-op unless PROXY_*
+  // env is set; only matches www.autotrader.co.za, never the image CDN).
+  const dispatcher = await dispatcherFor(url);
+
   let lastErr: unknown;
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
-      const res = await fetch(url, { ...opts, headers });
+      const init: RequestInit & { dispatcher?: unknown } = { ...opts, headers };
+      if (dispatcher) init.dispatcher = dispatcher;
+      const res = await fetch(url, init);
       if (res.ok) return res;
       if (res.status === 404) return res; // caller decides
       // Rate-limit / WAF block: do NOT retry into the wall — signal abort.
