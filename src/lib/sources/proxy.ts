@@ -1,54 +1,64 @@
 // Residential rotating-proxy routing (DataImpulse). ENV-GATED: with no PROXY_*
-// vars set, every export is a no-op and scraping uses the direct connection — so
-// this is safe to ship dormant and flip on per-run via .env.
+// vars set, proxyFetch is just the global fetch and scraping uses the direct
+// connection — safe to ship dormant and flip on per-run via .env.
 //
 // Only the AutoTrader HTML scrape host (www.autotrader.co.za) is proxied — NOT
-// img.autotrader.co.za (the image CDN: heavy bytes, not rate-limited the same
-// way). A rotating residential IP per request defeats AT's per-IP rate limiter
-// without paying proxy bandwidth for image downloads.
+// img.autotrader.co.za (image CDN: heavy bytes, not rate-limited the same way).
+// A rotating residential IP per request defeats AT's per-IP rate limiter without
+// paying proxy bandwidth for image downloads.
 //
 //   .env:
 //     PROXY_HOST=gw.dataimpulse.com
 //     PROXY_PORT=823
-//     PROXY_USER=<your-login>__cr.za     # __cr.za = exit from South Africa
-//     PROXY_PASS=<your-password>
+//     PROXY_USER=<login>__cr.za      # __cr.za = exit from South Africa
+//     PROXY_PASS=<password>
+//
+// NB: the proxy path uses undici's OWN fetch + ProxyAgent. Node's global fetch
+// rejects a ProxyAgent from the installed undici package (different undici
+// instance → UND_ERR_INVALID_ARG), so the two must come from the same import.
 
 const HOST = process.env.PROXY_HOST ?? '';
 const PORT = process.env.PROXY_PORT ?? '823';
 const USER = process.env.PROXY_USER ?? '';
 const PASS = process.env.PROXY_PASS ?? '';
 
-// Hosts to route through the proxy. Deliberately the scrape host only.
 const PROXIED_HOSTS = new Set(['www.autotrader.co.za']);
 
 export function proxyEnabled(): boolean {
   return Boolean(HOST && USER && PASS);
 }
 
-let _agent: unknown = null;
-let _announced = false;
-async function getAgent(): Promise<unknown> {
-  if (!_agent) {
-    // Lazy import so the Astro/Fly build (where PROXY_* is never set) never has
-    // to bundle undici.
-    const { ProxyAgent } = await import('undici');
-    _agent = new ProxyAgent({
-      uri: `http://${HOST}:${PORT}`,
-      token: `Basic ${Buffer.from(`${USER}:${PASS}`).toString('base64')}`,
-    });
-    if (!_announced) {
-      console.log(`[proxy] routing ${[...PROXIED_HOSTS].join(', ')} via ${HOST}:${PORT}`);
-      _announced = true;
-    }
-  }
-  return _agent;
+function shouldProxy(url: string): boolean {
+  if (!proxyEnabled()) return false;
+  try { return PROXIED_HOSTS.has(new URL(url).host); } catch { return false; }
 }
 
-// Returns an undici dispatcher to route `url` through the proxy, or undefined to
-// go direct. Pass the result as the (non-standard) `dispatcher` option on fetch.
-export async function dispatcherFor(url: string): Promise<unknown | undefined> {
-  if (!proxyEnabled()) return undefined;
-  let host: string;
-  try { host = new URL(url).host; } catch { return undefined; }
-  return PROXIED_HOSTS.has(host) ? getAgent() : undefined;
+type UndiciFetch = (url: string, init?: Record<string, unknown>) => Promise<unknown>;
+let _undiciFetch: UndiciFetch | null = null;
+let _agent: unknown = null;
+let _announced = false;
+
+async function ensure(): Promise<void> {
+  if (_agent && _undiciFetch) return;
+  // Lazy import so the Astro/Fly build (PROXY_* never set there) never needs to
+  // bundle undici.
+  const undici = await import('undici');
+  _undiciFetch = undici.fetch as unknown as UndiciFetch;
+  _agent = new undici.ProxyAgent({
+    uri: `http://${HOST}:${PORT}`,
+    token: `Basic ${Buffer.from(`${USER}:${PASS}`).toString('base64')}`,
+  });
+  if (!_announced) {
+    console.log(`[proxy] routing ${[...PROXIED_HOSTS].join(', ')} via ${HOST}:${PORT}`);
+    _announced = true;
+  }
+}
+
+// Drop-in for fetch(): routes the configured host(s) through the residential
+// proxy (rotating IP per request), everything else direct. No-op when PROXY_*
+// is unset.
+export async function proxyFetch(url: string, init?: RequestInit): Promise<Response> {
+  if (!shouldProxy(url)) return fetch(url, init);
+  await ensure();
+  return _undiciFetch!(url, { ...init, dispatcher: _agent } as Record<string, unknown>) as Promise<Response>;
 }

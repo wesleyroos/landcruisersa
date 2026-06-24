@@ -1,4 +1,4 @@
-import { dispatcherFor } from './proxy.ts';
+import { proxyFetch } from './proxy.ts';
 
 const BROWSER_UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
@@ -7,13 +7,10 @@ const BROWSER_UA =
 // AT must be fetched from a residential IP (datacenter IPs are blocked), so this
 // only works locally — used by the desc-backfill endpoint and the local cron.
 export async function fetchAtDetails(sourceUrl: string): Promise<{ description: string; colour: string }> {
-  const init: RequestInit & { dispatcher?: unknown } = {
+  const res = await proxyFetch(sourceUrl, {
     headers: { 'User-Agent': BROWSER_UA, Accept: 'text/html,application/xhtml+xml' },
     signal: AbortSignal.timeout(15_000),
-  };
-  const dispatcher = await dispatcherFor(sourceUrl);
-  if (dispatcher) init.dispatcher = dispatcher;
-  const res = await fetch(sourceUrl, init);
+  });
   // A removed listing (404) is a genuine "nothing here" — return empty so the
   // backfill counts it as a skip. But any other non-OK, and the tiny shell AT
   // serves when it rate-limits/blocks an IP, must THROW: the backfill counts a
