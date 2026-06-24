@@ -1,0 +1,82 @@
+name: AutoTrader Ingest
+
+# AutoTrader blocks datacenter IPs, so this used to run only on Wesley's Mac.
+# Now every request to www.autotrader.co.za is routed through the DataImpulse
+# residential proxy (src/lib/sources/proxy.ts, gated on PROXY_* secrets), so it
+# runs reliably in the cloud on a fixed schedule — no Mac-uptime dependency.
+# img.autotrader.co.za (the image CDN, used by the rehost) is datacenter-OK and
+# stays direct, keeping proxy bandwidth to HTML only.
+
+on:
+  schedule:
+    - cron: '0 3 * * *'   # daily, 03:00 UTC (05:00 SAST)
+  workflow_dispatch:
+
+# Don't let two AT runs overlap (a slow proxied crawl + the next schedule).
+concurrency:
+  group: autotrader
+  cancel-in-progress: false
+
+jobs:
+  autotrader:
+    name: AutoTrader scrape (residential proxy)
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+
+      - name: Discover & ingest
+        continue-on-error: true
+        run: node --experimental-strip-types src/scripts/ingest-autotrader.ts
+        env:
+          INGEST_TOKEN: ${{ secrets.INGEST_TOKEN }}
+          SITE_URL: ${{ secrets.SITE_URL }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          NOTIFY_EMAIL: ${{ secrets.NOTIFY_EMAIL }}
+          PROXY_HOST: ${{ secrets.PROXY_HOST }}
+          PROXY_PORT: ${{ secrets.PROXY_PORT }}
+          PROXY_USER: ${{ secrets.PROXY_USER }}
+          PROXY_PASS: ${{ secrets.PROXY_PASS }}
+
+      - name: Backfill galleries (LC first)
+        continue-on-error: true
+        run: node --experimental-strip-types scripts/backfill-at-images.ts
+        env:
+          INGEST_TOKEN: ${{ secrets.INGEST_TOKEN }}
+          SITE_URL: ${{ secrets.SITE_URL }}
+          BATCH_SIZE: '120'
+          DELAY_MS: '2500'
+          PROXY_HOST: ${{ secrets.PROXY_HOST }}
+          PROXY_PORT: ${{ secrets.PROXY_PORT }}
+          PROXY_USER: ${{ secrets.PROXY_USER }}
+          PROXY_PASS: ${{ secrets.PROXY_PASS }}
+
+      - name: Backfill descriptions
+        continue-on-error: true
+        run: node --experimental-strip-types src/scripts/backfill-at-descriptions.ts
+        env:
+          INGEST_TOKEN: ${{ secrets.INGEST_TOKEN }}
+          SITE_URL: ${{ secrets.SITE_URL }}
+          PROXY_HOST: ${{ secrets.PROXY_HOST }}
+          PROXY_PORT: ${{ secrets.PROXY_PORT }}
+          PROXY_USER: ${{ secrets.PROXY_USER }}
+          PROXY_PASS: ${{ secrets.PROXY_PASS }}
+
+      # Direct (no proxy) — img.autotrader.co.za CDN is datacenter-accessible.
+      - name: Rehost images to R2
+        continue-on-error: true
+        run: node --experimental-strip-types src/scripts/rehost-at-images.ts
+        env:
+          INGEST_TOKEN: ${{ secrets.INGEST_TOKEN }}
+          SITE_URL: ${{ secrets.SITE_URL }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_PUBLIC_URL: ${{ secrets.R2_PUBLIC_URL }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}

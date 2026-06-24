@@ -21,8 +21,9 @@ jobs:
 
       - run: npm ci
 
-      # AutoTrader blocks datacenter IPs (every GHA run fails with fetch errors) —
-      # it runs from the local launchd schedule instead, alongside cars.co.za.
+      # AutoTrader runs in its own workflow (autotrader.yml) via the residential
+      # proxy. cars.co.za runs on the local Mac (Cloudflare). This workflow is the
+      # datacenter-friendly sources only.
 
       - name: Run WeBuyCars ingest
         continue-on-error: true
@@ -45,13 +46,6 @@ jobs:
       - name: Run WeBuy Bakkies ingest
         continue-on-error: true
         run: node --experimental-strip-types src/scripts/ingest-wbb.ts
-        env:
-          INGEST_TOKEN: ${{ secrets.INGEST_TOKEN }}
-          SITE_URL: ${{ secrets.SITE_URL }}
-
-      - name: Backfill missing descriptions
-        continue-on-error: true
-        run: node --experimental-strip-types src/scripts/backfill-descriptions.ts
         env:
           INGEST_TOKEN: ${{ secrets.INGEST_TOKEN }}
           SITE_URL: ${{ secrets.SITE_URL }}
