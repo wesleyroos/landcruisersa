@@ -142,7 +142,9 @@ async function launchSession(): Promise<{ browser: Browser; page: Page }> {
   const page = await browser.newPage();
   await page.goto('https://www.cars.co.za/usedcars/Toyota/Land-Cruiser-79/', {
     waitUntil: 'domcontentloaded',
-    timeout: 60_000,
+    // 12s on the Mac, but the cloud runner's path to the proxy is much slower —
+    // give it room (the GH run timed out at 60s).
+    timeout: 120_000,
   });
   // Give the CF managed challenge time to clear and set cookies
   for (let i = 0; i < 20; i++) {
