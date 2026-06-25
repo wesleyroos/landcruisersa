@@ -1,6 +1,6 @@
 import { WbcAdapter, discoverStats } from '../lib/sources/wbc.ts';
 import { isSourceEnabled } from '../lib/sources/registry.ts';
-import { applyExtraSegments } from '../lib/sources/extra-config.ts';
+import { applyExtraSegments, isSourceScheduled } from '../lib/sources/extra-config.ts';
 import { reportRun } from '../lib/sources/report.ts';
 
 const SITE_URL = process.env.SITE_URL ?? 'https://landcruisersa.fly.dev';
@@ -28,6 +28,10 @@ async function ingest() {
     return;
   }
   if (!TOKEN) throw new Error('INGEST_TOKEN not set');
+  if (!(await isSourceScheduled('wbc'))) {
+    console.log('[wbc] paused via admin toggle — skipping');
+    return;
+  }
 
   await applyExtraSegments('wbc');
   console.log('[wbc] discovering listings via search API…');

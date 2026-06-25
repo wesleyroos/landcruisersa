@@ -1,5 +1,6 @@
 import { fetchAtDetails } from '../lib/sources/at-details.ts';
 import { reportRun } from '../lib/sources/report.ts';
+import { isSourceScheduled } from '../lib/sources/extra-config.ts';
 
 // Fill missing AutoTrader descriptions. AT blocks datacenter IPs, so this runs
 // locally (residential IP) after the local AT ingest — it reads the missing
@@ -10,6 +11,10 @@ const CONCURRENCY = 4;
 
 async function run() {
   if (!TOKEN) throw new Error('INGEST_TOKEN not set');
+  if (!(await isSourceScheduled('autotrader'))) {
+    console.log('[at-desc-backfill] AutoTrader paused via admin toggle — skipping');
+    return;
+  }
 
   const listRes = await fetch(`${SITE_URL}/api/admin/listings-missing-descriptions`, {
     headers: { Authorization: `Bearer ${TOKEN}` },

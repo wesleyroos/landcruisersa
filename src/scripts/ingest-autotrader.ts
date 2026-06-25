@@ -1,6 +1,6 @@
 import { AutoTraderAdapter, discoverStats } from '../lib/sources/autotrader.ts';
 import { isSourceEnabled } from '../lib/sources/registry.ts';
-import { applyExtraSegments } from '../lib/sources/extra-config.ts';
+import { applyExtraSegments, isSourceScheduled } from '../lib/sources/extra-config.ts';
 import { reportRun } from '../lib/sources/report.ts';
 import { segmentForModel } from '../lib/sources/normalize.ts';
 
@@ -32,6 +32,10 @@ async function ingest() {
     return;
   }
   if (!TOKEN) throw new Error('INGEST_TOKEN not set');
+  if (!(await isSourceScheduled('autotrader'))) {
+    console.log('[autotrader] paused via admin toggle — skipping');
+    return;
+  }
 
   await applyExtraSegments('autotrader');
   console.log('[autotrader] discovering listings…');

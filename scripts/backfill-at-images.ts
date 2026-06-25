@@ -14,6 +14,7 @@
 
 import { reportRun } from '../src/lib/sources/report.ts';
 import { proxyFetch } from '../src/lib/sources/proxy.ts';
+import { isSourceScheduled } from '../src/lib/sources/extra-config.ts';
 
 const SITE_URL   = process.env.SITE_URL   ?? 'https://landcruisersa.fly.dev';
 const TOKEN      = process.env.INGEST_TOKEN ?? '';
@@ -83,6 +84,10 @@ async function delay(ms: number) {
 }
 
 async function run() {
+  if (!(await isSourceScheduled('autotrader'))) {
+    console.log('[at-images] AutoTrader paused via admin toggle — skipping');
+    return;
+  }
   console.log(`[at-images] starting — batch=${BATCH_SIZE}, delay=${DELAY_MS}ms`);
 
   const data = await apiGet(

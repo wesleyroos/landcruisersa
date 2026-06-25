@@ -28,3 +28,27 @@ export async function applyExtraSegments(source: string): Promise<boolean> {
   console.log(`[${source}] Hilux/Fortuner collection: ${on ? 'ON' : 'off'}`);
   return on;
 }
+
+// Is this source scheduled to run, or paused via the /admin/scrapers toggle
+// (site_config `scraper_scheduled_<source>` = '0')? Lets the cloud workflows
+// respect the admin pause toggle the same way the local cron's `is_scheduled`
+// shell check did. FAIL-OPEN: any error → assume scheduled (a config hiccup must
+// never silently halt scraping). The toggle is per-site via SITE_URL, so a Jimny
+// run (SITE_URL=jimnysa) is unaffected by the LC site's toggles.
+export async function isSourceScheduled(source: string): Promise<boolean> {
+  const siteUrl = process.env.SITE_URL ?? 'https://landcruisersa.co.za';
+  const token = process.env.INGEST_TOKEN ?? '';
+  try {
+    const res = await fetch(`${siteUrl}/api/scraper-config`, {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (res.ok) {
+      const map = (await res.json()) as Record<string, boolean>;
+      return map[source] !== false;
+    }
+  } catch {
+    /* fail open */
+  }
+  return true;
+}
