@@ -1,0 +1,84 @@
+name: Jimny SA Ingest
+
+# Suzuki Jimny scrape for the SEPARATE jimnysa site, using the same scrapers
+# gated to the Jimny segment (SCRAPE_SEGMENT=jimny) and routed to jimnysa
+# (SITE_URL/INGEST_TOKEN = JIMNY_*). AutoTrader + cars.co.za go through the
+# residential proxy (carsza headed Chrome under xvfb). No Mac dependency.
+
+on:
+  schedule:
+    - cron: '0 5 * * *'   # daily, 05:00 UTC (07:00 SAST), after the LC workflows
+  workflow_dispatch:
+
+concurrency:
+  group: jimny
+  cancel-in-progress: false
+
+env:
+  SCRAPE_SEGMENT: jimny
+  INGEST_TOKEN: ${{ secrets.JIMNY_INGEST_TOKEN }}
+  SITE_URL: ${{ secrets.JIMNY_SITE_URL }}
+
+jobs:
+  jimny:
+    name: Jimny SA (AT + cars.co.za + WBC via proxy)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+      - run: sudo apt-get update && sudo apt-get install -y xvfb
+
+      - name: AutoTrader (Jimny, via proxy)
+        continue-on-error: true
+        run: node --experimental-strip-types src/scripts/ingest-autotrader.ts
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          NOTIFY_EMAIL: ${{ secrets.NOTIFY_EMAIL }}
+          PROXY_HOST: ${{ secrets.PROXY_HOST }}
+          PROXY_PORT: ${{ secrets.PROXY_PORT }}
+          PROXY_USER: ${{ secrets.PROXY_USER }}
+          PROXY_PASS: ${{ secrets.PROXY_PASS }}
+
+      - name: cars.co.za (Jimny, headed Chrome/xvfb + proxy)
+        continue-on-error: true
+        run: xvfb-run --auto-servernum node --experimental-strip-types src/scripts/ingest-carsza.ts
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          NOTIFY_EMAIL: ${{ secrets.NOTIFY_EMAIL }}
+          PROXY_HOST: ${{ secrets.PROXY_HOST }}
+          PROXY_PORT: ${{ secrets.PROXY_PORT }}
+          PROXY_USER: ${{ secrets.PROXY_USER }}
+          PROXY_PASS: ${{ secrets.PROXY_PASS }}
+
+      - name: WeBuyCars (Jimny)
+        continue-on-error: true
+        run: node --experimental-strip-types src/scripts/ingest-wbc.ts
+
+      - name: Backfill Jimny AT galleries (via proxy)
+        continue-on-error: true
+        run: node --experimental-strip-types scripts/backfill-at-images.ts
+        env:
+          BACKFILL_SEGMENTS: jimny
+          BATCH_SIZE: '80'
+          DELAY_MS: '2500'
+          PROXY_HOST: ${{ secrets.PROXY_HOST }}
+          PROXY_PORT: ${{ secrets.PROXY_PORT }}
+          PROXY_USER: ${{ secrets.PROXY_USER }}
+          PROXY_PASS: ${{ secrets.PROXY_PASS }}
+
+      # Rehost Jimny AT images to jimnysa's R2 (JIMNY_R2_* mapped to R2_*). Direct.
+      - name: Rehost Jimny images to R2
+        continue-on-error: true
+        run: node --experimental-strip-types src/scripts/rehost-at-images.ts
+        env:
+          R2_ENDPOINT: ${{ secrets.JIMNY_R2_ENDPOINT }}
+          R2_PUBLIC_URL: ${{ secrets.JIMNY_R2_PUBLIC_URL }}
+          R2_BUCKET: ${{ secrets.JIMNY_R2_BUCKET }}
+          R2_ACCESS_KEY_ID: ${{ secrets.JIMNY_R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.JIMNY_R2_SECRET_ACCESS_KEY }}

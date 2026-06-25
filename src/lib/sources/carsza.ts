@@ -136,7 +136,7 @@ async function launchSession(): Promise<{ browser: Browser; page: Page }> {
   // In the cloud, route through the residential proxy with a sticky session so
   // Cloudflare sees a residential ZA IP, not the datacenter runner. No-op on the
   // Mac (PROXY_* unset → direct, the Mac's own residential IP).
-  const proxy = playwrightProxy('carsza');
+  const proxy = playwrightProxy(process.env.SCRAPE_SEGMENT === 'jimny' ? 'jimny-carsza' : 'carsza');
   if (proxy) launchOptions.proxy = proxy;
   const browser = await chromium.launch(launchOptions);
   const page = await browser.newPage();
