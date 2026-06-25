@@ -39,28 +39,12 @@ at_due() {
 
 echo "── $(date '+%Y-%m-%d %H:%M:%S') starting local ingests ──"
 
-LC_AT_RAN=0
-if is_scheduled autotrader; then
-  if at_due; then
-    "$NODE" --experimental-strip-types src/scripts/ingest-autotrader.ts && date +%s > "$AT_MARKER" || echo "[cron] autotrader failed"
-    # AT post-processing from this residential IP (AT blocks Fly):
-    # 1) Fill full galleries for listings the search tile capped at 1 image (the
-    #    SSR tile only exposes all photos for premium listings). Fetched DIRECTLY
-    #    from this residential IP — the in-scraper /api/proxy/images path runs on
-    #    Fly, which AT blocks. Bounded batch + polite delay, ONCE per daily AT run
-    #    (NOT a separate hourly agent — that hammered AT 24×/day and re-blocked the
-    #    IP). Runs before rehost so the new images get copied to R2 the same pass.
-    BATCH_SIZE=80 DELAY_MS=3500 "$NODE" --experimental-strip-types scripts/backfill-at-images.ts || echo "[cron] at-image-gallery-backfill failed"
-    # 2) Fill missing descriptions, then 3) copy AT-hosted images to R2.
-    "$NODE" --experimental-strip-types src/scripts/backfill-at-descriptions.ts || echo "[cron] at-desc-backfill failed"
-    "$NODE" --experimental-strip-types src/scripts/rehost-at-images.ts || echo "[cron] at-image-rehost failed"
-    LC_AT_RAN=1
-  else
-    echo "[cron] autotrader ran <20h ago — skipping (daily cadence)"
-  fi
-else
-  echo "[cron] autotrader paused via admin toggle — skipping AT ingest + backfills"
-fi
+# ── AutoTrader now runs in the CLOUD (GitHub Action .github/workflows/
+#    autotrader.yml) via the DataImpulse residential proxy — no Mac dependency
+#    (2026-06-25). The LC AT ingest + gallery/description backfills + R2 rehost
+#    all moved there. Only cars.co.za (Cloudflare → still needs this Mac) and the
+#    Jimny passes run locally now.
+LC_AT_RAN=0   # LC AT no longer runs here, so the Jimny AT pass always runs below
 
 # ── Jimny SA — separate site, same scrapers, Jimny segment only, routed to
 #    jimnysa. cars.co.za + WBC don't hit AutoTrader's rate limiter, so run them
