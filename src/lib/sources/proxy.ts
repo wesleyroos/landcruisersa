@@ -62,3 +62,16 @@ export async function proxyFetch(url: string, init?: RequestInit): Promise<Respo
   await ensure();
   return _undiciFetch!(url, { ...init, dispatcher: _agent } as Record<string, unknown>) as Promise<Response>;
 }
+
+// Playwright proxy config for Cloudflare-cleared sources (carsza). Uses a STICKY
+// session (`;sessid.<id>`) so the same residential IP holds the CF clearance for
+// the whole run. Returns undefined when PROXY_* is unset → direct (the Mac's own
+// residential IP, headed Chrome).
+export function playwrightProxy(sessionId = 'lcsa'): { server: string; username: string; password: string } | undefined {
+  if (!proxyEnabled()) return undefined;
+  return {
+    server: `http://${HOST}:${PORT}`,
+    username: `${USER};sessid.${sessionId}`,
+    password: PASS,
+  };
+}

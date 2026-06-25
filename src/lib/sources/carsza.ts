@@ -1,6 +1,7 @@
 import { chromium } from 'playwright-core';
-import type { Browser, Page } from 'playwright-core';
+import type { Browser, Page, LaunchOptions } from 'playwright-core';
 import { normalizeModel, normalizeProvince } from './normalize.ts';
+import { playwrightProxy } from './proxy.ts';
 import { collectExtraSegments } from './registry.ts';
 import type { DiscoveredRef, DiscoverStats, NormalizedListing, LivenessResult, SourceAdapter } from './types.ts';
 
@@ -126,11 +127,18 @@ async function apiGet(page: Page, qs: string): Promise<{ meta?: { total: number 
 async function launchSession(): Promise<{ browser: Browser; page: Page }> {
   // Headed real Chrome — headless (old and new) gets served the CF challenge.
   // The window is parked offscreen so scheduled runs don't interrupt the user.
-  const browser = await chromium.launch({
+  // (In the cloud this runs under xvfb — a virtual display — so "headed" works.)
+  const launchOptions: LaunchOptions = {
     channel: 'chrome',
     headless: false,
     args: ['--window-position=-32000,-32000'],
-  });
+  };
+  // In the cloud, route through the residential proxy with a sticky session so
+  // Cloudflare sees a residential ZA IP, not the datacenter runner. No-op on the
+  // Mac (PROXY_* unset → direct, the Mac's own residential IP).
+  const proxy = playwrightProxy('carsza');
+  if (proxy) launchOptions.proxy = proxy;
+  const browser = await chromium.launch(launchOptions);
   const page = await browser.newPage();
   await page.goto('https://www.cars.co.za/usedcars/Toyota/Land-Cruiser-79/', {
     waitUntil: 'domcontentloaded',

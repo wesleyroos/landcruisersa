@@ -1,0 +1,43 @@
+name: Cars.co.za Ingest
+
+# cars.co.za sits behind Cloudflare, which challenges datacenter IPs AND headless
+# browsers. So this runs HEADED real Chrome under xvfb (a virtual display) through
+# the DataImpulse residential proxy with a STICKY session — Cloudflare sees a
+# residential ZA IP + a real browser, and clears. No Mac dependency.
+# (channel:'chrome' uses the Google Chrome preinstalled on the GitHub runner.)
+
+on:
+  schedule:
+    - cron: '0 4 * * *'   # daily, 04:00 UTC (06:00 SAST), 1h after AutoTrader
+  workflow_dispatch:
+
+concurrency:
+  group: carsza
+  cancel-in-progress: false
+
+jobs:
+  carsza:
+    name: Cars.co.za (headed Chrome via xvfb + proxy)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+      - run: sudo apt-get update && sudo apt-get install -y xvfb
+
+      - name: Cars.co.za ingest
+        run: xvfb-run --auto-servernum node --experimental-strip-types src/scripts/ingest-carsza.ts
+        env:
+          INGEST_TOKEN: ${{ secrets.INGEST_TOKEN }}
+          SITE_URL: ${{ secrets.SITE_URL }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          NOTIFY_EMAIL: ${{ secrets.NOTIFY_EMAIL }}
+          PROXY_HOST: ${{ secrets.PROXY_HOST }}
+          PROXY_PORT: ${{ secrets.PROXY_PORT }}
+          PROXY_USER: ${{ secrets.PROXY_USER }}
+          PROXY_PASS: ${{ secrets.PROXY_PASS }}
