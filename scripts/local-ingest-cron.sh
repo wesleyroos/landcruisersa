@@ -75,10 +75,8 @@ if [ -n "${JIMNY_INGEST_TOKEN:-}" ]; then
   fi
 fi
 
-if is_scheduled carsza; then
-  "$NODE" --experimental-strip-types src/scripts/ingest-carsza.ts || echo "[cron] carsza failed"
-else
-  echo "[cron] carsza paused via admin toggle — skipping"
-fi
-
+# ── cars.co.za now runs in the CLOUD too (.github/workflows/carsza.yml): headed
+#    Chrome under xvfb through the residential proxy (sticky session) clears
+#    Cloudflare from a GitHub runner (2026-06-25). Removed from here. The only
+#    thing left on this Mac is the Jimny passes above (jimnysa — separate site).
 echo "── $(date '+%Y-%m-%d %H:%M:%S') local ingests done ──"
