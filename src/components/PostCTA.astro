@@ -15,11 +15,11 @@ interface Props {
 const { eyebrow = 'Next step', heading, blurb, primary, secondary } = Astro.props;
 const attrs = (l: CtaLink) => (l.external ? { target: '_blank', rel: 'noopener sponsored' } : {});
 ---
-<aside class="not-prose my-8 rounded-2xl border border-[#DDD9D3] bg-[#F5F3EE] p-6">
-  {eyebrow && <p class="text-[#F5A623] font-heading font-bold uppercase tracking-widest text-xs mb-2">{eyebrow}</p>}
-  <p class="font-heading font-bold uppercase text-xl leading-tight text-[#111111] mb-2">{heading}</p>
-  {blurb && <p class="text-sm text-[#4B5563] leading-relaxed mb-4">{blurb}</p>}
-  <div class="flex flex-wrap gap-3">
+<aside class="not-prose my-10 rounded-2xl border border-[#DDD9D3] bg-[#F5F3EE] p-7 md:p-9">
+  {eyebrow && <p class="text-[#F5A623] font-heading font-bold uppercase tracking-widest text-xs mb-3">{eyebrow}</p>}
+  <p class="font-heading font-bold uppercase text-xl md:text-2xl leading-snug text-[#111111] mb-3">{heading}</p>
+  {blurb && <p class="text-[15px] text-[#4B5563] leading-relaxed mb-6">{blurb}</p>}
+  <div class="flex flex-wrap gap-3 mt-1">
     <a
       href={primary.href}
       {...attrs(primary)}

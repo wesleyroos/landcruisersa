@@ -12,7 +12,7 @@ const s3 = new S3Client({
 });
 const BUCKET = process.env.R2_BUCKET;
 const PUBLIC_URL = process.env.R2_PUBLIC_URL;
-const DIR = '/tmp/faan-upload';
+const DIR = '/tmp/faan-cropped';
 
 for (const file of readdirSync(DIR).filter(f => f.endsWith('.jpg'))) {
   const key = `images/posts/faan-collection/${file}`;
