@@ -17,7 +17,7 @@ const {
 } = post.data;
 
 // Sidebar: recent posts excluding current
-const allPosts = await getCollection('posts', p => !p.data.draft && p.slug !== post.slug);
+const allPosts = await getCollection('posts', p => !p.data.draft && !p.data.unlisted && p.slug !== post.slug);
 const recentPosts = allPosts
   .sort((a, b) => b.data.publishedAt.valueOf() - a.data.publishedAt.valueOf())
   .slice(0, 6);
@@ -97,6 +97,7 @@ const shareTitle = encodeURIComponent(title);
   image={featuredImage}
   ogType="article"
 >
+  {post.data.unlisted && <meta name="robots" content="noindex, nofollow" slot="head" />}
   <script type="application/ld+json" slot="head" set:html={JSON.stringify(articleSchema)} />
   <script type="application/ld+json" slot="head" set:html={JSON.stringify(breadcrumbSchema)} />
   {faqSchema && <script type="application/ld+json" slot="head" set:html={JSON.stringify(faqSchema)} />}

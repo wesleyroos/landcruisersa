@@ -4,7 +4,7 @@ import { SITE } from '@/data/site';
 import PostCard from '@/components/PostCard.astro';
 import { getCollection } from 'astro:content';
 
-const allPosts = await getCollection('posts', p => !p.data.draft);
+const allPosts = await getCollection('posts', p => !p.data.draft && !p.data.unlisted);
 const posts = allPosts.sort((a, b) => b.data.publishedAt.valueOf() - a.data.publishedAt.valueOf());
 
 const categories = [

@@ -14,6 +14,10 @@ const posts = defineCollection({
     metaDescription: z.string().max(160).optional(),
     featured: z.boolean().default(false),
     draft: z.boolean().default(false),
+    // Unlisted: built + reachable by direct URL, but hidden from every listing,
+    // the sitemap, related/recent sidebars, IG auto-posting and search indexing
+    // (noindex). For private preview shares (e.g. sending a link for sign-off).
+    unlisted: z.boolean().default(false),
     tags: z.array(z.string()).default([]),
     // Optional Q&A pairs — rendered as FAQPage JSON-LD for AI/search citation
     faqs: z.array(z.object({ q: z.string(), a: z.string() })).default([]),

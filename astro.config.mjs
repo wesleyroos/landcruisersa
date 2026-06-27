@@ -79,8 +79,8 @@ export default defineConfig({
         'https://landcruisersa.co.za/market/fortuner-gd6/',
         'https://landcruisersa.co.za/market/fortuner-d4d/',
       ],
-      // Keep admin pages out of the sitemap.
-      filter: (page) => !page.includes('/admin/'),
+      // Keep admin pages — and the unlisted Faan-collection preview — out of the sitemap.
+      filter: (page) => !page.includes('/admin/') && !page.includes('/inside-the-webuycars-land-cruiser-collection'),
     }),
   ],
   vite: {

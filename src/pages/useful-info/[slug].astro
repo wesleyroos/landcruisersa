@@ -3,7 +3,8 @@ import Post from '@/layouts/Post.astro';
 import { getCollection } from 'astro:content';
 
 export async function getStaticPaths() {
-  const posts = await getCollection('posts', p => !p.data.draft);
+  // Drafts are viewable in `astro dev` for local preview, but never built for prod.
+  const posts = await getCollection('posts', p => import.meta.env.DEV || !p.data.draft);
   return posts.map(post => ({
     params: { slug: post.slug },
     props: { post },

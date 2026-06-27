@@ -10,7 +10,7 @@ import { listings, priceEvents } from '@/db/schema';
 import { eq, desc, and, not, sql, gte } from 'drizzle-orm';
 import { getSiteStats } from '@/lib/site-stats';
 
-const allPosts = await getCollection('posts', p => !p.data.draft);
+const allPosts = await getCollection('posts', p => !p.data.draft && !p.data.unlisted);
 const posts = allPosts
   .sort((a, b) => b.data.publishedAt.valueOf() - a.data.publishedAt.valueOf())
   .slice(0, 6);

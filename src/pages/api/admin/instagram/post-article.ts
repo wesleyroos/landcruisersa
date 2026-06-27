@@ -35,7 +35,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     return new Response(JSON.stringify({ error: 'slug required' }), { status: 400 });
   }
 
-  const posts = await getCollection('posts', p => !p.data.draft);
+  const posts = await getCollection('posts', p => !p.data.draft && !p.data.unlisted);
   const post = posts.find(p => p.slug === slug);
   if (!post) {
     return new Response(JSON.stringify({ error: 'Article not found (or still a draft)' }), { status: 404 });
