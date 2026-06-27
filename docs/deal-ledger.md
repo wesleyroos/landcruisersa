@@ -29,8 +29,51 @@ so threads either progress or get consciously dropped — never drift.
   - **B. Sell-side sourcing feed** — WBC *buys* cars; we have motivated private Cruiser sellers. Feed them → pay-on-success sourcing fee. (Bigger, JSE-listed version of [[project-dealer-sourcing-fee]].)
   - **C. Sold/catalog data ACCESS (one-directional, not an exchange)** — WBC already scrapes + M&M-catalogs the market, so our asking data gives them little. The value flows TO us: their **actual sold/transaction prices + M&M trade/retail catalog** (which scraping cannot produce) → breaks the valuation engine's ~68% in-band ceiling + powers [[project-book-of-life-msure]]. Negotiate access / pay for it; don't frame as a trade of our (non-unique) data.
 - **⭐ Acquisition thesis (the real exit angle):** WBC is a JSE-listed consolidator who wants to beat AutoTrader. Since WBC already has the data/scrape/catalog, the thesis is NOT "unique data" — it's **the trusted, AI-cited, consumer-facing niche-brand layer + the repeatable playbook to build more verticals** on top of data they already hold (Jimny proves repeatability). That's the consumer demand-gen front-end a backend-data company can't easily conjure. **Structure every deal to increase integration/dependency → make acquisition the natural endpoint.** Their 8M pageviews = the distribution rail for a valuation / Book-of-Life product.
-- **Next action:** send Wynand a short follow-up proposal structured A+B+C with the acquisition frame implicit; explicitly request (1) stock-API sandbox access, (2) what the sales API attributes + pays, (3) appetite for a seller-sourcing feed, (4) sold-data exchange. Advertising ("how to buy with WBC") stays the easy-yes sweetener, not the headline.
-- **Kill-or-advance:** send proposal by **2026-06-27**. ADVANCE = API sandbox access granted OR a technical follow-up scheduled by **2026-07-18**. Else downgrade to "advertising-only" and reassess.
+- **⭐ WARM OPENING MOVE (lead with this, NOT the API proposal):** they suggested Wesley write an article on **Faan van der Walt's (CEO) ~50-Land-Cruiser collection** parked at the WBC Silverlakes branch (one of them is Wynand's). This is the ideal first move — flatters the two decision-makers via the CEO's personal passion, showcases LCSA's actual unique asset (niche brand + AI-citability + storytelling), and creates a warm in-person touchpoint (the shoot) where the business conversation can happen organically. **Reciprocity: give the article first, then ask.** Treat as flagship content (real photography + interview Faan; Wynand's car as a personal angle). ⚠️ Get sign-off from Wynand/Tersia before publishing; do NOT publish exact location/security details (50 valuable Cruisers at a known site — frame that sensitivity *to them* as protecting their interests).
+---
+
+### 📋 D1 WORKING PROPOSAL (v1 — refine in person; pitch AFTER the Faan article)
+
+**The one-line pitch:**
+> *Community-based, niche make/model hubs that feed WeBuyCars' ecosystem — the flanking play to take on AutoTrader.*
+
+**Strategic premise (why WBC needs this):** To overtake AutoTrader in 5 years, WBC can't only own the market, the distribution and the traffic (it largely does). It needs to own the **surrounding ecosystem** — fringe, brand/model-specific hubs that *compound* traffic, trust and leads into the WBC funnel over time. AutoTrader is a static generalist marketplace; its structural blind spots are **niche authority** and **AI-search citability**. A portfolio of trusted niche hubs attacks exactly those.
+
+**The product — a portfolio of self-improving niche hubs.** Each node is a brand/model-specific hub combining: useful-info/buyer content, live market + valuation data, and listings. Nodes (illustrative): Land Cruiser SA ✅ live, Jimny SA ✅ live, then GWM/Haval / Chinese marques, Land Rover/Defender, etc. **Two are already built — that's the proof, not a promise.**
+
+**Three pillars (what's actually being sold — sell all three, honestly):**
+1. **Trusted niche consumer brands** that own the buyer relationship in passion segments — the thing a backend-data company can't conjure (and what WBC said they valued: name, look/feel, niche depth).
+2. **AI-search citation strategy** — engineered to be the *cited* answer in ChatGPT/Perplexity/Google AI for make/model buyer questions, capturing buyers **upstream** of Google and AutoTrader. The open field where a focused authority structurally beats a generalist; WBC's own catalog is backend and never cited.
+3. **A self-improving data feedback loop** — each hub is an *instrumented growth engine*: it runs experiments, measures performance (citations, search, conversions) and feeds that back into which content/features to build next. This is the **methodology/IP** that makes the playbook repeatable (nodes 3–8 are more instrumented engines, not just more content) — and it speaks WBC's data-forward language (they brought a data scientist; they run AI agents).
+   - ⚠️ **HONESTY GUARDRAIL (from LOCKED [[project-business-brain-strategy]]):** sell the **methodology + rigour + early signal**, NOT proven results. We are ~2 weeks in; first predictions grade **2026-07-20**; zero graded outcomes yet. ✅ Say: *"falsifiable experiments — every change logs a numeric prediction graded vs Search Console/Plausible; framework live, first results land 2026-07-20; AI citations already 0→~10 in <2 weeks."* ❌ Don't say: *"our AI already optimises us and it's working"* — a data scientist will ask for the lift, and there isn't one yet. Overclaiming a thin dataset is the exact credibility trap the memo warns against.
+
+**Deal structure (the shape Wesley converged on — exit-aligned, NOT a services contract):**
+- **Wesley OWNS the portfolio.** WBC funds and distributes it. (Do NOT let WBC own it + pay Wesley to run it — that's a vendor/employment outcome that contradicts [[project-exit-mandate]] + [[project-monetization-philosophy]] and sells the asset at the bottom of its value curve.)
+- **Commercial = base retainer + performance, with an escalating buy-out option:**
+  - **Base retainer** — funds build + run of the platforms (de-risks Wesley's time/capital so he doesn't build the whole portfolio on his own risk; he's already 2 nodes in to anchor it).
+  - **Performance** — per attributed buyer lead + per sourced car WBC buys (via the sales API attribution rail / sourcing feed). Ties pay to value delivered; uncaps upside; defensible to a data-driven buyer. (Avoid a flat *per-platform* fee — it perversely rewards spinning up platforms over making each perform, and caps Wesley's upside while scaling his cost.)
+  - **Escalating buy-out option** — the elegant exit ramp Wesley designed: as performance scales, the retainer+performance ("rent") rises until it's **cheaper for WBC to buy the assets than to keep renting.** ⚠️ For this to actually *force* an acquisition (not just trigger a retainer renegotiation), bake in a **pre-agreed buy-out right priced as a MULTIPLE of the run-rate performance fee** — so the better it performs, the higher *both* rent and buy-out climb (self-scaling, preserves Wesley's upside, makes "just buy it" the rational end state).
+  - **Exclusivity is what the retainer pays for** — exclusive routing: buyers → WBC stock, sellers → WBC sourcing. Without exclusivity WBC would just keep enjoying the free traffic Wesley already sends, so this is the lever that justifies paying at all.
+- **Ownership retained until buy-out** — there must be an asset for them to buy; this is what makes the exit ramp real.
+
+**What WBC provides:** funding (retainer), **stock API** access (drops the PoW/rate-limit friction), **sales API** attribution (confirm mechanics — see API intel above), access to **sold/transaction + M&M catalog data** (one-directional, powers the valuation/Book-of-Life layer), and the exclusivity counterpart.
+
+**What WBC gets:** attributed buyer leads + sourced sellers (their *core* business is buying cars), an ecosystem moat AutoTrader can't replicate, the AI-citation channel, and — the strategic prize — **the repeatable playbook/IP** to stand up new verticals on data they already hold.
+
+**Two design tensions to resolve (their data scientist WILL raise these):**
+- **Listings/redirects:** you can't "point all listings to WBC" — you scrape the whole market and WBC doesn't have every car. Resolution: keep the **comprehensive whole-market content + valuation + data as the traffic magnet** (don't cripple comprehensiveness — it's what earns citations); route only the **monetisation** (high-intent buyers → WBC stock; sellers → WBC sourcing).
+- **AutoTrader exposure:** openly repurposing scraped AutoTrader listings to funnel buyers to their direct rival, as a *WBC-sponsored* initiative, is a sharper legal provocation than quiet aggregation. Route via our own data/valuation layer, not verbatim competitor listings; expect their legal team to probe this.
+
+**Perceived-independence guardrail:** pitch **"powered by / in partnership with WBC," NOT WBC-branded.** A chunk of the value is the independent-authority halo (a buyer and an LLM trust "Land Cruiser SA" more than "WeBuyCars Land Cruiser microsite"). Visible WBC ownership could kill the goose — this also conveniently supports Wesley keeping ownership.
+
+**Open items to confirm with WBC:** (1) sales API attribution mechanics (the unverified piece); (2) sold/M&M data availability + terms; (3) appetite for exclusivity; (4) own-vs-sponsor stance (push for sponsor/fund, Wesley owns); (5) budget reality for a retainer.
+
+**Recommended path:** Faan article (gift) → pitch the vision in person at Silverlakes → **paid pilot on LCSA + Jimny** (prove the funnel math: leads + sourced cars, tracked) → that result sets the retainer + the buy-out multiple → scale to nodes 3–8 on WBC funding → escalating buy-out.
+
+---
+
+- **Next action (re-sequenced):** (1) reply warmly to accept the article + set up the Silverlakes shoot/interview. (2) The proposal above becomes the SECOND move — raise the vision in person during the shoot or as a follow-up once the article lands, not before. Advertising stays the easy-yes sweetener, not the headline.
+- **Kill-or-advance:** article reply sent within days (strike while they're excited); shoot scheduled. API/data follow-up after the article lands. ADVANCE = article published + warm reception OR API sandbox/technical follow-up by **2026-07-18**.
 
 ---
 
