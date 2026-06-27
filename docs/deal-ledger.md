@@ -35,22 +35,26 @@ so threads either progress or get consciously dropped — never drift.
 ### 📋 D1 WORKING PROPOSAL (v1 — refine in person; pitch AFTER the Faan article)
 
 **The one-line pitch:**
-> *Community-based, niche make/model hubs that feed WeBuyCars' ecosystem — the flanking play to take on AutoTrader.*
+> *Community-built, niche make/model **growth engines** that feed WeBuyCars' ecosystem — the flanking play to take on AutoTrader.*
 
-**Strategic premise (why WBC needs this):** To overtake AutoTrader in 5 years, WBC can't only own the market, the distribution and the traffic (it largely does). It needs to own the **surrounding ecosystem** — fringe, brand/model-specific hubs that *compound* traffic, trust and leads into the WBC funnel over time. AutoTrader is a static generalist marketplace; its structural blind spots are **niche authority** and **AI-search citability**. A portfolio of trusted niche hubs attacks exactly those.
+**⭐ The gold line (the centrepiece — lead with this):**
+> *Self-improving, instrumented growth engines — each one runs experiments, watches how it performs (AI citations, search, conversions), and feeds that back into what content and features to build next. The engine gets better on its own.*
+> (Word choice matters: **engines, not hubs.** A hub is a place; an engine does work and compounds — which is exactly the "compounding effect into our ecosystem" WBC said they want.)
 
-**The product — a portfolio of self-improving niche hubs.** Each node is a brand/model-specific hub combining: useful-info/buyer content, live market + valuation data, and listings. Nodes (illustrative): Land Cruiser SA ✅ live, Jimny SA ✅ live, then GWM/Haval / Chinese marques, Land Rover/Defender, etc. **Two are already built — that's the proof, not a promise.**
+**Strategic premise (why WBC needs this):** To overtake AutoTrader in 5 years, WBC can't only own the market, the distribution and the traffic (it largely does). It needs to own the **surrounding ecosystem** — fringe, brand/model-specific growth engines that *compound* traffic, trust and leads into the WBC funnel over time. AutoTrader is a static generalist marketplace; its structural blind spots are **niche authority** and **AI-search citability**. A portfolio of trusted niche engines attacks exactly those.
+
+**The product — a portfolio of self-improving growth engines.** Each engine is a brand/model-specific platform combining useful-info/buyer content, live market + valuation data, and listings — and crucially it *improves itself* (the gold line above). Engines (illustrative): Land Cruiser SA ✅ live, Jimny SA ✅ live, then GWM/Haval / Chinese marques, Land Rover/Defender, etc. **Two are already running — that's the proof, not a promise.**
 
 **Three pillars (what's actually being sold — sell all three, honestly):**
 1. **Trusted niche consumer brands** that own the buyer relationship in passion segments — the thing a backend-data company can't conjure (and what WBC said they valued: name, look/feel, niche depth).
 2. **AI-search citation strategy** — engineered to be the *cited* answer in ChatGPT/Perplexity/Google AI for make/model buyer questions, capturing buyers **upstream** of Google and AutoTrader. The open field where a focused authority structurally beats a generalist; WBC's own catalog is backend and never cited.
-3. **A self-improving data feedback loop** — each hub is an *instrumented growth engine*: it runs experiments, measures performance (citations, search, conversions) and feeds that back into which content/features to build next. This is the **methodology/IP** that makes the playbook repeatable (nodes 3–8 are more instrumented engines, not just more content) — and it speaks WBC's data-forward language (they brought a data scientist; they run AI agents).
+3. **The self-improving engine (the moat is in the methodology)** — *each engine runs experiments, watches how it performs (AI citations, search, conversions), and feeds that back into what content and features to build next. The engine gets better on its own.* This is the **methodology/IP** that makes the playbook repeatable (engines 3–8 are more instrumented growth machines, not just more content) — and it speaks WBC's data-forward language (they brought a data scientist; they run AI agents).
    - ⚠️ **HONESTY GUARDRAIL (from LOCKED [[project-business-brain-strategy]]):** sell the **methodology + rigour + early signal**, NOT proven results. We are ~2 weeks in; first predictions grade **2026-07-20**; zero graded outcomes yet. ✅ Say: *"falsifiable experiments — every change logs a numeric prediction graded vs Search Console/Plausible; framework live, first results land 2026-07-20; AI citations already 0→~10 in <2 weeks."* ❌ Don't say: *"our AI already optimises us and it's working"* — a data scientist will ask for the lift, and there isn't one yet. Overclaiming a thin dataset is the exact credibility trap the memo warns against.
 
 **Deal structure (the shape Wesley converged on — exit-aligned, NOT a services contract):**
 - **Wesley OWNS the portfolio.** WBC funds and distributes it. (Do NOT let WBC own it + pay Wesley to run it — that's a vendor/employment outcome that contradicts [[project-exit-mandate]] + [[project-monetization-philosophy]] and sells the asset at the bottom of its value curve.)
 - **Commercial = base retainer + performance, with an escalating buy-out option:**
-  - **Base retainer** — funds build + run of the platforms (de-risks Wesley's time/capital so he doesn't build the whole portfolio on his own risk; he's already 2 nodes in to anchor it).
+  - **Base retainer** — funds build + run of the platforms (de-risks Wesley's time/capital so he doesn't build the whole portfolio on his own risk; he's already 2 engines in to anchor it).
   - **Performance** — per attributed buyer lead + per sourced car WBC buys (via the sales API attribution rail / sourcing feed). Ties pay to value delivered; uncaps upside; defensible to a data-driven buyer. (Avoid a flat *per-platform* fee — it perversely rewards spinning up platforms over making each perform, and caps Wesley's upside while scaling his cost.)
   - **Escalating buy-out option** — the elegant exit ramp Wesley designed: as performance scales, the retainer+performance ("rent") rises until it's **cheaper for WBC to buy the assets than to keep renting.** ⚠️ For this to actually *force* an acquisition (not just trigger a retainer renegotiation), bake in a **pre-agreed buy-out right priced as a MULTIPLE of the run-rate performance fee** — so the better it performs, the higher *both* rent and buy-out climb (self-scaling, preserves Wesley's upside, makes "just buy it" the rational end state).
   - **Exclusivity is what the retainer pays for** — exclusive routing: buyers → WBC stock, sellers → WBC sourcing. Without exclusivity WBC would just keep enjoying the free traffic Wesley already sends, so this is the lever that justifies paying at all.
@@ -68,7 +72,7 @@ so threads either progress or get consciously dropped — never drift.
 
 **Open items to confirm with WBC:** (1) sales API attribution mechanics (the unverified piece); (2) sold/M&M data availability + terms; (3) appetite for exclusivity; (4) own-vs-sponsor stance (push for sponsor/fund, Wesley owns); (5) budget reality for a retainer.
 
-**Recommended path:** Faan article (gift) → pitch the vision in person at Silverlakes → **paid pilot on LCSA + Jimny** (prove the funnel math: leads + sourced cars, tracked) → that result sets the retainer + the buy-out multiple → scale to nodes 3–8 on WBC funding → escalating buy-out.
+**Recommended path:** Faan article (gift) → pitch the vision in person at Silverlakes → **paid pilot on LCSA + Jimny** (prove the funnel math: leads + sourced cars, tracked) → that result sets the retainer + the buy-out multiple → scale to engines 3–8 on WBC funding → escalating buy-out.
 
 ---
 
