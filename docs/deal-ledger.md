@@ -76,7 +76,11 @@ so threads either progress or get consciously dropped — never drift.
 
 ---
 
-- **Next action (re-sequenced):** (1) reply warmly to accept the article + set up the Silverlakes shoot/interview. (2) The proposal above becomes the SECOND move — raise the vision in person during the shoot or as a follow-up once the article lands, not before. Advertising stays the easy-yes sweetener, not the headline.
+- **STATUS (2026-06-27): Wesley visited Silverlakes** (walked in, name opened the door; head mechanic **Wade** gave the tour). ~30 Cruisers on site of ~50 total — a *living* collection (Faan drives/rotates them). Spans FJ40 → FJ45 → 60/FJ62 → 80 → 100 (4.2TD) → 200/300 → modern 70-series incl. 70th Anniversary editions + FJ Cruiser + a mystery black "50 Years" SWB. **Wynand's car = beige 79 double cab (plate VLT332GP), a 2007 single→double-cab conversion** (the personal angle).
+- **TWO-ARTICLE PLAN (agreed with Wade):**
+  - **Article 1 — recon "first look"** ✅ DRAFTED `src/content/posts/inside-the-webuycars-land-cruiser-collection.mdx` (draft:true; house voice; Wesley's own photos, GPS-stripped, on R2; FAQ schema; NO location/security, NO unverified rarity claims; Wynand-79 engine + the black "50 Years" flagged as to-confirm). **Send to Wynand/Tersia for sign-off — it doubles as the warm follow-up + secures Article 2.**
+  - **Article 2 — flagship** (later): proper shoot + Faan interview + verified provenance (incl. the black "50 Years" — likely the 2007 Venezuela 50th-anniversary 70, ~300 made, UNCONFIRMED). The bigger brand piece + in-person touchpoint where the WBC vision gets pitched.
+- **Next action:** (1) Wesley reviews Article 1 (`npm run dev`), then send to Wynand/Tersia for sign-off + to line up the Article 2 shoot/interview. (2) The proposal above is raised in person at the Article 2 shoot, not before. Advertising stays the easy-yes sweetener.
 - **Kill-or-advance:** article reply sent within days (strike while they're excited); shoot scheduled. API/data follow-up after the article lands. ADVANCE = article published + warm reception OR API sandbox/technical follow-up by **2026-07-18**.
 
 ---
