@@ -192,30 +192,46 @@ export const AutoTraderAdapter: SourceAdapter = {
       let totalCount = 0;
       const modelIds = new Set<string>(); // distinct listings this model's pages showed
       let aborted = false;                // a page failed mid-crawl → coverage incomplete
+      let consecPageFail = 0;             // back-to-back page failures → real block (vs a flaky proxy IP blip)
 
       for (let page = 1; page <= Math.min(totalPages, SAFETY_CAP); page++) {
         // AutoTrader paginates via ?pagenumber=N (NOT ?p=N — that param is ignored
         // and silently re-serves page 1, which once truncated us to ~6% of stock).
         const pageUrl = page === 1 ? baseUrl : `${baseUrl}?pagenumber=${page}`;
-        let res: Response;
-        try {
-          res = await politeFetch(pageUrl, {
-            headers: {
-              'Accept': 'text/html,application/xhtml+xml',
-              'User-Agent': BROWSER_UA,
-              'Accept-Language': 'en-ZA,en;q=0.9',
-            },
-          }, 2, { min: 2500, max: 6000 }); // AT-only: 2.5–6 s/request to stay under rate limits
-        } catch (e) {
-          aborted = true; // politeFetch already retried — a throw means it's really down
-          console.warn(`[autotrader] ${slug} page ${page} failed after retries (${e}) — coverage incomplete`);
-          break;
+        // The residential proxy drops the odd page mid-crawl ("fetch failed"). Don't
+        // abandon the whole model for one bad page (that's what truncated us to ~40%):
+        // retry the page, then SKIP it and keep going. Only give up the model if page 1
+        // is unreadable (can't read totalPages) or many pages fail back-to-back (a real
+        // block, not a flaky IP).
+        let res: Response | null = null;
+        for (let attempt = 0; attempt <= 2 && !res; attempt++) {
+          try {
+            const pr = await politeFetch(pageUrl, {
+              headers: {
+                'Accept': 'text/html,application/xhtml+xml',
+                'User-Agent': BROWSER_UA,
+                'Accept-Language': 'en-ZA,en;q=0.9',
+              },
+            }, 2, { min: 2500, max: 6000 }); // AT-only: 2.5–6 s/request to stay under rate limits
+            if (pr.ok) { res = pr; break; }
+            console.warn(`[autotrader] ${slug} page ${page} → HTTP ${pr.status} (attempt ${attempt + 1})`);
+          } catch (e) {
+            console.warn(`[autotrader] ${slug} page ${page} fetch failed (attempt ${attempt + 1}): ${e}`);
+          }
+          if (attempt < 2) await new Promise(done => setTimeout(done, 5000 * (attempt + 1)));
         }
-        if (!res.ok) {
-          aborted = true; // do NOT silently break-as-done; this is a truncation
-          console.warn(`[autotrader] ${slug} page ${page} → HTTP ${res.status} — coverage incomplete`);
-          break;
+
+        if (!res) {
+          consecPageFail++;
+          if (page === 1 || consecPageFail >= 6) {
+            aborted = true;
+            console.warn(`[autotrader] ${slug} aborting at page ${page} — ${page === 1 ? 'page 1 unreadable' : consecPageFail + ' consecutive page failures'} (coverage incomplete)`);
+            break;
+          }
+          console.warn(`[autotrader] ${slug} page ${page} unreadable after retries — skipping, continuing model`);
+          continue; // skip this page's listings, keep crawling the rest of the model
         }
+        consecPageFail = 0;
 
         const html = await res.text();
 
