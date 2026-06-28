@@ -1,0 +1,118 @@
+---
+export const prerender = false;
+
+import Base from '@/layouts/Base.astro';
+import { db } from '@/db/index';
+import { favorites, listings } from '@/db/schema';
+import { and, desc, eq } from 'drizzle-orm';
+import { getCurrentUser } from '@/lib/auth-user';
+
+const user = getCurrentUser(Astro.cookies);
+if (!user) return Astro.redirect('/signin/?next=/account/');
+
+// Saved cars — join favourites to their listing (by slug, robust to null id).
+const saved = db.select({
+  slug:    listings.slug,
+  title:   listings.title,
+  price:   listings.price,
+  model:   listings.model,
+  year:    listings.year,
+  mileage: listings.mileage,
+  province: listings.province,
+  status:  listings.status,
+  photos:  listings.photos,
+  baseline_price: favorites.baseline_price,
+  saved_at: favorites.created_at,
+}).from(favorites)
+  .innerJoin(listings, eq(favorites.listing_slug, listings.slug))
+  .where(eq(favorites.user_id, user.id))
+  .orderBy(desc(favorites.created_at))
+  .all();
+
+function firstPhoto(photos: string): string {
+  try { const a = JSON.parse(photos) as string[]; return a?.[0] ?? ''; } catch { return ''; }
+}
+const fmt = (n: number | null | undefined) => (n ? 'R' + n.toLocaleString('en-ZA') : '—');
+---
+
+<Base title="My Account · Land Cruiser SA" description="Your saved Land Cruisers and alerts." noindex={true}>
+  <section class="bg-[#F5F3EE] min-h-[70vh] py-10 px-4">
+    <div class="max-w-4xl mx-auto">
+      <div class="flex items-center justify-between mb-6 flex-wrap gap-3">
+        <h1 class="font-heading text-2xl sm:text-3xl font-bold text-[#111111]">My Account</h1>
+        <form method="POST" action="/api/auth/logout">
+          <button type="submit" class="text-sm text-[#6B7280] hover:text-[#111111] underline">Sign out</button>
+        </form>
+      </div>
+
+      <!-- Profile -->
+      <div class="bg-white border border-[#DDD9D3] rounded-2xl p-6 mb-6">
+        <h2 class="font-heading text-sm font-bold text-[#111111] uppercase tracking-wide mb-4">Profile</h2>
+        <form method="POST" action="/api/account" class="flex flex-col sm:flex-row sm:items-end gap-3">
+          <div class="flex-1">
+            <label for="name" class="block text-xs font-semibold text-[#4A4A4A] uppercase tracking-wide mb-1.5">Name</label>
+            <input id="name" name="name" type="text" value={user.name ?? ''} class="w-full border border-[#DDD9D3] rounded-lg px-3.5 py-2.5 text-sm focus:border-[#F5A623] focus:outline-none" placeholder="Your name" />
+          </div>
+          <div class="flex-1">
+            <label class="block text-xs font-semibold text-[#4A4A4A] uppercase tracking-wide mb-1.5">Email</label>
+            <div class="text-sm text-[#6B7280] px-3.5 py-2.5 bg-[#F5F3EE] rounded-lg border border-[#DDD9D3]">{user.email}</div>
+          </div>
+          <button type="submit" class="bg-[#111111] text-white font-heading font-bold uppercase tracking-wide text-xs px-5 py-2.5 rounded-lg hover:bg-[#333] transition-colors">Save</button>
+        </form>
+      </div>
+
+      <!-- Saved vehicles -->
+      <div class="bg-white border border-[#DDD9D3] rounded-2xl p-6">
+        <h2 class="font-heading text-sm font-bold text-[#111111] uppercase tracking-wide mb-4">Saved vehicles <span class="text-[#9CA3AF]">({saved.length})</span></h2>
+
+        {saved.length === 0 ? (
+          <div class="text-center py-10">
+            <p class="text-sm text-[#6B7280] mb-4">You haven't saved any vehicles yet.</p>
+            <a href="/listings/" class="inline-flex items-center bg-[#F5A623] text-[#111111] font-heading font-bold uppercase tracking-wide text-sm px-6 py-3 rounded-xl hover:bg-[#D4881A] transition-colors">Browse listings</a>
+          </div>
+        ) : (
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4" id="saved-grid">
+            {saved.map((l) => (
+              <div class="saved-card border border-[#DDD9D3] rounded-xl overflow-hidden flex flex-col" data-slug={l.slug}>
+                <a href={`/listings/${l.slug}/`} class="block aspect-[4/3] bg-[#F5F3EE] overflow-hidden">
+                  {firstPhoto(l.photos) && <img src={firstPhoto(l.photos)} alt={l.title} loading="lazy" class="w-full h-full object-cover" />}
+                </a>
+                <div class="p-4 flex flex-col flex-1">
+                  <a href={`/listings/${l.slug}/`} class="font-heading font-bold text-sm text-[#111111] hover:text-[#D4881A] line-clamp-2 mb-1">{l.title}</a>
+                  <p class="text-xs text-[#6B7280] mb-2">{l.year} · {l.mileage ? l.mileage.toLocaleString('en-ZA') + ' km' : '—'} · {l.province}</p>
+                  <div class="flex items-center justify-between mt-auto">
+                    <div>
+                      <span class="font-heading font-bold text-[#111111]">{fmt(l.price)}</span>
+                      {l.baseline_price && l.price < l.baseline_price && (
+                        <span class="ml-2 text-xs text-[#15803D] font-semibold">▼ {fmt(l.baseline_price - l.price)}</span>
+                      )}
+                      {l.status === 'sold' && <span class="ml-2 text-xs text-[#991B1B] font-semibold">Sold</span>}
+                    </div>
+                    <button class="unsave-btn text-xs text-[#9CA3AF] hover:text-[#991B1B]" data-slug={l.slug} aria-label="Remove">Remove</button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  </section>
+</Base>
+
+<script>
+  document.querySelectorAll('.unsave-btn').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const slug = (btn as HTMLElement).dataset.slug;
+      if (!slug) return;
+      const res = await fetch('/api/favorites', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slug }),
+      });
+      if (res.ok) {
+        document.querySelector(`.saved-card[data-slug="${slug}"]`)?.remove();
+      }
+    });
+  });
+</script>

@@ -1,0 +1,89 @@
+---
+export const prerender = false;
+
+import AdminLayout from '@/layouts/AdminLayout.astro';
+import { db } from '@/db/index';
+import { users, favorites, savedSearches } from '@/db/schema';
+import { desc, sql } from 'drizzle-orm';
+
+const cookie = Astro.cookies.get('lcsa_admin');
+const adminSecret = import.meta.env.ADMIN_SECRET ?? process.env.ADMIN_SECRET ?? '';
+if (!cookie || cookie.value !== adminSecret) {
+  return Astro.redirect('/admin/login');
+}
+
+const allUsers = db.select().from(users).orderBy(desc(users.created_at)).limit(500).all();
+const total = (db.select({ n: sql<number>`cast(count(*) as int)` }).from(users).get())?.n ?? 0;
+const verified = (db.select({ n: sql<number>`cast(count(*) as int)` }).from(users).where(sql`verified_at is not null`).get())?.n ?? 0;
+const consented = (db.select({ n: sql<number>`cast(count(*) as int)` }).from(users).where(sql`consent_at is not null`).get())?.n ?? 0;
+
+// Favourite + saved-search counts per user, pulled as maps.
+const favCounts = new Map<number, number>();
+for (const r of db.select({ uid: favorites.user_id, n: sql<number>`cast(count(*) as int)` }).from(favorites).groupBy(favorites.user_id).all()) {
+  favCounts.set(r.uid, r.n);
+}
+const searchCounts = new Map<number, number>();
+for (const r of db.select({ uid: savedSearches.user_id, n: sql<number>`cast(count(*) as int)` }).from(savedSearches).groupBy(savedSearches.user_id).all()) {
+  searchCounts.set(r.uid, r.n);
+}
+
+const fmt = (d: Date | null) => d ? new Date(d).toLocaleString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
+---
+
+<AdminLayout title="Users" activePage="users">
+  <div class="ib">
+    <div class="stats">
+      <div class="stat"><span class="num">{total}</span><span class="lbl">Signups</span></div>
+      <div class="stat"><span class="num">{verified}</span><span class="lbl">Verified</span></div>
+      <div class="stat"><span class="num">{consented}</span><span class="lbl">Alert opt-ins</span></div>
+    </div>
+
+    <section class="card">
+      <h2>Users <span class="count">{total}</span></h2>
+      <p class="sub">Everyone who has created a profile to save vehicles or set up alerts. Verified = clicked their sign-in link. Opt-in = agreed to alert emails (POPIA).</p>
+      {allUsers.length === 0 ? <p class="empty">No signups yet.</p> : (
+        <table>
+          <thead><tr><th>Joined</th><th>Name</th><th>Email</th><th>Verified</th><th>Alerts</th><th>Saved</th><th>Searches</th><th>Last seen</th></tr></thead>
+          <tbody>
+            {allUsers.map(u => (
+              <tr class={u.disabled ? 'disabled' : ''}>
+                <td class="nowrap muted">{fmt(u.created_at)}</td>
+                <td class="b">{u.name ?? '—'}</td>
+                <td><a href={`mailto:${u.email}`}>{u.email}</a></td>
+                <td class="nowrap">{u.verified_at ? '✅' : '—'}</td>
+                <td class="nowrap">{u.consent_at ? '🔔' : '—'}</td>
+                <td class="nowrap b">{favCounts.get(u.id) ?? 0}</td>
+                <td class="nowrap">{searchCounts.get(u.id) ?? 0}</td>
+                <td class="nowrap muted small">{fmt(u.last_login_at)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </section>
+  </div>
+</AdminLayout>
+
+<style>
+  .ib { display: flex; flex-direction: column; gap: 1.5rem; max-width: 1100px; }
+  .stats { display: flex; gap: 1rem; flex-wrap: wrap; }
+  .stat { background: #fff; border: 1px solid #E5E7EB; border-radius: 0.75rem; padding: 1rem 1.5rem; display: flex; flex-direction: column; min-width: 120px; }
+  .stat .num { font-size: 1.75rem; font-weight: 800; color: #111; line-height: 1; }
+  .stat .lbl { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: #9CA3AF; margin-top: 0.35rem; }
+  .card { background: #fff; border: 1px solid #E5E7EB; border-radius: 0.75rem; padding: 1.25rem 1.5rem; }
+  h2 { font-size: 1rem; font-weight: 700; color: #111; display: flex; align-items: center; gap: 0.5rem; }
+  .count { background: #F5A623; color: #111; font-size: 0.7rem; font-weight: 700; padding: 0.1rem 0.5rem; border-radius: 999px; }
+  .sub { font-size: 0.8rem; color: #6B7280; margin: 0.3rem 0 1rem; }
+  .empty { font-size: 0.875rem; color: #9CA3AF; padding: 0.5rem 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.8125rem; }
+  th { text-align: left; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #9CA3AF; padding: 0.5rem 0.6rem; border-bottom: 1px solid #E5E7EB; }
+  td { padding: 0.55rem 0.6rem; border-bottom: 1px solid #F3F4F6; color: #374151; vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  tr.disabled { opacity: 0.45; }
+  .b { font-weight: 700; color: #111; }
+  .muted { color: #9CA3AF; }
+  .small { font-size: 0.72rem; }
+  .nowrap { white-space: nowrap; }
+  td a { color: #D4881A; text-decoration: none; }
+  td a:hover { text-decoration: underline; }
+</style>

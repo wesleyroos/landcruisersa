@@ -3,8 +3,9 @@ export const prerender = false;
 
 import Base from '@/layouts/Base.astro';
 import { db } from '@/db/index';
-import { listings } from '@/db/schema';
+import { listings, favorites } from '@/db/schema';
 import { and, eq, ne } from 'drizzle-orm';
+import { getCurrentUser } from '@/lib/auth-user';
 // NB: do NOT import modelLabel/normalize here — this page already pulls modelLabel
 // transitively via getMarketPosition, and a second direct import creates a
 // bundler init-order crash ("Cannot access 'modelLabel2' before initialization").
@@ -53,6 +54,15 @@ if (similarFiltered.length < 3) {
 const photos: string[] = (() => { try { return JSON.parse(listing.photos) ?? []; } catch { return []; } })();
 const mainPhoto = photos[0] ?? 'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/og-default.jpg';
 const gridPhotos = photos.slice(1, 5);
+
+// Is this listing already saved by the signed-in user? (drives the heart state)
+const currentUser = getCurrentUser(Astro.cookies);
+let isFavorited = false;
+if (currentUser) {
+  const [fav] = await db.select({ id: favorites.id }).from(favorites)
+    .where(and(eq(favorites.user_id, currentUser.id), eq(favorites.listing_slug, listing.slug)));
+  isFavorited = Boolean(fav);
+}
 
 function maskPhone(phone: string): string {
   const d = phone.trim();
@@ -200,6 +210,17 @@ const vehicleSchema: Record<string, unknown> = {
           View on {portalName}
         </a>
       )}
+      <button
+        id="fav-btn"
+        class={`fav-btn ${isFavorited ? 'is-saved' : ''}`}
+        data-slug={listing.slug}
+        data-saved={isFavorited ? 'true' : 'false'}
+        aria-pressed={isFavorited ? 'true' : 'false'}
+        aria-label="Save this vehicle"
+      >
+        <svg class="fav-heart" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>
+        <span class="fav-label">{isFavorited ? 'Saved' : 'Save'}</span>
+      </button>
     </div>
   </div>
 
@@ -946,6 +967,23 @@ const vehicleSchema: Record<string, unknown> = {
   }
   .wa-btn-header:hover { background: #1da851; }
 
+  /* SAVE / FAVOURITE */
+  .fav-btn {
+    display: inline-flex; align-items: center; gap: 0.5rem;
+    background: white; color: #4A4A4A; cursor: pointer;
+    border: 1.5px solid #DDD9D3;
+    font-family: var(--font-heading); font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.06em;
+    font-size: 0.8125rem; padding: 0.6875rem 1.125rem;
+    border-radius: 0.5rem; white-space: nowrap; flex-shrink: 0;
+    transition: border-color 0.15s, color 0.15s, background 0.15s;
+  }
+  .fav-btn:hover { border-color: #F5A623; color: #111111; }
+  .fav-btn .fav-heart { transition: fill 0.15s, stroke 0.15s; }
+  .fav-btn.is-saved { border-color: #F5A623; color: #111111; }
+  .fav-btn.is-saved .fav-heart { fill: #F5A623; stroke: #F5A623; }
+  .fav-btn[disabled] { opacity: 0.6; cursor: default; }
+
   /* MOSAIC */
   .mosaic {
     border-radius: 0.875rem; overflow: hidden;
@@ -1456,5 +1494,42 @@ const vehicleSchema: Record<string, unknown> = {
     }
     lbImg.style.transform = '';
   });
+</script>
+
+<script>
+  // Save / unsave this vehicle. The session cookie is httpOnly, so the client
+  // can't read login state — instead we call the API and, on a 401, bounce to
+  // sign-in with a return path so the user lands back here.
+  const favBtn = document.getElementById('fav-btn');
+  if (favBtn) {
+    const label = favBtn.querySelector('.fav-label');
+    favBtn.addEventListener('click', async () => {
+      const slug = favBtn.dataset.slug;
+      const saved = favBtn.dataset.saved === 'true';
+      favBtn.setAttribute('disabled', 'true');
+      try {
+        const res = await fetch('/api/favorites', {
+          method: saved ? 'DELETE' : 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ slug }),
+        });
+        if (res.status === 401) {
+          const next = encodeURIComponent(location.pathname + location.search);
+          location.href = `/signin/?next=${next}`;
+          return;
+        }
+        if (!res.ok) throw new Error('request failed');
+        const nowSaved = !saved;
+        favBtn.dataset.saved = String(nowSaved);
+        favBtn.setAttribute('aria-pressed', String(nowSaved));
+        favBtn.classList.toggle('is-saved', nowSaved);
+        if (label) label.textContent = nowSaved ? 'Saved' : 'Save';
+      } catch {
+        // leave state unchanged on failure
+      } finally {
+        favBtn.removeAttribute('disabled');
+      }
+    });
+  }
 </script>
 

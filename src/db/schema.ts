@@ -289,3 +289,70 @@ export const priceEvents = sqliteTable('price_events', {
   new_price:   integer('new_price').notNull(),
   recorded_at: integer('recorded_at', { mode: 'timestamp' }).notNull(),
 });
+
+// ── Public user accounts ─────────────────────────────────────────────────────
+// Passwordless (magic-link) accounts. A row is created the first time someone
+// requests a sign-in link; verified_at is stamped when they click a link (which
+// proves email ownership — no separate double-opt-in needed). No password is
+// ever stored. consent_at records POPIA consent to receive alert emails.
+export const users = sqliteTable('users', {
+  id:            integer('id').primaryKey({ autoIncrement: true }),
+  email:         text('email').notNull().unique(),    // stored lower-cased + trimmed
+  name:          text('name'),                          // optional display name, editable on /account
+  verified_at:   integer('verified_at', { mode: 'timestamp' }),   // first successful magic-link click
+  consent_at:    integer('consent_at', { mode: 'timestamp' }),    // POPIA: agreed to alert emails
+  last_login_at: integer('last_login_at', { mode: 'timestamp' }),
+  disabled:      integer('disabled', { mode: 'boolean' }).notNull().default(false), // admin kill-switch
+  created_at:    integer('created_at', { mode: 'timestamp' }).notNull(),
+});
+export type User = typeof users.$inferSelect;
+
+// One-time magic-link tokens. The raw token is emailed; only its SHA-256 hash is
+// stored here, so a DB leak can't be used to log in. Single-use (used_at) and
+// short-lived (expires_at).
+export const loginTokens = sqliteTable('login_tokens', {
+  id:         integer('id').primaryKey({ autoIncrement: true }),
+  user_id:    integer('user_id').notNull(),
+  token_hash: text('token_hash').notNull().unique(),   // sha256(raw token)
+  expires_at: integer('expires_at', { mode: 'timestamp' }).notNull(),
+  used_at:    integer('used_at', { mode: 'timestamp' }),
+  created_at: integer('created_at', { mode: 'timestamp' }).notNull(),
+});
+export type LoginToken = typeof loginTokens.$inferSelect;
+
+// A user's saved/favourited listings. baseline_price is the asking price at the
+// moment they saved it — the reference point for future "price dropped" alerts.
+export const favorites = sqliteTable('favorites', {
+  id:                integer('id').primaryKey({ autoIncrement: true }),
+  user_id:           integer('user_id').notNull(),
+  listing_slug:      text('listing_slug').notNull(),
+  listing_id:        integer('listing_id'),
+  baseline_price:    integer('baseline_price'),
+  last_notified_price: integer('last_notified_price'),   // dedup: last price we alerted on
+  last_notified_at:  integer('last_notified_at', { mode: 'timestamp' }),
+  created_at:        integer('created_at', { mode: 'timestamp' }).notNull(),
+}, t => ({
+  userListingIdx: uniqueIndex('favorites_user_listing').on(t.user_id, t.listing_slug),
+}));
+export type Favorite = typeof favorites.$inferSelect;
+
+// A user's saved search — criteria for "alert me when a matching Cruiser is
+// listed". Pre-created here; the matching cron + UI land in the alerts phase.
+export const savedSearches = sqliteTable('saved_searches', {
+  id:               integer('id').primaryKey({ autoIncrement: true }),
+  user_id:          integer('user_id').notNull(),
+  label:            text('label'),               // human label, e.g. "200-series diesel < R800k"
+  model:            text('model'),
+  price_min:        integer('price_min'),
+  price_max:        integer('price_max'),
+  year_min:         integer('year_min'),
+  year_max:         integer('year_max'),
+  province:         text('province'),
+  transmission:     text('transmission'),
+  fuel_type:        text('fuel_type'),
+  segment:          text('segment').notNull().default('land-cruiser'),
+  last_notified_at: integer('last_notified_at', { mode: 'timestamp' }),
+  active:           integer('active', { mode: 'boolean' }).notNull().default(true),
+  created_at:       integer('created_at', { mode: 'timestamp' }).notNull(),
+});
+export type SavedSearch = typeof savedSearches.$inferSelect;

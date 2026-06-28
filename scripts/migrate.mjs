@@ -365,6 +365,71 @@ db.exec(`
 db.exec(`CREATE INDEX IF NOT EXISTS price_events_model ON price_events (model, recorded_at)`);
 db.exec(`CREATE INDEX IF NOT EXISTS price_events_slug ON price_events (slug)`);
 
+// ── Public user accounts (passwordless) ──────────────────────────────────────
+// New tables → CREATE TABLE IF NOT EXISTS (the finance_leads pattern). Do NOT add
+// these columns to REQUIRED_COLS — that guard is for the listings table only.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS users (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    email         TEXT    NOT NULL UNIQUE,
+    name          TEXT,
+    verified_at   INTEGER,
+    consent_at    INTEGER,
+    last_login_at INTEGER,
+    disabled      INTEGER NOT NULL DEFAULT 0,
+    created_at    INTEGER NOT NULL
+  )
+`);
+db.exec(`CREATE INDEX IF NOT EXISTS users_created ON users (created_at)`);
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS login_tokens (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id    INTEGER NOT NULL,
+    token_hash TEXT    NOT NULL UNIQUE,
+    expires_at INTEGER NOT NULL,
+    used_at    INTEGER,
+    created_at INTEGER NOT NULL
+  )
+`);
+db.exec(`CREATE INDEX IF NOT EXISTS login_tokens_user ON login_tokens (user_id)`);
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS favorites (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id             INTEGER NOT NULL,
+    listing_slug        TEXT    NOT NULL,
+    listing_id          INTEGER,
+    baseline_price      INTEGER,
+    last_notified_price INTEGER,
+    last_notified_at    INTEGER,
+    created_at          INTEGER NOT NULL
+  )
+`);
+db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS favorites_user_listing ON favorites (user_id, listing_slug)`);
+db.exec(`CREATE INDEX IF NOT EXISTS favorites_slug ON favorites (listing_slug)`);
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS saved_searches (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id          INTEGER NOT NULL,
+    label            TEXT,
+    model            TEXT,
+    price_min        INTEGER,
+    price_max        INTEGER,
+    year_min         INTEGER,
+    year_max         INTEGER,
+    province         TEXT,
+    transmission     TEXT,
+    fuel_type        TEXT,
+    segment          TEXT    NOT NULL DEFAULT 'land-cruiser',
+    last_notified_at INTEGER,
+    active           INTEGER NOT NULL DEFAULT 1,
+    created_at       INTEGER NOT NULL
+  )
+`);
+db.exec(`CREATE INDEX IF NOT EXISTS saved_searches_user ON saved_searches (user_id)`);
+
 // Unique index for aggregator dedup — safe to run repeatedly
 db.exec(`
   CREATE UNIQUE INDEX IF NOT EXISTS listings_source_source_id

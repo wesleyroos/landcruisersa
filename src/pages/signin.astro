@@ -1,0 +1,117 @@
+---
+export const prerender = false;
+
+import Base from '@/layouts/Base.astro';
+import { getCurrentUser } from '@/lib/auth-user';
+
+// Already signed in? Skip the form.
+const existing = getCurrentUser(Astro.cookies);
+const nextParam = Astro.url.searchParams.get('next') ?? '/account/';
+const safeNext = nextParam.startsWith('/') && !nextParam.startsWith('//') ? nextParam : '/account/';
+if (existing) return Astro.redirect(safeNext);
+
+const error = Astro.url.searchParams.get('error');
+const errorMsg = error === 'link'
+  ? 'That sign-in link was invalid or has expired. Enter your email to get a fresh one.'
+  : null;
+---
+
+<Base title="Sign in · Land Cruiser SA" description="Sign in or create your Land Cruiser SA profile to save vehicles and get price-drop alerts." noindex={true}>
+  <section class="min-h-[70vh] bg-[#F5F3EE] py-12 px-4">
+    <div class="max-w-md mx-auto">
+      <div class="bg-white border border-[#DDD9D3] rounded-2xl p-6 sm:p-8">
+        <h1 class="font-heading text-2xl font-bold text-[#111111] mb-1">Sign in or create your profile</h1>
+        <p class="text-sm text-[#6B7280] mb-6">No password needed — we'll email you a secure link to sign in. Save vehicles and get alerted when a price drops.</p>
+
+        {errorMsg && (
+          <div class="mb-5 text-sm bg-[#FEF2F2] border border-[#FECACA] text-[#991B1B] rounded-lg px-4 py-3">{errorMsg}</div>
+        )}
+
+        <form id="signin-form" class="space-y-4">
+          <input type="hidden" name="next" value={safeNext} />
+          <!-- Honeypot: hidden from humans; a bot that fills it gets silently dropped -->
+          <div aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden;">
+            <label>Leave this empty <input type="text" name="lcsa_hp" tabindex="-1" autocomplete="off" /></label>
+          </div>
+
+          <div>
+            <label for="name" class="block text-xs font-semibold text-[#4A4A4A] uppercase tracking-wide mb-1.5">Name <span class="text-[#9CA3AF] normal-case font-normal">(optional)</span></label>
+            <input id="name" name="name" type="text" autocomplete="name" class="w-full border border-[#DDD9D3] rounded-lg px-3.5 py-2.5 text-sm focus:border-[#F5A623] focus:outline-none" placeholder="Your name" />
+          </div>
+
+          <div>
+            <label for="email" class="block text-xs font-semibold text-[#4A4A4A] uppercase tracking-wide mb-1.5">Email</label>
+            <input id="email" name="email" type="email" required autocomplete="email" class="w-full border border-[#DDD9D3] rounded-lg px-3.5 py-2.5 text-sm focus:border-[#F5A623] focus:outline-none" placeholder="you@example.com" />
+          </div>
+
+          <label class="flex items-start gap-2.5 text-xs text-[#6B7280] leading-relaxed">
+            <input id="consent" name="consent" type="checkbox" class="mt-0.5 accent-[#F5A623]" />
+            <span>Email me price-drop and new-listing alerts for vehicles I save. You can unsubscribe anytime. We'll never share your email.</span>
+          </label>
+
+          <button type="submit" id="submit-btn" class="w-full bg-[#F5A623] text-[#111111] font-heading font-bold uppercase tracking-wide text-sm px-6 py-3 rounded-xl hover:bg-[#D4881A] transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
+            Email me a sign-in link
+          </button>
+        </form>
+
+        <div id="sent-state" class="hidden text-center py-4">
+          <div class="text-3xl mb-2">📬</div>
+          <h2 class="font-heading text-lg font-bold text-[#111111] mb-1">Check your email</h2>
+          <p class="text-sm text-[#6B7280]">We've sent a sign-in link to <span id="sent-email" class="font-semibold text-[#111111]"></span>. Click it to finish signing in. It expires in 30 minutes.</p>
+          <p id="dev-link-wrap" class="hidden mt-4 text-xs"><a id="dev-link" href="#" class="text-[#D4881A] underline">Dev: open sign-in link →</a></p>
+        </div>
+
+        <p id="form-error" class="hidden mt-4 text-sm text-[#991B1B]"></p>
+      </div>
+    </div>
+  </section>
+</Base>
+
+<script>
+  const form = document.getElementById('signin-form') as HTMLFormElement;
+  const btn = document.getElementById('submit-btn') as HTMLButtonElement;
+  const sent = document.getElementById('sent-state')!;
+  const errEl = document.getElementById('form-error')!;
+
+  form?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    errEl.classList.add('hidden');
+    btn.disabled = true;
+    btn.textContent = 'Sending…';
+
+    const fd = new FormData(form);
+    const payload = {
+      email: String(fd.get('email') ?? ''),
+      name: String(fd.get('name') ?? ''),
+      consent: fd.get('consent') === 'on',
+      next: String(fd.get('next') ?? '/account/'),
+      lcsa_hp: String(fd.get('lcsa_hp') ?? ''),
+    };
+
+    try {
+      const res = await fetch('/api/auth/request-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.ok === false) {
+        throw new Error(data.error || 'Something went wrong. Please try again.');
+      }
+      (document.getElementById('sent-email') as HTMLElement).textContent = payload.email;
+      form.classList.add('hidden');
+      sent.classList.remove('hidden');
+      if (data.devLink) {
+        const wrap = document.getElementById('dev-link-wrap')!;
+        const a = document.getElementById('dev-link') as HTMLAnchorElement;
+        a.href = data.devLink;
+        wrap.classList.remove('hidden');
+      }
+    } catch (err) {
+      errEl.textContent = (err as Error).message;
+      errEl.classList.remove('hidden');
+      btn.disabled = false;
+      btn.textContent = 'Email me a sign-in link';
+    }
+  });
+</script>
