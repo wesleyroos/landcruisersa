@@ -77,6 +77,7 @@ const schema = {
       'description': `Used ${fullName} asking prices in South Africa: median ${R(median)}, typical range ${R(p25)}–${R(p75)}, across ${count} listings. Updated ${updated.toISOString().slice(0, 10)}.`,
       'url': `https://landcruisersa.co.za/valuation/${model}/`,
       'creator': { '@type': 'Organization', 'name': 'Land Cruiser SA', 'url': 'https://landcruisersa.co.za' },
+      'license': 'https://creativecommons.org/licenses/by/4.0/',
       'dateModified': updated.toISOString(),
       'spatialCoverage': 'South Africa',
       'variableMeasured': ['median asking price', 'price range', 'listing count'],

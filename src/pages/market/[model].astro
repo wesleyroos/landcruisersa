@@ -98,6 +98,7 @@ const datasetSchema = {
   "description": `Live asking prices for ${count} Toyota ${fullName} vehicles for sale in South Africa. Average ${R(avg)}, median ${R(median)}, range ${R(min)} to ${R(max)}. Updated ${updated.toISOString().slice(0, 10)}.`,
   "url": `https://landcruisersa.co.za/market/${model}/`,
   "creator": { "@type": "Organization", "name": "Land Cruiser SA", "url": "https://landcruisersa.co.za" },
+  "license": "https://creativecommons.org/licenses/by/4.0/",
   "dateModified": updated.toISOString(),
   "spatialCoverage": "South Africa",
 };
