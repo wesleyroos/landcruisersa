@@ -44,16 +44,19 @@ try {
 // Rental operator interest (30d) — which operators readers click through to.
 // First-party demand data → tells us who to approach first for the booking platform.
 const rentalName = new Map(RENTAL_OPERATORS.map((o) => [o.slug, o.name]));
-let rentalInterest: { name: string; clicks: number }[] = [];
+let rentalInterest: { name: string; clicks: number; lastClick: Date | null }[] = [];
 try {
   const since30 = new Date(Date.now() - 30 * 86_400_000);
   const rows = db.select({
     slug: rentalClicks.operator_slug,
     n: sql<number>`count(*)`,
+    // created_at is stored as epoch seconds (Drizzle timestamp mode); raw max()
+    // bypasses Drizzle's Date mapping, so convert back to a Date below.
+    last: sql<number>`max(${rentalClicks.created_at})`,
   }).from(rentalClicks).where(gte(rentalClicks.created_at, since30))
     .groupBy(rentalClicks.operator_slug).all();
   rentalInterest = rows
-    .map((r) => ({ name: rentalName.get(r.slug) ?? r.slug, clicks: r.n }))
+    .map((r) => ({ name: rentalName.get(r.slug) ?? r.slug, clicks: r.n, lastClick: r.last ? new Date(r.last * 1000) : null }))
     .sort((a, b) => b.clicks - a.clicks);
 } catch { rentalInterest = []; }
 
@@ -67,6 +70,7 @@ let g: Awaited<ReturnType<typeof getGscSummary>> | null = null;
 try { g = await getGscSummary(); } catch { g = null; }
 
 const fmt = (n: number) => n.toLocaleString('en-ZA');
+const fmtDate = (d: Date | null) => d ? new Date(d).toLocaleString('en-ZA', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—';
 // 7-day trend badge: last 7 days vs the 7 days before.
 function trend(last: number, prior: number) {
   if (prior === 0 && last === 0) return { txt: '—', col: '#9CA3AF' };
@@ -352,6 +356,7 @@ function trend(last: number, prior: number) {
           <thead>
             <tr style="text-align:left;color:#6B7280;font-size:11px;text-transform:uppercase;letter-spacing:.05em;">
               <th style="padding:8px 0;">Rental operator</th>
+              <th style="padding:8px 0;text-align:right;">Last clicked</th>
               <th style="padding:8px 0;text-align:right;font-weight:700;color:#111;">Clicks</th>
             </tr>
           </thead>
@@ -359,6 +364,7 @@ function trend(last: number, prior: number) {
             {rentalInterest.map(r => (
               <tr style="border-top:1px solid #F3F4F6;">
                 <td style="padding:8px 0;">{r.name}</td>
+                <td style="padding:8px 0;text-align:right;color:#6B7280;white-space:nowrap;">{fmtDate(r.lastClick)}</td>
                 <td style="padding:8px 0;text-align:right;font-weight:700;color:#111;">{fmt(r.clicks)}</td>
               </tr>
             ))}
