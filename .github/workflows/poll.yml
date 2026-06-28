@@ -28,6 +28,10 @@ jobs:
           SITE_URL: ${{ secrets.SITE_URL }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           NOTIFY_EMAIL: ${{ secrets.NOTIFY_EMAIL }}
+          # AutoTrader is reconciled at ingest (it can't be liveness-polled); cap the
+          # rest so the poll finishes well under the 30-min timeout.
+          POLL_SKIP: autotrader
+          POLL_CAP: '800'
 
       # Same script, pointed at the Jimny site (separate DB) — mirrors how ingest
       # splits per segment. always() so a hiccup in the LC pass can't skip Jimny.
@@ -40,3 +44,5 @@ jobs:
           SITE_URL: ${{ secrets.JIMNY_SITE_URL }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           NOTIFY_EMAIL: ${{ secrets.NOTIFY_EMAIL }}
+          POLL_SKIP: autotrader
+          POLL_CAP: '800'

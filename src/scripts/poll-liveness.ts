@@ -30,6 +30,13 @@ const ADAPTERS: Record<string, { isStillLive: typeof AutoTraderAdapter.isStillLi
   wbb: WbbAdapter,
 };
 
+// AutoTrader can't be liveness-polled (anti-bot resets the re-fetch → the poll
+// burned the whole window on it and timed out); it's reconciled at ingest instead.
+// POLL_SKIP (comma list) drops sources from the poll without a code change.
+for (const name of (process.env.POLL_SKIP ?? '').split(',').map(s => s.trim()).filter(Boolean)) {
+  delete ADAPTERS[name];
+}
+
 type Update = { source: string; source_id: string; status: string };
 
 async function sendAlert(subject: string, body: string) {

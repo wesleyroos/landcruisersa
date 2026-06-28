@@ -3,6 +3,7 @@ import { isSourceEnabled } from '../lib/sources/registry.ts';
 import { applyExtraSegments, isSourceScheduled } from '../lib/sources/extra-config.ts';
 import { reportRun } from '../lib/sources/report.ts';
 import { segmentForModel } from '../lib/sources/normalize.ts';
+import { reconcileOffMarket, scrapedSegmentsFor } from '../lib/sources/reconcile.ts';
 
 const SITE_URL = process.env.SITE_URL ?? 'https://landcruisersa.fly.dev';
 const TOKEN = process.env.INGEST_TOKEN ?? '';
@@ -37,7 +38,7 @@ async function ingest() {
     return;
   }
 
-  await applyExtraSegments('autotrader');
+  const collectExtra = await applyExtraSegments('autotrader');
   console.log('[autotrader] discovering listings…');
   const refs = await AutoTraderAdapter.discover();
   console.log(`[autotrader] found ${refs.length} refs`);
@@ -130,9 +131,18 @@ async function ingest() {
   }
 
   progress(refs.length);
-  console.log(`[autotrader] done — created: ${created}, updated: ${updated}, skipped: ${skipped}${aborted ? ' (ABORTED — partial, prod unreachable)' : ''}`);
+
+  // Off-market reconciliation: full-catalogue crawl → reap in-scope listings not
+  // seen this run. Dry-run until RECONCILE_OFFMARKET=1; guarded by aborted/capHit/
+  // segment-scope/circuit-breaker (see reconcile.ts).
+  const removed = await reconcileOffMarket({
+    source: 'autotrader', refs, scrapedSegments: scrapedSegmentsFor(collectExtra),
+    siteUrl: SITE_URL, token: TOKEN, aborted, capHit: discoverStats.capHit,
+  });
+
+  console.log(`[autotrader] done — created: ${created}, updated: ${updated}, skipped: ${skipped}, removed: ${removed}${aborted ? ' (ABORTED — partial, prod unreachable)' : ''}`);
   await reportRun('autotrader', {
-    found: refs.length, created, updated, skipped,
+    found: refs.length, created, updated, skipped, removed,
     ok: !aborted,
     note: aborted ? 'upload aborted — prod unreachable mid-run' : undefined,
     sourceTotal: discoverStats.sourceTotal, capHit: discoverStats.capHit,
