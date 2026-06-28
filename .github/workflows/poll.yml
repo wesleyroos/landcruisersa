@@ -21,10 +21,22 @@ jobs:
 
       - run: npm ci
 
-      - name: Poll listing liveness
+      - name: Poll listing liveness (Land Cruiser SA)
         run: node --experimental-strip-types src/scripts/poll-liveness.ts
         env:
           INGEST_TOKEN: ${{ secrets.INGEST_TOKEN }}
           SITE_URL: ${{ secrets.SITE_URL }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          NOTIFY_EMAIL: ${{ secrets.NOTIFY_EMAIL }}
+
+      # Same script, pointed at the Jimny site (separate DB) — mirrors how ingest
+      # splits per segment. always() so a hiccup in the LC pass can't skip Jimny.
+      - name: Poll listing liveness (Jimny SA)
+        if: always()
+        run: node --experimental-strip-types src/scripts/poll-liveness.ts
+        env:
+          SCRAPE_SEGMENT: jimny
+          INGEST_TOKEN: ${{ secrets.JIMNY_INGEST_TOKEN }}
+          SITE_URL: ${{ secrets.JIMNY_SITE_URL }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           NOTIFY_EMAIL: ${{ secrets.NOTIFY_EMAIL }}
