@@ -6,6 +6,7 @@ import { users, loginTokens } from '@/db/schema';
 import { randomToken, hashToken, authConfigured } from '@/lib/token';
 import { sendMagicLinkEmail } from '@/lib/user-email';
 import { rateLimited, clientIp } from '@/lib/rate-limit';
+import { safeNextPath } from '@/lib/http-guards';
 
 const TOKEN_TTL_MS = 30 * 60 * 1000; // 30 minutes
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -14,13 +15,6 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // per IP and per target address.
 const IP_MAX = 6,    IP_WINDOW = 15 * 60 * 1000;
 const EMAIL_MAX = 4, EMAIL_WINDOW = 60 * 60 * 1000;
-
-// Only same-origin paths are valid post-login redirects (no open redirects).
-function safeNext(next: unknown): string {
-  const s = typeof next === 'string' ? next : '';
-  if (s.startsWith('/') && !s.startsWith('//')) return s;
-  return '/account/';
-}
 
 // Always answer the same way so the endpoint never reveals whether an email is
 // registered (it's a unified signup+login, but we still don't leak membership).
@@ -47,7 +41,7 @@ export const POST: APIRoute = async ({ request }) => {
   const email = String(body.email ?? '').trim().toLowerCase();
   const name = body.name != null ? String(body.name).trim().slice(0, 120) : null;
   const consent = body.consent === true || body.consent === 'true' || body.consent === 'on';
-  const next = safeNext(body.next);
+  const next = safeNextPath(typeof body.next === 'string' ? body.next : null);
 
   if (!EMAIL_RE.test(email) || email.length > 254) {
     return new Response(JSON.stringify({ ok: false, error: 'Enter a valid email address.' }), {
@@ -74,13 +68,13 @@ export const POST: APIRoute = async ({ request }) => {
       created_at: now,
     }).returning().all();
   } else {
+    if (user.disabled) return ok(); // disabled account: silently no-op, mutate nothing
     const patch: Partial<typeof users.$inferInsert> = {};
     if (name && !user.name) patch.name = name;
     if (consent && !user.consent_at) patch.consent_at = now;
     if (Object.keys(patch).length) {
       db.update(users).set(patch).where(eq(users.id, user.id)).run();
     }
-    if (user.disabled) return ok(); // disabled account: silently no-op
   }
 
   // Mint a one-time token; store only its hash.

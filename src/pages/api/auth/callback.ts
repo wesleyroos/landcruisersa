@@ -5,13 +5,7 @@ import { db } from '@/db/index';
 import { users, loginTokens } from '@/db/schema';
 import { hashToken } from '@/lib/token';
 import { setSession } from '@/lib/auth-user';
-
-// Same-origin path guard — mirrors request-link.safeNext (no open redirects).
-function safeNext(next: string | null): string {
-  const s = next ?? '';
-  if (s.startsWith('/') && !s.startsWith('//')) return s;
-  return '/account/';
-}
+import { safeNextPath } from '@/lib/http-guards';
 
 function fail(redirect: (path: string) => Response): Response {
   return redirect('/signin/?error=link');
@@ -20,7 +14,7 @@ function fail(redirect: (path: string) => Response): Response {
 export const GET: APIRoute = async ({ request, cookies, redirect }) => {
   const url = new URL(request.url);
   const raw = url.searchParams.get('token') ?? '';
-  const next = safeNext(url.searchParams.get('next'));
+  const next = safeNextPath(url.searchParams.get('next'));
   if (!raw) return fail(redirect);
 
   const [tok] = db.select().from(loginTokens)

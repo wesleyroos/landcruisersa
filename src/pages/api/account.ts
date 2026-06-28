@@ -4,10 +4,12 @@ import { eq } from 'drizzle-orm';
 import { db } from '@/db/index';
 import { users } from '@/db/schema';
 import { getCurrentUser } from '@/lib/auth-user';
+import { sameOrigin } from '@/lib/http-guards';
 
 // Update the signed-in user's own profile (name only, for now). Form-posts and
 // redirects back to /account so it works without JS.
 export const POST: APIRoute = async ({ request, cookies, redirect }) => {
+  if (!sameOrigin(request)) return new Response('Bad origin', { status: 403 });
   const user = getCurrentUser(cookies);
   if (!user) return redirect('/signin/?next=/account/');
 

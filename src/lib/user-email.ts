@@ -5,6 +5,13 @@
 
 const SUPPORT_EMAIL = 'info@landcruisersa.co.za';
 
+// Escape user-controlled text before interpolating into the email HTML — a
+// display name must never inject markup into our DKIM-signed mail.
+function esc(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
 export async function sendMagicLinkEmail(to: string, link: string, name?: string | null): Promise<boolean> {
   const RESEND_KEY = import.meta.env.RESEND_API_KEY ?? process.env.RESEND_API_KEY ?? '';
   if (!RESEND_KEY) return false;
@@ -12,7 +19,7 @@ export async function sendMagicLinkEmail(to: string, link: string, name?: string
   const addr = (to ?? '').trim();
   if (!addr || !addr.includes('@')) return false;
 
-  const firstName = (name ?? '').trim().split(/\s+/)[0] || 'there';
+  const firstName = esc((name ?? '').trim().split(/\s+/)[0]) || 'there';
 
   const html = `
     <div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:560px;margin:0 auto;color:#111;">

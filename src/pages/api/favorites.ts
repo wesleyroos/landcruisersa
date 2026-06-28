@@ -5,17 +5,10 @@ import { db } from '@/db/index';
 import { favorites, listings } from '@/db/schema';
 import { getCurrentUser, unauthorized } from '@/lib/auth-user';
 import { rateLimited, clientIp } from '@/lib/rate-limit';
+import { sameOrigin } from '@/lib/http-guards';
 
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } });
-}
-
-// Reject cross-site state changes. The session cookie is SameSite=Lax (so it
-// isn't sent on cross-site POST anyway); this is a cheap second layer.
-function sameOrigin(request: Request): boolean {
-  const origin = request.headers.get('origin');
-  if (!origin) return true; // non-browser / same-origin navigations omit it
-  try { return new URL(origin).host === new URL(request.url).host; } catch { return false; }
 }
 
 async function readSlug(request: Request): Promise<string> {

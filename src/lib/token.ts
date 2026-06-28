@@ -10,6 +10,17 @@ function secret(): string | null {
   return s ? String(s) : null;
 }
 
+// Domain-separated key for user-session cookies. We derive it from the base
+// secret rather than signing with the secret directly — so even when the secret
+// falls back to ADMIN_SECRET (which is also the raw admin cookie value), the
+// user-session signing key is a distinct one-way derivation, never the admin
+// bearer itself. Set a dedicated AUTH_SECRET in prod for full separation.
+function sessionKey(): string | null {
+  const s = secret();
+  if (!s) return null;
+  return createHmac('sha256', s).update('lcsa-user-session-v1').digest('hex');
+}
+
 // URL-safe base64 without padding (cookie/URL friendly).
 function b64url(buf: Buffer): string {
   return buf.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -48,7 +59,7 @@ export interface SessionPayload {
 }
 
 export function signSession(payload: SessionPayload): string | null {
-  const key = secret();
+  const key = sessionKey();
   if (!key) return null;
   const body = b64url(Buffer.from(JSON.stringify(payload)));
   return `${body}.${hmac(body, key)}`;
@@ -56,7 +67,7 @@ export function signSession(payload: SessionPayload): string | null {
 
 export function verifySession(value: string | undefined | null): SessionPayload | null {
   if (!value) return null;
-  const key = secret();
+  const key = sessionKey();
   if (!key) return null;
   const dot = value.lastIndexOf('.');
   if (dot <= 0) return null;
