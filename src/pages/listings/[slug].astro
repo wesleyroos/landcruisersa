@@ -105,6 +105,7 @@ const vehicleSchema: Record<string, unknown> = {
   "@context": "https://schema.org",
   "@type": "Vehicle",
   "name": listing.title,
+  "brand": { "@type": "Brand", "name": "Toyota" },
   "description": listing.description,
   "vehicleModelDate": String(listing.year),
   "color": listing.colour,
