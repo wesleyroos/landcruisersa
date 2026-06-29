@@ -19,6 +19,21 @@ export function safeNextPath(next: string | null | undefined): string {
   return '/account/';
 }
 
+// The public origin (scheme://host) the browser actually used, derived from the
+// forwarded/Host headers — NOT request.url, which behind Fly's proxy is the
+// internal host. Use this for any URL we hand back to a user (e.g. the magic
+// link emailed at sign-in), or the link would point at an unreachable host.
+export function publicOrigin(request: Request): string {
+  const fwdHost = request.headers.get('x-forwarded-host');
+  const host = (fwdHost ? fwdHost.split(',')[0].trim() : '') || request.headers.get('host') || '';
+  if (host) {
+    const proto = (request.headers.get('x-forwarded-proto') || '').split(',')[0].trim()
+      || (host.startsWith('localhost') || host.startsWith('127.0.0.1') ? 'http' : 'https');
+    return `${proto}://${host}`;
+  }
+  try { return new URL(request.url).origin; } catch { return 'https://landcruisersa.co.za'; }
+}
+
 // Reject cross-site state changes. The session cookie is SameSite=Lax (so it
 // isn't sent on a cross-site POST anyway); this is a cheap second layer. A
 // missing Origin header (non-browser client / same-origin navigation) passes.

@@ -6,7 +6,7 @@ import { users, loginTokens } from '@/db/schema';
 import { randomToken, hashToken, authConfigured } from '@/lib/token';
 import { sendMagicLinkEmail } from '@/lib/user-email';
 import { rateLimited, clientIp } from '@/lib/rate-limit';
-import { safeNextPath } from '@/lib/http-guards';
+import { safeNextPath, publicOrigin } from '@/lib/http-guards';
 
 const TOKEN_TTL_MS = 30 * 60 * 1000; // 30 minutes
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -86,7 +86,7 @@ export const POST: APIRoute = async ({ request }) => {
     created_at: now,
   }).run();
 
-  const origin = new URL(request.url).origin;
+  const origin = publicOrigin(request);
   const link = `${origin}/api/auth/callback?token=${raw}&next=${encodeURIComponent(next)}`;
   await sendMagicLinkEmail(email, link, user.name);
 
