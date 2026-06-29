@@ -3,6 +3,7 @@ import '../styles/global.css';
 import Nav from '@/components/Nav.astro';
 import Footer from '@/components/Footer.astro';
 import ChatWidget from '@/components/ChatWidget.astro';
+import SigninModal from '@/components/SigninModal.astro';
 import { SITE } from '@/data/site';
 
 interface Props {
@@ -166,5 +167,6 @@ const ogImage = new URL(image, SITE.url).href;
     </main>
     <Footer />
     <ChatWidget />
+    <SigninModal />
   </body>
 </html>

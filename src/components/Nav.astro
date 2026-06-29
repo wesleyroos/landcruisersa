@@ -3,8 +3,6 @@ import { NAV_LINKS } from '@/data/navigation';
 import { getCurrentUser } from '@/lib/auth-user';
 
 const user = getCurrentUser(Astro.cookies);
-const accountHref = user ? '/account/' : '/signin/';
-const accountLabel = user ? 'Account' : 'Sign in';
 ---
 
 <header class="sticky top-0 z-50 bg-[#111111] backdrop-blur-sm border-b border-white/10">
@@ -58,13 +56,25 @@ const accountLabel = user ? 'Account' : 'Sign in';
 
       <!-- CTA + Mobile toggle -->
       <div class="flex items-center gap-3">
-        <a
-          href={accountHref}
-          class="hidden md:inline-flex items-center gap-1.5 text-sm font-heading font-bold uppercase tracking-wide text-white/80 hover:text-[#F5A623] transition-colors"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-          {accountLabel}
-        </a>
+        {user ? (
+          <a
+            href="/account/"
+            class="hidden md:inline-flex items-center gap-1.5 text-sm font-heading font-bold uppercase tracking-wide text-white/80 hover:text-[#F5A623] transition-colors"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            Account
+          </a>
+        ) : (
+          <button
+            type="button"
+            data-open-signin
+            data-next="/account/"
+            class="hidden md:inline-flex items-center gap-1.5 text-sm font-heading font-bold uppercase tracking-wide text-white/80 hover:text-[#F5A623] transition-colors cursor-pointer"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            Sign in
+          </button>
+        )}
         <a
           href="/listings/submit/"
           class="hidden md:inline-flex items-center bg-[#F5A623] text-[#111111] text-sm font-heading font-bold uppercase tracking-wide px-4 py-2 rounded hover:bg-[#D4881A] transition-colors"
@@ -118,13 +128,25 @@ const accountLabel = user ? 'Account' : 'Sign in';
           </a>
         )
       ))}
-      <a
-        href={accountHref}
-        class="px-3 py-2.5 text-sm font-heading font-bold uppercase tracking-wide text-white/80 hover:text-[#F5A623] hover:bg-white/10 rounded transition-colors flex items-center gap-2"
-      >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-        {accountLabel}
-      </a>
+      {user ? (
+        <a
+          href="/account/"
+          class="px-3 py-2.5 text-sm font-heading font-bold uppercase tracking-wide text-white/80 hover:text-[#F5A623] hover:bg-white/10 rounded transition-colors flex items-center gap-2"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          Account
+        </a>
+      ) : (
+        <button
+          type="button"
+          data-open-signin
+          data-next="/account/"
+          class="px-3 py-2.5 text-sm font-heading font-bold uppercase tracking-wide text-white/80 hover:text-[#F5A623] hover:bg-white/10 rounded transition-colors flex items-center gap-2 cursor-pointer w-full text-left"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          Sign in
+        </button>
+      )}
       <a
         href="/listings/submit/"
         class="mt-2 text-center bg-[#F5A623] text-[#111111] text-sm font-heading font-bold uppercase tracking-wide px-4 py-2.5 rounded hover:bg-[#D4881A] transition-colors"

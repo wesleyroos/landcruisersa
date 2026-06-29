@@ -1531,8 +1531,14 @@ const vehicleSchema: Record<string, unknown> = {
 
 <script>
   // Save / unsave this vehicle. The session cookie is httpOnly, so the client
-  // can't read login state — instead we call the API and, on a 401, bounce to
-  // sign-in with a return path so the user lands back here.
+  // can't read login state — instead we call the API and, on a 401, open the
+  // sign-in modal (falling back to the /signin page if it isn't loaded yet).
+  function goSignin() {
+    const next = location.pathname + location.search;
+    const w = window as any;
+    if (typeof w.lcsaSignin === 'function') w.lcsaSignin(next);
+    else location.href = `/signin/?next=${encodeURIComponent(next)}`;
+  }
   const favBtn = document.getElementById('fav-btn');
   if (favBtn) {
     const label = favBtn.querySelector('.fav-label');
@@ -1546,11 +1552,7 @@ const vehicleSchema: Record<string, unknown> = {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ slug }),
         });
-        if (res.status === 401) {
-          const next = encodeURIComponent(location.pathname + location.search);
-          location.href = `/signin/?next=${next}`;
-          return;
-        }
+        if (res.status === 401) { goSignin(); return; }
         if (!res.ok) throw new Error('request failed');
         const nowSaved = !saved;
         favBtn.dataset.saved = String(nowSaved);
@@ -1590,10 +1592,7 @@ const vehicleSchema: Record<string, unknown> = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ model: model ? [model] : [], province: province ? [province] : [] }),
       });
-      if (res.status === 401) {
-        location.href = `/signin/?next=${encodeURIComponent(location.pathname + location.search)}`;
-        return;
-      }
+      if (res.status === 401) { goSignin(); return; }
       const data = await res.json().catch(() => ({}));
       nudgeHandled = true;
       const text = nudge.querySelector('.fav-nudge-text');

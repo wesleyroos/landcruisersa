@@ -498,7 +498,10 @@ function firstPhoto(photos: string) {
   // cards are re-rendered by filtering/pagination. The heart sits inside the
   // card's <a>, so we cancel the navigation when it's clicked.
   function signinRedirect() {
-    location.href = `/signin/?next=${encodeURIComponent(location.pathname + location.search)}`;
+    const next = location.pathname + location.search;
+    const w = window as any;
+    if (typeof w.lcsaSignin === 'function') w.lcsaSignin(next);
+    else location.href = `/signin/?next=${encodeURIComponent(next)}`;
   }
   async function toggleFav(btn: HTMLElement) {
     const slug = btn.dataset.favSlug!;

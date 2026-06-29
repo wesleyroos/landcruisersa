@@ -1,0 +1,113 @@
+---
+// Global sign-in / sign-up modal. Rendered once via Base on every page. Open it
+// from anywhere by calling window.lcsaSignin(nextPath), or by giving any element
+// a [data-open-signin] attribute (optional data-next). Posts to
+// /api/auth/request-link (passwordless magic link) — same as the /signin page,
+// but in-context so the user never loses their place.
+---
+
+<div id="lcsa-signin-modal" class="hidden fixed inset-0 z-[200] flex items-center justify-center p-4">
+  <div class="absolute inset-0 bg-black/50" data-signin-close></div>
+  <div class="relative bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl">
+    <button class="absolute top-3 right-3 text-[#9CA3AF] hover:text-[#111111] text-lg leading-none" data-signin-close aria-label="Close">✕</button>
+    <h3 class="font-heading font-bold text-xl text-[#111111] mb-1.5">Sign in or create your profile</h3>
+    <p class="text-sm text-[#6B7280] mb-4">No password needed — we'll email you a secure link to sign in. Save vehicles and get price-drop alerts.</p>
+
+    <form id="lcsa-signin-form" class="space-y-3.5">
+      <input type="hidden" name="next" id="lcsa-signin-next" value="/account/" />
+      <div aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden;">
+        <label>Leave this empty <input type="text" name="lcsa_hp" tabindex="-1" autocomplete="off" /></label>
+      </div>
+      <div>
+        <label for="lcsa-signin-name" class="block text-xs font-semibold text-[#4A4A4A] uppercase tracking-wide mb-1.5">Name <span class="text-[#9CA3AF] normal-case font-normal">(optional)</span></label>
+        <input id="lcsa-signin-name" name="name" type="text" autocomplete="name" class="w-full border border-[#DDD9D3] rounded-lg px-3.5 py-2.5 text-sm focus:border-[#F5A623] focus:outline-none" placeholder="Your name" />
+      </div>
+      <div>
+        <label for="lcsa-signin-email" class="block text-xs font-semibold text-[#4A4A4A] uppercase tracking-wide mb-1.5">Email</label>
+        <input id="lcsa-signin-email" name="email" type="email" required autocomplete="email" class="w-full border border-[#DDD9D3] rounded-lg px-3.5 py-2.5 text-sm focus:border-[#F5A623] focus:outline-none" placeholder="you@example.com" />
+      </div>
+      <label class="flex items-start gap-2.5 text-xs text-[#6B7280] leading-relaxed">
+        <input name="consent" type="checkbox" class="mt-0.5 accent-[#F5A623]" />
+        <span>Email me price-drop and new-listing alerts for vehicles I save. Unsubscribe anytime.</span>
+      </label>
+      <button type="submit" id="lcsa-signin-submit" class="w-full bg-[#F5A623] text-[#111111] font-heading font-bold uppercase tracking-wide text-sm px-6 py-3 rounded-xl hover:bg-[#D4881A] transition-colors disabled:opacity-60">Email me a sign-in link</button>
+    </form>
+
+    <div id="lcsa-signin-sent" class="hidden text-center py-3">
+      <div class="text-3xl mb-2">📬</div>
+      <h4 class="font-heading text-lg font-bold text-[#111111] mb-1">Check your email</h4>
+      <p class="text-sm text-[#6B7280]">We've sent a sign-in link to <span id="lcsa-signin-sent-email" class="font-semibold text-[#111111]"></span>. Click it to finish — it expires in 30 minutes.</p>
+      <p id="lcsa-signin-devlink-wrap" class="hidden mt-3 text-xs"><a id="lcsa-signin-devlink" href="#" class="text-[#D4881A] underline">Dev: open sign-in link →</a></p>
+    </div>
+
+    <p id="lcsa-signin-err" class="hidden mt-3 text-sm text-[#991B1B]"></p>
+  </div>
+</div>
+
+<script>
+  (function () {
+    const modal = document.getElementById('lcsa-signin-modal');
+    if (!modal) return;
+    const form = document.getElementById('lcsa-signin-form') as HTMLFormElement;
+    const sent = document.getElementById('lcsa-signin-sent')!;
+    const err = document.getElementById('lcsa-signin-err')!;
+    const nextInput = document.getElementById('lcsa-signin-next') as HTMLInputElement;
+    const submit = document.getElementById('lcsa-signin-submit') as HTMLButtonElement;
+    const emailInput = document.getElementById('lcsa-signin-email') as HTMLInputElement;
+
+    function open(next?: string) {
+      if (next) nextInput.value = next;
+      form.classList.remove('hidden');
+      sent.classList.add('hidden');
+      err.classList.add('hidden');
+      submit.disabled = false;
+      submit.textContent = 'Email me a sign-in link';
+      modal.classList.remove('hidden');
+      setTimeout(() => emailInput.focus(), 50);
+    }
+    function close() { modal.classList.add('hidden'); }
+    (window as any).lcsaSignin = open;
+
+    modal.querySelectorAll('[data-signin-close]').forEach(el => el.addEventListener('click', close));
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+    document.querySelectorAll('[data-open-signin]').forEach(el => el.addEventListener('click', (e) => {
+      e.preventDefault();
+      open(el.getAttribute('data-next') || (location.pathname + location.search));
+    }));
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      err.classList.add('hidden');
+      submit.disabled = true;
+      submit.textContent = 'Sending…';
+      const fd = new FormData(form);
+      const payload = {
+        email: String(fd.get('email') ?? ''),
+        name: String(fd.get('name') ?? ''),
+        consent: fd.get('consent') === 'on',
+        next: String(fd.get('next') ?? '/account/'),
+        lcsa_hp: String(fd.get('lcsa_hp') ?? ''),
+      };
+      try {
+        const res = await fetch('/api/auth/request-link', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || data.ok === false) throw new Error(data.error || 'Something went wrong. Please try again.');
+        (document.getElementById('lcsa-signin-sent-email') as HTMLElement).textContent = payload.email;
+        form.classList.add('hidden');
+        sent.classList.remove('hidden');
+        if (data.devLink) {
+          const w = document.getElementById('lcsa-signin-devlink-wrap')!;
+          (document.getElementById('lcsa-signin-devlink') as HTMLAnchorElement).href = data.devLink;
+          w.classList.remove('hidden');
+        }
+      } catch (e2) {
+        err.textContent = (e2 as Error).message;
+        err.classList.remove('hidden');
+        submit.disabled = false;
+        submit.textContent = 'Email me a sign-in link';
+      }
+    });
+  })();
+</script>

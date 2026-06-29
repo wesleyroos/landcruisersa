@@ -162,7 +162,11 @@ function formatPrice(n: number) {
     const row = document.querySelector('.listings-row');
     if (row) {
       const loggedIn = row.getAttribute('data-logged-in') === '1';
-      const go = () => { location.href = `/signin/?next=${encodeURIComponent(location.pathname)}`; };
+      const go = () => {
+        const w = window as any;
+        if (typeof w.lcsaSignin === 'function') w.lcsaSignin(location.pathname);
+        else location.href = `/signin/?next=${encodeURIComponent(location.pathname)}`;
+      };
       const toggle = async (btn: HTMLElement) => {
         if (!loggedIn) { go(); return; }
         const slug = btn.dataset.favSlug!;
