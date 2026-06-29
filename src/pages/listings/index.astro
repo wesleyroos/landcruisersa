@@ -4,9 +4,10 @@ export const prerender = false;
 import Base from '@/layouts/Base.astro';
 import { SITE } from '@/data/site';
 import { db } from '@/db/index';
-import { listings } from '@/db/schema';
+import { listings, favorites } from '@/db/schema';
 import { inArray, desc, and, eq } from 'drizzle-orm';
 import { getRecentPriceChanges } from '@/lib/price-changes';
+import { getCurrentUser } from '@/lib/auth-user';
 
 // Only the Land Cruiser segment is public. Hilux/Fortuner (segment = 'toyota-4x4')
 // are collected for market data but never shown in the classifieds.
@@ -37,6 +38,16 @@ const data = rawListings.map(l => ({
   featured: l.featured,
 }));
 const dataJson = JSON.stringify(data).replace(/</g, '\\u003c');
+
+// Which of these listings the signed-in user has already saved — seeds the
+// heart state on the cards (server-rendered first page) and is shipped to the
+// client so re-rendered cards (filter/paginate) start in the right state.
+const currentUser = getCurrentUser(Astro.cookies);
+const favSlugs = currentUser
+  ? db.select({ s: favorites.listing_slug }).from(favorites).where(eq(favorites.user_id, currentUser.id)).all().map(r => r.s)
+  : [];
+const favSet = new Set(favSlugs);
+const favJson = JSON.stringify({ slugs: favSlugs, loggedIn: Boolean(currentUser) }).replace(/</g, '\\u003c');
 
 // Server-render only the first page (default view: active, newest first) for fast
 // first paint + no-JS fallback; the client takes over filtering/pagination.
@@ -246,6 +257,14 @@ function firstPhoto(photos: string) {
                 <span class="card-badge card-badge-drop">▼ R{Math.abs(l.drop).toLocaleString('en-ZA')}</span>
               )}
             </div>
+            <span
+              class="card-fav absolute top-3 right-3 z-10 w-9 h-9 flex items-center justify-center rounded-full bg-black/40 backdrop-blur-sm cursor-pointer hover:bg-black/60 transition-colors"
+              data-fav-slug={l.slug}
+              data-saved={favSet.has(l.slug) ? 'true' : 'false'}
+              role="button" tabindex="0" aria-label="Save vehicle"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill={favSet.has(l.slug) ? '#F5A623' : 'none'} stroke={favSet.has(l.slug) ? '#F5A623' : 'white'} stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>
+            </span>
             {l.type === 'show_off' && (
               <span class="show-off-ribbon">Community Build</span>
             )}
@@ -285,6 +304,7 @@ function firstPhoto(photos: string) {
       ))}
     </div>
     <script type="application/json" id="listings-data" set:html={dataJson}></script>
+    <script type="application/json" id="fav-data" set:html={favJson}></script>
 
     <!-- PAGINATION -->
     <div id="pagination" class="hidden mt-8 flex items-center justify-center gap-2"></div>
@@ -438,10 +458,61 @@ function firstPhoto(photos: string) {
   };
   const DATA: Listing[] = JSON.parse(document.getElementById('listings-data')!.textContent || '[]');
 
+  // Favourite state (which slugs this user has saved) + whether they're logged in.
+  const favData = JSON.parse(document.getElementById('fav-data')!.textContent || '{}');
+  const FAV: Set<string> = new Set<string>(favData.slugs || []);
+  const LOGGED_IN: boolean = Boolean(favData.loggedIn);
+
   const grid = document.getElementById('listings-grid')!;
   const emptyState = document.getElementById('empty-state')!;
   const countEl = document.getElementById('results-count')!;
   const paginationEl = document.getElementById('pagination')!;
+
+  // Heart toggle — event-delegated on the grid so it keeps working after the
+  // cards are re-rendered by filtering/pagination. The heart sits inside the
+  // card's <a>, so we cancel the navigation when it's clicked.
+  function signinRedirect() {
+    location.href = `/signin/?next=${encodeURIComponent(location.pathname + location.search)}`;
+  }
+  async function toggleFav(btn: HTMLElement) {
+    const slug = btn.dataset.favSlug!;
+    if (!LOGGED_IN) { signinRedirect(); return; }
+    const saved = btn.dataset.saved === 'true';
+    btn.style.pointerEvents = 'none';
+    try {
+      const res = await fetch('/api/favorites', {
+        method: saved ? 'DELETE' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slug }),
+      });
+      if (res.status === 401) { signinRedirect(); return; }
+      if (!res.ok) return;
+      const now = !saved;
+      if (now) FAV.add(slug); else FAV.delete(slug);
+      // Reflect on every card showing this slug (covers duplicates / re-renders).
+      document.querySelectorAll<HTMLElement>(`.card-fav[data-fav-slug="${CSS.escape(slug)}"]`).forEach(el => {
+        el.dataset.saved = String(now);
+        const svg = el.querySelector('svg');
+        if (svg) { svg.setAttribute('fill', now ? '#F5A623' : 'none'); svg.setAttribute('stroke', now ? '#F5A623' : 'white'); }
+      });
+    } finally {
+      btn.style.pointerEvents = '';
+    }
+  }
+  grid.addEventListener('click', (e) => {
+    const btn = (e.target as HTMLElement).closest('.card-fav') as HTMLElement | null;
+    if (!btn) return;
+    e.preventDefault();   // don't follow the card link
+    e.stopPropagation();
+    toggleFav(btn);
+  });
+  grid.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    const btn = (e.target as HTMLElement).closest('.card-fav') as HTMLElement | null;
+    if (!btn) return;
+    e.preventDefault();
+    toggleFav(btn);
+  });
 
   const esc = (s: unknown) => String(s).replace(/[&<>"']/g, c =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
@@ -469,10 +540,16 @@ function firstPhoto(photos: string) {
         `<span class="text-xs font-bold uppercase px-2.5 py-1 rounded-full bg-[#F5F3EE] text-[#6B7280]">${esc(l.nu)}</span>`
       : `<span class="show-off-tag"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>Show Off</span>` +
         `<span class="text-xs font-bold uppercase px-2.5 py-1 rounded-full bg-[#1c1c1c] text-[#9CA3AF]">${esc(l.nu)}</span>`;
+    const saved = FAV.has(l.slug);
+    const heart =
+      `<span class="card-fav absolute top-3 right-3 z-10 w-9 h-9 flex items-center justify-center rounded-full bg-black/40 backdrop-blur-sm cursor-pointer hover:bg-black/60 transition-colors" data-fav-slug="${esc(l.slug)}" data-saved="${saved ? 'true' : 'false'}" role="button" tabindex="0" aria-label="Save vehicle">` +
+        `<svg width="18" height="18" viewBox="0 0 24 24" fill="${saved ? '#F5A623' : 'none'}" stroke="${saved ? '#F5A623' : 'white'}" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>` +
+      `</span>`;
     return `<a href="/listings/${esc(l.slug)}/" class="${cls}">` +
       `<div class="card-img-wrap">` +
         `<img src="${esc(l.photo)}" alt="${esc(l.title)}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" width="800" height="500" loading="${i < 6 ? 'eager' : 'lazy'}" decoding="async" />` +
         `<div class="absolute top-3 left-3 flex gap-1.5 flex-wrap">${badges}</div>` +
+        heart +
         (isShow ? '<span class="show-off-ribbon">Community Build</span>' : '') +
       `</div>` +
       `<div class="p-4 sm:p-5 flex flex-col flex-1">` +
