@@ -35,8 +35,9 @@ const saved = db.select({
   .orderBy(desc(favorites.created_at))
   .all();
 
+const OG_FALLBACK = 'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/og-default.jpg';
 function firstPhoto(photos: string): string {
-  try { const a = JSON.parse(photos) as string[]; return a?.[0] ?? ''; } catch { return ''; }
+  try { const a = JSON.parse(photos) as string[]; return a?.[0] || OG_FALLBACK; } catch { return OG_FALLBACK; }
 }
 const fmt = (n: number | null | undefined) => (n ? 'R' + n.toLocaleString('en-ZA') : '—');
 ---
@@ -81,7 +82,7 @@ const fmt = (n: number | null | undefined) => (n ? 'R' + n.toLocaleString('en-ZA
             {saved.map((l) => (
               <div class="saved-card border border-[#DDD9D3] rounded-xl overflow-hidden flex flex-col" data-slug={l.slug}>
                 <a href={`/listings/${l.slug}/`} class="block aspect-[4/3] bg-[#F5F3EE] overflow-hidden">
-                  {firstPhoto(l.photos) && <img src={firstPhoto(l.photos)} alt={l.title} loading="lazy" class="w-full h-full object-cover" />}
+                  <img src={firstPhoto(l.photos)} alt={l.title} loading="lazy" class="w-full h-full object-cover" />
                 </a>
                 <div class="p-4 flex flex-col flex-1">
                   <a href={`/listings/${l.slug}/`} class="font-heading font-bold text-sm text-[#111111] hover:text-[#D4881A] line-clamp-2 mb-1">{l.title}</a>
