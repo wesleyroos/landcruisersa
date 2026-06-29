@@ -1,0 +1,54 @@
+---
+export const prerender = false;
+
+import Base from '@/layouts/Base.astro';
+import { eq } from 'drizzle-orm';
+import { db } from '@/db/index';
+import { users } from '@/db/schema';
+import { verifyScoped } from '@/lib/token';
+
+const done = Astro.url.searchParams.get('done') === '1';
+const error = Astro.url.searchParams.get('error');
+const token = Astro.url.searchParams.get('token') ?? '';
+
+// Resolve the email to show on the confirm screen (no mutation here — the GET
+// is side-effect-free so link prefetching can't unsubscribe anyone).
+let email: string | null = null;
+let validToken = false;
+if (!done && token) {
+  const payload = verifyScoped<{ uid: number }>('unsub', token);
+  if (payload && typeof payload.uid === 'number') {
+    const [u] = db.select({ email: users.email }).from(users).where(eq(users.id, payload.uid)).limit(1).all();
+    if (u) { email = u.email; validToken = true; }
+  }
+}
+---
+
+<Base title="Unsubscribe · Land Cruiser SA" description="Manage your Land Cruiser SA alert emails." noindex={true}>
+  <section class="min-h-[60vh] bg-[#F5F3EE] py-14 px-4">
+    <div class="max-w-md mx-auto bg-white border border-[#DDD9D3] rounded-2xl p-7 text-center">
+      {done ? (
+        <>
+          <div class="text-3xl mb-2">✅</div>
+          <h1 class="font-heading text-xl font-bold text-[#111111] mb-2">You're unsubscribed</h1>
+          <p class="text-sm text-[#6B7280]">You'll no longer receive price-drop or sold alerts. Your account and saved vehicles are untouched — you can re-enable alerts anytime from <a href="/account/" class="text-[#D4881A] underline">your account</a>.</p>
+        </>
+      ) : (validToken ? (
+        <>
+          <h1 class="font-heading text-xl font-bold text-[#111111] mb-2">Unsubscribe from alerts?</h1>
+          <p class="text-sm text-[#6B7280] mb-5">Stop sending price-drop and sold alerts to <span class="font-semibold text-[#111111]">{email}</span>? Your saved vehicles stay saved.</p>
+          <form method="POST" action="/api/alerts/unsubscribe">
+            <input type="hidden" name="token" value={token} />
+            <button type="submit" class="w-full bg-[#111111] text-white font-heading font-bold uppercase tracking-wide text-sm px-6 py-3 rounded-xl hover:bg-[#333] transition-colors">Unsubscribe me</button>
+          </form>
+          <a href="/account/" class="inline-block mt-4 text-sm text-[#6B7280] hover:text-[#111111] underline">Keep my alerts</a>
+        </>
+      ) : (
+        <>
+          <h1 class="font-heading text-xl font-bold text-[#111111] mb-2">Link expired</h1>
+          <p class="text-sm text-[#6B7280]">{error === 'link' ? 'That unsubscribe link was invalid.' : 'This unsubscribe link is missing or invalid.'} You can manage alerts from <a href="/account/" class="text-[#D4881A] underline">your account</a>.</p>
+        </>
+      ))}
+    </div>
+  </section>
+</Base>

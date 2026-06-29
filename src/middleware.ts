@@ -1,5 +1,6 @@
 import { defineMiddleware } from 'astro:middleware';
 import { ensurePostSuggestionScheduler } from './lib/post-suggestion-scheduler';
+import { ensureAlertsScheduler } from './lib/alerts-scheduler';
 import { rateLimited, clientIp } from './lib/rate-limit';
 
 // Per-IP throttle for the heavy SSR listing pages. Each /listings render is
@@ -14,8 +15,10 @@ const LISTINGS_MAX = 50; // requests…
 const LISTINGS_WINDOW_MS = 30_000; // …per 30s per IP (~1.6 req/s sustained)
 
 export const onRequest = defineMiddleware(async ({ url, cookies, redirect, request }, next) => {
-  // Idempotent — starts the daily IG-email timer on the first request after boot.
+  // Idempotent — starts the daily IG-email + saved-vehicle-alert timers on the
+  // first request after boot.
   ensurePostSuggestionScheduler();
+  ensureAlertsScheduler();
 
   const path = url.pathname;
   const isAdminArea = path.startsWith('/admin');

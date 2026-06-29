@@ -87,3 +87,37 @@ export function verifySession(value: string | undefined | null): SessionPayload 
 export function authConfigured(): boolean {
   return secret() !== null;
 }
+
+// ── Scoped action tokens (e.g. one-click unsubscribe links in emails) ─────────
+// Same tamper-evident format as the session, but signed with a key derived per
+// purpose so an unsubscribe token can never be used as a session and vice-versa.
+function scopedKey(purpose: string): string | null {
+  const s = secret();
+  if (!s) return null;
+  return createHmac('sha256', s).update(`lcsa-scope-${purpose}-v1`).digest('hex');
+}
+
+export function signScoped(purpose: string, payload: Record<string, unknown>): string | null {
+  const key = scopedKey(purpose);
+  if (!key) return null;
+  const body = b64url(Buffer.from(JSON.stringify(payload)));
+  return `${body}.${hmac(body, key)}`;
+}
+
+export function verifyScoped<T = Record<string, unknown>>(purpose: string, value: string | undefined | null): T | null {
+  if (!value) return null;
+  const key = scopedKey(purpose);
+  if (!key) return null;
+  const dot = value.lastIndexOf('.');
+  if (dot <= 0) return null;
+  const body = value.slice(0, dot);
+  const sig = value.slice(dot + 1);
+  if (!safeEqual(sig, hmac(body, key))) return null;
+  try {
+    const payload = JSON.parse(fromB64url(body).toString('utf8')) as T & { exp?: number };
+    if (payload && typeof payload.exp === 'number' && payload.exp * 1000 < Date.now()) return null;
+    return payload as T;
+  } catch {
+    return null;
+  }
+}

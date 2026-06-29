@@ -1,0 +1,21 @@
+name: Daily saved-vehicle alerts (backup)
+
+# BACKUP trigger only. The primary is the Fly server-side scheduler
+# (src/lib/alerts-scheduler.ts), which fires reliably at 08:00 SAST. GitHub
+# scheduled runs are chronically delayed, so this just catches the rare day the
+# server was mid-deploy at 08:00. The endpoint has a once-a-day guard (plus
+# exact per-favourite dedup), so a late run here no-ops or sends nothing new.
+on:
+  schedule:
+    - cron: '0 7 * * *'   # ~09:00 SAST target; GitHub usually runs it later
+  workflow_dispatch:
+
+jobs:
+  alerts:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger saved-vehicle alert sweep
+        run: |
+          curl -sf -X POST "${{ secrets.SITE_URL }}/api/cron/alerts" \
+            -H "Authorization: Bearer ${{ secrets.INGEST_TOKEN }}" \
+            -o /dev/null -w "HTTP %{http_code}\n"
