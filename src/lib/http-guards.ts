@@ -22,8 +22,21 @@ export function safeNextPath(next: string | null | undefined): string {
 // Reject cross-site state changes. The session cookie is SameSite=Lax (so it
 // isn't sent on a cross-site POST anyway); this is a cheap second layer. A
 // missing Origin header (non-browser client / same-origin navigation) passes.
+//
+// Compare the browser's Origin to the forwarded/Host header — NOT request.url:
+// behind Fly's proxy request.url carries the internal host, so comparing to it
+// 403s legitimate same-origin requests. The Host/X-Forwarded-Host header is the
+// public domain the browser actually used. Still CSRF-safe: a cross-site caller
+// can't forge the Origin header, so its Origin won't match our Host.
 export function sameOrigin(request: Request): boolean {
   const origin = request.headers.get('origin');
   if (!origin) return true;
-  try { return new URL(origin).host === new URL(request.url).host; } catch { return false; }
+  try {
+    const originHost = new URL(origin).host;
+    const fwd = request.headers.get('x-forwarded-host');
+    const host = (fwd ? fwd.split(',')[0].trim() : '')
+      || request.headers.get('host')
+      || new URL(request.url).host;
+    return originHost === host;
+  } catch { return false; }
 }
