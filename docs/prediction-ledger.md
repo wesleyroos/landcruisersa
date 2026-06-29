@@ -162,3 +162,24 @@ date, compare to baseline, mark HIT / MISS / PARTIAL, and write the lesson.
 - **Lesson:** _tbd_
 
 ---
+
+## P7 — User accounts + favourites + saved-search alerts (engagement loop)
+
+- **Opened:** 2026-06-29
+- **Review on:** 2026-07-27 *(4-week first checkpoint — tiny-sample BY DESIGN; judge on raw counts and re-arm a later review. Every % below is noise until ≥50 events at that step.)*
+- **Surface:** the whole accounts feature shipped 2026-06-29 — passwordless (magic-link) sign-in, save (heart) on home/grid/detail, saved searches, and the daily price-drop / sold / new-match alert emails. Alert email links tagged `?utm_source=alert&utm_campaign=…`.
+- **Thesis:** Traffic is the binding constraint and there is **no on-site checkout** (a Cruiser is a R300k–1.5m considered, mostly off-site/offline purchase). So this feature's job is NOT direct sales — it is to (a) build an **owned, opted-in email list** (an asset LCSA doesn't have today, and an exit-diligence asset), and (b) **manufacture return visits** by turning anonymous one-time visitors into registered, returning, warmer leads via alert emails. Manage on raw weekly counts, not conversion %.
+- **Baseline (2026-06-29 launch):** 0 verified users, 0 favourites, 0 saved searches, 0 alert click-backs (excluding internal test signups `@grodigital.co.za` / `@landcruisersa.co.za`). Traffic ~250–350 visitors/wk.
+- **Benchmark basis (adversarially calibrated DOWN for a cold-start niche site — not vendor warm-list figures; research workflow 2026-06-29):** magic-link completion 35–55%; save adoption <1–2% of visitors; triggered-alert open 35–45% reported / CTR 3–8%; return-visit ≈ the click-back. Big-brand subscriber-vs-non-subscriber "lift" stats are unpublished/fabricated — do not borrow them.
+- **Predictions (4-week window, review 2026-07-27) — PRIMARY metrics are raw counts:**
+  1. *(PRIMARY — owned list)* **≥ 5 verified users**, growing week-over-week (not flat). `SELECT count(*) FROM users WHERE verified_at IS NOT NULL AND email NOT LIKE '%@grodigital.co.za' AND email NOT LIKE '%@landcruisersa.co.za';`
+  2. *(saves loop alive)* **≥ 8 saves** (favourites + saved searches combined). `SELECT (SELECT count(*) FROM favorites) + (SELECT count(*) FROM saved_searches);` — **Red flag:** 0 saves in week 1 with >150 visitors → discoverability, or the signup-wall is killing intent at the click.
+  3. *(drop-off — secondary, gated)* magic-link **verification ≥ 40%**, graded ONLY if ≥10 signups; below that report the raw fraction and treat as directional. `SELECT sum(verified_at IS NOT NULL) AS verified, count(*) AS signups FROM users WHERE email NOT LIKE '%@grodigital.co.za' AND email NOT LIKE '%@landcruisersa.co.za';` — **Red flag:** <30% → deliverability (SPF/DKIM/DMARC, Gmail Promotions/spam), not disinterest.
+  4. *(re-engagement — the actual point of the feature; gated on alert VOLUME)* **≥ 1 alert click-back** once alerts have fired ≥10×; long-run target ≥ 4% click-back per send. `SELECT count(*) FROM visit_events WHERE utm_source='alert';` (+ Plausible utm_source=alert). Alerts fired: `SELECT (SELECT count(*) FROM favorites WHERE last_notified_at IS NOT NULL) + (SELECT count(*) FROM saved_searches WHERE last_notified_at IS NOT NULL);` *(May be ~0 early simply because few saved cars have changed yet — that's volume, not failure.)*
+  5. *(secondary)* **≥ 60% of signups opt in** to alerts. `SELECT sum(consent_at IS NOT NULL) AS opted_in, count(*) FROM users WHERE email NOT LIKE '%@grodigital.co.za' AND email NOT LIKE '%@landcruisersa.co.za';`
+- **Pre-registered failure hypothesis (so a miss isn't rationalised away):** if saves ≈ 0 after 4 weeks despite >600 visitors, the prime suspect is the **account-gate** — you must sign up to save, which compounds two low-probability gates (intent-to-save × willingness-to-sign-up). Pre-committed next experiment if so: **guest-save** (capture email on save, defer the full profile). Real accounts were a deliberate product choice; this is the data-triggered fallback, not a default.
+- **Most-watched (manage the feature on these, raw counts, vs the clean 2026-06-17 conversion baseline):** net-new verified emails/wk · saves/wk · alert click-backs/wk · downstream finance_calc / valuation / enquiry events attributable to alert click-backs.
+- **Result:** _pending 2026-07-27_
+- **Lesson:** _tbd_
+
+---
