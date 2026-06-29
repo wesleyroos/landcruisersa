@@ -81,6 +81,16 @@ const user = getCurrentUser(Astro.cookies);
         >
           List Your Vehicle
         </a>
+        <!-- Always-visible account access on phones (no menu-digging) -->
+        {user ? (
+          <a href="/account/" class="md:hidden p-2 text-white/80 hover:text-[#F5A623]" aria-label="My account">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          </a>
+        ) : (
+          <button type="button" data-open-signin data-next="/account/" class="md:hidden p-2 text-white/80 hover:text-[#F5A623] cursor-pointer" aria-label="Sign in">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          </button>
+        )}
         <button
           id="mobile-menu-toggle"
           class="lg:hidden p-2 text-white/80 hover:text-[#F5A623]"
@@ -99,6 +109,26 @@ const user = getCurrentUser(Astro.cookies);
   <!-- Mobile menu -->
   <div id="mobile-menu" class="hidden lg:hidden border-t border-white/10">
     <nav class="max-w-7xl mx-auto px-4 py-4 flex flex-col gap-1">
+      <!-- Account / sign-in first, so it's the first thing in the menu -->
+      {user ? (
+        <a
+          href="/account/"
+          class="mb-1 pb-3 border-b border-white/10 px-3 py-2.5 text-sm font-heading font-bold uppercase tracking-wide text-[#F5A623] hover:bg-white/10 rounded transition-colors flex items-center gap-2"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          My Account
+        </a>
+      ) : (
+        <button
+          type="button"
+          data-open-signin
+          data-next="/account/"
+          class="mb-1 pb-3 border-b border-white/10 px-3 py-2.5 text-sm font-heading font-bold uppercase tracking-wide text-[#F5A623] hover:bg-white/10 rounded transition-colors flex items-center gap-2 cursor-pointer w-full text-left"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          Sign in / Create profile
+        </button>
+      )}
       {NAV_LINKS.map(link => (
         link.children ? (
           <div>
@@ -128,25 +158,6 @@ const user = getCurrentUser(Astro.cookies);
           </a>
         )
       ))}
-      {user ? (
-        <a
-          href="/account/"
-          class="px-3 py-2.5 text-sm font-heading font-bold uppercase tracking-wide text-white/80 hover:text-[#F5A623] hover:bg-white/10 rounded transition-colors flex items-center gap-2"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-          Account
-        </a>
-      ) : (
-        <button
-          type="button"
-          data-open-signin
-          data-next="/account/"
-          class="px-3 py-2.5 text-sm font-heading font-bold uppercase tracking-wide text-white/80 hover:text-[#F5A623] hover:bg-white/10 rounded transition-colors flex items-center gap-2 cursor-pointer w-full text-left"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-          Sign in
-        </button>
-      )}
       <a
         href="/listings/submit/"
         class="mt-2 text-center bg-[#F5A623] text-[#111111] text-sm font-heading font-bold uppercase tracking-wide px-4 py-2.5 rounded hover:bg-[#D4881A] transition-colors"
