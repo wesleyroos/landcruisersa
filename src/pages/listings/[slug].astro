@@ -3,7 +3,7 @@ export const prerender = false;
 
 import Base from '@/layouts/Base.astro';
 import { db } from '@/db/index';
-import { listings, favorites } from '@/db/schema';
+import { listings, favorites, savedSearches } from '@/db/schema';
 import { and, eq, ne } from 'drizzle-orm';
 import { getCurrentUser } from '@/lib/auth-user';
 // NB: do NOT import modelLabel/normalize here — this page already pulls modelLabel
@@ -58,10 +58,24 @@ const gridPhotos = photos.slice(1, 5);
 // Is this listing already saved by the signed-in user? (drives the heart state)
 const currentUser = getCurrentUser(Astro.cookies);
 let isFavorited = false;
+let hasMatchingSearch = false;   // suppress the save-search nudge if already covered
 if (currentUser) {
   const [fav] = await db.select({ id: favorites.id }).from(favorites)
     .where(and(eq(favorites.user_id, currentUser.id), eq(favorites.listing_slug, listing.slug)));
   isFavorited = Boolean(fav);
+
+  // Already has a saved search that would alert on this car (same model + province,
+  // or a broader one)? Then don't nudge them to make another.
+  const userSearches = await db.select({ model: savedSearches.model, province: savedSearches.province })
+    .from(savedSearches)
+    .where(and(eq(savedSearches.user_id, currentUser.id), eq(savedSearches.active, true)));
+  hasMatchingSearch = userSearches.some(s => {
+    const models = (s.model ?? '').split(',').filter(Boolean);
+    const provinces = (s.province ?? '').split(',').filter(Boolean);
+    const modelOk = models.length === 0 || models.includes(listing.model);
+    const provOk = provinces.length === 0 || !listing.province || provinces.includes(listing.province);
+    return modelOk && provOk;
+  });
 }
 
 function maskPhone(phone: string): string {
@@ -224,14 +238,17 @@ const vehicleSchema: Record<string, unknown> = {
     </div>
   </div>
 
-  <!-- SAVE-SEARCH NUDGE (revealed after you favourite this vehicle) -->
-  <div id="fav-nudge" class="fav-nudge-wrap hidden" data-model={listing.model} data-province={listing.province}>
-    <div class="fav-nudge">
-      <span class="fav-nudge-text">Saved! Want alerts for more <strong>{mLabel}</strong>{listing.province ? <> in <strong>{listing.province}</strong></> : null}?</span>
-      <button id="nudge-yes" class="fav-nudge-yes" type="button">Yes, alert me</button>
-      <button id="nudge-dismiss" class="fav-nudge-x" type="button" aria-label="Dismiss">✕</button>
+  <!-- SAVE-SEARCH NUDGE (revealed after you favourite this vehicle; hidden if the
+       user already has a saved search that covers this car) -->
+  {!hasMatchingSearch && (
+    <div id="fav-nudge" class="fav-nudge-wrap hidden" data-model={listing.model} data-province={listing.province}>
+      <div class="fav-nudge">
+        <span class="fav-nudge-text">Saved! Want alerts for more <strong>{mLabel}</strong>{listing.province ? <> in <strong>{listing.province}</strong></> : null}?</span>
+        <button id="nudge-yes" class="fav-nudge-yes" type="button">Yes, alert me</button>
+        <button id="nudge-dismiss" class="fav-nudge-x" type="button" aria-label="Dismiss">✕</button>
+      </div>
     </div>
-  </div>
+  )}
 
   <!-- PHOTO MOSAIC -->
   <div class="section-mosaic">
@@ -995,7 +1012,7 @@ const vehicleSchema: Record<string, unknown> = {
   .fav-btn[disabled] { opacity: 0.6; cursor: default; }
 
   /* Save-search nudge (appears after favouriting) */
-  .fav-nudge-wrap { margin: 1rem 0 0.75rem; }
+  .fav-nudge-wrap { margin: 1rem auto 0.75rem; }
   .fav-nudge-wrap.hidden { display: none; }
   .fav-nudge {
     display: flex; align-items: center; gap: 0.75rem 1rem; flex-wrap: wrap;
