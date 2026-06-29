@@ -149,10 +149,13 @@ const vehicleSchema: Record<string, unknown> = {
       "price": listing.price,
       "priceCurrency": "ZAR",
       "availability": isSold ? "https://schema.org/SoldOut" : "https://schema.org/InStock",
-      "seller": {
-        "@type": "Person",
-        "name": listing.seller_name
-      }
+      // Drop the seller identity from structured data once sold.
+      ...(isSold ? {} : {
+        "seller": {
+          "@type": "Person",
+          "name": listing.seller_name
+        }
+      })
     }
   } : {})
 };
@@ -555,23 +558,29 @@ const vehicleSchema: Record<string, unknown> = {
                 {isExternal ? (
                   <>
                     <p class="seller-label">Dealer</p>
-                    <p class="seller-name">{listing.seller_name}</p>
+                    {!isSold && <p class="seller-name">{listing.seller_name}</p>}
                     <p class="seller-source">Listed on AutoTrader</p>
                   </>
                 ) : (
                   <>
                     <p class="seller-label">Private Seller</p>
-                    <p class="seller-name">{listing.seller_name}</p>
-                    <button type="button" class="seller-contact reveal-contact" data-reveal="phone">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg>
-                      <span class="reveal-masked">{maskPhone(listing.seller_phone)}</span>
-                      <span class="reveal-cta">Show number</span>
-                    </button>
-                    <button type="button" class="seller-contact reveal-contact" data-reveal="email">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>
-                      <span class="reveal-masked">{maskEmail(listing.seller_email)}</span>
-                      <span class="reveal-cta">Show email</span>
-                    </button>
+                    {/* Sold: hide the seller's name + contact (the reveal API already
+                        404s on non-active listings, so this just matches the UI). */}
+                    {!isSold && (
+                      <>
+                        <p class="seller-name">{listing.seller_name}</p>
+                        <button type="button" class="seller-contact reveal-contact" data-reveal="phone">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg>
+                          <span class="reveal-masked">{maskPhone(listing.seller_phone)}</span>
+                          <span class="reveal-cta">Show number</span>
+                        </button>
+                        <button type="button" class="seller-contact reveal-contact" data-reveal="email">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>
+                          <span class="reveal-masked">{maskEmail(listing.seller_email)}</span>
+                          <span class="reveal-cta">Show email</span>
+                        </button>
+                      </>
+                    )}
                   </>
                 )}
               </div>
