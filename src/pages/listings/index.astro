@@ -222,7 +222,33 @@ function firstPhoto(photos: string) {
         </div>
       </div>
       <span id="results-count" class="self-center text-sm text-[#6B7280] ml-auto"></span>
-      <button id="clear-filters-bar" type="button" class="hidden self-center text-sm font-semibold text-[#F5A623] hover:underline">Clear filters ✕</button>
+      <button id="save-search-bar" type="button" class="hidden self-center inline-flex items-center gap-1.5 text-xs font-heading font-bold uppercase tracking-wide bg-[#F5A623] text-[#111111] px-3.5 py-1.5 rounded-full hover:bg-[#D4881A] transition-colors">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+        Save this search
+      </button>
+      <button id="clear-filters-bar" type="button" class="hidden self-center text-sm font-semibold text-[#6B7280] hover:text-[#111111] hover:underline">Clear filters ✕</button>
+    </div>
+
+    <!-- SAVE-SEARCH EXPLAINER MODAL -->
+    <div id="save-search-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center p-4">
+      <div class="absolute inset-0 bg-black/50" data-close></div>
+      <div class="relative bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl">
+        <button class="absolute top-3 right-3 text-[#9CA3AF] hover:text-[#111111] text-lg leading-none" data-close aria-label="Close">✕</button>
+        <div class="flex items-center gap-2 mb-2">
+          <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-[#FFF7E6]">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F5A623" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+          </span>
+          <h3 class="font-heading font-bold text-lg text-[#111111]">Get alerts for this search</h3>
+        </div>
+        <p class="text-sm text-[#6B7280] mb-4">Save these filters and we'll <strong class="text-[#111111]">email you the moment a new Land Cruiser is listed that matches</strong> — so you see it before everyone else. Unsubscribe anytime.</p>
+        <p class="text-[11px] font-bold uppercase tracking-wide text-[#9CA3AF] mb-1.5">We'll watch for</p>
+        <div id="ss-modal-crit" class="text-sm font-semibold text-[#111111] bg-[#F5F3EE] border border-[#DDD9D3] rounded-lg px-3.5 py-2.5 mb-5"></div>
+        <div class="flex gap-2.5">
+          <button id="ss-cancel" data-close type="button" class="flex-1 border border-[#DDD9D3] text-[#4A4A4A] font-heading font-bold uppercase text-xs tracking-wide py-2.5 rounded-lg hover:border-[#999] transition-colors">Cancel</button>
+          <button id="ss-confirm" type="button" class="flex-1 bg-[#F5A623] text-[#111111] font-heading font-bold uppercase text-xs tracking-wide py-2.5 rounded-lg hover:bg-[#D4881A] transition-colors disabled:opacity-60">Save &amp; alert me</button>
+        </div>
+        <p id="ss-modal-note" class="hidden text-sm text-center mt-3 font-semibold"></p>
+      </div>
     </div>
 
     <!-- GRID — first page server-rendered; client re-renders from JSON below -->
@@ -875,6 +901,7 @@ function firstPhoto(photos: string) {
     countEl.textContent = `${matched.length} listing${matched.length !== 1 ? 's' : ''}`;
     renderPagination(matched.length, totalPages);
     document.getElementById('clear-filters-bar')?.classList.toggle('hidden', !anyFilterActive());
+    document.getElementById('save-search-bar')?.classList.toggle('hidden', !anySaveableFilter());
   }
 
   typePills.forEach(pill => {
@@ -896,6 +923,11 @@ function firstPhoto(photos: string) {
       selectedMileages.length > 0 || priceMin > 0 || isFinite(priceMax) ||
       yearMin > 0 || isFinite(yearMax) || activeType !== 'all';
   }
+  // Filters that can be saved as a search (mileage/type aren't saved-search criteria).
+  function anySaveableFilter(): boolean {
+    return selectedModels.length > 0 || selectedProvinces.length > 0 ||
+      priceMin > 0 || isFinite(priceMax) || yearMin > 0 || isFinite(yearMax);
+  }
   function clearAllFilters() {
     msBoxes.forEach(b => { b.checked = false; });
     updateModelLabel();
@@ -911,6 +943,77 @@ function firstPhoto(photos: string) {
   }
   document.getElementById('reset-filters')?.addEventListener('click', clearAllFilters);
   clearBtnBar?.addEventListener('click', clearAllFilters);
+
+  // Save the current filters as an alert-able search — opens an explainer modal.
+  const saveSearchBtn = document.getElementById('save-search-bar') as HTMLButtonElement | null;
+  const ssModal = document.getElementById('save-search-modal');
+  const ssCrit = document.getElementById('ss-modal-crit');
+  const ssConfirm = document.getElementById('ss-confirm') as HTMLButtonElement | null;
+  const ssCancel = document.getElementById('ss-cancel');
+  const ssNote = document.getElementById('ss-modal-note');
+
+  const prettyModel = (m: string) => m.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  function currentSearchPayload() {
+    return {
+      model: selectedModels,
+      province: selectedProvinces,
+      price_min: priceMin > 0 ? priceMin : null,
+      price_max: isFinite(priceMax) ? priceMax : null,
+      year_min: yearMin > 0 ? yearMin : null,
+      year_max: isFinite(yearMax) ? yearMax : null,
+    };
+  }
+  function searchSummary(): string {
+    const parts: string[] = [];
+    parts.push(selectedModels.length ? selectedModels.map(prettyModel).join(', ') : 'Any Land Cruiser');
+    if (yearMin > 0 || isFinite(yearMax)) parts.push(`${yearMin > 0 ? yearMin : '…'}–${isFinite(yearMax) ? yearMax : '…'}`);
+    if (priceMin > 0 || isFinite(priceMax)) {
+      const lo = priceMin > 0 ? 'R' + priceMin.toLocaleString('en-ZA') : 'R0';
+      const hi = isFinite(priceMax) ? 'R' + priceMax.toLocaleString('en-ZA') : 'any';
+      parts.push(`${lo}–${hi}`);
+    }
+    if (selectedProvinces.length) parts.push(selectedProvinces.join(', '));
+    return parts.join(' · ');
+  }
+  function closeSsModal() { ssModal?.classList.add('hidden'); }
+  function openSsModal() {
+    if (!ssModal) return;
+    if (ssCrit) ssCrit.textContent = searchSummary();
+    if (ssNote) { ssNote.classList.add('hidden'); ssNote.textContent = ''; }
+    if (ssConfirm) { ssConfirm.disabled = false; ssConfirm.style.display = ''; }
+    if (ssCancel) ssCancel.textContent = 'Cancel';
+    ssModal.classList.remove('hidden');
+  }
+  saveSearchBtn?.addEventListener('click', () => {
+    if (!LOGGED_IN) { signinRedirect(); return; }
+    openSsModal();
+  });
+  ssModal?.querySelectorAll('[data-close]').forEach(el => el.addEventListener('click', closeSsModal));
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSsModal(); });
+  ssConfirm?.addEventListener('click', async () => {
+    ssConfirm.disabled = true;
+    try {
+      const res = await fetch('/api/saved-search', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(currentSearchPayload()),
+      });
+      if (res.status === 401) { signinRedirect(); return; }
+      const data = await res.json().catch(() => ({}));
+      if (!ssNote) return;
+      ssNote.classList.remove('hidden');
+      if (res.ok && data.ok) {
+        ssNote.textContent = "✓ Saved — we'll email you when a match is listed.";
+        ssNote.style.color = '#15803D';
+        ssConfirm.style.display = 'none';
+        if (ssCancel) ssCancel.textContent = 'Done';
+      } else {
+        ssNote.textContent = data.error || 'Could not save. Please try again.';
+        ssNote.style.color = '#991B1B';
+        ssConfirm.disabled = false;
+      }
+    } catch {
+      ssConfirm.disabled = false;
+    }
+  });
 
   // Pre-select models from ?model= (e.g. market-page "browse listings" links)
   const urlModels = new URLSearchParams(location.search).get('model');

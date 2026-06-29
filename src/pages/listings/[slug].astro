@@ -224,6 +224,15 @@ const vehicleSchema: Record<string, unknown> = {
     </div>
   </div>
 
+  <!-- SAVE-SEARCH NUDGE (revealed after you favourite this vehicle) -->
+  <div id="fav-nudge" class="fav-nudge-wrap hidden" data-model={listing.model} data-province={listing.province}>
+    <div class="fav-nudge">
+      <span class="fav-nudge-text">Saved! Want alerts for more <strong>{mLabel}</strong>{listing.province ? <> in <strong>{listing.province}</strong></> : null}?</span>
+      <button id="nudge-yes" class="fav-nudge-yes" type="button">Yes, alert me</button>
+      <button id="nudge-dismiss" class="fav-nudge-x" type="button" aria-label="Dismiss">✕</button>
+    </div>
+  </div>
+
   <!-- PHOTO MOSAIC -->
   <div class="section-mosaic">
     <div class={`mosaic ${gridPhotos.length > 0 ? 'mosaic-split' : 'mosaic-single'}`}>
@@ -895,6 +904,7 @@ const vehicleSchema: Record<string, unknown> = {
   /* Every section centres content and adds horizontal padding */
   .section-breadcrumb,
   .section-header,
+  .fav-nudge-wrap,
   .section-mosaic,
   .section-chips,
   .section-body,
@@ -983,6 +993,29 @@ const vehicleSchema: Record<string, unknown> = {
   .fav-btn.is-saved { border-color: #F5A623; color: #111111; }
   .fav-btn.is-saved .fav-heart { fill: #F5A623; stroke: #F5A623; }
   .fav-btn[disabled] { opacity: 0.6; cursor: default; }
+
+  /* Save-search nudge (appears after favouriting) */
+  .fav-nudge-wrap { margin-top: 0.75rem; }
+  .fav-nudge-wrap.hidden { display: none; }
+  .fav-nudge {
+    display: flex; align-items: center; gap: 0.875rem; flex-wrap: wrap;
+    background: #FFF7E6; border: 1px solid rgba(245,166,35,0.45);
+    border-radius: 0.75rem; padding: 0.75rem 1rem;
+  }
+  .fav-nudge-text { font-size: 0.875rem; color: #111111; flex: 1; min-width: 12rem; }
+  .fav-nudge-yes {
+    background: #F5A623; color: #111111; border: none; cursor: pointer;
+    font-family: var(--font-heading); font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.05em; font-size: 0.75rem; padding: 0.5rem 1rem; border-radius: 0.5rem;
+    transition: background 0.15s;
+  }
+  .fav-nudge-yes:hover { background: #D4881A; }
+  .fav-nudge-yes[disabled] { opacity: 0.6; cursor: default; }
+  .fav-nudge-x {
+    background: none; border: none; cursor: pointer; color: #9CA3AF;
+    font-size: 1rem; line-height: 1; padding: 0.25rem;
+  }
+  .fav-nudge-x:hover { color: #111111; }
 
   /* MOSAIC */
   .mosaic {
@@ -1524,6 +1557,8 @@ const vehicleSchema: Record<string, unknown> = {
         favBtn.setAttribute('aria-pressed', String(nowSaved));
         favBtn.classList.toggle('is-saved', nowSaved);
         if (label) label.textContent = nowSaved ? 'Saved' : 'Save';
+        // Just saved? Offer a matching alert search (once per page view).
+        if (nowSaved) maybeShowNudge();
       } catch {
         // leave state unchanged on failure
       } finally {
@@ -1531,5 +1566,46 @@ const vehicleSchema: Record<string, unknown> = {
       }
     });
   }
+
+  // ── Favourite → "alert me for similar" nudge ──
+  const nudge = document.getElementById('fav-nudge');
+  let nudgeHandled = false;   // don't re-show after accept/dismiss this page view
+  function maybeShowNudge() {
+    if (!nudge || nudgeHandled) return;
+    nudge.classList.remove('hidden');
+  }
+  document.getElementById('nudge-dismiss')?.addEventListener('click', () => {
+    nudgeHandled = true;
+    nudge?.classList.add('hidden');
+  });
+  document.getElementById('nudge-yes')?.addEventListener('click', async () => {
+    if (!nudge) return;
+    const yes = document.getElementById('nudge-yes') as HTMLButtonElement;
+    const model = nudge.dataset.model;
+    const province = nudge.dataset.province;
+    yes.disabled = true;
+    try {
+      const res = await fetch('/api/saved-search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: model ? [model] : [], province: province ? [province] : [] }),
+      });
+      if (res.status === 401) {
+        location.href = `/signin/?next=${encodeURIComponent(location.pathname + location.search)}`;
+        return;
+      }
+      const data = await res.json().catch(() => ({}));
+      nudgeHandled = true;
+      const text = nudge.querySelector('.fav-nudge-text');
+      if (res.ok && data.ok) {
+        if (text) text.innerHTML = "✓ Done — we'll email you when a match is listed. Manage in <a href='/account/' style='color:#D4881A;text-decoration:underline;'>your account</a>.";
+        yes.style.display = 'none';
+      } else {
+        if (text) text.textContent = data.error || 'Could not save that search.';
+      }
+    } catch {
+      yes.disabled = false;
+    }
+  });
 </script>
 

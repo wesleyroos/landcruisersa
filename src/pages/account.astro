@@ -3,12 +3,18 @@ export const prerender = false;
 
 import Base from '@/layouts/Base.astro';
 import { db } from '@/db/index';
-import { favorites, listings } from '@/db/schema';
+import { favorites, listings, savedSearches } from '@/db/schema';
 import { and, desc, eq } from 'drizzle-orm';
 import { getCurrentUser } from '@/lib/auth-user';
 
 const user = getCurrentUser(Astro.cookies);
 if (!user) return Astro.redirect('/signin/?next=/account/');
+
+// Saved searches — alert-able filter sets.
+const searches = db.select().from(savedSearches)
+  .where(and(eq(savedSearches.user_id, user.id), eq(savedSearches.active, true)))
+  .orderBy(desc(savedSearches.created_at))
+  .all();
 
 // Saved cars — join favourites to their listing (by slug, robust to null id).
 const saved = db.select({
@@ -96,6 +102,27 @@ const fmt = (n: number | null | undefined) => (n ? 'R' + n.toLocaleString('en-ZA
           </div>
         )}
       </div>
+
+      <!-- Saved searches -->
+      <div class="bg-white border border-[#DDD9D3] rounded-2xl p-6 mt-6">
+        <h2 class="font-heading text-sm font-bold text-[#111111] uppercase tracking-wide mb-1">Saved searches <span class="text-[#9CA3AF]">({searches.length})</span></h2>
+        <p class="text-xs text-[#6B7280] mb-4">We'll email you when a new Land Cruiser matches one of these.</p>
+        {searches.length === 0 ? (
+          <p class="text-sm text-[#6B7280]">No saved searches yet. Set filters on the <a href="/listings/" class="text-[#D4881A] underline">listings page</a> and tap "Save this search".</p>
+        ) : (
+          <div class="flex flex-col gap-2" id="searches-list">
+            {searches.map(s => (
+              <div class="search-row flex items-center justify-between gap-3 border border-[#DDD9D3] rounded-lg px-4 py-3" data-id={s.id}>
+                <div class="flex items-center gap-2.5 min-w-0">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F5A623" stroke-width="2" class="flex-shrink-0"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+                  <span class="text-sm font-semibold text-[#111111] truncate">{s.label}</span>
+                </div>
+                <button class="remove-search text-xs text-[#9CA3AF] hover:text-[#991B1B] flex-shrink-0" data-id={s.id} aria-label="Remove">Remove</button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   </section>
 </Base>
@@ -113,6 +140,19 @@ const fmt = (n: number | null | undefined) => (n ? 'R' + n.toLocaleString('en-ZA
       if (res.ok) {
         document.querySelector(`.saved-card[data-slug="${slug}"]`)?.remove();
       }
+    });
+  });
+
+  document.querySelectorAll('.remove-search').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const id = Number((btn as HTMLElement).dataset.id);
+      if (!id) return;
+      const res = await fetch('/api/saved-search', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      });
+      if (res.ok) document.querySelector(`.search-row[data-id="${id}"]`)?.remove();
     });
   });
 </script>
