@@ -87,7 +87,9 @@ export const POST: APIRoute = async ({ request }) => {
   }).run();
 
   const origin = publicOrigin(request);
-  const link = `${origin}/api/auth/callback?token=${raw}&next=${encodeURIComponent(next)}`;
+  // Link to the verify PAGE (GET = no token consumption); it POSTs to the
+  // callback to actually sign in, so email link-scanners can't burn the token.
+  const link = `${origin}/auth/verify?token=${raw}&next=${encodeURIComponent(next)}`;
   await sendMagicLinkEmail(email, link, user.name);
 
   // In dev only (no PROD build), return the link so the flow is testable without

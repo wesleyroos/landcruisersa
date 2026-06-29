@@ -7,27 +7,30 @@ import { hashToken } from '@/lib/token';
 import { setSession } from '@/lib/auth-user';
 import { safeNextPath } from '@/lib/http-guards';
 
-function fail(redirect: (path: string) => Response): Response {
-  return redirect('/signin/?error=link');
+// Consumes a magic-link token and starts a session. This is a POST (submitted by
+// the /auth/verify page) on purpose: email security scanners and link-preview
+// bots issue GETs and don't run JS, so they can't burn the one-time token before
+// the human clicks. The error reason is passed through for diagnosis.
+function fail(redirect: (p: string) => Response, reason: string): Response {
+  return redirect(`/signin/?error=${reason}`);
 }
 
-export const GET: APIRoute = async ({ request, cookies, redirect }) => {
-  const url = new URL(request.url);
-  const raw = url.searchParams.get('token') ?? '';
-  const next = safeNextPath(url.searchParams.get('next'));
-  if (!raw) return fail(redirect);
+export const POST: APIRoute = async ({ request, cookies, redirect }) => {
+  const form = await request.formData().catch(() => null);
+  const raw = String(form?.get('token') ?? '');
+  const next = safeNextPath(String(form?.get('next') ?? ''));
+  if (!raw) return fail(redirect, 'missing');
 
   const [tok] = db.select().from(loginTokens)
     .where(eq(loginTokens.token_hash, hashToken(raw))).limit(1).all();
-
-  // Reject unknown, already-used, or expired tokens.
-  if (!tok || tok.used_at || tok.expires_at.getTime() < Date.now()) return fail(redirect);
+  if (!tok) return fail(redirect, 'notfound');
+  if (tok.used_at) return fail(redirect, 'used');
+  if (tok.expires_at.getTime() < Date.now()) return fail(redirect, 'expired');
 
   const [user] = db.select().from(users).where(eq(users.id, tok.user_id)).limit(1).all();
-  if (!user || user.disabled) return fail(redirect);
+  if (!user || user.disabled) return fail(redirect, 'link');
 
   const now = new Date();
-  // Burn the token first (single-use), then update the user.
   db.update(loginTokens).set({ used_at: now }).where(eq(loginTokens.id, tok.id)).run();
   db.update(users).set({
     verified_at: user.verified_at ?? now,   // clicking the link proves email ownership

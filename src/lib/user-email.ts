@@ -20,6 +20,9 @@ export async function sendMagicLinkEmail(to: string, link: string, name?: string
   if (!addr || !addr.includes('@')) return false;
 
   const firstName = esc((name ?? '').trim().split(/\s+/)[0]) || 'there';
+  // Escape the URL for safe embedding in HTML (the unescaped `&` between query
+  // params can be mangled by some mail clients).
+  const href = esc(link);
 
   const html = `
     <div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:560px;margin:0 auto;color:#111;">
@@ -27,11 +30,11 @@ export async function sendMagicLinkEmail(to: string, link: string, name?: string
       <p style="font-size:15px;line-height:1.6;">Click the button below to sign in to <strong>Land Cruiser SA</strong> and manage your saved vehicles and price alerts. This link is valid for 30 minutes and can only be used once.</p>
 
       <div style="margin:24px 0;">
-        <a href="${link}" style="display:inline-block;background:#F5A623;color:#111;font-size:14px;font-weight:700;text-decoration:none;padding:12px 26px;border-radius:8px;">Sign in to Land Cruiser SA →</a>
+        <a href="${href}" style="display:inline-block;background:#F5A623;color:#111;font-size:14px;font-weight:700;text-decoration:none;padding:12px 26px;border-radius:8px;">Sign in to Land Cruiser SA →</a>
       </div>
 
       <p style="font-size:13px;line-height:1.6;color:#6B7280;">If the button doesn't work, copy and paste this link into your browser:<br/>
-        <a href="${link}" style="color:#D4881A;word-break:break-all;">${link}</a></p>
+        <a href="${href}" style="color:#D4881A;word-break:break-all;">${href}</a></p>
 
       <p style="font-size:13px;line-height:1.6;color:#6B7280;">If you didn't request this, you can safely ignore this email — no account changes will be made.</p>
 

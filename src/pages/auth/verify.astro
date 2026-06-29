@@ -1,0 +1,46 @@
+---
+export const prerender = false;
+
+import Base from '@/layouts/Base.astro';
+import { safeNextPath } from '@/lib/http-guards';
+
+// Landing page for the magic link. GET is side-effect-free (renders a form),
+// so email scanners/preview bots that only fetch the URL never consume the
+// one-time token. The browser auto-submits the form (POST) to actually sign in;
+// a visible button is the no-JS fallback.
+const token = Astro.url.searchParams.get('token') ?? '';
+const next = safeNextPath(Astro.url.searchParams.get('next'));
+const hasToken = /^[a-f0-9]{32,}$/i.test(token);
+---
+
+<Base title="Signing you in… · Land Cruiser SA" description="Completing your sign-in." noindex={true}>
+  <section class="min-h-[60vh] bg-[#F5F3EE] py-16 px-4">
+    <div class="max-w-md mx-auto bg-white border border-[#DDD9D3] rounded-2xl p-7 text-center">
+      {hasToken ? (
+        <form id="verify-form" method="POST" action="/api/auth/callback">
+          <input type="hidden" name="token" value={token} />
+          <input type="hidden" name="next" value={next} />
+          <h1 class="font-heading text-xl font-bold text-[#111111] mb-2">Signing you in…</h1>
+          <p class="text-sm text-[#6B7280] mb-5">One moment — completing your sign-in.</p>
+          <button type="submit" id="verify-btn" class="w-full bg-[#F5A623] text-[#111111] font-heading font-bold uppercase tracking-wide text-sm px-6 py-3 rounded-xl hover:bg-[#D4881A] transition-colors">Continue to sign in</button>
+        </form>
+      ) : (
+        <>
+          <h1 class="font-heading text-xl font-bold text-[#111111] mb-2">Invalid sign-in link</h1>
+          <p class="text-sm text-[#6B7280]">This link is missing or malformed. <a href="/signin/" class="text-[#D4881A] underline">Get a fresh sign-in link</a>.</p>
+        </>
+      )}
+    </div>
+  </section>
+</Base>
+
+<script>
+  // Auto-submit so it feels like one click. Scanners that only GET (and don't run
+  // JS) never reach this, so the single-use token survives link-scanning.
+  const f = document.getElementById('verify-form') as HTMLFormElement | null;
+  if (f) {
+    const btn = document.getElementById('verify-btn') as HTMLButtonElement | null;
+    f.addEventListener('submit', () => { if (btn) { btn.disabled = true; btn.textContent = 'Signing you in…'; } });
+    f.requestSubmit ? f.requestSubmit() : f.submit();
+  }
+</script>

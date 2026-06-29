@@ -11,8 +11,10 @@ const safeNext = safeNextPath(Astro.url.searchParams.get('next'));
 if (existing) return Astro.redirect(safeNext);
 
 const error = Astro.url.searchParams.get('error');
-const errorMsg = error === 'link'
-  ? 'That sign-in link was invalid or has expired. Enter your email to get a fresh one.'
+const errorMsg = error
+  ? (error === 'expired'
+      ? 'That sign-in link has expired. Enter your email to get a fresh one.'
+      : 'That sign-in link was invalid or already used. Enter your email to get a fresh one.')
   : null;
 ---
 
