@@ -37,6 +37,10 @@ jobs:
         env:
           INGEST_TOKEN: ${{ secrets.INGEST_TOKEN }}
           SITE_URL: ${{ secrets.SITE_URL }}
+          # Off-market reconciliation LIVE for AutoTrader: mark delisted listings
+          # removed (vetted at 20% < the 25% breaker; capHit guard skips incomplete
+          # crawls). WBC stays dry-run (its crawl misses ~38% → breaker would skip).
+          RECONCILE_OFFMARKET: '1'
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           NOTIFY_EMAIL: ${{ secrets.NOTIFY_EMAIL }}
           PROXY_HOST: ${{ secrets.PROXY_HOST }}
