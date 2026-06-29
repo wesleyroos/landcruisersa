@@ -27,6 +27,12 @@ function esc(s: string): string {
 }
 const fmt = (n: number) => 'R' + Math.round(n).toLocaleString('en-ZA');
 
+// Tag every in-email link so return traffic from alerts is measurable in
+// visit_events (Base.astro beacons ?utm_source=) and Plausible. campaign
+// distinguishes which alert type drove the return.
+const tagged = (path: string, campaign: string) =>
+  `${SITE}${path}?utm_source=alert&utm_medium=email&utm_campaign=${campaign}`;
+
 export function buildAlertEmail(opts: {
   firstName: string;
   events: FavEvent[];
@@ -55,7 +61,7 @@ export function buildAlertEmail(opts: {
 
   // ── Cards ──
   const dropCard = (e: FavEvent) => {
-    const url = `${SITE}/listings/${e.slug}/`;
+    const url = tagged(`/listings/${e.slug}/`, 'price_drop');
     const drop = (e.fromPrice ?? 0) - (e.toPrice ?? 0);
     return `
       <div style="margin-bottom:16px;border:1px solid #E5E7EB;border-radius:12px;overflow:hidden;">
@@ -78,11 +84,11 @@ export function buildAlertEmail(opts: {
         <p style="margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:1px;color:#991B1B;">NO LONGER AVAILABLE</p>
         <p style="margin:0 0 6px;font-size:16px;font-weight:700;color:#111;">${esc(e.title)}</p>
         <p style="margin:0 0 12px;font-size:13px;color:#6B7280;">This vehicle has left the market — it may have sold or been withdrawn.</p>
-        <a href="${SITE}/listings/" style="display:inline-block;background:#111;color:#fff;font-size:13px;font-weight:700;text-decoration:none;padding:9px 18px;border-radius:8px;">Browse similar →</a>
+        <a href="${tagged('/listings/', 'sold')}" style="display:inline-block;background:#111;color:#fff;font-size:13px;font-weight:700;text-decoration:none;padding:9px 18px;border-radius:8px;">Browse similar →</a>
       </div>`;
 
   const matchRow = (c: { slug: string; title: string; price: number; photo: string | null }) => {
-    const url = `${SITE}/listings/${c.slug}/`;
+    const url = tagged(`/listings/${c.slug}/`, 'new_match');
     return `
       <a href="${url}" style="display:flex;gap:12px;align-items:center;text-decoration:none;color:#111;padding:10px 0;border-bottom:1px solid #F3F4F6;">
         ${c.photo ? `<img src="${c.photo}" alt="" style="width:72px;height:54px;object-fit:cover;border-radius:6px;flex-shrink:0;" />` : ''}
@@ -98,7 +104,7 @@ export function buildAlertEmail(opts: {
         <p style="margin:0 0 4px;font-size:11px;font-weight:700;letter-spacing:1px;color:#9CA3AF;">NEW MATCHES FOR YOUR SEARCH</p>
         <p style="margin:0 0 10px;font-size:15px;font-weight:700;color:#111;">${esc(g.label)}</p>
         ${g.cars.map(matchRow).join('')}
-        ${g.more > 0 ? `<p style="margin:12px 0 0;font-size:13px;"><a href="${SITE}/listings/" style="color:#D4881A;font-weight:700;">+ ${g.more} more — view all →</a></p>` : ''}
+        ${g.more > 0 ? `<p style="margin:12px 0 0;font-size:13px;"><a href="${tagged('/listings/', 'new_match')}" style="color:#D4881A;font-weight:700;">+ ${g.more} more — view all →</a></p>` : ''}
       </div>`;
 
   const html = `
