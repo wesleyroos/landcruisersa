@@ -59,9 +59,17 @@ async function fetchAtImages(sourceUrl: string): Promise<string[]> {
     e.rateLimited = true;
     throw e;
   }
-  if (!res.ok) return [];
+  if (!res.ok) return [];   // 404 = delisted listing; just no images (not a block)
 
   const html = await res.text();
+  // A real soft block / WAF challenge is a TINY 200 page — treat that as a block
+  // and abort. A 404 or a normal-but-sparse listing is a large page and just
+  // yields few/no images below (skipped, never counted as a block).
+  if (html.length < 5000 || /just a moment|cf-challenge|cf-browser-verification|attention required/i.test(html)) {
+    const e = new Error('soft block / challenge page') as Error & { rateLimited?: boolean };
+    e.rateLimited = true;
+    throw e;
+  }
   const seen  = new Set<string>();
   const imgs: string[] = [];
   for (const m of html.matchAll(/https:\/\/img\.autotrader\.co\.za\/(\d+)/g)) {
@@ -103,11 +111,8 @@ async function run() {
 
   console.log(`[at-images] ${pending.length} listings need images`);
 
-  let updated = 0, failed = 0, empty = 0, consecutiveEmpty = 0;
+  let updated = 0, failed = 0, empty = 0;
   let aborted = false, abortNote = '';
-  // A soft block returns 200 with a challenge page (zero images), not a 503 — so
-  // a run of empties is itself a block signal. Bail before we dig the hole deeper.
-  const EMPTY_ABORT = 8;
 
   for (const listing of pending) {
     process.stdout.write(`  ${listing.source_id} (${listing.photo_count} photos) → `);
@@ -128,17 +133,13 @@ async function run() {
     }
 
     if (imgs.length < MIN_PHOTOS) {
+      // 404 (delisted) or a genuinely sparse listing — just skip. A real soft
+      // block is caught as a challenge page in fetchAtImages (throws rateLimited).
       process.stdout.write(`only ${imgs.length} found — skipping\n`);
       empty++;
-      if (++consecutiveEmpty >= EMPTY_ABORT) {
-        process.stdout.write(`\n[at-images] ABORTING — ${EMPTY_ABORT} empty fetches in a row looks like a soft block, not missing photos. Backing off.\n`);
-        aborted = true; abortNote = `${EMPTY_ABORT} empty fetches in a row — likely a soft block, aborted`;
-        break;
-      }
       await delay(DELAY_MS);
       continue;
     }
-    consecutiveEmpty = 0;
 
     try {
       await updatePhotos('autotrader', listing.source_id, imgs);
