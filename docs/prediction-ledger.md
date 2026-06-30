@@ -207,3 +207,32 @@ date, compare to baseline, mark HIT / MISS / PARTIAL, and write the lesson.
 - **Lesson:** _tbd_
 
 ---
+
+## P9 — Listing-template SEO: structured title + meta + image filter
+
+- **Opened:** 2026-06-30
+- **Review on:** 2026-07-30 (Ahrefs crawl credits reset; re-crawl picks up all fixes)
+- **Surface:** `src/pages/listings/[slug].astro` + `src/lib/photos.ts` (shared
+  listing template — hundreds of pages each).
+- **Thesis:** Ahrefs flagged the listing template for the bulk of the audit:
+  214 "title too long", 538 "meta description too short", 88 "missing", plus
+  ~168 placeholder images and a sitewide footer linking to 4 dead routes (the
+  latter inflated a "links to broken page" issue across **2,604** pages).
+- **Change:** title now built from fields (collapses doubled years, length-capped);
+  meta description is an always-present, unique ~120-160 char structured sentence;
+  `no-image-car.svg` placeholders filtered everywhere. Footer/terms/301 fixes
+  shipped just prior. All verified live 2026-06-30.
+- **Metrics (two gauges):**
+  1. **Ahrefs (confirmation):** the above warning counts should fall to ~0 on the
+     30 Jul re-crawl, EXCEPT ~543 raw `img.autotrader` hotlinks (left intentionally;
+     rehost handles those) and a few edge-case long titles.
+  2. **GSC (the one that matters):** listing-page (`/listings/<slug>/`) impressions
+     + CTR over the 28d after vs the 28d before. Better metas/titles → better SERP
+     snippet → higher CTR.
+- **Prediction (review 2026-07-30):** Ahrefs title/meta/placeholder warnings down
+  ≥ 90%; AND listing-page average CTR in GSC up vs the prior 28d (directional —
+  listing pages are low-volume, long-tail, so call a flat/down CTR a MISS).
+- **Caveat:** listing pages get little organic search vs the guides, so the GSC
+  signal may be thin; the Ahrefs cleanup is the high-confidence half.
+- **Result:** _pending 2026-07-30_
+- **Lesson:** _tbd_
