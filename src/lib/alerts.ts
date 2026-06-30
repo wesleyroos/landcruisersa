@@ -3,6 +3,7 @@ import { users, favorites, savedSearches, listings, type User } from '@/db/schem
 import { and, eq, isNotNull, gt, gte, lte, like, or, inArray, desc, sql } from 'drizzle-orm';
 import { signScoped } from './token';
 import { buildAlertEmail, type FavEvent, type SearchMatchGroup } from './alert-email';
+import { firstPhotoOrNull } from './photos';
 
 // Daily sweep that emails users about (a) changes to vehicles they SAVED and
 // (b) new listings matching a saved SEARCH. Two dedup layers:
@@ -32,12 +33,9 @@ function claimToday(today: string): boolean {
 }
 
 function firstPhoto(photos: string): string | null {
-  try {
-    const arr = JSON.parse(photos) as string[];
-    const src = arr?.[0] ?? null;
-    if (!src) return null;
-    return src.startsWith('http') ? src : `${SITE}${src}`;
-  } catch { return null; }
+  const src = firstPhotoOrNull(photos);
+  if (!src) return null;
+  return src.startsWith('http') ? src : `${SITE}${src}`;
 }
 
 // ── Favourite change detection ───────────────────────────────────────────────

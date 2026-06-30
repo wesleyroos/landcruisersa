@@ -8,6 +8,7 @@ import { listings, favorites } from '@/db/schema';
 import { inArray, desc, and, eq } from 'drizzle-orm';
 import { getRecentPriceChanges } from '@/lib/price-changes';
 import { getCurrentUser } from '@/lib/auth-user';
+import { firstPhoto } from '@/lib/photos';
 
 // Only the Land Cruiser segment is public. Hilux/Fortuner (segment = 'toyota-4x4')
 // are collected for market data but never shown in the classifieds.
@@ -74,10 +75,6 @@ function formatPrice(n: number) {
 }
 function formatMileage(n: number) {
   return n.toLocaleString('en-ZA') + ' km';
-}
-function firstPhoto(photos: string) {
-  try { return JSON.parse(photos)[0] ?? 'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/og-default.jpg'; }
-  catch { return 'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/og-default.jpg'; }
 }
 ---
 

@@ -7,6 +7,7 @@ import { db } from '@/db/index';
 import { listings } from '@/db/schema';
 import { and, eq, desc, or, like } from 'drizzle-orm';
 import { MODELS } from '@/data/models';
+import { firstPhoto } from '@/lib/photos';
 
 const MODEL_MAP: Record<string, { label: string; description: string }> = {
   '76-series': { label: '76 Series', description: 'Toyota Land Cruiser 76 Series' },
@@ -54,10 +55,6 @@ const modelGuide = MODELS.find(m =>
   (model === 'fj-cruiser' && (m.slug === 'fj-cruiser' || m.slug === 'land-cruiser-fj'))
 );
 
-function firstPhoto(photos: string) {
-  try { return JSON.parse(photos)[0] ?? 'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/og-default.jpg'; }
-  catch { return 'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/og-default.jpg'; }
-}
 function formatPrice(n: number) { return 'R' + n.toLocaleString('en-ZA'); }
 function formatMileage(n: number) { return n.toLocaleString('en-ZA') + ' km'; }
 

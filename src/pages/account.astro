@@ -6,6 +6,7 @@ import { db } from '@/db/index';
 import { favorites, listings, savedSearches } from '@/db/schema';
 import { and, desc, eq } from 'drizzle-orm';
 import { getCurrentUser } from '@/lib/auth-user';
+import { firstPhoto } from '@/lib/photos';
 
 const user = getCurrentUser(Astro.cookies);
 if (!user) return Astro.redirect('/signin/?next=/account/');
@@ -35,10 +36,6 @@ const saved = db.select({
   .orderBy(desc(favorites.created_at))
   .all();
 
-const OG_FALLBACK = 'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/og-default.jpg';
-function firstPhoto(photos: string): string {
-  try { const a = JSON.parse(photos) as string[]; return a?.[0] || OG_FALLBACK; } catch { return OG_FALLBACK; }
-}
 const fmt = (n: number | null | undefined) => (n ? 'R' + n.toLocaleString('en-ZA') : '—');
 ---
 

@@ -11,6 +11,7 @@ import { listings, clickEvents, priceEvents } from '@/db/schema';
 import { desc, eq, and, or, gte, lte, sql, like, isNotNull, inArray } from 'drizzle-orm';
 import type { Listing } from '@/db/schema';
 import type { SQL } from 'drizzle-orm';
+import { firstPhotoOrNull } from '@/lib/photos';
 
 const PAGE_SIZE = 50;
 const page = Math.max(1, Number(Astro.url.searchParams.get('page') ?? '1'));
@@ -241,9 +242,7 @@ const listingClicks = new Map<string, ClickCounts>();
   }
 }
 
-function firstPhoto(photos: string) {
-  try { return JSON.parse(photos)[0] ?? null; } catch { return null; }
-}
+const firstPhoto = firstPhotoOrNull;
 function formatPrice(n: number) {
   return 'R' + n.toLocaleString('en-ZA');
 }

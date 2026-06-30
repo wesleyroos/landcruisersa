@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --amber:#F5A623; --amber-d:#C9790F; --ink:#111111;
+    --paper:#FFFFFF; --soft:#F6F4EF; --line:#E4E0D9; --grey:#56565B; --grey-l:#92928f;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  @page{ size:A4; margin:0; }
+  html,body{font-family:'Inter',sans-serif;color:var(--ink);background:var(--paper);}
+  .page{
+    position:relative;width:210mm;height:297mm;overflow:hidden;
+    padding:18mm 18mm 15mm;display:flex;flex-direction:column;
+    page-break-after:always;
+  }
+  .page:last-child{page-break-after:auto;}
+  .bar{position:absolute;top:0;left:0;height:7px;width:100%;
+       background:linear-gradient(90deg,var(--amber) 62%,var(--ink) 62%);}
+  h1,h2,h3,.eyebrow,.k,.amt,.p,.comm-h,.head-r b,.foot b,.kicker{font-family:'Barlow Condensed',sans-serif;}
+
+  /* ---- Page 1 header ---- */
+  .head{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid var(--ink);padding-bottom:12px;}
+  .eyebrow{font-weight:700;text-transform:uppercase;letter-spacing:.18em;font-size:10pt;color:var(--amber-d);margin-bottom:4px;}
+  h1{font-weight:800;text-transform:uppercase;font-size:36pt;line-height:.96;}
+  h1 .o{color:var(--amber);}
+  .head-r{text-align:right;font-size:8.2pt;color:var(--grey);line-height:1.6;}
+  .head-r b{font-weight:700;font-size:13pt;color:var(--ink);letter-spacing:.02em;display:block;text-transform:uppercase;}
+
+  .lead{font-size:12pt;line-height:1.7;color:#3a3a3a;margin:24px 0 0;}
+  .lead b{color:var(--ink);font-weight:600;}
+
+  h2{font-weight:700;text-transform:uppercase;font-size:14pt;letter-spacing:.05em;margin-bottom:16px;
+     display:flex;align-items:center;gap:9px;}
+  h2::before{content:"";width:6px;height:18px;background:var(--amber);border-radius:1px;}
+
+  /* ---- Page 1: why cards ---- */
+  .why-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:30px;}
+  .wcard{background:var(--soft);border:1px solid var(--line);border-radius:14px;padding:20px 22px;}
+  .wcard .k{font-weight:700;text-transform:uppercase;color:var(--ink);font-size:14pt;letter-spacing:.03em;display:block;margin-bottom:7px;}
+  .wcard p{font-size:10.5pt;line-height:1.6;color:var(--grey);}
+  .wcard p b{color:var(--ink);font-weight:600;}
+
+  .model{background:var(--ink);color:#e9e9e9;border-radius:14px;
+         padding:22px 26px;margin-top:30px;font-size:11pt;line-height:1.7;}
+  .model .kicker{display:block;color:var(--amber);font-weight:700;text-transform:uppercase;font-size:13pt;letter-spacing:.04em;margin-bottom:5px;}
+  .model b{color:#fff;font-weight:600;}
+
+  /* ---- Page 2 mini header ---- */
+  .mhead{display:flex;justify-content:space-between;align-items:baseline;border-bottom:2px solid var(--ink);padding-bottom:10px;margin-bottom:4px;}
+  .mhead .eyebrow{margin:0;}
+  .mhead .t{font-family:'Barlow Condensed';font-weight:800;text-transform:uppercase;font-size:17pt;}
+
+  /* ---- Page 2: includes ---- */
+  .incl{margin-top:26px;}
+  .incl ul{list-style:none;display:grid;grid-template-columns:1fr 1fr;gap:14px 26px;}
+  .incl li{font-size:10.5pt;line-height:1.5;color:#3f3f3f;padding-left:19px;position:relative;}
+  .incl li::before{content:"";position:absolute;left:0;top:7px;width:8px;height:8px;border-radius:50%;background:var(--amber);}
+  .incl li b{color:var(--ink);font-weight:600;}
+
+  /* ---- Page 2: commercial ---- */
+  .comm{margin-top:30px;border:1.5px solid var(--ink);border-radius:15px;overflow:hidden;}
+  .comm-h{background:var(--ink);color:#fff;font-weight:700;text-transform:uppercase;
+          letter-spacing:.06em;font-size:14pt;padding:12px 22px;display:flex;justify-content:space-between;align-items:center;}
+  .comm-h span{font-family:'Inter';font-weight:500;font-size:9pt;color:#bcbcbc;text-transform:none;letter-spacing:0;}
+  .comm-b{display:grid;grid-template-columns:1fr 1fr;}
+  .fee{padding:22px;border-right:1px solid var(--line);}
+  .fee:nth-child(2){border-right:none;}
+  .fee .lbl{font-size:8.4pt;text-transform:uppercase;letter-spacing:.12em;color:var(--grey-l);font-weight:600;}
+  .fee .amt{font-weight:800;font-size:33pt;line-height:1.0;color:var(--ink);margin-top:7px;}
+  .fee .amt small{font-family:'Inter';font-size:11pt;font-weight:600;color:var(--grey);}
+  .fee .note{font-size:9pt;color:var(--grey);margin-top:9px;line-height:1.5;}
+  .comm-f{border-top:1px solid var(--line);padding:14px 22px;font-size:9.4pt;color:#3f3f3f;display:flex;gap:30px;flex-wrap:wrap;}
+  .comm-f b{color:var(--ink);font-family:'Barlow Condensed';font-weight:700;text-transform:uppercase;letter-spacing:.03em;}
+
+  /* ---- Page 2: rollout ---- */
+  .roll{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:28px;}
+  .phase{border:1px solid var(--line);border-radius:14px;padding:20px 22px;}
+  .phase .p{font-weight:700;text-transform:uppercase;font-size:11.5pt;color:var(--amber-d);letter-spacing:.05em;}
+  .phase h3{font-weight:700;text-transform:uppercase;font-size:15pt;margin:4px 0 8px;font-family:'Barlow Condensed';}
+  .phase p{font-size:10pt;color:var(--grey);line-height:1.6;}
+
+  .close{margin-top:30px;font-family:'Barlow Condensed';font-weight:700;text-transform:uppercase;
+         font-size:16pt;letter-spacing:.02em;line-height:1.25;}
+  .close .o{color:var(--amber-d);}
+
+  .foot{margin-top:auto;padding-top:14px;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;font-size:8.6pt;color:var(--grey-l);}
+  .foot b{font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--ink);font-size:10.5pt;}
+  .pg{color:var(--grey-l);}
+</style>
+</head>
+<body>
+
+  <!-- ════════ PAGE 1 ════════ -->
+  <section class="page">
+    <div class="bar"></div>
+
+    <div class="head">
+      <div>
+        <div class="eyebrow">Sponsorship Proposal</div>
+        <h1>The Community <span class="o">Engine Network</span></h1>
+      </div>
+      <div class="head-r">
+        <b>Land Cruiser SA</b>
+        Prepared for WeBuyCars<br>June 2026
+      </div>
+    </div>
+
+    <p class="lead">
+      Buyers don't start at a marketplace — they start by researching a vehicle they love. <b>Land Cruiser SA</b>
+      is the trusted, independent home for one such community, and we've already replicated the model for the
+      Suzuki Jimny. The opportunity: <b>WeBuyCars sponsors a growing network of these niche engines — one per make
+      or model</b> — each an independent authority that feeds high-intent buyers and motivated sellers into your
+      ecosystem, on the fringe where AutoTrader can't follow.
+    </p>
+
+    <h2 style="margin-top:30px;">Why it works for WeBuyCars</h2>
+    <div class="why-grid" style="margin-top:0;">
+      <div class="wcard">
+        <span class="k">Reach the fringe</span>
+        <p>Trusted niche audiences AutoTrader doesn't own — reached <b>upstream</b> of the marketplace, while they're still deciding.</p>
+      </div>
+      <div class="wcard">
+        <span class="k">A two-sided funnel</span>
+        <p>Buyers routed to <b>your stock</b>; motivated private sellers surfaced to <b>you</b> — and buying cars is your business.</p>
+      </div>
+      <div class="wcard">
+        <span class="k">An AI-search moat</span>
+        <p>Cited by <b>ChatGPT &amp; Google AI</b> for make and model questions — a flank a generalist marketplace can't defend.</p>
+      </div>
+      <div class="wcard">
+        <span class="k">Repeatable by design</span>
+        <p>One proven, one replicated. Sponsor an expanding portfolio — <b>each engine a fresh demand source</b>.</p>
+      </div>
+    </div>
+
+    <div class="model">
+      <span class="kicker">Impartial by design</span>
+      Each engine stays editorially independent and shows the whole market honestly — which is exactly what keeps
+      it trusted and cited. WeBuyCars is the <b>named sponsor and exclusive commercial partner:</b> your brand
+      across the network, with the buyer and seller funnel pointed at you.
+    </div>
+
+    <div class="foot">
+      <span><b>Land Cruiser SA</b> &nbsp;×&nbsp; WeBuyCars</span>
+      <span class="pg">01 / 02</span>
+    </div>
+  </section>
+
+  <!-- ════════ PAGE 2 ════════ -->
+  <section class="page">
+    <div class="bar"></div>
+
+    <div class="mhead">
+      <div class="eyebrow">The Community Engine Network</div>
+      <div class="t">The Offer &amp; Rollout</div>
+    </div>
+
+    <div class="incl">
+      <h2>What each engine includes</h2>
+      <ul>
+        <li><b>Independent platform</b> — whole-market listings, live market &amp; price data, valuation tool, community + Instagram</li>
+        <li><b>Content engine</b> — ongoing AI-citable buyer guides &amp; monthly market reports</li>
+        <li><b>"Powered by WeBuyCars"</b> branding across the engine</li>
+        <li><b>Exclusive</b> buyer + seller funnel into WeBuyCars</li>
+        <li><b>Self-improving methodology</b> — instrumented, measured and continuously tuned</li>
+        <li><b>Monthly reporting</b> — traffic, citations, leads and sellers sourced</li>
+      </ul>
+    </div>
+
+    <div class="comm">
+      <div class="comm-h">The Commercial <span>You own &amp; operate the engines — WeBuyCars sponsors</span></div>
+      <div class="comm-b">
+        <div class="fee">
+          <div class="lbl">Founding · Land Cruiser SA + Jimny SA</div>
+          <div class="amt">R30,000<small> / engine / month</small></div>
+          <div class="note">12-month founding term — a preferential rate for the proof pair.</div>
+        </div>
+        <div class="fee">
+          <div class="lbl">Standard · each new engine</div>
+          <div class="amt">R45,000<small> / engine / month</small></div>
+          <div class="note">Each make/model engine added to the network thereafter.</div>
+        </div>
+      </div>
+      <div class="comm-f">
+        <span><b>Exclusivity</b> &nbsp;Sole automotive-marketplace sponsor across the network.</span>
+        <span><b>Optional performance</b> &nbsp;R3,000 per private seller sourced that WeBuyCars buys.</span>
+      </div>
+    </div>
+
+    <div class="roll">
+      <div class="phase">
+        <div class="p">Phase 1 — now</div>
+        <h3>Land Cruiser SA + Jimny SA</h3>
+        <p>Both live and proven — the founding pair that demonstrates the model in market today.</p>
+      </div>
+      <div class="phase">
+        <div class="p">Phase 2 — scale</div>
+        <h3>Expand the network</h3>
+        <p>Roll out to agreed makes and models on a quarterly cadence, each feeding the WeBuyCars ecosystem.</p>
+      </div>
+    </div>
+
+    <p class="close">The first two engines are already live.<br><span class="o">Let's prove the model together — then scale it.</span></p>
+
+    <div class="foot">
+      <span><b>Wesley Roos</b> &nbsp;·&nbsp; wesley@landcruisersa.co.za &nbsp;·&nbsp; landcruisersa.co.za</span>
+      <span class="pg">02 / 02</span>
+    </div>
+  </section>
+
+</body>
+</html>

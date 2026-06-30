@@ -6,6 +6,7 @@ import { db } from '@/db/index';
 import { listings, favorites, savedSearches } from '@/db/schema';
 import { and, eq, ne } from 'drizzle-orm';
 import { getCurrentUser } from '@/lib/auth-user';
+import { parsePhotos, firstPhoto, OG_FALLBACK } from '@/lib/photos';
 // NB: do NOT import modelLabel/normalize here — this page already pulls modelLabel
 // transitively via getMarketPosition, and a second direct import creates a
 // bundler init-order crash ("Cannot access 'modelLabel2' before initialization").
@@ -51,8 +52,8 @@ if (similarFiltered.length < 3) {
   similarFiltered = [...similarFiltered, ...others.filter(l => l.slug !== slug).slice(0, needed)];
 }
 
-const photos: string[] = (() => { try { return JSON.parse(listing.photos) ?? []; } catch { return []; } })();
-const mainPhoto = photos[0] ?? 'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/og-default.jpg';
+const photos: string[] = parsePhotos(listing.photos);
+const mainPhoto = photos[0] ?? OG_FALLBACK;
 const gridPhotos = photos.slice(1, 5);
 
 // Is this listing already saved by the signed-in user? (drives the heart state)
@@ -118,9 +119,6 @@ function formatMileage(n: number) {
 function cap(s: string) {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
-function firstPhoto(p: string) {
-  try { return JSON.parse(p)[0] ?? 'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/og-default.jpg'; } catch { return 'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/og-default.jpg'; }
-}
 
 const modelLabel = listing.model.replaceAll('-', ' ').toUpperCase();
 
@@ -159,11 +157,57 @@ const vehicleSchema: Record<string, unknown> = {
     }
   } : {})
 };
+
+// ── SEO: clean unique <title> + always-present meta description ──────────────
+// Ahrefs flagged this shared template for 214 "title too long", 538 "meta
+// description too short" and 88 "missing". Root causes: raw dealer titles
+// sometimes double the year ("2024 2024 Toyota…") and run long, and dealer
+// descriptions are frequently empty or duplicated across listings. Build BOTH
+// from structured fields so every listing page is unique + correctly sized.
+const collapse = (s: string) => (s ?? '').replace(/\s+/g, ' ').trim();
+// Collapse an immediately-repeated word: "2024 2024 Toyota" → "2024 Toyota".
+const tidyTitle = (t: string) => collapse(t).replace(/\b(\w+)(\s+\1\b)+/gi, '$1');
+
+const cleanTitle = tidyTitle(listing.title);
+const TITLE_SUFFIX = ' | Land Cruiser SA';
+// Keep the brand suffix only while the whole title stays ≤ 60 chars; otherwise
+// use the bare title, truncating on a word boundary past 65.
+const pageTitle = (cleanTitle.length + TITLE_SUFFIX.length) <= 60
+  ? cleanTitle + TITLE_SUFFIX
+  : cleanTitle.length <= 65
+    ? cleanTitle
+    : cleanTitle.slice(0, 62).replace(/\s+\S*$/, '') + '…';
+
+// Structured, unique meta description — never empty, always ~120-160 chars.
+const _yr = listing.year && listing.year > 1900 ? `${listing.year} ` : '';
+const _loc = listing.province ? ` in ${listing.province}` : '';
+const _km = listing.mileage > 0 ? `${listing.mileage.toLocaleString('en-ZA')} km` : null;
+const _spec = [_km, [listing.fuel_type, listing.transmission].filter(Boolean).join(' ').toLowerCase()]
+  .filter(Boolean).join(', ');
+const _price = (!isShowOff && listing.price > 0) ? `R ${listing.price.toLocaleString('en-ZA')}` : null;
+
+let metaDescription: string;
+if (isShowOff) {
+  metaDescription = collapse(
+    `${_yr}Toyota Land Cruiser ${mLabel} community build${_loc}. See the mods, photos and full spec, plus live ${mLabel} market prices on Land Cruiser SA.`
+  );
+} else if (isSold) {
+  metaDescription = collapse(
+    `${_yr}Toyota Land Cruiser ${mLabel}${_loc} — no longer available. Browse similar Land Cruisers for sale and live ${mLabel} market prices on Land Cruiser SA.`
+  );
+} else {
+  metaDescription = collapse(
+    `${_yr}Toyota Land Cruiser ${mLabel} for sale${_loc}${_spec ? ` — ${_spec}` : ''}${_price ? `, ${_price}` : ''}. Compare specs, market position & finance on Land Cruiser SA.`
+  );
+}
+if (metaDescription.length > 160) {
+  metaDescription = metaDescription.slice(0, 157).replace(/\s+\S*$/, '') + '…';
+}
 ---
 
 <Base
-  title={`${listing.title} — Land Cruiser SA`}
-  description={listing.description.slice(0, 160)}
+  title={pageTitle}
+  description={metaDescription}
   image={mainPhoto}
   schema={vehicleSchema}
   ogType="product"

@@ -1,4 +1,5 @@
 import type { Listing } from '@/db/schema';
+import { firstPhotoOrNull } from './photos';
 
 // "Your listing is now live" confirmation, sent to a private seller the moment
 // an admin flips their submission to active. One-shot: the caller stamps
@@ -8,14 +9,9 @@ const SITE = 'https://landcruisersa.co.za';
 const SUPPORT_EMAIL = 'info@landcruisersa.co.za';
 
 function firstPhoto(photos: string): string | null {
-  try {
-    const arr = JSON.parse(photos) as string[];
-    const src = arr?.[0] ?? null;
-    if (!src) return null;
-    return src.startsWith('http') ? src : `${SITE}${src}`;
-  } catch {
-    return null;
-  }
+  const src = firstPhotoOrNull(photos);
+  if (!src) return null;
+  return src.startsWith('http') ? src : `${SITE}${src}`;
 }
 
 export async function sendSellerLiveEmail(listing: Listing): Promise<boolean> {

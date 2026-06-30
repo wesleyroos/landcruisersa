@@ -4,6 +4,7 @@ import { and, eq, gt, sql, isNull } from 'drizzle-orm';
 import { getRecentPriceChanges } from './price-changes';
 import { getMarketPosition } from './market-position';
 import { modelFamily, LC_SEGMENT } from './sources/normalize';
+import { firstPhotoOrNull } from './photos';
 
 // ─── "What should we post to IG today?" ──────────────────────────────────────
 // Deterministic scoring over the signals that picked winners by hand:
@@ -44,9 +45,7 @@ const MILEAGE_WEIGHT = 0.5;
 const MARKET_EVAL_CUT = 20;
 
 const zar = (n: number) => 'R' + Math.round(n).toLocaleString('en-ZA');
-const firstPhoto = (photos: string | null) => {
-  try { return photos ? (JSON.parse(photos)[0] ?? null) : null; } catch { return null; }
-};
+const firstPhoto = firstPhotoOrNull;
 
 export function getPostSuggestions(limit = 3): PostSuggestion[] {
   const weekAgo = new Date(Date.now() - 7 * 24 * 3600 * 1000);
