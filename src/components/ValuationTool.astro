@@ -343,11 +343,9 @@ const specYearsJson = JSON.stringify(getSpecYearRanges());
             <span class="vr-end">${R(e.sellHigh)}</span>
           </div>
           <p class="vr-ask">Likely sells for about <strong>${R(e.sellMid)}</strong></p>
-          <a class="vr-btn" href="/listings/submit/">List my ${esc(d.modelText)} — free →</a>
-          <div class="vr-cert">
-            <button type="button" class="vr-cert-btn" data-cert-open>Want a valuation certificate?</button>
-            <p class="vr-cert-note">A dated PDF for your vehicle — download it and we'll email you a copy. An indicative market estimate, not a physical-inspection or accredited valuation.</p>
-          </div>
+          <button type="button" class="vr-btn vr-btn-cert" data-cert-open>📄 Get your free valuation certificate</button>
+          <p class="vr-cert-note">A dated PDF for your ${esc(d.modelText)} — download it and we'll email you a copy. An indicative market estimate, not a physical-inspection or accredited valuation.</p>
+          <a class="vr-cert-2nd" href="/listings/submit/">Or list my ${esc(d.modelText)} for sale — free →</a>
           <details class="vr-more">
             <summary>How we got this</summary>
             <div>
@@ -390,6 +388,16 @@ const specYearsJson = JSON.stringify(getSpecYearRanges());
         ? modelSel.selectedOptions[0].textContent.trim().split(' — ')[0] : 'Land Cruiser';
       const spec = { engine: '', grade: '', body: '' };
       root.querySelectorAll('#vt-spec select[data-axis]').forEach(s => { spec[s.dataset.axis] = s.value || ''; });
+      // Anonymous, per-browser id so repeat valuations from the same person can be
+      // grouped in the admin inbox (e.g. someone re-running the same car). Not PII.
+      let clientId = '';
+      try {
+        clientId = localStorage.getItem('lcsa_vcid') || '';
+        if (!clientId) {
+          clientId = (self.crypto && crypto.randomUUID) ? crypto.randomUUID() : (Date.now().toString(36) + Math.random().toString(36).slice(2));
+          localStorage.setItem('lcsa_vcid', clientId);
+        }
+      } catch { /* private mode / storage blocked — fine, just no grouping */ }
       const payload = {
         model: fd.get('model') || '',
         year: Number(fd.get('year')),
@@ -400,6 +408,7 @@ const specYearsJson = JSON.stringify(getSpecYearRanges());
         lcsa_hp: fd.get('lcsa_hp') || '',
         utm_source: utm,
         source_path: location.pathname,
+        client_id: clientId,
       };
       if (!payload.model || !payload.year || !(payload.mileage >= 0)) {
         renderError('Please pick a model, year and mileage.');
@@ -489,6 +498,10 @@ const specYearsJson = JSON.stringify(getSpecYearRanges());
   .vt .vr-ask strong { color: #fff; }
   .vt .vr-btn { display: inline-block; margin-top: 1.3rem; background: #F5A623; color: #111; font-family: var(--font-heading); font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; font-size: 0.9rem; padding: 0.8rem 1.5rem; border-radius: 0.5rem; text-decoration: none; }
   .vt .vr-btn:hover { background: #D4881A; }
+  .vt .vr-btn-cert { width: 100%; text-align: center; border: none; cursor: pointer; }
+  .vt .vr-btn-cert:disabled { opacity: 0.6; cursor: wait; }
+  .vt .vr-cert-2nd { display: block; margin-top: 0.7rem; color: rgba(255,255,255,0.6); font-size: 0.82rem; text-decoration: underline; }
+  .vt .vr-cert-2nd:hover { color: #fff; }
 
   .vt .vr-more { margin-top: 1.2rem; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 0.9rem; text-align: left; font-size: 0.8rem; color: rgba(255,255,255,0.6); }
   .vt .vr-more summary { cursor: pointer; font-weight: 600; color: rgba(255,255,255,0.75); text-align: center; list-style: none; }

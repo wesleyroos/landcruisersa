@@ -168,12 +168,17 @@ function computeFromCohort(input: ValuationInput, c: CohortStats, specText: stri
   let w: number = TIER_WIDTH[tier];
   if (c.medianPrice > 0) w = Math.max(w, 0.5 * (c.p75 - c.p25) / c.medianPrice);
 
-  // Realistic-sell band (NO condition/extras — a buyer won't pay for self-report).
-  // Symmetric around the mileage-adjusted mid. NB: no cohort-p25 compound floor —
-  // it inverted the band (sellLow > sellMid) for high-mileage cars whose estimate
-  // legitimately falls below the cohort's 25th percentile. The mileage cap (±15%)
-  // and the discount already bound how low the mid can go.
-  const sellMid = base * (1 - d);
+  // Realistic-sell band, symmetric around the mileage-adjusted mid. Condition
+  // shifts it modestly (excellent +3% … rough −12%): condition genuinely moves
+  // sale price, and reflecting the user's input keeps the tool responsive instead
+  // of returning an identical number whatever they pick. Still bounded + honest —
+  // the disclaimer makes clear it's an asking-derived market estimate, not a
+  // physical inspection. NB: no cohort-p25 compound floor — it inverted the band
+  // (sellLow > sellMid) for high-mileage cars whose estimate legitimately falls
+  // below the cohort's 25th percentile; the mileage cap (±15%) and discount
+  // already bound how low the mid can go.
+  const condFactor = 1 + (CONDITION_FACTOR[input.condition ?? 'good'] ?? 0);
+  const sellMid = base * (1 - d) * condFactor;
   const sellLow = sellMid * (1 - w);
   const sellHigh = sellMid * (1 + w);
 
@@ -183,7 +188,6 @@ function computeFromCohort(input: ValuationInput, c: CohortStats, specText: stri
   // real comparable asking. NB: previously base×(1+w) clamped up to p75, which
   // printed a "list at" number ~21% above the sell estimate AND above the shown
   // range — confusing, and it ignored the subject's mileage at the p75 floor.
-  const condFactor = 1 + (CONDITION_FACTOR[input.condition ?? 'good'] ?? 0);
   const askingCeiling = clamp(base * condFactor, sellHigh, c.p90);
 
   return {

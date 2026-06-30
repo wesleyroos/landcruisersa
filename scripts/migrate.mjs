@@ -167,7 +167,7 @@ const addValCol = (col, def) => {
     console.log(`[migrate] Added valuation_requests column: ${col}`);
   }
 };
-void addValCol; // referenced once a post-ship column is needed
+addValCol('client_id', 'client_id TEXT'); // anonymous per-browser id — groups repeat valuations
 
 // Owner feedback on valuations — calibration signal. New table → CREATE TABLE
 // IF NOT EXISTS (NOT REQUIRED_COLS, which guards the listings table only).

@@ -194,6 +194,7 @@ export const valuationRequests = sqliteTable('valuation_requests', {
   source:        text('source').notNull().default('valuation_tool'),
   source_path:   text('source_path'),
   utm_source:    text('utm_source'),
+  client_id:     text('client_id'),              // anonymous per-browser id — groups repeat valuations
   created_at:    integer('created_at', { mode: 'timestamp' }).notNull(),
 });
 

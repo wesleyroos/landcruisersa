@@ -57,6 +57,8 @@ export const POST: APIRoute = async ({ request }) => {
   const province = String(body.province ?? '').trim() || null;
   const utm_source = String(body.utm_source ?? '').trim().slice(0, 32) || null;
   const source_path = String(body.source_path ?? '').trim().slice(0, 120) || null;
+  // Anonymous per-browser id — groups repeat valuations from the same person.
+  const client_id = String(body.client_id ?? '').trim().slice(0, 64) || null;
 
   if (!VALUATION_MODEL_SLUG_SET.has(model)) {
     return new Response(JSON.stringify({ error: 'Please choose a Land Cruiser model.' }), { status: 400 });
@@ -92,7 +94,7 @@ export const POST: APIRoute = async ({ request }) => {
       cohort_size:    v.available ? v.cohort.size : v.cohortSize,
       cohort_label:   v.available ? v.cohort.label : null,
       anchor_basis:   v.available ? v.cohort.anchorBasis : null,
-      source: 'valuation_tool', source_path, utm_source,
+      source: 'valuation_tool', source_path, utm_source, client_id,
       created_at: new Date(),
     }).run();
     draftId = Number(res.lastInsertRowid);

@@ -48,7 +48,26 @@ const valByModel = db.select({
   n: sql<number>`cast(count(*) as int)`,
   avgMid: sql<number>`cast(avg(sell_mid) as int)`,
 }).from(valuationRequests).groupBy(valuationRequests.model).orderBy(sql`count(*) desc`).all();
-const recentVal = db.select().from(valuationRequests).orderBy(desc(valuationRequests.created_at)).limit(25).all();
+const recentValRows = db.select().from(valuationRequests).orderBy(desc(valuationRequests.created_at)).limit(80).all();
+// Group repeat valuations so one person re-running the same car shows as a single
+// row with a ×N badge instead of cluttering the list. Key on the anonymous
+// client_id when present (a true same-visitor signal), else fall back to identical
+// inputs (model|year|mileage|spec). Newest row carries the group (list is desc).
+type ValGroup = typeof recentValRows[number] & { count: number; sameVisitor: boolean; firstAt: Date | null };
+const valSeen = new Map<string, ValGroup>();
+const recentVal: ValGroup[] = [];
+for (const v of recentValRows) {
+  const key = v.client_id ? `c:${v.client_id}` : `i:${v.model}|${v.year}|${v.mileage}|${v.cohort_label ?? ''}`;
+  const g = valSeen.get(key);
+  if (!g) {
+    const ng: ValGroup = { ...v, count: 1, sameVisitor: !!v.client_id, firstAt: v.created_at };
+    valSeen.set(key, ng); recentVal.push(ng);
+  } else {
+    g.count++;
+    if (v.created_at && (!g.firstAt || v.created_at < g.firstAt)) g.firstAt = v.created_at;
+  }
+}
+recentVal.splice(25); // cap displayed groups
 
 const fmt = (d: Date | null) => d ? new Date(d).toLocaleString('en-ZA', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—';
 const R = (n: number | null) => (n == null ? '—' : 'R' + Math.round(n).toLocaleString('en-ZA'));
@@ -160,13 +179,17 @@ const VERDICT = { spot_on: '✅ Spot on', too_low: '⬇️ Too low', too_high: '
       {recentVal.length > 0 && (
         <>
           <h3>Recent valuations</h3>
+          <p class="sub">Repeat valuations from the same visitor are grouped (×N). <span class="vtag">👤</span> = same browser; otherwise grouped by identical vehicle inputs.</p>
           <table>
             <thead><tr><th>When</th><th>Vehicle</th><th>km</th><th>Sell est.</th><th>Conf.</th></tr></thead>
             <tbody>
               {recentVal.map(v => (
                 <tr>
                   <td class="nowrap muted">{fmt(v.created_at)}</td>
-                  <td class="small">{v.cohort_label ?? `${v.year ?? ''} ${v.model ?? ''}`}</td>
+                  <td class="small">
+                    {v.cohort_label ?? `${v.year ?? ''} ${v.model ?? ''}`}
+                    {v.count > 1 && <span class="xbadge" title={v.sameVisitor ? 'Same visitor re-ran this' : 'Identical inputs (likely same person)'}>{v.sameVisitor ? '👤' : ''}×{v.count}</span>}
+                  </td>
                   <td class="nowrap">{v.mileage != null ? v.mileage.toLocaleString('en-ZA') : '—'}</td>
                   <td class="nowrap b">{R(v.sell_mid)}</td>
                   <td class="small muted">{v.confidence ?? '—'}</td>
@@ -196,6 +219,8 @@ const VERDICT = { spot_on: '✅ Spot on', too_low: '⬇️ Too low', too_high: '
   .b { font-weight: 700; color: #111; }
   .muted { color: #9CA3AF; }
   .small { font-size: 0.72rem; }
+  .xbadge { display: inline-block; margin-left: 0.4rem; background: #EEF2FF; color: #4F46E5; font-size: 0.66rem; font-weight: 700; padding: 0.05rem 0.4rem; border-radius: 999px; white-space: nowrap; }
+  .vtag { font-size: 0.85rem; }
   .nowrap { white-space: nowrap; }
   .msg { max-width: 320px; }
   td a { color: #D4881A; text-decoration: none; }

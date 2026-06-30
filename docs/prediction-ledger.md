@@ -183,3 +183,27 @@ date, compare to baseline, mark HIT / MISS / PARTIAL, and write the lesson.
 - **Lesson:** _tbd_
 
 ---
+
+## P8 — Valuation certificate CTA promotion (lead capture)
+
+- **Opened:** 2026-06-30
+- **Review on:** 2026-07-28
+- **Surface:** valuation result card (`ValuationTool.astro`).
+- **Thesis:** The valuation tool is heavily used (~27 valuations/7d) but barely
+  captures leads — only **1 of 36** in the 30d to 2026-06-30 left contact details.
+  The actual lead-capture surface (the certificate, which gates name+phone+email)
+  was the *secondary*, low-key CTA; the primary was "List my car — free". Most
+  valuation users are curious, not ready to list, so they bounced without a capture.
+- **Change:** Promote the certificate to the **primary** CTA, reframed as a clear
+  value-exchange ("📄 Get your free valuation certificate"); demote "List my car —
+  free" to a secondary text link. (Also shipped same-session, not the variable:
+  condition now moves the estimate; anonymous client_id for dupe-grouping.)
+- **Metric:** valuation→certificate-lead capture rate (certificates issued ÷
+  valuations), from the DB. Baseline ~1/36 ≈ **3%**.
+- **Prediction (review 2026-07-28):** capture rate rises from ~3% → **≥ 8%**.
+- **Caveat:** certificate still asks for name+phone+email+consent (real friction);
+  prominence helps but the value-exchange framing is what closes it.
+- **Result:** _pending 2026-07-28_
+- **Lesson:** _tbd_
+
+---
