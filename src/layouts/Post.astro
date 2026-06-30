@@ -394,4 +394,24 @@ const shareTitle = encodeURIComponent(title);
       </div>
     </div>
   </div>
+
+  <!-- First-party outbound-link tracking: which external destinations readers
+       click from a guide, and from which article. Skips internal links and any
+       link already tracked by a dedicated component (rental/partner cards). -->
+  <script>
+    document.addEventListener('click', (e) => {
+      const t = e.target;
+      const a = t && t.closest ? t.closest('a[href]') : null;
+      if (!a) return;
+      if (a.hasAttribute('data-rental-op') || a.hasAttribute('data-partner') || a.hasAttribute('data-no-track')) return;
+      let u;
+      try { u = new URL(a.getAttribute('href'), location.href); } catch { return; }
+      if (u.protocol !== 'http:' && u.protocol !== 'https:') return;
+      const host = u.hostname.toLowerCase().replace(/^www\./, '');
+      if (host === location.hostname.toLowerCase().replace(/^www\./, '') || host.endsWith('landcruisersa.co.za')) return;
+      try {
+        navigator.sendBeacon('/api/track-outbound', JSON.stringify({ path: location.pathname, url: u.href }));
+      } catch {}
+    }, true);
+  </script>
 </Base>

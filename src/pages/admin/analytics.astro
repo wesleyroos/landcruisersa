@@ -5,7 +5,7 @@ import AdminLayout from '@/layouts/AdminLayout.astro';
 import { getTrafficSummary } from '@/lib/traffic-summary';
 import { getGscSummary } from '@/lib/gsc-summary';
 import { db } from '@/db/index';
-import { partnerClicks, rentalClicks } from '@/db/schema';
+import { partnerClicks, rentalClicks, outboundClicks } from '@/db/schema';
 import { PARTNERS } from '@/data/partners';
 import { RENTAL_OPERATORS } from '@/data/rental-operators';
 import { sql, gte } from 'drizzle-orm';
@@ -59,6 +59,24 @@ try {
     .map((r) => ({ name: rentalName.get(r.slug) ?? r.slug, clicks: r.n, lastClick: r.last ? new Date(r.last * 1000) : null }))
     .sort((a, b) => b.clicks - a.clicks);
 } catch { rentalInterest = []; }
+
+// Outbound clicks (30d) — every external destination readers click from a guide
+// page (operators, partners, resources), across all articles. First-party
+// content/demand signal + the data any future trackable referral would need.
+let outboundInterest: { host: string; clicks: number; lastClick: Date | null }[] = [];
+try {
+  const since30 = new Date(Date.now() - 30 * 86_400_000);
+  const rows = db.select({
+    host: outboundClicks.dest_host,
+    n: sql<number>`count(*)`,
+    last: sql<number>`max(${outboundClicks.created_at})`,
+  }).from(outboundClicks).where(gte(outboundClicks.created_at, since30))
+    .groupBy(outboundClicks.dest_host).all();
+  outboundInterest = rows
+    .map((r) => ({ host: r.host, clicks: r.n, lastClick: r.last ? new Date(r.last * 1000) : null }))
+    .sort((a, b) => b.clicks - a.clicks)
+    .slice(0, 20);
+} catch { outboundInterest = []; }
 
 // Never let an analytics hiccup take down the page — fall back to the embed.
 let t: Awaited<ReturnType<typeof getTrafficSummary>> | null = null;
@@ -364,6 +382,36 @@ function trend(last: number, prior: number) {
             {rentalInterest.map(r => (
               <tr style="border-top:1px solid #F3F4F6;">
                 <td style="padding:8px 0;">{r.name}</td>
+                <td style="padding:8px 0;text-align:right;color:#6B7280;white-space:nowrap;">{fmtDate(r.lastClick)}</td>
+                <td style="padding:8px 0;text-align:right;font-weight:700;color:#111;">{fmt(r.clicks)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )}
+  </section>
+
+  {/* ── Outbound link clicks: every external destination clicked from a guide ── */}
+  <section style="margin-bottom:28px;">
+    <h2 style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#6B7280;margin:0 0 4px;">🔗 Outbound clicks (30d)</h2>
+    <p style="font-size:12px;color:#9CA3AF;margin:0 0 12px;">Every external destination readers click from a guide page (operators, partners, resources), across all articles. First-party demand signal — and the click data any future trackable referral would need.</p>
+    {outboundInterest.length === 0 ? (
+      <div style="font-size:13px;color:#9CA3AF;background:#fff;border:1px solid #E5E7EB;border-radius:12px;padding:16px;">No outbound clicks recorded in the last 30 days yet.</div>
+    ) : (
+      <div style="background:#fff;border:1px solid #E5E7EB;border-radius:12px;padding:8px 16px;">
+        <table style="width:100%;border-collapse:collapse;font-size:13px;color:#374151;">
+          <thead>
+            <tr style="text-align:left;color:#6B7280;font-size:11px;text-transform:uppercase;letter-spacing:.05em;">
+              <th style="padding:8px 0;">Destination</th>
+              <th style="padding:8px 0;text-align:right;">Last clicked</th>
+              <th style="padding:8px 0;text-align:right;font-weight:700;color:#111;">Clicks</th>
+            </tr>
+          </thead>
+          <tbody>
+            {outboundInterest.map(r => (
+              <tr style="border-top:1px solid #F3F4F6;">
+                <td style="padding:8px 0;">{r.host}</td>
                 <td style="padding:8px 0;text-align:right;color:#6B7280;white-space:nowrap;">{fmtDate(r.lastClick)}</td>
                 <td style="padding:8px 0;text-align:right;font-weight:700;color:#111;">{fmt(r.clicks)}</td>
               </tr>

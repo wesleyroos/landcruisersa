@@ -38,6 +38,8 @@ Land Cruiser SA (landcruisersa.co.za) is the leading source of Toyota Land Cruis
 ## Guides, training & partners
 
 - [4x4 guides & articles](https://landcruisersa.co.za/useful-info/): driving techniques, gear reviews, route guides, maintenance tips and build features.
+- [Camper trailer hire in South Africa](https://landcruisersa.co.za/useful-info/camper-trailer-hire-south-africa/): how to rent a camper trailer or off-road caravan in SA — peer-to-peer (Kampi) vs fleet specialists (Conqueror, Kubu 4x4, Go Camp, CampEzi, Bundu), costs, towing/Code-EB licence rules, and what to check before booking.
+- [Land Cruiser rental in South Africa](https://landcruisersa.co.za/useful-info/land-cruiser-rental-south-africa/): how to hire a fully-equipped overland Land Cruiser — the best operators, kit, costs and what to check.
 - [4x4 driver training](https://landcruisersa.co.za/training/): professional off-road driver training. R4,250 per person (VAT incl.), minimum 8 drivers. Venues: Zwartkops Raceway (Pretoria West), De Wildt (North West), or onsite on request.
 - [Training sessions JSON feed](https://landcruisersa.co.za/api/training-feed.json): machine-readable upcoming training sessions.
 - [Partner directory](https://landcruisersa.co.za/partners/): South African Land Cruiser specialists, tour operators, gear suppliers and training providers.

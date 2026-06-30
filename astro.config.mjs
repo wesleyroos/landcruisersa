@@ -82,11 +82,9 @@ export default defineConfig({
         'https://landcruisersa.co.za/market/fortuner-d4d/',
       ],
       // Keep admin pages — and the unlisted Faan-collection preview — out of the sitemap.
-      // Keep admin pages — and unlisted previews (Faan collection, camper-trailer
-      // draft) — out of the sitemap. Remove a slug here when its post is published.
+      // Keep admin pages — and the unlisted Faan-collection preview — out of the sitemap.
       filter: (page) => !page.includes('/admin/')
-        && !page.includes('/inside-the-webuycars-land-cruiser-collection')
-        && !page.includes('/camper-trailer-hire-south-africa'),
+        && !page.includes('/inside-the-webuycars-land-cruiser-collection'),
     }),
   ],
   vite: {

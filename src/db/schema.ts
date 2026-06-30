@@ -99,6 +99,17 @@ export const rentalClicks = sqliteTable('rental_clicks', {
   created_at:    integer('created_at', { mode: 'timestamp' }).notNull(),
 });
 
+// Generic first-party outbound-link tracking from guide pages — which external
+// destinations (operators, partners, resources) readers click, and from which
+// article. Instrumentation for content signal + any future trackable referral.
+export const outboundClicks = sqliteTable('outbound_clicks', {
+  id:           integer('id').primaryKey({ autoIncrement: true }),
+  article_path: text('article_path').notNull(),
+  dest_host:    text('dest_host').notNull(),
+  dest_url:     text('dest_url').notNull(),
+  created_at:   integer('created_at', { mode: 'timestamp' }).notNull(),
+});
+
 export const partnerClicks = sqliteTable('partner_clicks', {
   id:           integer('id').primaryKey({ autoIncrement: true }),
   partner_slug: text('partner_slug').notNull(),

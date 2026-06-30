@@ -316,6 +316,18 @@ db.exec(`
   )
 `);
 
+// Generic outbound-link clicks from guide pages — which external destinations
+// readers click and from which article. New table → IF NOT EXISTS pattern.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS outbound_clicks (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    article_path TEXT    NOT NULL,
+    dest_host    TEXT    NOT NULL,
+    dest_url     TEXT    NOT NULL,
+    created_at   INTEGER NOT NULL
+  )
+`);
+
 // Scraper health — one row per ingest run, reported by the ingest scripts
 db.exec(`
   CREATE TABLE IF NOT EXISTS ingest_runs (
