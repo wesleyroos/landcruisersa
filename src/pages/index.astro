@@ -10,6 +10,7 @@ import { listings, priceEvents, favorites } from '@/db/schema';
 import { eq, desc, and, not, sql, gte } from 'drizzle-orm';
 import { getSiteStats } from '@/lib/site-stats';
 import { getCurrentUser } from '@/lib/auth-user';
+import { firstPhoto } from '@/lib/photos';
 
 const allPosts = await getCollection('posts', p => !p.data.draft && !p.data.unlisted);
 const posts = allPosts
@@ -62,9 +63,6 @@ const dropCount = (db.select({ n: sql<number>`count(DISTINCT slug)` })
   )).get())?.n ?? 0;
 const activeStr = activeCount.toLocaleString('en-ZA');
 
-function firstPhoto(photos: string) {
-  try { return JSON.parse(photos)[0] ?? 'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/og-default.jpg'; } catch { return 'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/og-default.jpg'; }
-}
 function formatPrice(n: number) {
   return 'R ' + n.toLocaleString('en-ZA');
 }
