@@ -6,7 +6,7 @@ import { db } from '@/db/index';
 import { listings, favorites, savedSearches } from '@/db/schema';
 import { and, eq, ne } from 'drizzle-orm';
 import { getCurrentUser } from '@/lib/auth-user';
-import { parsePhotos, firstPhoto, OG_FALLBACK } from '@/lib/photos';
+import { parsePhotos, firstPhoto, LISTING_PLACEHOLDER } from '@/lib/photos';
 // NB: do NOT import modelLabel/normalize here — this page already pulls modelLabel
 // transitively via getMarketPosition, and a second direct import creates a
 // bundler init-order crash ("Cannot access 'modelLabel2' before initialization").
@@ -53,7 +53,8 @@ if (similarFiltered.length < 3) {
 }
 
 const photos: string[] = parsePhotos(listing.photos);
-const mainPhoto = photos[0] ?? OG_FALLBACK;
+const hasPhotos = photos.length > 0;
+const mainPhoto = photos[0] ?? LISTING_PLACEHOLDER;
 const gridPhotos = photos.slice(1, 5);
 
 // Is this listing already saved by the signed-in user? (drives the heart state)
@@ -300,10 +301,19 @@ if (metaDescription.length > 160) {
   <!-- PHOTO MOSAIC -->
   <div class="section-mosaic">
     <div class={`mosaic ${gridPhotos.length > 0 ? 'mosaic-split' : 'mosaic-single'}`}>
-      <button class="mosaic-main lb-trigger" data-index="0">
-        <img src={mainPhoto} alt={listing.title} fetchpriority="high" loading="eager" decoding="async" />
-        <span class="photo-count">{photos.length} photos · click to view</span>
-      </button>
+      {hasPhotos ? (
+        <button class="mosaic-main lb-trigger" data-index="0">
+          <img src={mainPhoto} alt={listing.title} fetchpriority="high" loading="eager" decoding="async" />
+          <span class="photo-count">{photos.length} photos · click to view</span>
+        </button>
+      ) : (
+        <div class="mosaic-main mosaic-noimg">
+          <img src={mainPhoto} alt="No photos available for this listing" fetchpriority="high" loading="eager" decoding="async" />
+          {isExternal && listing.source_url && (
+            <a href={listing.source_url} target="_blank" rel="noopener" class="noimg-cta" data-track-external>See photos on {portalName} →</a>
+          )}
+        </div>
+      )}
       {gridPhotos.length > 0 && (
         <div class="mosaic-grid">
           {gridPhotos.map((p, i) => (
@@ -1117,6 +1127,15 @@ if (metaDescription.length > 160) {
     position: absolute; bottom: 0.875rem; left: 0.875rem;
     background: rgba(0,0,0,0.65); color: white; backdrop-filter: blur(4px);
     font-size: 0.7rem; font-weight: 600; padding: 0.35rem 0.75rem;
+    border-radius: 9999px;
+  }
+  /* No-photos state: show the branded placeholder, never a stock car render. */
+  .mosaic-noimg { position: relative; cursor: default; }
+  .noimg-cta {
+    position: absolute; bottom: 0.875rem; left: 0.875rem;
+    background: #F5A623; color: #111; text-decoration: none;
+    font-family: var(--font-heading); font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.04em; font-size: 0.72rem; padding: 0.45rem 0.85rem;
     border-radius: 9999px;
   }
   .mosaic-grid {
