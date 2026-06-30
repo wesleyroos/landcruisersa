@@ -13,6 +13,8 @@ export default defineConfig({
   redirects: {
     '/useful-info/hiring-a-land-cruiser-in-sa': '/useful-info/land-cruiser-rental-south-africa/',
     '/useful-info/hiring-a-fully-equipped-land-cruiser-for-ultimate-overlanding-adventures-in-south-africa': '/useful-info/land-cruiser-rental-south-africa/',
+    // Old slug still indexed + getting ~261 organic visits/mo → recover it.
+    '/useful-info/land-cruiser-300-series-the-stats': '/useful-info/land-cruiser-300-series-stats/',
   },
   security: {
     checkOrigin: false,
