@@ -18,6 +18,12 @@ const [listing] = await db.select().from(listings).where(eq(listings.slug, slug!
 if (!listing || listing.status === 'pending') {
   return Astro.redirect('/listings/');
 }
+// We don't display vehicles we can't picture — a listing with no real photo
+// (none, or only the AutoTrader "no image" placeholder) is hidden everywhere,
+// so its detail page redirects rather than showing an empty gallery.
+if (parsePhotos(listing.photos).length === 0) {
+  return Astro.redirect('/listings/');
+}
 
 const isSold = listing.status === 'sold';
 const isExternal = Boolean(listing.source_url);

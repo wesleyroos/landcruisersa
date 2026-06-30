@@ -8,7 +8,7 @@ import { listings, favorites } from '@/db/schema';
 import { inArray, desc, and, eq } from 'drizzle-orm';
 import { getRecentPriceChanges } from '@/lib/price-changes';
 import { getCurrentUser } from '@/lib/auth-user';
-import { firstPhoto } from '@/lib/photos';
+import { firstPhoto, hasUsablePhoto } from '@/lib/photos';
 
 // Only the Land Cruiser segment is public. Hilux/Fortuner (segment = 'toyota-4x4')
 // are collected for market data but never shown in the classifieds.
@@ -26,12 +26,15 @@ const rawListings = await db
   .where(and(inArray(listings.status, ['active', 'sold']), eq(listings.segment, 'land-cruiser')))
   .orderBy(desc(listings.featured), desc(listings.created_at));
 
+// Don't list vehicles we can't picture — a listing with no real photo is hidden.
+const visibleListings = rawListings.filter(l => hasUsablePhoto(l.photos));
+
 const priceChanges = getRecentPriceChanges();
 const PAGE_SIZE = 18;
 
 // Compact client dataset — filtered & paginated in the browser. Shipping this as
 // JSON (~12 small fields/row) is far lighter than rendering ~2,000 card elements.
-const data = rawListings.map(l => ({
+const data = visibleListings.map(l => ({
   slug: l.slug, title: l.title, model: l.model, year: l.year, price: l.price,
   mileage: l.mileage, province: l.province, transmission: l.transmission,
   colour: l.colour, photo: firstPhoto(l.photos), type: l.listing_type,

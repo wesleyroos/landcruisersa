@@ -7,7 +7,7 @@ import { db } from '@/db/index';
 import { listings } from '@/db/schema';
 import { and, eq, desc, or, like } from 'drizzle-orm';
 import { MODELS } from '@/data/models';
-import { firstPhoto } from '@/lib/photos';
+import { firstPhoto, hasUsablePhoto } from '@/lib/photos';
 
 const MODEL_MAP: Record<string, { label: string; description: string }> = {
   '76-series': { label: '76 Series', description: 'Toyota Land Cruiser 76 Series' },
@@ -48,6 +48,8 @@ if (model === 'prado') {
     .where(and(eq(listings.status, 'active'), eq(listings.model, model!)))
     .orderBy(desc(listings.featured), desc(listings.created_at));
 }
+// Hide vehicles with no real photo — we don't list what we can't picture.
+results = results.filter(l => hasUsablePhoto(l.photos));
 
 // Find matching model guide if it exists
 const modelGuide = MODELS.find(m =>

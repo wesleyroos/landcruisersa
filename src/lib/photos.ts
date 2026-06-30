@@ -44,3 +44,10 @@ export function firstPhoto(json: string | null | undefined): string {
 export function firstPhotoOrNull(json: string | null | undefined): string | null {
   return parsePhotos(json)[0] ?? null;
 }
+
+/** True if a listing has at least one genuine photo (placeholder doesn't count).
+ *  Listings without one are hidden from all browse surfaces — we don't show
+ *  vehicles we can't picture. */
+export function hasUsablePhoto(json: string | null | undefined): boolean {
+  return parsePhotos(json).length > 0;
+}

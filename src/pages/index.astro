@@ -10,7 +10,7 @@ import { listings, priceEvents, favorites } from '@/db/schema';
 import { eq, desc, and, not, sql, gte } from 'drizzle-orm';
 import { getSiteStats } from '@/lib/site-stats';
 import { getCurrentUser } from '@/lib/auth-user';
-import { firstPhoto } from '@/lib/photos';
+import { firstPhoto, hasUsablePhoto } from '@/lib/photos';
 
 const allPosts = await getCollection('posts', p => !p.data.draft && !p.data.unlisted);
 const posts = allPosts
@@ -23,20 +23,25 @@ const SLOTS = 3;
 // for data but live behind segment = 'toyota-4x4').
 const LC = eq(listings.segment, 'land-cruiser');
 
-const pinnedListings = await db
+// Only feature listings we can actually picture — skip any with no real photo.
+const pinnedListings = (await db
   .select()
   .from(listings)
   .where(and(eq(listings.status, 'active'), LC, eq(listings.featured, true)))
   .orderBy(desc(listings.created_at))
-  .limit(SLOTS);
+  .limit(SLOTS))
+  .filter(l => hasUsablePhoto(l.photos));
 
-const fillListings = pinnedListings.length < SLOTS
-  ? await db
+const fillNeeded = SLOTS - pinnedListings.length;
+const fillListings = fillNeeded > 0
+  ? (await db
       .select()
       .from(listings)
       .where(and(eq(listings.status, 'active'), LC, not(eq(listings.featured, true))))
       .orderBy(desc(listings.created_at))
-      .limit(SLOTS - pinnedListings.length)
+      .limit(fillNeeded + 8)) // buffer so photo-less rows don't shrink the row
+      .filter(l => hasUsablePhoto(l.photos))
+      .slice(0, fillNeeded)
   : [];
 
 const featuredListings = [...pinnedListings, ...fillListings];
