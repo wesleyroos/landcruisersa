@@ -37,29 +37,42 @@ async function fetchBytes(url) {
   return Buffer.from(await r.arrayBuffer());
 }
 
-// Resize a JPEG in place on R2 (same key), only if it gets smaller.
-async function shrinkJpg(key, width) {
+// Resize an image in place on R2 (same key, same format), only if it gets
+// smaller. Handles jpeg + png (logos); skips other types untouched.
+async function shrink(key, width) {
   try {
     const src = await fetchBytes(`${PUBLIC}/${key}`);
-    const out = await sharp(src).rotate()
-      .resize({ width, withoutEnlargement: true })
-      .jpeg({ quality: 72, progressive: true, mozjpeg: true }).toBuffer();
+    const img = sharp(src).rotate().resize({ width, withoutEnlargement: true });
+    const isPng = /\.png$/i.test(key);
+    const out = isPng
+      ? await img.png({ compressionLevel: 9, palette: true }).toBuffer()
+      : await img.jpeg({ quality: 72, progressive: true, mozjpeg: true }).toBuffer();
     if (out.length >= src.length) { console.log(`· ${key}  ${kb(src.length)} (already lean, skipped)`); return; }
-    await put(key, out, 'image/jpeg');
+    await put(key, out, isPng ? 'image/png' : 'image/jpeg');
     console.log(`✓ ${key}  ${kb(src.length)} → ${kb(out.length)}`);
   } catch (e) { console.log(`✗ ${key}  ${e.message}`); }
 }
 
-// 1. Every model tile under images/models/ (homepage + model-guide pages).
-const listed = await s3.send(new ListObjectsV2Command({ Bucket: BUCKET, Prefix: 'images/models/' }));
-const modelJpgs = (listed.Contents ?? []).map(o => o.Key).filter(k => /\.jpe?g$/i.test(k));
-console.log(`\n— ${modelJpgs.length} model tiles —`);
-for (const k of modelJpgs) await shrinkJpg(k, 760);
+// Optimise every jpg/png under a set of R2 prefixes. Display widths differ by
+// kind: model tiles + blog/training images render large; partner logos small.
+const PREFIXES = [
+  { prefix: 'images/models/',   width: 760 },
+  { prefix: 'images/posts/',    width: 1200 }, // blog featured images (one was 2.6 MB)
+  { prefix: 'images/training/', width: 1200 },
+  { prefix: 'images/partners/', width: 600 },  // logos shrunk to display size
+  { prefix: 'uploads/',         width: 1280 }, // user-submitted listing photos
+];
+for (const { prefix, width } of PREFIXES) {
+  const listed = await s3.send(new ListObjectsV2Command({ Bucket: BUCKET, Prefix: prefix }));
+  const keys = (listed.Contents ?? []).map(o => o.Key).filter(k => /\.(jpe?g|png)$/i.test(k));
+  console.log(`\n— ${keys.length} under ${prefix} —`);
+  for (const k of keys) await shrink(k, width);
+}
 
-// 2. Shared heavies.
+// Shared heavies.
 console.log('\n— shared —');
-await shrinkJpg('images/og-default.jpg', 1200); // OG card: 1200×630 is the spec
-await shrinkJpg('images/hero-bg.jpg', 1600);
+await shrink('images/og-default.jpg', 1200); // OG card: 1200×630 is the spec
+await shrink('images/hero-bg.jpg', 1600);
 
 // 3. Hero: local + uncached → WebP on R2 (markup switches to this URL once).
 console.log('\n— hero —');
