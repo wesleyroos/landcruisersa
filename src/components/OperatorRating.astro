@@ -1,0 +1,35 @@
+---
+// Inline Google rating badge for a rental operator. Reads the cached figure from
+// src/data/operator-ratings.json (refreshed by scripts/refresh-operator-ratings.mjs
+// via the Google Places API). Renders nothing when we don't have a rating yet,
+// so it degrades gracefully — always append it, never rely on it mid-sentence.
+import ratings from '@/data/operator-ratings.json';
+
+interface Props { slug: string }
+const { slug } = Astro.props;
+
+type Row = { rating?: number; reviewCount?: number | null };
+const r = (ratings as Record<string, Row>)[slug];
+const show = r && typeof r.rating === 'number' && r.rating > 0;
+---
+{show && (
+  <span class="op-rating" title="Live Google rating">
+    <span class="op-rating-star">★</span>
+    <span class="op-rating-score">{r.rating!.toFixed(1)}</span>
+    {typeof r.reviewCount === 'number' && (
+      <span class="op-rating-count">·&nbsp;{r.reviewCount.toLocaleString('en-ZA')} Google reviews</span>
+    )}
+  </span>
+)}
+
+<style>
+  .op-rating {
+    display: inline-flex; align-items: center; gap: 0.3rem;
+    font-size: 0.85em; font-weight: 700; color: #111;
+    background: #FFF7E6; border: 1px solid rgba(245,166,35,0.4);
+    padding: 0.05rem 0.5rem; border-radius: 9999px; white-space: nowrap;
+    vertical-align: middle;
+  }
+  .op-rating-star { color: #F5A623; }
+  .op-rating-count { font-weight: 500; color: #6B7280; }
+</style>
