@@ -60,15 +60,24 @@ for (const op of OPERATORS) {
   try {
     const p = await lookup(op);
     if (!p || typeof p.rating !== 'number') { console.log(`✗ ${op.slug}: no rating found`); continue; }
+    const rating = p.rating;
+    const reviewCount = p.userRatingCount ?? null;
+    const prev = data[op.slug];
+    // Only rewrite (and thus trigger a commit/deploy) when a figure actually
+    // changed — don't re-stamp the date on an unchanged rating every week.
+    if (prev && prev.rating === rating && prev.reviewCount === reviewCount) {
+      console.log(`= ${op.slug}: unchanged (${rating}★, ${reviewCount})`);
+      continue;
+    }
     data[op.slug] = {
-      rating: p.rating,
-      reviewCount: p.userRatingCount ?? null,
+      rating,
+      reviewCount,
       name: p.displayName?.text ?? op.slug,
       placeId: p.id ?? op.placeId ?? null,
       updated: today,
     };
     const flag = op.placeId ? '' : `  ← new place_id: ${p.id}`;
-    console.log(`✓ ${op.slug}: ${p.rating}★ (${p.userRatingCount ?? '?'}) — ${p.displayName?.text ?? ''}${flag}`);
+    console.log(`✓ ${op.slug}: ${rating}★ (${reviewCount ?? '?'}) — ${p.displayName?.text ?? ''}${flag}`);
   } catch (e) {
     console.log(`✗ ${op.slug}: ${e.message}`);
   }
