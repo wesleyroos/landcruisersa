@@ -1028,13 +1028,22 @@ if (metaDescription.length > 160) {
   }
   .back-link:hover { color: #111111; }
 
-  /* Header */
+  /* Header — mobile-first: stack so the title gets the full width. The action
+     buttons sit below it (they used to squeeze the title into a tiny column,
+     wrapping it one word per line). Restored to a side-by-side row from 640px. */
   .header-row {
-    display: flex; align-items: flex-start;
-    gap: 1rem; flex-wrap: wrap;
+    display: flex; flex-direction: column;
+    gap: 0.875rem;
   }
-  .header-left { flex: 1; min-width: 0; }
-  .header-meta { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
+  .header-left { min-width: 0; }
+  .header-row > .wa-btn-header,
+  .header-row > .fav-btn,
+  .header-row > .sold-pill { align-self: flex-start; }
+  @media (min-width: 640px) {
+    .header-row { flex-direction: row; align-items: flex-start; flex-wrap: wrap; gap: 1rem; }
+    .header-left { flex: 1; }
+  }
+  .header-meta { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.625rem; }
   .model-pill {
     background: #F5A623; color: #111111;
     font-size: 0.6rem; font-weight: 700; letter-spacing: 0.12em;
@@ -1044,9 +1053,9 @@ if (metaDescription.length > 160) {
   .year-pill { font-size: 0.75rem; color: #6B7280; font-weight: 600; }
   .listing-title {
     font-family: var(--font-heading); font-weight: 700;
-    text-transform: uppercase; color: #111111; line-height: 1.05;
+    text-transform: uppercase; color: #111111; line-height: 1.12;
     font-size: clamp(1.5rem, 3.5vw, 2.5rem);
-    margin-bottom: 0.4rem;
+    margin-bottom: 0.5rem;
   }
   .listing-location {
     display: flex; align-items: center; gap: 0.3rem;
