@@ -15,6 +15,17 @@ export default defineConfig({
     '/useful-info/hiring-a-fully-equipped-land-cruiser-for-ultimate-overlanding-adventures-in-south-africa': '/useful-info/land-cruiser-rental-south-africa/',
     // Old slug still indexed + getting ~261 organic visits/mo → recover it.
     '/useful-info/land-cruiser-300-series-the-stats': '/useful-info/land-cruiser-300-series-stats/',
+    // Renamed articles + old training URL (were 404ing in GA/Plausible).
+    '/useful-info/the-land-cruiser-history': '/useful-info/land-cruiser-history/',
+    '/useful-info/5-easy-meals-to-make-while-overlanding': '/useful-info/5-easy-meals-while-overlanding/',
+    '/4x4-training': '/training/',
+    '/partners/ironman-4x4': '/partners/',
+    // Dead WordPress/WooCommerce shop URLs from the old site — no store now.
+    '/shop': '/',
+    '/store': '/',
+    '/product-category/clothing': '/',
+    '/product-category/clothing/caps': '/',
+    '/product/outdoor-fixed-blade-limited-edition': '/',
   },
   security: {
     checkOrigin: false,
