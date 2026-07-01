@@ -111,6 +111,27 @@ export const outboundClicks = sqliteTable('outbound_clicks', {
   created_at:   integer('created_at', { mode: 'timestamp' }).notNull(),
 });
 
+// Natural-language vehicle searches — the raw query + parsed filters + result
+// count. First-party intent + demand-gap data: what buyers ask for in their own
+// words, and (result_count=0) what they wanted that we don't have in stock.
+export const searchQueries = sqliteTable('search_queries', {
+  id:           integer('id').primaryKey({ autoIncrement: true }),
+  q:            text('q').notNull(),
+  mode:         text('mode'),                 // 'navigate' (home) | 'filter' (listings)
+  models:       text('models'),               // csv of parsed model values
+  provinces:    text('provinces'),            // csv of parsed provinces
+  min_price:    integer('min_price'),
+  max_price:    integer('max_price'),
+  min_mileage:  integer('min_mileage'),
+  max_mileage:  integer('max_mileage'),
+  min_year:     integer('min_year'),
+  max_year:     integer('max_year'),
+  matched:      integer('matched', { mode: 'boolean' }),  // did the parser understand anything?
+  result_count: integer('result_count'),      // matches shown (filter mode); null on navigate
+  client_id:    text('client_id'),
+  created_at:   integer('created_at', { mode: 'timestamp' }).notNull(),
+});
+
 export const partnerClicks = sqliteTable('partner_clicks', {
   id:           integer('id').primaryKey({ autoIncrement: true }),
   partner_slug: text('partner_slug').notNull(),

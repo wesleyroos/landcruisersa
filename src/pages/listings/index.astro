@@ -9,6 +9,7 @@ import { inArray, desc, and, eq } from 'drizzle-orm';
 import { getRecentPriceChanges } from '@/lib/price-changes';
 import { getCurrentUser } from '@/lib/auth-user';
 import { firstPhoto, hasUsablePhoto } from '@/lib/photos';
+import VehicleSearch from '@/components/VehicleSearch.astro';
 
 // Only the Land Cruiser segment is public. Hilux/Fortuner (segment = 'toyota-4x4')
 // are collected for market data but never shown in the classifieds.
@@ -111,15 +112,18 @@ function formatMileage(n: number) {
 
   <div class="max-w-7xl mx-auto px-4 py-8 sm:py-10">
 
-    <!-- TYPE TOGGLE -->
-    <div class="flex gap-2 mb-5" id="type-filter">
-      <button class="type-pill active" data-type="all">All</button>
-      <button class="type-pill" data-type="for_sale">For Sale</button>
-      <button class="type-pill" data-type="show_off">
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-        Show Off
-      </button>
-      <button class="type-pill" data-type="sold">Sold</button>
+    <!-- TYPE TOGGLE + NL SEARCH (search sits to the right of the pills) -->
+    <div class="flex flex-wrap items-center gap-3 mb-5">
+      <div class="flex gap-2" id="type-filter">
+        <button class="type-pill active" data-type="all">All</button>
+        <button class="type-pill" data-type="for_sale">For Sale</button>
+        <button class="type-pill" data-type="show_off">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          Show Off
+        </button>
+        <button class="type-pill" data-type="sold">Sold</button>
+      </div>
+      <div class="w-full sm:w-96"><VehicleSearch mode="filter" compact /></div>
     </div>
 
     <!-- DROPDOWN FILTERS -->
@@ -907,6 +911,48 @@ function formatMileage(n: number) {
     document.getElementById('save-search-bar')?.classList.toggle('hidden', !anySaveableFilter());
   }
 
+  // ── NL search hook: apply a parsed query to the existing filter controls,
+  //    re-filter, and return the match count. Called by VehicleSearch (filter
+  //    mode) and by the URL-param loader (a search coming from the homepage). ──
+  type ParsedQ = {
+    models?: string[]; provinces?: string[];
+    minPrice?: number; maxPrice?: number; minMileage?: number; maxMileage?: number;
+    minYear?: number; maxYear?: number;
+  };
+  function mileageRangeLabel(min?: number, max?: number): string {
+    const k = (n: number) => Math.round(n / 1000) + 'k km';
+    if (min && max) return `${k(min)} – ${k(max)}`;
+    if (max != null) return `≤ ${k(max)}`;
+    if (min) return `≥ ${k(min)}`;
+    return 'Any Mileage';
+  }
+  function applyParsed(f: ParsedQ): number {
+    msBoxes.forEach(b => { b.checked = (f.models || []).includes(b.value); });
+    updateModelLabel();
+    provBoxes.forEach(b => { b.checked = (f.provinces || []).includes(b.value); });
+    updateProvinceLabel();
+    mileBoxes.forEach(b => { b.checked = false; });
+    if (f.minMileage != null || f.maxMileage != null) {
+      selectedMileages = [[f.minMileage || 0, f.maxMileage != null ? f.maxMileage : Infinity]];
+      mileLabel.textContent = mileageRangeLabel(f.minMileage, f.maxMileage);
+    } else { selectedMileages = []; mileLabel.textContent = 'Any Mileage'; }
+    priceMin = f.minPrice || 0; priceMax = f.maxPrice != null ? f.maxPrice : Infinity;
+    priceMinInput.value = priceMin > 0 ? String(priceMin) : '';
+    priceMaxInput.value = isFinite(priceMax) ? String(priceMax) : '';
+    priceLabelEl.textContent = customPriceLabel(priceMin, priceMax);
+    yearMin = f.minYear || 0; yearMax = f.maxYear != null ? f.maxYear : Infinity;
+    yearMinInput.value = yearMin > 0 ? String(yearMin) : '';
+    yearMaxInput.value = isFinite(yearMax) ? String(yearMax) : '';
+    yearLabelEl.textContent = yearFilterLabel(yearMin, yearMax);
+    activeType = 'all';
+    typePills.forEach(p => p.classList.toggle('active', p.dataset.type === 'all'));
+    (document.getElementById('price-filter') as HTMLElement).style.display = '';
+    (document.getElementById('ms-mileage') as HTMLElement).style.display = '';
+    applyFilters();
+    return DATA.filter(matchesFilters).length;
+  }
+  (window as any).__lcsaApplyFilters = applyParsed;
+
   typePills.forEach(pill => {
     pill.addEventListener('click', () => {
       activeType = pill.dataset.type ?? 'all';
@@ -1018,15 +1064,24 @@ function formatMileage(n: number) {
     }
   });
 
-  // Pre-select models from ?model= (e.g. market-page "browse listings" links)
-  const urlModels = new URLSearchParams(location.search).get('model');
-  if (urlModels) {
-    const wanted = urlModels.split(',');
-    msBoxes.forEach(b => { if (wanted.includes(b.value)) b.checked = true; });
+  // Apply filters from the URL — ?model= (market-page links) plus the full
+  // NL-search param set handed over from the homepage search.
+  const sp = new URLSearchParams(location.search);
+  const spNum = (k: string) => { const v = sp.get(k); return v && v.trim() !== '' ? Number(v) : undefined; };
+  const hasUrlFilters = ['model', 'province', 'minPrice', 'maxPrice', 'minMileage', 'maxMileage', 'minYear', 'maxYear']
+    .some(k => sp.get(k));
+  if (hasUrlFilters) {
+    applyParsed({
+      models: (sp.get('model') || '').split(',').filter(Boolean),
+      provinces: (sp.get('province') || '').split(',').filter(Boolean),
+      minPrice: spNum('minPrice'), maxPrice: spNum('maxPrice'),
+      minMileage: spNum('minMileage'), maxMileage: spNum('maxMileage'),
+      minYear: spNum('minYear'), maxYear: spNum('maxYear'),
+    });
+  } else {
+    updateModelLabel();
+    updateProvinceLabel();
+    updateMileageLabel();
+    applyFilters();
   }
-  updateModelLabel();
-  updateProvinceLabel();
-  updateMileageLabel();
-
-  applyFilters();
 </script>

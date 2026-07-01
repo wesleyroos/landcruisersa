@@ -267,3 +267,30 @@ date, compare to baseline, mark HIT / MISS / PARTIAL, and write the lesson.
   baseline-building, not proof (per the locked business-brain drift guard).
 - **Result:** _pending 2026-09-01_
 - **Lesson:** _tbd_
+
+## P11 — Natural-language vehicle search (keep/drop experiment)
+
+- **Opened:** 2026-07-01 (ships after local review — this entry is the success bar)
+- **Review on:** 2026-09-01 (needs to be live + accrue usage first)
+- **Surface:** `search_queries` table (every query + parsed filters + result count +
+  client_id); `VehicleSearch` on the homepage (→ /listings/?params) and listings
+  page (live client-side filter). Admin "search insights" view still to build.
+- **Thesis:** Fiddling dropdown filters is friction. Letting a buyer type
+  "200 series under R700k, under 100k km" is faster AND captures intent in their
+  own words. Every query is first-party intent data; a **zero-result** query is a
+  demand gap (we don't have that vehicle) — a dealer-sourcing/bird-dog signal.
+- **Change:** Rules-based NL parser (instant, client-side, no LLM) → the existing
+  filter shape; logs every search.
+- **Metrics:** (a) **adoption** = searches ÷ listings-page sessions; (b)
+  **conversion lift** = engagement rate (contact click / valuation, joined via
+  client_id) of searchers vs non-searchers; (c) **demand gaps** = count of
+  zero-result searches.
+- **Prediction / keep-drop rule (review 2026-09-01):** KEEP if EITHER adoption
+  ≥ 8% of listings sessions OR ≥ 15 distinct zero-result demand-gap queries
+  surfaced — AND searchers engage at ≥ the non-searcher rate. DROP if adoption
+  < 5% AND < 5 demand-gap signals AND no conversion lift after ≥ 40 searches.
+- **Caveat:** low traffic will make adoption noisy; the rules parser misses odd
+  phrasing (LLM fallback is a deferred V2); needs the admin insights view built
+  before the review to actually read (a)–(c).
+- **Result:** _pending 2026-09-01_
+- **Lesson:** _tbd_

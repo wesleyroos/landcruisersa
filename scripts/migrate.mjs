@@ -271,6 +271,28 @@ addColTo('ai_referrals', 'client_id', 'client_id TEXT');
 addColTo('click_events', 'client_id', 'client_id TEXT');
 addColTo('finance_leads', 'client_id', 'client_id TEXT');
 
+// Natural-language vehicle searches → intent + demand-gap data. New table.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS search_queries (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    q            TEXT    NOT NULL,
+    mode         TEXT,
+    models       TEXT,
+    provinces    TEXT,
+    min_price    INTEGER,
+    max_price    INTEGER,
+    min_mileage  INTEGER,
+    max_mileage  INTEGER,
+    min_year     INTEGER,
+    max_year     INTEGER,
+    matched      INTEGER,
+    result_count INTEGER,
+    client_id    TEXT,
+    created_at   INTEGER NOT NULL
+  )
+`);
+db.exec(`CREATE INDEX IF NOT EXISTS search_queries_created ON search_queries (created_at)`);
+
 // General enquiries from the floating chat widget.
 db.exec(`
   CREATE TABLE IF NOT EXISTS enquiries (

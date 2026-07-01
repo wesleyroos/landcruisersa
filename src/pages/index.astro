@@ -11,6 +11,7 @@ import { eq, desc, and, not, sql, gte } from 'drizzle-orm';
 import { getSiteStats } from '@/lib/site-stats';
 import { getCurrentUser } from '@/lib/auth-user';
 import { firstPhoto, hasUsablePhoto } from '@/lib/photos';
+import VehicleSearch from '@/components/VehicleSearch.astro';
 
 const allPosts = await getCollection('posts', p => !p.data.draft && !p.data.unlisted);
 const posts = allPosts
@@ -98,7 +99,10 @@ function formatPrice(n: number) {
     <div class="hero-inner">
       <p class="hero-eyebrow">South Africa's Land Cruiser Marketplace</p>
       <h1 class="hero-heading">Every Land Cruiser<br/>for sale in SA.<br/>One place.</h1>
-      <p class="hero-tagline">Built for the road less taken.</p>
+      <div class="hero-search">
+        <p class="hero-search-label">Search for a vehicle — just type what you're looking for</p>
+        <VehicleSearch mode="navigate" />
+      </div>
       <div class="hero-actions">
         <a href="/listings/" class="btn-primary">Browse {activeStr} Cruisers</a>
         <a href="/valuation/" class="btn-ghost">Vehicle Valuation</a>
@@ -401,6 +405,8 @@ function formatPrice(n: number) {
     font-size: 0.9rem; color: rgba(255,255,255,0.65);
     letter-spacing: 0.04em; margin-bottom: 1.75rem;
   }
+  .hero-search { display: flex; flex-direction: column; align-items: center; margin: 1.5rem auto 1.4rem; }
+  .hero-search-label { margin-bottom: 0.7rem; font-size: 0.85rem; font-weight: 500; color: rgba(255,255,255,0.82); }
   .hero-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; justify-content: center; }
   .hero-stats {
     display: flex; align-items: center; justify-content: center; gap: 0.75rem;
