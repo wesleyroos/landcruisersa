@@ -236,3 +236,34 @@ date, compare to baseline, mark HIT / MISS / PARTIAL, and write the lesson.
   signal may be thin; the Ahrefs cleanup is the high-confidence half.
 - **Result:** _pending 2026-07-30_
 - **Lesson:** _tbd_
+
+## P10 — Citation → conversion measurement (AI-referred visitors)
+
+- **Opened:** 2026-07-01
+- **Review on:** 2026-09-01 (or once ≥ 25 AI-referred visitors carry a client_id,
+  whichever is first — AI traffic is only ~9/mo, so a clean read will take time).
+- **Surface:** `ai_referrals`, `click_events`, `finance_leads`, `valuation_requests`
+  (shared `client_id` = `lcsa_vcid`); shown in `/admin/analytics` → "LLM citations
+  — first-party" → the "Citation → conversion" line.
+- **Thesis:** First-party data (n=9, all ChatGPT, 23-28 Jun) showed 8/9 AI
+  citations landing on individual **listings** (mostly Prado 2.8GD VX-R; one
+  listing cited 5×), not guides — and a live ChatGPT test confirmed it shortlists
+  listings + cites our market-data page for pricing. If that intent is real, AI
+  visitors should **engage at a high rate** (contact/external click, finance lead
+  or valuation). We couldn't measure it before (no join key between a referral and
+  a later action); the client_id instrumentation now makes it measurable.
+- **Change:** Added `client_id` (the anonymous per-browser `lcsa_vcid`) to the
+  AI-referral beacon and to every listing contact/external/finance beacon + the
+  finance-lead POST, so a citation can be joined to a later conversion.
+- **Metric:** citation→conversion rate = converted ÷ referred (from /admin/analytics),
+  plus which action dominates (WhatsApp/call/email vs "View on <source>" external).
+- **Prediction (review 2026-09-01):** once ≥ 25 AI-referred visitors carry a
+  client_id, **≥ 40%** will have taken a valuable action — i.e. AI traffic engages
+  better than typical browse traffic; AND the **dominant action is an external
+  "View on source" click**, confirming that AI is sending high-intent buyers we
+  then hand off (often to WeBuyCars) for free.
+- **Caveat:** below the ≥5-graded-outcomes signal bar and tiny volume; referrer
+  stripping under-counts referrals. Treat the first read as directional
+  baseline-building, not proof (per the locked business-brain drift guard).
+- **Result:** _pending 2026-09-01_
+- **Lesson:** _tbd_
