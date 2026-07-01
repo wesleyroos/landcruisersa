@@ -827,10 +827,12 @@ function formatMileage(n: number) {
 
     const isShowOff = l.type === 'show_off';
 
+    // Titles vary: "Single Cab" / "Double Cab" spelled out, or "S/C" / "D/C"
+    // (incl. "P/U S/C"). Match both forms.
     const cabOk = !selectedCab || (
       selectedCab === 'single'
-        ? /single[\s-]?cab|s\/?cab/i.test(l.title)
-        : /double[\s-]?cab|d\/?cab|crew[\s-]?cab/i.test(l.title)
+        ? /single[\s-]?cab|\bs\/c\b/i.test(l.title)
+        : /double[\s-]?cab|crew[\s-]?cab|\bd\/c\b/i.test(l.title)
     );
 
     const priceOk = isShowOff || showingSold || (l.price >= priceMin && l.price <= priceMax);

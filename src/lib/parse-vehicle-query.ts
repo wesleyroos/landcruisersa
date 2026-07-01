@@ -61,17 +61,15 @@ export function parseVehicleQuery(input: string): ParsedQuery {
   if (!input) return out;
   let q = ' ' + input.toLowerCase().replace(/\s+/g, ' ').trim() + ' ';
 
-  // 1. Mileage — any number followed by km (blank it out so price parsing skips it).
-  q = q.replace(/(\w+\s+){0,3}?(\d[\d, ]*\.?\d*\s*k?)\s*(km|kms|kilomet\w+)/g, (full, _pre, num) => {
-    const val = amount(num.replace(/\s*k$/, 'k').replace(/\s/g, '')) ?? amount(num.trim() + (/k$/.test(num.trim()) ? '' : ''));
-    const v = amount(num.trim());
-    const n = v ?? val;
-    if (n != null) {
-      const before = full.toLowerCase();
-      if (UPPER.test(before)) { out.minMileage = n; out.chips.push({ key: 'minMileage', label: `≥ ${km(n)}` }); }
-      else { out.maxMileage = n; out.chips.push({ key: 'maxMileage', label: `≤ ${km(n)}` }); }
-      out.matched = true;
-    }
+  // 1. Mileage — a number (with an OPTIONAL, adjacent comparator) right before
+  //    "km". The comparator must touch the number; we never consume unrelated
+  //    leading words (that bug ate the model, e.g. "200 series under 100k km").
+  q = q.replace(/(under|below|less than|up to|max(?:imum)?|<|over|above|more than|from|min(?:imum)?|>)?\s*(\d[\d, ]*\.?\d*\s*k?)\s*(km|kms|kilomet\w+)/gi, (full, cmp, numk) => {
+    const n = amount(numk.trim());
+    if (n == null) return full;
+    if (cmp && UPPER.test(cmp.toLowerCase())) { out.minMileage = n; out.chips.push({ key: 'minMileage', label: `≥ ${km(n)}` }); }
+    else { out.maxMileage = n; out.chips.push({ key: 'maxMileage', label: `≤ ${km(n)}` }); }
+    out.matched = true;
     return ' ';
   });
   if (/\blow\s?(km|mileage|kms)\b/.test(q) && out.maxMileage == null) {
