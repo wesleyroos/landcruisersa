@@ -16,45 +16,59 @@ const env = fs.existsSync('.env')
 const KEY = env.GOOGLE_PLACES_API_KEY ?? process.env.GOOGLE_PLACES_API_KEY;
 if (!KEY) { console.error('Missing GOOGLE_PLACES_API_KEY (add it to .env).'); process.exit(1); }
 
-// slug → the text query that best identifies the operator's Google Business place.
-// Tighten a query here if it resolves to the wrong place.
+// Operators pinned by Google place_id (resolved + name-verified once), so a
+// refresh always reads the SAME business and can't drift to a competitor via
+// fuzzy text search. Add a new operator with { slug, query } and the script will
+// resolve + print its place_id to paste back here.
+// NOTE: Kampi (an online platform) and CampEzi have no location-based Google
+// Business listing, so they're intentionally omitted — they show no badge.
 const OPERATORS = [
-  { slug: 'kampi',     query: 'Kampi camper and caravan rental South Africa' },
-  { slug: 'conqueror', query: 'Conqueror Off Road Campers Johannesburg' },
-  { slug: 'kubu-4x4',  query: 'Kubu4x4 Caravan and Trailer Rentals Krugersdorp' },
-  { slug: 'go-camp',   query: 'Go Camp Gauteng Midrand camping' },
-  { slug: 'campezi',   query: 'CampEzi Off-Road Trailer Rentals Pretoria' },
-  { slug: 'bundu',     query: 'Bundu 4x4 Caravan and Trailer Hire' },
-  { slug: 'camp-guru', query: 'Camp Guru Caravan and Trailer Rental Edenvale' },
+  { slug: 'conqueror', placeId: 'ChIJvcaT09l1lR4R9SnCTS7zly4', query: 'Conqueror Northgate Johannesburg' },
+  { slug: 'kubu-4x4',  placeId: 'ChIJ62L2yxqZlR4RcVqGmi0vAhI', query: 'Kubu4x4 Caravan and Trailer Rentals Krugersdorp' },
+  { slug: 'go-camp',   placeId: 'ChIJnz3gW74VlR4RdP42UJYXtf4', query: 'Go Camp Gauteng Midrand' },
+  { slug: 'bundu',     placeId: 'ChIJG1FW-XMrvh4RGA_RDQhjspA', query: 'Bundu Trailers & Caravans Hartbeespoort' },
+  { slug: 'camp-guru', placeId: 'ChIJN_cDr5YTlR4RC1IuUHynsE8', query: 'Camp Guru Edenvale' },
 ];
 
 const FILE = 'src/data/operator-ratings.json';
 const data = fs.existsSync(FILE) ? JSON.parse(fs.readFileSync(FILE, 'utf8')) : {};
 const today = new Date().toISOString().slice(0, 10);
 
+// Exact lookup by place_id (stable); falls back to text search only when a new
+// operator has no place_id yet (then paste the printed id into OPERATORS).
+async function lookup(op) {
+  if (op.placeId) {
+    const res = await fetch(`https://places.googleapis.com/v1/places/${op.placeId}`, {
+      headers: { 'X-Goog-Api-Key': KEY, 'X-Goog-FieldMask': 'id,displayName,rating,userRatingCount' },
+    });
+    const p = await res.json();
+    if (p.error) throw new Error(p.error.message);
+    return p;
+  }
+  const res = await fetch('https://places.googleapis.com/v1/places:searchText', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Goog-Api-Key': KEY,
+      'X-Goog-FieldMask': 'places.id,places.displayName,places.rating,places.userRatingCount' },
+    body: JSON.stringify({ textQuery: op.query, regionCode: 'ZA' }),
+  });
+  const j = await res.json();
+  if (j.error) throw new Error(j.error.message);
+  return (j.places && j.places[0]) || null;
+}
+
 for (const op of OPERATORS) {
   try {
-    const res = await fetch('https://places.googleapis.com/v1/places:searchText', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Goog-Api-Key': KEY,
-        'X-Goog-FieldMask': 'places.id,places.displayName,places.rating,places.userRatingCount',
-      },
-      body: JSON.stringify({ textQuery: op.query, regionCode: 'ZA' }),
-    });
-    const j = await res.json();
-    if (j.error) { console.log(`✗ ${op.slug}: API error — ${j.error.message}`); continue; }
-    const p = j.places && j.places[0];
+    const p = await lookup(op);
     if (!p || typeof p.rating !== 'number') { console.log(`✗ ${op.slug}: no rating found`); continue; }
     data[op.slug] = {
       rating: p.rating,
       reviewCount: p.userRatingCount ?? null,
       name: p.displayName?.text ?? op.slug,
-      placeId: p.id ?? null,
+      placeId: p.id ?? op.placeId ?? null,
       updated: today,
     };
-    console.log(`✓ ${op.slug}: ${p.rating}★ (${p.userRatingCount ?? '?'}) — ${p.displayName?.text ?? ''}`);
+    const flag = op.placeId ? '' : `  ← new place_id: ${p.id}`;
+    console.log(`✓ ${op.slug}: ${p.rating}★ (${p.userRatingCount ?? '?'}) — ${p.displayName?.text ?? ''}${flag}`);
   } catch (e) {
     console.log(`✗ ${op.slug}: ${e.message}`);
   }
