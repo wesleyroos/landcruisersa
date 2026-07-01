@@ -1,0 +1,87 @@
+---
+// Comparison table of camper-trailer operators. Pulls live Google ratings from
+// operator-ratings.json (auto-refreshed weekly). Responsive: a normal table on
+// desktop, stacked labelled cards on mobile (no horizontal scroll).
+import { TRAILER_OPERATORS } from '@/data/trailer-operators';
+import ratings from '@/data/operator-ratings.json';
+
+type Row = { rating?: number; reviewCount?: number | null };
+const R = ratings as Record<string, Row>;
+const zar = (n: number) => 'R' + n.toLocaleString('en-ZA');
+---
+<div class="op-table-wrap">
+  <table class="op-table">
+    <thead>
+      <tr>
+        <th>Operator</th><th>Google</th><th>Based</th><th>From</th><th>Notes</th>
+      </tr>
+    </thead>
+    <tbody>
+      {TRAILER_OPERATORS.map((o) => {
+        const r = R[o.slug];
+        const hasRating = r && typeof r.rating === 'number' && r.rating > 0;
+        return (
+          <tr>
+            <td data-label="Operator">
+              <a href={o.url} target="_blank" rel="noopener">{o.name}</a>
+              <span class={`op-tag ${o.type === 'P2P' ? 'op-tag-p2p' : ''}`}>{o.type}</span>
+            </td>
+            <td data-label="Google">
+              {hasRating ? (
+                <span class="op-rating"><span class="op-star">★</span>{r.rating!.toFixed(1)} <span class="op-count">({r.reviewCount})</span></span>
+              ) : (
+                <span class="op-dash" title="No public Google rating">—</span>
+              )}
+            </td>
+            <td data-label="Based">{o.based}</td>
+            <td data-label="From">
+              {o.fromPerDay ? (<span>{zar(o.fromPerDay)}<span class="op-unit">/day</span></span>) : (<span class="op-dash">—</span>)}
+            </td>
+            <td data-label="Notes">{o.note}</td>
+          </tr>
+        );
+      })}
+    </tbody>
+  </table>
+</div>
+<p class="op-table-foot">Google ratings refresh automatically for operators with a Google listing; “—” means no public Google rating. Day rates are indicative — confirm current pricing when you book.</p>
+
+<style>
+  .op-table-wrap { overflow-x: auto; margin: 1.5rem 0 0.4rem; -webkit-overflow-scrolling: touch; }
+  .op-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+  .op-table th, .op-table td { text-align: left; padding: 0.65rem 0.75rem; border-bottom: 1px solid #E5E1D8; vertical-align: top; }
+  .op-table thead th {
+    font-family: var(--font-heading); text-transform: uppercase; font-size: 0.68rem;
+    letter-spacing: 0.06em; color: #6B7280; border-bottom: 2px solid #DDD9D3; white-space: nowrap;
+  }
+  .op-table tbody tr:hover { background: #FBF9F4; }
+  .op-table a { color: #111; font-weight: 700; text-decoration: none; border-bottom: 2px solid #F5A623; white-space: nowrap; }
+  .op-tag {
+    display: inline-block; margin-left: 0.4rem; font-size: 0.58rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.05em; color: #6B7280; background: #F0EDE6;
+    padding: 0.1rem 0.4rem; border-radius: 9999px; vertical-align: middle;
+  }
+  .op-tag-p2p { color: #111; background: #FFF7E6; border: 1px solid rgba(245,166,35,0.45); }
+  .op-rating { font-weight: 700; color: #111; white-space: nowrap; }
+  .op-star { color: #F5A623; margin-right: 0.15rem; }
+  .op-count { font-weight: 500; color: #6B7280; }
+  .op-dash { color: #B8B2A6; }
+  .op-unit { color: #6B7280; font-weight: 500; font-size: 0.85em; }
+  .op-table-foot { font-size: 0.75rem; color: #9CA3AF; margin: 0.4rem 0 0; }
+
+  /* Mobile: hide the header and stack each row as a labelled card. */
+  @media (max-width: 620px) {
+    .op-table-wrap { overflow-x: visible; }
+    .op-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+    .op-table, .op-table tbody, .op-table tr, .op-table td { display: block; width: 100%; }
+    .op-table tr { border: 1px solid #E5E1D8; border-radius: 0.7rem; padding: 0.35rem 0.15rem; margin-bottom: 0.75rem; background: #fff; }
+    .op-table td { border: none; padding: 0.3rem 0.9rem; display: flex; justify-content: space-between; gap: 1rem; text-align: right; }
+    .op-table td::before {
+      content: attr(data-label); font-family: var(--font-heading); text-transform: uppercase;
+      font-size: 0.62rem; letter-spacing: 0.05em; color: #9CA3AF; flex-shrink: 0; text-align: left; padding-top: 0.15rem;
+    }
+    .op-table td[data-label="Notes"] { flex-direction: column; gap: 0.1rem; text-align: left; }
+    .op-table td[data-label="Operator"] { border-bottom: 1px solid #F0EDE6; padding-bottom: 0.5rem; margin-bottom: 0.15rem; }
+    .op-table a { white-space: normal; }
+  }
+</style>
