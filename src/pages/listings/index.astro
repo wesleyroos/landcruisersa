@@ -364,9 +364,17 @@ function formatMileage(n: number) {
     </div>
 
     <!-- EMPTY STATE -->
-    <div id="empty-state" class="hidden text-center py-24">
-      <p class="text-[#6B7280] text-lg mb-2">No listings match your filters.</p>
-      <button id="reset-filters" class="text-[#F5A623] text-sm font-semibold hover:underline min-h-[44px] px-4">Clear filters</button>
+    <div id="empty-state" class="hidden text-center py-20">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#C0BDB8" stroke-width="1.6" class="mx-auto mb-4"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <p class="text-[#111111] text-lg font-heading font-bold uppercase mb-1">No matches right now</p>
+      <p class="text-[#6B7280] text-sm mb-6 max-w-md mx-auto">We couldn't find any Land Cruisers matching your search. New ones are listed every day — get an alert and we'll email you the moment a match appears.</p>
+      <div class="flex flex-wrap items-center justify-center gap-3">
+        <button id="empty-alert-btn" class="hidden inline-flex items-center gap-1.5 bg-[#F5A623] text-[#111111] text-sm font-heading font-bold uppercase tracking-wide px-5 py-2.5 rounded-lg hover:bg-[#D4881A] transition-colors">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+          Alert me when one is listed
+        </button>
+        <button id="reset-filters" class="text-[#6B7280] text-sm font-semibold hover:text-[#111111] hover:underline min-h-[44px] px-2">Clear search</button>
+      </div>
     </div>
 
   </div>
@@ -917,6 +925,9 @@ function formatMileage(n: number) {
     renderPagination(matched.length, totalPages);
     document.getElementById('clear-filters-bar')?.classList.toggle('hidden', !anyFilterActive());
     document.getElementById('save-search-bar')?.classList.toggle('hidden', !anySaveableFilter());
+    // The "alert me" CTA in the empty state only makes sense when the 0-result
+    // search has saveable criteria (model/province/price/year).
+    document.getElementById('empty-alert-btn')?.classList.toggle('hidden', !anySaveableFilter());
   }
 
   // ── NL search hook: apply a parsed query to the existing filter controls,
@@ -1043,6 +1054,11 @@ function formatMileage(n: number) {
     ssModal.classList.remove('hidden');
   }
   saveSearchBtn?.addEventListener('click', () => {
+    if (!LOGGED_IN) { signinRedirect(); return; }
+    openSsModal();
+  });
+  // Empty-state "alert me when one is listed" — same flow as Save this search.
+  document.getElementById('empty-alert-btn')?.addEventListener('click', () => {
     if (!LOGGED_IN) { signinRedirect(); return; }
     openSsModal();
   });
