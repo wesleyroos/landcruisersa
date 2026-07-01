@@ -1,0 +1,152 @@
+---
+// Natural-language vehicle search. Type "200 series under R700k, under 100k km"
+// and it parses to filters instantly (client-side, no network).
+//   mode="navigate" (homepage): parse → go to /listings/?…
+//   mode="filter"   (listings): parse → drive the existing client-side filters
+//                               via window.__lcsaApplyFilters (live, no reload).
+interface Props { mode?: 'navigate' | 'filter'; compact?: boolean }
+const { mode = 'navigate', compact = false } = Astro.props;
+---
+<div class:list={['veh-search', { 'veh-search--compact': compact }]} data-mode={mode}>
+  <form class="vs-form" role="search" autocomplete="off">
+    <svg class="vs-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    <input class="vs-input" type="text" spellcheck="false" aria-label="Search vehicles in plain language" />
+    <button class="vs-go" type="submit" aria-label="Search">
+      <span class="vs-go-text">Search</span>
+      <svg class="vs-go-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+    </button>
+  </form>
+  <div class="vs-chips" hidden></div>
+</div>
+
+<script>
+  import { parseVehicleQuery, toListingsUrl } from '@/lib/parse-vehicle-query';
+
+  const EXAMPLES = [
+    '200 series under R700k with under 100k km',
+    '79 double cab in Gauteng',
+    'Prado under R900k, automatic',
+    'low km 300 series',
+    '80 series under R450k in Cape Town',
+  ];
+
+  document.querySelectorAll<HTMLElement>('.veh-search').forEach((root) => {
+    const mode = root.dataset.mode || 'navigate';
+    const form = root.querySelector('.vs-form') as HTMLFormElement;
+    const input = root.querySelector('.vs-input') as HTMLInputElement;
+    const chips = root.querySelector('.vs-chips') as HTMLElement;
+
+    // Typewriter placeholder — types out each example, holds, then deletes it.
+    // Self-pauses whenever the field is focused or has a value (never fights the
+    // user). Slight speed jitter so it reads like real typing.
+    let ei = 0, ci = 0, phase: 'type' | 'hold' | 'del' = 'type';
+    function twStep() {
+      if (document.activeElement === input || input.value) { window.setTimeout(twStep, 600); return; }
+      const text = EXAMPLES[ei % EXAMPLES.length];
+      if (phase === 'type') {
+        ci++; input.placeholder = 'Try: ' + text.slice(0, ci) + '|';
+        if (ci >= text.length) { phase = 'hold'; window.setTimeout(twStep, 1700); return; }
+        window.setTimeout(twStep, 45 + Math.random() * 45);
+      } else if (phase === 'hold') {
+        phase = 'del'; window.setTimeout(twStep, 300);
+      } else {
+        ci--; input.placeholder = 'Try: ' + text.slice(0, ci) + '|';
+        if (ci <= 0) { phase = 'type'; ei = (ei + 1) % EXAMPLES.length; window.setTimeout(twStep, 400); return; }
+        window.setTimeout(twStep, 26 + Math.random() * 22);
+      }
+    }
+    input.placeholder = 'Try: |';
+    window.setTimeout(twStep, 500);
+
+    const renderChips = (parsed: ReturnType<typeof parseVehicleQuery>, count?: number) => {
+      if (!parsed.matched && count == null) { chips.hidden = true; chips.innerHTML = ''; return; }
+      const parts = parsed.chips.map(c => `<span class="vs-chip">${c.label}</span>`);
+      if (count != null) parts.push(`<span class="vs-chip vs-chip-count">${count} match${count === 1 ? '' : 'es'}</span>`);
+      chips.innerHTML = parts.join('');
+      chips.hidden = parts.length === 0;
+    };
+
+    let t: number | undefined;
+    input.addEventListener('input', () => {
+      window.clearTimeout(t);
+      t = window.setTimeout(() => { if (input.value.trim()) renderChips(parseVehicleQuery(input.value)); else { chips.hidden = true; } }, 120);
+    });
+
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const q = input.value.trim();
+      if (!q) return;
+      const parsed = parseVehicleQuery(q);
+
+      // Log the query (fire-and-forget) — intent + demand-gap signal.
+      const log = (count?: number) => {
+        try {
+          navigator.sendBeacon('/api/search-log', JSON.stringify({
+            q, mode, client_id: (window as any).__lcsaCid || null,
+            models: parsed.models, provinces: parsed.provinces,
+            min_price: parsed.minPrice ?? null, max_price: parsed.maxPrice ?? null,
+            min_mileage: parsed.minMileage ?? null, max_mileage: parsed.maxMileage ?? null,
+            min_year: parsed.minYear ?? null, max_year: parsed.maxYear ?? null,
+            matched: parsed.matched, result_count: count ?? null,
+          }));
+        } catch {}
+      };
+
+      if (mode === 'filter' && typeof (window as any).__lcsaApplyFilters === 'function') {
+        const count = (window as any).__lcsaApplyFilters(parsed) as number;
+        renderChips(parsed, count);
+        log(count);
+        root.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } else {
+        log();
+        window.location.href = toListingsUrl(parsed);
+      }
+    });
+  });
+</script>
+
+<style>
+  .veh-search { width: 100%; max-width: 640px; }
+  .vs-form {
+    display: flex; align-items: center; gap: 0.5rem;
+    background: #fff; border: 1.5px solid #DDD9D3; border-radius: 0.85rem;
+    padding: 0.4rem 0.4rem 0.4rem 0.9rem;
+    box-shadow: 0 6px 22px rgba(0,0,0,0.10);
+    transition: border-color .15s, box-shadow .15s;
+  }
+  .vs-form:focus-within { border-color: #F5A623; box-shadow: 0 8px 26px rgba(245,166,35,0.18); }
+  .vs-icon { color: #9CA3AF; flex-shrink: 0; }
+  .vs-input {
+    flex: 1; min-width: 0; border: none; outline: none; background: transparent;
+    font-size: 0.975rem; color: #111; padding: 0.35rem 0;
+  }
+  .vs-input::placeholder { color: #9CA3AF; }
+  .vs-go {
+    flex-shrink: 0; display: inline-flex; align-items: center; gap: 0.4rem;
+    background: #F5A623; color: #111; border: none; cursor: pointer;
+    font-family: var(--font-heading); font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.04em; font-size: 0.8rem; padding: 0.6rem 1.1rem; border-radius: 0.6rem;
+    transition: background .15s;
+  }
+  .vs-go:hover { background: #D4881A; }
+  .vs-go-icon { display: none; }
+
+  .vs-chips { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.6rem; padding-left: 0.25rem; }
+  .vs-chip {
+    font-size: 0.75rem; font-weight: 600; color: #111;
+    background: #FFF7E6; border: 1px solid rgba(245,166,35,0.5);
+    padding: 0.2rem 0.6rem; border-radius: 9999px; white-space: nowrap;
+  }
+  .vs-chip-count { background: #111; color: #fff; border-color: #111; }
+
+  /* Compact variant (listings page) */
+  .veh-search--compact .vs-form { padding: 0.3rem 0.3rem 0.3rem 0.85rem; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+  .veh-search--compact .vs-input { font-size: 0.9rem; }
+  .veh-search--compact .vs-go { padding: 0.45rem 0.9rem; font-size: 0.72rem; }
+
+  @media (max-width: 480px) {
+    .vs-go-text { display: none; }
+    .vs-go-icon { display: inline; }
+    .vs-go { padding: 0.6rem 0.75rem; }
+  }
+</style>
