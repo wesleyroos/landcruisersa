@@ -132,12 +132,14 @@ const { mode = 'navigate', compact = false } = Astro.props;
   .vs-go-icon { display: none; }
 
   .vs-chips { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.6rem; padding-left: 0.25rem; }
-  .vs-chip {
+  /* Chips are injected via JS, so they miss Astro's scoped-style attribute —
+     target them globally (scoped to within .vs-chips) or they render unstyled. */
+  .vs-chips :global(.vs-chip) {
     font-size: 0.75rem; font-weight: 600; color: #111;
-    background: #FFF7E6; border: 1px solid rgba(245,166,35,0.5);
+    background: #FFF7E6; border: 1px solid rgba(245,166,35,0.55);
     padding: 0.2rem 0.6rem; border-radius: 9999px; white-space: nowrap;
   }
-  .vs-chip-count { background: #111; color: #fff; border-color: #111; }
+  .vs-chips :global(.vs-chip-count) { background: #111; color: #fff; border-color: #111; }
 
   /* Compact variant (listings page) */
   .veh-search--compact .vs-form { padding: 0.3rem 0.3rem 0.3rem 0.85rem; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
