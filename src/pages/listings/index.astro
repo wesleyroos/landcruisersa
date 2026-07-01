@@ -810,6 +810,7 @@ function formatMileage(n: number) {
   const PAGE_SIZE = 18;
   let activeType = 'all';
   let currentPage = 1;
+  let selectedCab: 'single' | 'double' | null = null; // NL-search only (no dropdown); matched on title
 
   function matchesFilters(l: Listing): boolean {
     const showingSold = activeType === 'sold';
@@ -817,6 +818,12 @@ function formatMileage(n: number) {
     if (showingSold !== isSold) return false;
 
     const isShowOff = l.type === 'show_off';
+
+    const cabOk = !selectedCab || (
+      selectedCab === 'single'
+        ? /single[\s-]?cab|s\/?cab/i.test(l.title)
+        : /double[\s-]?cab|d\/?cab|crew[\s-]?cab/i.test(l.title)
+    );
 
     const priceOk = isShowOff || showingSold || (l.price >= priceMin && l.price <= priceMax);
 
@@ -838,6 +845,7 @@ function formatMileage(n: number) {
       priceOk &&
       mileageOk &&
       yearOk &&
+      cabOk &&
       typeMatch;
   }
 
@@ -917,7 +925,7 @@ function formatMileage(n: number) {
   type ParsedQ = {
     models?: string[]; provinces?: string[];
     minPrice?: number; maxPrice?: number; minMileage?: number; maxMileage?: number;
-    minYear?: number; maxYear?: number;
+    minYear?: number; maxYear?: number; cab?: 'single' | 'double' | null;
   };
   function mileageRangeLabel(min?: number, max?: number): string {
     const k = (n: number) => Math.round(n / 1000) + 'k km';
@@ -944,6 +952,7 @@ function formatMileage(n: number) {
     yearMinInput.value = yearMin > 0 ? String(yearMin) : '';
     yearMaxInput.value = isFinite(yearMax) ? String(yearMax) : '';
     yearLabelEl.textContent = yearFilterLabel(yearMin, yearMax);
+    selectedCab = f.cab || null;
     activeType = 'all';
     typePills.forEach(p => p.classList.toggle('active', p.dataset.type === 'all'));
     (document.getElementById('price-filter') as HTMLElement).style.display = '';
@@ -1068,15 +1077,17 @@ function formatMileage(n: number) {
   // NL-search param set handed over from the homepage search.
   const sp = new URLSearchParams(location.search);
   const spNum = (k: string) => { const v = sp.get(k); return v && v.trim() !== '' ? Number(v) : undefined; };
-  const hasUrlFilters = ['model', 'province', 'minPrice', 'maxPrice', 'minMileage', 'maxMileage', 'minYear', 'maxYear']
+  const hasUrlFilters = ['model', 'province', 'minPrice', 'maxPrice', 'minMileage', 'maxMileage', 'minYear', 'maxYear', 'cab']
     .some(k => sp.get(k));
   if (hasUrlFilters) {
+    const cabParam = sp.get('cab');
     applyParsed({
       models: (sp.get('model') || '').split(',').filter(Boolean),
       provinces: (sp.get('province') || '').split(',').filter(Boolean),
       minPrice: spNum('minPrice'), maxPrice: spNum('maxPrice'),
       minMileage: spNum('minMileage'), maxMileage: spNum('maxMileage'),
       minYear: spNum('minYear'), maxYear: spNum('maxYear'),
+      cab: cabParam === 'single' || cabParam === 'double' ? cabParam : null,
     });
   } else {
     updateModelLabel();

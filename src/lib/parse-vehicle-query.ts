@@ -13,6 +13,7 @@ export interface ParsedQuery {
   minMileage?: number;
   maxMileage?: number;
   provinces: string[];       // canonical: 'Gauteng' | 'Western Cape' | ...
+  cab?: 'single' | 'double'; // 79-series body style — matched against the title
   chips: { key: string; label: string }[]; // human-readable interpretation
   matched: boolean;          // did we understand anything at all?
 }
@@ -111,6 +112,13 @@ export function parseVehicleQuery(input: string): ParsedQuery {
     }
   }
 
+  // 4b. Body style — single / double cab (79-series). Filtered via the title.
+  if (/\b(single[\s-]?cab|s\/?cab|singlecab)\b/.test(q)) {
+    out.cab = 'single'; out.chips.push({ key: 'cab', label: 'Single Cab' }); out.matched = true;
+  } else if (/\b(double[\s-]?cab|d\/?cab|doublecab|crew[\s-]?cab)\b/.test(q)) {
+    out.cab = 'double'; out.chips.push({ key: 'cab', label: 'Double Cab' }); out.matched = true;
+  }
+
   // 5. Models (last — the leftover digits are now model numbers, not price/km/year).
   for (const [re, val, label] of MODEL_ALIASES) {
     if (re.test(q) && !out.models.includes(val)) {
@@ -143,6 +151,7 @@ export function toListingsUrl(p: ParsedQuery): string {
   if (p.maxMileage != null) params.set('maxMileage', String(p.maxMileage));
   if (p.minYear != null) params.set('minYear', String(p.minYear));
   if (p.maxYear != null) params.set('maxYear', String(p.maxYear));
+  if (p.cab) params.set('cab', p.cab);
   const qs = params.toString();
   return '/listings/' + (qs ? '?' + qs : '');
 }
