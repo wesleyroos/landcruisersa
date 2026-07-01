@@ -9,12 +9,12 @@ const VALID_SOURCES = ['autotrader', 'wbc', 'adios', 'wbb', 'carsza', 'whatsapp'
 
 export const POST: APIRoute = async ({ request , cookies }) => {
   if (isAdminSession(cookies)) return new Response(null, { status: 204 });
-  let body: { listing_slug?: string; listing_title?: string; source?: string };
+  let body: { listing_slug?: string; listing_title?: string; source?: string; client_id?: string };
   try { body = await request.json(); } catch {
     return new Response('', { status: 400 });
   }
 
-  const { listing_slug, listing_title, source } = body;
+  const { listing_slug, listing_title, source, client_id } = body;
   if (!listing_slug || !source || !VALID_SOURCES.includes(source)) {
     return new Response('', { status: 400 });
   }
@@ -24,6 +24,7 @@ export const POST: APIRoute = async ({ request , cookies }) => {
       listing_slug,
       listing_title: listing_title || null,
       source,
+      client_id: client_id ? String(client_id).slice(0, 64) : null,
       created_at: new Date(),
     }).run();
   } catch (err) {

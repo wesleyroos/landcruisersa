@@ -90,6 +90,7 @@ export const aiReferrals = sqliteTable('ai_referrals', {
   referrer_host: text('referrer_host').notNull(),  // e.g. 'chatgpt.com', 'gemini.google.com'
   source:        text('source').notNull(),          // normalised: 'chatgpt' | 'gemini' | 'perplexity' | 'copilot' | 'claude' | ...
   landing_path:  text('landing_path'),
+  client_id:     text('client_id'),                 // anonymous per-browser id (lcsa_vcid) → join citation to a later conversion
   created_at:    integer('created_at', { mode: 'timestamp' }).notNull(),
 });
 
@@ -121,7 +122,8 @@ export const clickEvents = sqliteTable('click_events', {
   id:            integer('id').primaryKey({ autoIncrement: true }),
   listing_slug:  text('listing_slug').notNull(),
   listing_title: text('listing_title'),
-  source:        text('source').notNull(), // 'autotrader' | 'wbc' | 'adios' | 'wbb'
+  source:        text('source').notNull(), // 'whatsapp' | 'call' | 'email' | 'external' | 'finance_calc' | ...
+  client_id:     text('client_id'),        // anonymous per-browser id (lcsa_vcid) → attribute a contact click to a prior AI referral
   created_at:    integer('created_at', { mode: 'timestamp' }).notNull(),
 });
 
@@ -163,6 +165,7 @@ export const financeLeads = sqliteTable('finance_leads', {
   balloon_pct:   integer('balloon_pct'),         // buyer's chosen balloon %
   est_monthly:   integer('est_monthly'),         // calculator's estimated monthly payment
   consent:       integer('consent', { mode: 'boolean' }).notNull().default(false), // POPIA: agreed to be contacted by a finance partner
+  client_id:     text('client_id'),              // anonymous per-browser id (lcsa_vcid) → join to a prior AI referral
   created_at:    integer('created_at', { mode: 'timestamp' }).notNull(),
 });
 

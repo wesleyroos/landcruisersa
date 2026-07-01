@@ -756,6 +756,7 @@ if (metaDescription.length > 160) {
             listing_slug: _slug,
             listing_title: _title,
             source: _source,
+            client_id: window.__lcsaCid || null,
           }));
         } catch {}
       });
@@ -830,6 +831,7 @@ if (metaDescription.length > 160) {
             try {
               navigator.sendBeacon('/api/track-click', JSON.stringify({
                 listing_slug: _slug, listing_title: _title, source: 'finance_calc',
+                client_id: window.__lcsaCid || null,
               }));
             } catch {}
           }
@@ -871,7 +873,7 @@ if (metaDescription.length > 160) {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                name, phone, email, consent,
+                name, phone, email, consent, client_id: window.__lcsaCid || null,
                 listing_slug: _slug, listing_title: _title, model: _model, price,
                 deposit: c.deposit, term_months: c.term, interest_rate: c.rate,
                 balloon_pct: c.balloonPct,
@@ -901,6 +903,7 @@ if (metaDescription.length > 160) {
             listing_slug: _slug,
             listing_title: _title,
             source: 'whatsapp',
+            client_id: window.__lcsaCid || null,
           }));
         } catch {}
       });
@@ -912,6 +915,7 @@ if (metaDescription.length > 160) {
             listing_slug: _slug,
             listing_title: _title,
             source: 'call',
+            client_id: window.__lcsaCid || null,
           }));
         } catch {}
       });
@@ -923,6 +927,7 @@ if (metaDescription.length > 160) {
             listing_slug: _slug,
             listing_title: _title,
             source: 'email',
+            client_id: window.__lcsaCid || null,
           }));
         } catch {}
       });
@@ -953,6 +958,7 @@ if (metaDescription.length > 160) {
               navigator.sendBeacon('/api/track-click', JSON.stringify({
                 listing_slug: _slug, listing_title: _title,
                 source: kind === 'phone' ? 'call' : 'email',
+                client_id: window.__lcsaCid || null,
               }));
             } catch {}
           });

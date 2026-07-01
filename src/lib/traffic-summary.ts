@@ -63,6 +63,19 @@ function aiReferralsFirstParty() {
   const s7 = secs(7), s14 = secs(14), s30 = secs(30);
   const n = (q: string) => db.get<{ n: number }>(sql.raw(q))?.n ?? 0;
   try {
+    // Citation → conversion: of AI-referred visitors carrying a client_id, how
+    // many later did something valuable (contact click, finance lead, valuation)
+    // at or after their first referral. Only counts referrals since the client_id
+    // rollout — older rows have no id, so this fills in going forward.
+    const referredClients = n(`SELECT count(DISTINCT client_id) n FROM ai_referrals WHERE client_id IS NOT NULL`);
+    const convertedClients = n(`
+      SELECT count(*) n FROM (
+        SELECT client_id, min(created_at) rt FROM ai_referrals WHERE client_id IS NOT NULL GROUP BY client_id
+      ) rc
+      WHERE EXISTS (SELECT 1 FROM click_events c       WHERE c.client_id = rc.client_id AND c.created_at >= rc.rt)
+         OR EXISTS (SELECT 1 FROM finance_leads f      WHERE f.client_id = rc.client_id AND f.created_at >= rc.rt)
+         OR EXISTS (SELECT 1 FROM valuation_requests v WHERE v.client_id = rc.client_id AND v.created_at >= rc.rt)
+    `);
     return {
       last7: n(`SELECT count(*) n FROM ai_referrals WHERE created_at >= ${s7}`),
       prior7: n(`SELECT count(*) n FROM ai_referrals WHERE created_at >= ${s14} AND created_at < ${s7}`),
@@ -71,9 +84,10 @@ function aiReferralsFirstParty() {
         `SELECT source, count(*) n FROM ai_referrals WHERE created_at >= ${s30} GROUP BY source ORDER BY n DESC`)),
       topPages: db.all<{ landing_path: string; n: number }>(sql.raw(
         `SELECT landing_path, count(*) n FROM ai_referrals WHERE created_at >= ${s30} AND landing_path IS NOT NULL GROUP BY landing_path ORDER BY n DESC LIMIT 8`)),
+      conversion: { referred: referredClients, converted: convertedClients },
     };
   } catch {
-    return { last7: 0, prior7: 0, d30: 0, bySource: [], topPages: [] };
+    return { last7: 0, prior7: 0, d30: 0, bySource: [], topPages: [], conversion: { referred: 0, converted: 0 } };
   }
 }
 

@@ -141,6 +141,21 @@ const ogImage = new URL(image, SITE.url).href;
       } catch {}
     </script>
 
+    <!-- Anonymous per-browser id (persisted). Shared across the AI-referral
+         beacon, valuation tool and listing contact/finance beacons so a citation
+         can be joined to a later conversion. Same key the valuation tool uses. -->
+    <script>
+      try {
+        var c = localStorage.getItem('lcsa_vcid');
+        if (!c) {
+          c = (self.crypto && crypto.randomUUID) ? crypto.randomUUID()
+              : (Date.now().toString(36) + Math.random().toString(36).slice(2));
+          localStorage.setItem('lcsa_vcid', c);
+        }
+        window.__lcsaCid = c;
+      } catch {}
+    </script>
+
     <!-- LLM-citation capture: when the visit was referred by an AI assistant
          (plain link, no utm param), log the source + landing page once per
          session. Server re-classifies the host; this just pre-filters. -->
@@ -155,6 +170,7 @@ const ogImage = new URL(image, SITE.url).href;
             navigator.sendBeacon('/api/track-referral', JSON.stringify({
               referrer: ref,
               landing_path: location.pathname,
+              client_id: window.__lcsaCid || null,
             }));
           }
         }

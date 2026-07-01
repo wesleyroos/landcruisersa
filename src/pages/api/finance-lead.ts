@@ -37,6 +37,7 @@ export const POST: APIRoute = async ({ request }) => {
   const listing_title = String(body.listing_title ?? '').trim() || null;
   const model = String(body.model ?? '').trim() || null;
   const consent = body.consent === true;
+  const client_id = body.client_id ? String(body.client_id).slice(0, 64) : null;
 
   if (!name || !phone || !email) {
     return new Response(JSON.stringify({ error: 'Name, email and phone are required.' }), { status: 400 });
@@ -61,7 +62,7 @@ export const POST: APIRoute = async ({ request }) => {
     db.insert(financeLeads).values({
       name, phone, email, listing_slug, listing_title, model,
       price, deposit, term_months, interest_rate, balloon_pct, est_monthly,
-      consent, created_at: new Date(),
+      consent, client_id, created_at: new Date(),
     }).run();
   } catch (err) {
     console.error('[finance-lead] DB insert failed:', err);

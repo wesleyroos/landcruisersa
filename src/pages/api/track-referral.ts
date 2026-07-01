@@ -17,7 +17,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
   const ua = request.headers.get('user-agent') ?? '';
   if (BOT_UA.test(ua)) return new Response(null, { status: 204 });
 
-  let body: { referrer?: string; landing_path?: string };
+  let body: { referrer?: string; landing_path?: string; client_id?: string };
   try { body = await request.json(); } catch {
     return new Response('', { status: 400 });
   }
@@ -30,6 +30,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
       referrer_host: ai.host.slice(0, 128),
       source: ai.source,
       landing_path: body.landing_path ? String(body.landing_path).slice(0, 256) : null,
+      client_id: body.client_id ? String(body.client_id).slice(0, 64) : null,
       created_at: new Date(),
     }).run();
   } catch (err) {

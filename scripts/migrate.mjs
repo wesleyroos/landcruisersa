@@ -258,6 +258,19 @@ db.exec(`
 db.exec(`CREATE INDEX IF NOT EXISTS ai_referrals_created ON ai_referrals (created_at)`);
 db.exec(`CREATE INDEX IF NOT EXISTS ai_referrals_source ON ai_referrals (source, created_at)`);
 
+// Anonymous visitor id (lcsa_vcid) added after first ship → ALTER existing tables
+// so we can join an AI citation to a later conversion (valuation/finance/contact).
+const addColTo = (table, col, def) => {
+  const cols = new Set(db.prepare(`SELECT name FROM pragma_table_info('${table}')`).all().map(r => r.name));
+  if (!cols.has(col)) {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${def}`);
+    console.log(`[migrate] Added ${table} column: ${col}`);
+  }
+};
+addColTo('ai_referrals', 'client_id', 'client_id TEXT');
+addColTo('click_events', 'client_id', 'client_id TEXT');
+addColTo('finance_leads', 'client_id', 'client_id TEXT');
+
 // General enquiries from the floating chat widget.
 db.exec(`
   CREATE TABLE IF NOT EXISTS enquiries (
