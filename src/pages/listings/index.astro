@@ -1107,6 +1107,11 @@ function formatMileage(n: number) {
       minYear: spNum('minYear'), maxYear: spNum('maxYear'),
       cab: cabParam === 'single' || cabParam === 'double' ? cabParam : null,
     });
+    // ?alert=1 (model-page "Alert me when one is listed") — open the save-search
+    // flow directly, pre-filled with these filters. Handles login redirect itself.
+    if (sp.get('alert') === '1') {
+      window.setTimeout(() => saveSearchBtn?.click(), 300);
+    }
   } else {
     updateModelLabel();
     updateProvinceLabel();

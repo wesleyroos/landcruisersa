@@ -294,3 +294,35 @@ date, compare to baseline, mark HIT / MISS / PARTIAL, and write the lesson.
   before the review to actually read (a)–(c).
 - **Result:** _pending 2026-09-01_
 - **Lesson:** _tbd_
+
+## P12 — Model pages: live market strip (query→page flip + citability)
+
+- **Opened:** 2026-07-02
+- **Review on:** 2026-08-27 (8 weeks)
+- **Surface:** `/listings/model/[model].astro` — all 9 model pages.
+- **Thesis:** For "[model] for sale south africa" queries, Google serves the
+  HOMEPAGE instead of the dedicated model page (seen 2026-07-02: "toyota land
+  cruiser 80 series for sale south africa" → homepage at #2). The model pages
+  were thin: a bare listing grid with no market context and (until today) a
+  broken "Seriess" meta. Meanwhile our own AI-referral data shows LLMs cite
+  exactly two shapes: listings and market-data pages. A model page combining
+  live inventory + live price stats is the best possible page for both Google
+  and LLM citation on these commercial queries.
+- **Change:** Added a live market strip (median asking, range, avg mileage,
+  supply, 30d price drops) computed from active listings; meta description now
+  carries median + range; CTAs to per-model valuation, market data, and a
+  pre-filled "alert me" saved-search; price-drop badges on cards; newest/price
+  sort. (Same session: fixed the "Seriess" meta bug.)
+- **Metrics (GSC, via the report endpoint):** for "[model] for sale"-type
+  queries — which LCSA page Google serves, model-page impressions, and CTR.
+  Baseline 2026-07-02: homepage ranks for these; model pages near-invisible.
+- **Prediction (review 2026-08-27):** within 8 weeks, GSC shows the model pages
+  (not the homepage) as the served page for ≥ 3 of the "[model] for sale south
+  africa" query family, AND combined model-page impressions ≥ 3× their July
+  baseline. Directional secondary: an AI referral lands on a /listings/model/
+  page (first ever).
+- **Caveat:** low query volume per model → noisy; 8 weeks may be short for
+  Google to re-pick pages; the strip only renders with ≥ 2 priced listings
+  (thin models like 80-series hover near that line).
+- **Result:** _pending 2026-08-27_
+- **Lesson:** _tbd_
