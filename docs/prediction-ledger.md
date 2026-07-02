@@ -324,5 +324,21 @@ date, compare to baseline, mark HIT / MISS / PARTIAL, and write the lesson.
 - **Caveat:** low query volume per model → noisy; 8 weeks may be short for
   Google to re-pick pages; the strip only renders with ≥ 2 priced listings
   (thin models like 80-series hover near that line).
+- **DECISION DUE AT THIS REVIEW — model-page consolidation (explicit, do not
+  skip):** LCSA currently runs FOUR surfaces per model — `/models/X/` (fact-sheet
+  guide), `/listings/model/X/` (shelf: stock + market strip), `/market/X/` (live
+  data), `/valuation/X/` (tool) — which splits intent, risks self-cannibalisation
+  in Google, and leaves the shelf pages nearly unreachable by human navigation
+  (audited 2026-07-02: only the bottom-of-/listings/ pills, guide links and the
+  sitemap point at them; the nav and homepage tiles go to the fact-sheet guides).
+  Using this review's GSC data on WHICH page Google actually serves per
+  "[model] …" query family, decide ONE of:
+  (a) **Consolidate** — one canonical page per model (live stats + stock + guide
+      link), 301 the losers, rewire nav/homepage tiles to it;
+  (b) **Keep the split** but fix navigation/internal anchors to vote for the
+      shelf pages; or
+  (c) **Demote** — Google keeps preferring homepage/market → accept it and stop
+      investing in the shelf pages.
+  Record the choice + rationale in Result/Lesson below.
 - **Result:** _pending 2026-08-27_
 - **Lesson:** _tbd_
