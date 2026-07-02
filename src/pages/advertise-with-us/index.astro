@@ -255,7 +255,7 @@ import { SITE } from '@/data/site';
       const res = await fetch('/api/contact', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, subject: 'partnership', message: fullMessage }),
+        body: JSON.stringify({ name, email, phone, subject: 'partnership', message: fullMessage }),
       });
       if (res.ok) {
         form.classList.add('hidden');
