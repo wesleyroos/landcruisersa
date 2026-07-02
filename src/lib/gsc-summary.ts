@@ -15,6 +15,11 @@ const SITE_URL = process.env.GSC_SITE_URL ?? import.meta.env.GSC_SITE_URL ?? 'sc
 const TYRE_PATTERN = /tyre|tire|wheel|rim|all.?terrain|\bat\b|\bmt\b|mud.?terrain/i;
 export const isTyreQuery = (q: string) => TYRE_PATTERN.test(q);
 
+// Clothing / apparel demand we currently have NOTHING to serve — the merch gap.
+// Deliberately excludes "seat cover"/"floor mat" (vehicle trim, not apparel).
+const CLOTHING_PATTERN = /clothing|apparel|shirt|t.?shirt|\btee\b|jacket|hoodie|jersey|jumper|sweater|\bcap\b|\bhat\b|beanie|merch|clothes|wear|\bkit\b|overall|golf ?shirt/i;
+export const isClothingQuery = (q: string) => CLOTHING_PATTERN.test(q);
+
 type ServiceAccount = { client_email: string; private_key: string };
 
 // Accepts either raw JSON or base64-encoded JSON (base64 is the safe way to put
@@ -130,6 +135,17 @@ export async function getGscSummary() {
     .sort((a, b) => b.impressions - a.impressions)
     .slice(0, 20);
 
+  // Clothing gap: demand we're getting impressions for but have no product to
+  // satisfy. Aggregate totals make the pitch — X impressions, ~0 clicks, because
+  // there's nothing to click through to.
+  const clothingRows = queries.filter(r => isClothingQuery(r.key));
+  const clothingQueries = [...clothingRows].sort((a, b) => b.impressions - a.impressions).slice(0, 20);
+  const clothing = {
+    queryCount: clothingRows.length,
+    impressions: clothingRows.reduce((a, r) => a + r.impressions, 0),
+    clicks: clothingRows.reduce((a, r) => a + r.clicks, 0),
+  };
+
   const topPages = [...pages].sort((a, b) => b.clicks - a.clicks).slice(0, 15);
 
   return {
@@ -141,6 +157,8 @@ export async function getGscSummary() {
     topQueries,
     contentGaps,
     tyreQueries,
+    clothingQueries,
+    clothing,
     topPages,
   };
 }
