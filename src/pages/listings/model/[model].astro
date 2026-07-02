@@ -63,7 +63,7 @@ function formatMileage(n: number) { return n.toLocaleString('en-ZA') + ' km'; }
 const canonicalUrl = `${SITE.url}/listings/model/${model}/`;
 const title = `${modelInfo.description} For Sale in South Africa`;
 const description = results.length
-  ? `Browse ${results.length} ${modelInfo.description}${results.length !== 1 ? 's' : ''} for sale in South Africa. Private sellers and dealer listings — updated daily.`
+  ? `Browse ${results.length} ${modelInfo.description} listing${results.length !== 1 ? 's' : ''} for sale in South Africa. Private sellers and dealer listings — updated daily.`
   : `${modelInfo.description} classifieds in South Africa. Browse listings from private sellers and dealers — updated daily.`;
 ---
 
