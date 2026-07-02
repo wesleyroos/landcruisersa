@@ -17,7 +17,7 @@ export const isTyreQuery = (q: string) => TYRE_PATTERN.test(q);
 
 // Clothing / apparel demand we currently have NOTHING to serve — the merch gap.
 // Deliberately excludes "seat cover"/"floor mat" (vehicle trim, not apparel).
-const CLOTHING_PATTERN = /clothing|apparel|shirt|t.?shirt|\btee\b|jacket|hoodie|jersey|jumper|sweater|\bcap\b|\bhat\b|beanie|merch|clothes|wear|\bkit\b|overall|golf ?shirt/i;
+const CLOTHING_PATTERN = /clothing|apparel|shirt|t.?shirt|\btee\b|jacket|hoodie|jersey|jumper|sweater|\bcap\b|\bhat\b|beanie|merch|clothes|\bwear\b|overall|golf ?shirt/i;
 export const isClothingQuery = (q: string) => CLOTHING_PATTERN.test(q);
 
 type ServiceAccount = { client_email: string; private_key: string };
