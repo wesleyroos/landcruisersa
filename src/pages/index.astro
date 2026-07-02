@@ -361,13 +361,24 @@ function formatPrice(n: number) {
 <style>
   /* ─ HERO ──────────────────────────────────────── */
   .hero {
+    /* Mobile-first: grow with the content (search bar + buttons + stats made
+       it taller than the old fixed band, which clipped the heading and pushed
+       the stats onto the white background below). The absolutely-positioned
+       image + scrim cover whatever height results. */
     position: relative;
-    height: 65vh;
-    min-height: 480px;
-    max-height: 700px;
+    min-height: 65vh;
     display: flex;
     align-items: center;
     justify-content: center;
+    padding: 3.5rem 0 2.75rem;
+  }
+  @media (min-width: 768px) {
+    .hero {
+      height: 65vh;
+      min-height: 480px;
+      max-height: 700px;
+      padding: 2rem 0;
+    }
   }
   .hero-img {
     position: absolute; inset: 0;
