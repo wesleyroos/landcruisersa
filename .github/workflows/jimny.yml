@@ -38,6 +38,11 @@ jobs:
         continue-on-error: true
         run: node --experimental-strip-types src/scripts/ingest-autotrader.ts
         env:
+          # Off-market reconciliation LIVE for AutoTrader (mirrors autotrader.yml):
+          # vetted 2026-07-02 at 6→13% would-remove over 4 clean runs (capHit=0),
+          # under the 25% breaker. WBC stays dry-run — its crawl under-covers, the
+          # breaker trips at ~30% every run, so its sweep is not trustworthy.
+          RECONCILE_OFFMARKET: '1'
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           NOTIFY_EMAIL: ${{ secrets.NOTIFY_EMAIL }}
           PROXY_HOST: ${{ secrets.PROXY_HOST }}
