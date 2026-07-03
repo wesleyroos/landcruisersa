@@ -22,12 +22,29 @@ jobs:
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
-      # Warm the SSR server so the first human request doesn't pay
-      # cold-start module loading after the machine restarts.
-      - name: Warm up
+      # Post-deploy smoke check + warm-up. The DB-backed pages (/ and /listings/)
+      # MUST return 200 or the run fails loudly — the guard against the 2026-07-03
+      # outage class: code shipped referencing a column the prod DB didn't have,
+      # migrate exited clean, static guide pages stayed 200, but every SSR page
+      # 500'd and nothing noticed. Retries ride out the ~45s machine swap.
+      - name: Smoke check + warm up
         run: |
-          sleep 5
-          for path in / /listings/ /admin/login /admin/insights; do
+          check() {
+            local path="$1" code=000
+            for i in $(seq 1 8); do
+              code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 "https://landcruisersa.co.za$path" || echo 000)
+              echo "smoke $path attempt $i -> $code"
+              [ "$code" = "200" ] && return 0
+              sleep 10
+            done
+            echo "::error::SMOKE CHECK FAILED: $path returned $code after 8 attempts — the site is likely down"
+            return 1
+          }
+          # Critical, DB-backed routes — a failure here fails the deploy run.
+          check /
+          check /listings/
+          # Warm-only (never fail): cold-start the rest of the SSR surface.
+          for path in /admin/login /admin/insights /valuation/; do
             curl -s -o /dev/null -w "warm $path -> %{http_code} (%{time_total}s)\n" \
               --max-time 30 "https://landcruisersa.co.za$path" || true
           done
