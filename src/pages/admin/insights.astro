@@ -409,36 +409,8 @@ const SOURCE_LABEL: Record<string, string> = {
 <AdminLayout title="Insights" activePage="insights">
   <div class="insights-wrap">
 
-    <!-- ── STATIC "AT A GLANCE" ──────────────────────────────── -->
-    <div class="section-label">At a Glance</div>
-    <div class="kpi-strip kpi-strip-4">
-      <div class="kpi">
-        <p class="kpi-value">{activeListingCount}</p>
-        <p class="kpi-label">Active Listings</p>
-        <p class="kpi-sub">{totalListingCount} total incl. sold &amp; pending</p>
-      </div>
-      <div class="kpi">
-        <span class="kpi-dir dir-off">↓ Off</span>
-        <p class="kpi-value">{offMarketCount}</p>
-        <p class="kpi-label">Off the Market</p>
-        <p class="kpi-sub">{soldListingCount} sold · {removedListingCount} delisted at source · {turnoverPct}% of all listings</p>
-      </div>
-      <div class="kpi">
-        <span class="kpi-dir dir-out">↑ Out</span>
-        <p class="kpi-value">{totalPartnerClicks}</p>
-        <p class="kpi-label">Partner Clicks</p>
-        <p class="kpi-sub">clicked through to a partner, all time</p>
-      </div>
-      <div class="kpi">
-        <p class="kpi-value">{leads.length}</p>
-        <p class="kpi-label">Training Leads</p>
-        <p class="kpi-sub">4x4 training enquiries, all time</p>
-      </div>
-    </div>
-
-    <!-- ── ACTIVITY SECTION HEADER + PERIOD TABS ─────────────── -->
+    <!-- ── HEADER: period tabs + section jump pills ──────────── -->
     <div class="activity-header">
-      <span class="section-label" style="margin:0">Activity</span>
       <div class="period-tabs">
         {(['today', '7d', '30d', '90d', '6m', '12m'] as const).map(p => (
           <a href={`?period=${p}`} class={`ptab${validPeriod === p ? ' ptab-active' : ''}`}>
@@ -446,33 +418,18 @@ const SOURCE_LABEL: Record<string, string> = {
           </a>
         ))}
       </div>
+      <div class="jump-pills">
+        <a href="#audience" class="jump">📣 Audience</a>
+        <a href="#market" class="jump">🚗 Market</a>
+        <a href="#leads" class="jump">🎯 Leads</a>
+        <a href="#archive" class="jump">🗄 More</a>
+      </div>
     </div>
 
-    <!-- ── ACTIVITY KPI STRIP ─────────────────────────────────── -->
-    <div class="kpi-strip kpi-strip-6">
-      <div class="kpi">
-        <p class="kpi-value">{newListingsP}</p>
-        <p class="kpi-label">New Listings</p>
-        <p class="kpi-sub">submitted {periodLabel}</p>
-      </div>
-      <div class="kpi">
-        <span class="kpi-dir dir-in">↓ In</span>
-        <p class="kpi-value">{totalVisitsP}</p>
-        <p class="kpi-label">Campaign Clicks</p>
-        <p class="kpi-sub">arrived via tracked link</p>
-      </div>
-      <div class="kpi">
-        <p class="kpi-value">{totalViewsP}</p>
-        <p class="kpi-label">Listing Views</p>
-        <p class="kpi-sub">all traffic</p>
-      </div>
-      <div class="kpi">
-        <span class="kpi-dir dir-in">↓ In</span>
-        <p class="kpi-value">{igViewsP}</p>
-        <p class="kpi-label">Views from IG</p>
-        <p class="kpi-sub">IG link → listing page</p>
-      </div>
-      <div class="kpi">
+    <!-- ── FLYWHEEL STRIP — the five numbers that say whether the wheel turned.
+         Everything else lives in its section below. ─────────────────────────── -->
+    <div class="kpi-strip kpi-strip-5">
+      <div class="kpi kpi-hero">
         <p class="kpi-value">{igFollowers === null ? '—' : igFollowers.toLocaleString('en-ZA')}</p>
         <p class="kpi-label">IG Followers</p>
         <p class="kpi-sub">{igFollowers === null
@@ -482,18 +439,124 @@ const SOURCE_LABEL: Record<string, string> = {
             : `${igFollowersDelta >= 0 ? '+' : ''}${igFollowersDelta.toLocaleString('en-ZA')} in 30d`}</p>
       </div>
       <div class="kpi">
-        <span class="kpi-dir dir-out">↑ Out</span>
-        <p class="kpi-value">{totalContactClicksP}</p>
-        <p class="kpi-label">Contact Clicks</p>
-        <p class="kpi-sub">WA + call + email on own listings</p>
+        <span class="kpi-dir dir-in">↓ In</span>
+        <p class="kpi-value">{igViewsP}</p>
+        <p class="kpi-label">Views from IG</p>
+        <p class="kpi-sub">bio + story links, {periodLabel}</p>
       </div>
       <div class="kpi">
         <span class="kpi-dir dir-out">↑ Out</span>
-        <p class="kpi-value">{totalClicksP}</p>
-        <p class="kpi-label">Outbound Clicks</p>
-        <p class="kpi-sub">AutoTrader, WBC, etc.</p>
+        <p class="kpi-value">{totalContactClicksP}</p>
+        <p class="kpi-label">Contact Clicks</p>
+        <p class="kpi-sub">WA + call + email + reveal, {periodLabel}</p>
+      </div>
+      <div class="kpi">
+        <p class="kpi-value">{financeLeadRows.length + leads.length}</p>
+        <p class="kpi-label">Leads</p>
+        <p class="kpi-sub">{financeLeadRows.length} finance · {leads.length} training, all time</p>
+      </div>
+      <div class="kpi">
+        <p class="kpi-value">{activeListingCount.toLocaleString('en-ZA')}</p>
+        <p class="kpi-label">Active Listings</p>
+        <p class="kpi-sub">{newListingsP} new {periodLabel}</p>
       </div>
     </div>
+
+    <!-- ══ SECTION: AUDIENCE & INSTAGRAM ═══════════════════════ -->
+    <h2 class="section-head" id="audience">📣 Audience &amp; Instagram</h2>
+
+    <!-- ── IG POST PERFORMANCE ───────────────────────────────── -->
+    {igPostRows.length > 0 && (
+      <section class="card">
+        <div class="card-head">
+          <h2 class="card-title">IG Post Performance</h2>
+          <span class="badge">{igPostRows.length}</span>
+          <span class="badge-sub">outcomes since each post date</span>
+          <span class="info" data-tip="What each Instagram post produced on-site AFTER it went up. From IG = visits via the bio link (utm_source=ig) or a story link badge (utm_source=ig-story). Contacts = WhatsApp/call/email on that listing. This is the data that tunes the daily post suggestion.">?</span>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Posted Listing</th>
+                <th class="num-c">Days Live</th>
+                <th class="num-c">Views</th>
+                <th class="num-c">From IG</th>
+                <th class="num-c">Portal</th>
+                <th class="num-c">Contacts</th>
+              </tr>
+            </thead>
+            <tbody>
+              {igPostRows.map(r => (
+                <tr>
+                  <td>
+                    <a href={`/admin/listings/${r.id}`} style="font-weight:600;color:#111;text-decoration:none">{r.title}</a>
+                    <span style="display:block;font-size:0.65rem;color:#9CA3AF">{r.model.replace(/-/g, ' ').toUpperCase()} · posted {fmt(r.posted_at)}</span>
+                  </td>
+                  <td class="num-c">{r.days}</td>
+                  <td class="num-c" style="font-weight:700">{r.views}</td>
+                  <td class="num-c" style="color:#9D174D;font-weight:700">{r.igViews}</td>
+                  <td class="num-c">{r.portal}</td>
+                  <td class="num-c" style={r.contacts > 0 ? 'color:#166534;font-weight:700' : ''}>{r.contacts}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p class="card-note">Compare models: the segment whose posts drive the most From-IG views and contacts is what the audience converts on — the suggestion engine's weights get tuned to this every two weeks.</p>
+        </div>
+      </section>
+    )}
+
+    <!-- ── CAMPAIGN TRAFFIC ──────────────────────────────────── -->
+      <section class="card">
+        <div class="card-head">
+          <h2 class="card-title">Campaign Traffic</h2>
+          <span class="badge">{totalVisitsP}</span>
+          <span class="badge-sub">{periodLabel}</span>
+          <span class="info" data-tip="People arriving via a tracked link — IG bio (?utm_source=ig), ChatGPT citations, or any utm_source-tagged link. Landing Pages shows where each one landed.">?</span>
+        </div>
+        {totalVisitsP === 0 ? (
+          <p class="empty">No campaign clicks in {periodLabel}. IG bio link: <code>landcruisersa.co.za/listings/?utm_source=ig</code></p>
+        ) : (
+          <div class="card-body">
+            <div class="chip-row">
+              {visitsBySourceP.map(r => (
+                <span class="stat-chip">{TRAFFIC_LABEL[r.source] ?? r.source} <strong>{r.count}</strong></span>
+              ))}
+            </div>
+            {visitLandingsP.length > 0 && (
+              <div>
+                <p class="mini-label">Landing Pages</p>
+                <div class="landing-list">
+                  {visitLandingsP.map(r => (
+                    <div class="landing-row">
+                      <span class="landing-src">{TRAFFIC_LABEL[r.source] ?? r.source}</span>
+                      <a href={r.path ?? '/'} target="_blank" class="landing-path">{r.path ?? '/'}</a>
+                      <span class="landing-count">{r.count}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {visitsBuckets.length > 0 && (
+              <div class="bar-chart">
+                {visitsBuckets.map(r => (
+                  <div class="bar-row">
+                    <span class="bar-day">{bucketLabel(r.bucket)}</span>
+                    <div class="bar-track">
+                      <div class="bar-fill" style={`width:${Math.round((r.count / visitsBucketsMax) * 100)}%`}></div>
+                    </div>
+                    <span class="bar-count">{r.count}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </section>
+
+    <!-- ══ SECTION: MARKET & STOCK ═════════════════════════════ -->
+    <h2 class="section-head" id="market">🚗 Market &amp; Stock</h2>
 
     <!-- ── MARKET TURNOVER ───────────────────────────────────── -->
     <section class="card">
@@ -524,6 +587,92 @@ const SOURCE_LABEL: Record<string, string> = {
       </div>
       <p class="card-note">Off the market all-time: {offMarketCount} ({soldListingCount} sold · {removedListingCount} delisted at source). Days-on-market accrues from when this tracking went live — historical departures have no timestamp, so the median sharpens over the coming weeks.</p>
     </section>
+
+    <!-- ── ROW: DEMAND BY MODEL + LISTING PERFORMANCE ────────── -->
+    <div class="grid-2">
+
+      <section class="card">
+        <div class="card-head">
+          <h2 class="card-title">Demand by Model</h2>
+          <span class="badge-sub">all-time views vs. current supply</span>
+          <span class="info" data-tip="Views = buyer interest in that model. Supply = active listings. Views per Listing = interest per car available: high = lots of buyers chasing few cars. Model with stock but zero views = overstocked or overpriced.">?</span>
+        </div>
+        {demandRows.length === 0 ? (
+          <p class="empty">No view data yet.</p>
+        ) : (
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Model</th>
+                  <th class="num-c">Views</th>
+                  <th class="num-c">Supply</th>
+                  <th class="num-c">Views/Listing</th>
+                </tr>
+              </thead>
+              <tbody>
+                {demandRows.map(r => (
+                  <tr>
+                    <td style="font-weight:600">{r.model.replace(/-/g, ' ').toUpperCase()}</td>
+                    <td class="num-c" style="font-weight:700">{r.views}</td>
+                    <td class="num-c">{r.supply}</td>
+                    <td class="num-c" style="color:#D4881A;font-weight:700">{r.perListing}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p class="card-note">High Views/Listing = lots of buyers per available car — source, feature, or post those models.</p>
+          </div>
+        )}
+      </section>
+
+    <!-- ── LISTING PERFORMANCE (period-filtered) ────────────── -->
+    <section class="card">
+      <div class="card-head">
+        <h2 class="card-title">Listing Performance</h2>
+        <span class="badge">{totalViewsP} views · {totalClicksP} click-outs</span>
+        <span class="badge-sub">{periodLabel}</span>
+        <span class="info" data-tip="Views = page opens. Click-outs = WA tap, call, email, or AutoTrader link. CTR = click-outs ÷ views. High views + low CTR = people are interested but not converting on the detail page.">?</span>
+        {totalClicksP > 0 && (
+          <span class="chip-row chip-row-inline">
+            {allClicksBySourceP.map(r => (
+              <span class="stat-chip">{SOURCE_LABEL[r.source] ?? r.source} <strong>{r.count}</strong></span>
+            ))}
+          </span>
+        )}
+      </div>
+      {perfRowsP.length === 0 ? (
+        <p class="empty">No listing activity in {periodLabel}.</p>
+      ) : (
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Listing</th>
+                <th class="num-c">Views</th>
+                <th class="num-c">Click-outs</th>
+                <th class="num-c">CTR</th>
+              </tr>
+            </thead>
+            <tbody>
+              {perfRowsP.map(r => (
+                <tr>
+                  <td><a href={`/listings/${r.slug}/`} target="_blank">{r.title ?? r.slug}</a></td>
+                  <td class="num-c" style="font-weight:700">{r.views}</td>
+                  <td class="num-c">{r.clicks}</td>
+                  <td class="num-c" style="color:#9CA3AF">{r.views > 0 ? Math.round((r.clicks / r.views) * 100) + '%' : '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+
+    </div>
+
+    <!-- ══ SECTION: CONVERSION & LEADS ═════════════════════════ -->
+    <h2 class="section-head" id="leads">🎯 Conversion &amp; Leads</h2>
 
     <!-- ── CONVERSION FUNNEL (period-filtered) ───────────────── -->
     <section class="card">
@@ -590,181 +739,7 @@ const SOURCE_LABEL: Record<string, string> = {
       )}
     </section>
 
-    <!-- ── IG POST PERFORMANCE ───────────────────────────────── -->
-    {igPostRows.length > 0 && (
-      <section class="card">
-        <div class="card-head">
-          <h2 class="card-title">IG Post Performance</h2>
-          <span class="badge">{igPostRows.length}</span>
-          <span class="badge-sub">outcomes since each post date</span>
-          <span class="info" data-tip="What each Instagram post produced on-site AFTER it went up. From IG = visits that arrived via the bio link (utm_source=ig). Contacts = WhatsApp/call/email on that listing. This is the data that tunes the daily post suggestion.">?</span>
-        </div>
-        <div class="table-wrap">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>Posted Listing</th>
-                <th class="num-c">Days Live</th>
-                <th class="num-c">Views</th>
-                <th class="num-c">From IG</th>
-                <th class="num-c">Portal</th>
-                <th class="num-c">Contacts</th>
-              </tr>
-            </thead>
-            <tbody>
-              {igPostRows.map(r => (
-                <tr>
-                  <td>
-                    <a href={`/admin/listings/${r.id}`} style="font-weight:600;color:#111;text-decoration:none">{r.title}</a>
-                    <span style="display:block;font-size:0.65rem;color:#9CA3AF">{r.model.replace(/-/g, ' ').toUpperCase()} · posted {fmt(r.posted_at)}</span>
-                  </td>
-                  <td class="num-c">{r.days}</td>
-                  <td class="num-c" style="font-weight:700">{r.views}</td>
-                  <td class="num-c" style="color:#9D174D;font-weight:700">{r.igViews}</td>
-                  <td class="num-c">{r.portal}</td>
-                  <td class="num-c" style={r.contacts > 0 ? 'color:#166534;font-weight:700' : ''}>{r.contacts}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <p class="card-note">Compare models: the segment whose posts drive the most From-IG views and contacts is what the audience converts on — the suggestion engine's weights get tuned to this every two weeks.</p>
-        </div>
-      </section>
-    )}
-
-    <!-- ── ROW: CAMPAIGN TRAFFIC + DEMAND BY MODEL ──────────── -->
-    <div class="grid-2">
-
-      <section class="card">
-        <div class="card-head">
-          <h2 class="card-title">Campaign Traffic</h2>
-          <span class="badge">{totalVisitsP}</span>
-          <span class="badge-sub">{periodLabel}</span>
-          <span class="info" data-tip="People arriving via a tracked link — IG bio (?utm_source=ig), ChatGPT citations, or any utm_source-tagged link. Landing Pages shows where each one landed.">?</span>
-        </div>
-        {totalVisitsP === 0 ? (
-          <p class="empty">No campaign clicks in {periodLabel}. IG bio link: <code>landcruisersa.co.za/listings/?utm_source=ig</code></p>
-        ) : (
-          <div class="card-body">
-            <div class="chip-row">
-              {visitsBySourceP.map(r => (
-                <span class="stat-chip">{TRAFFIC_LABEL[r.source] ?? r.source} <strong>{r.count}</strong></span>
-              ))}
-            </div>
-            {visitLandingsP.length > 0 && (
-              <div>
-                <p class="mini-label">Landing Pages</p>
-                <div class="landing-list">
-                  {visitLandingsP.map(r => (
-                    <div class="landing-row">
-                      <span class="landing-src">{TRAFFIC_LABEL[r.source] ?? r.source}</span>
-                      <a href={r.path ?? '/'} target="_blank" class="landing-path">{r.path ?? '/'}</a>
-                      <span class="landing-count">{r.count}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            {visitsBuckets.length > 0 && (
-              <div class="bar-chart">
-                {visitsBuckets.map(r => (
-                  <div class="bar-row">
-                    <span class="bar-day">{bucketLabel(r.bucket)}</span>
-                    <div class="bar-track">
-                      <div class="bar-fill" style={`width:${Math.round((r.count / visitsBucketsMax) * 100)}%`}></div>
-                    </div>
-                    <span class="bar-count">{r.count}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-      </section>
-
-      <section class="card">
-        <div class="card-head">
-          <h2 class="card-title">Demand by Model</h2>
-          <span class="badge-sub">all-time views vs. current supply</span>
-          <span class="info" data-tip="Views = buyer interest in that model. Supply = active listings. Views per Listing = interest per car available: high = lots of buyers chasing few cars. Model with stock but zero views = overstocked or overpriced.">?</span>
-        </div>
-        {demandRows.length === 0 ? (
-          <p class="empty">No view data yet.</p>
-        ) : (
-          <div class="table-wrap">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>Model</th>
-                  <th class="num-c">Views</th>
-                  <th class="num-c">Supply</th>
-                  <th class="num-c">Views/Listing</th>
-                </tr>
-              </thead>
-              <tbody>
-                {demandRows.map(r => (
-                  <tr>
-                    <td style="font-weight:600">{r.model.replace(/-/g, ' ').toUpperCase()}</td>
-                    <td class="num-c" style="font-weight:700">{r.views}</td>
-                    <td class="num-c">{r.supply}</td>
-                    <td class="num-c" style="color:#D4881A;font-weight:700">{r.perListing}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <p class="card-note">High Views/Listing = lots of buyers per available car — source, feature, or post those models.</p>
-          </div>
-        )}
-      </section>
-
-    </div>
-
-    <!-- ── LISTING PERFORMANCE (period-filtered) ────────────── -->
-    <section class="card">
-      <div class="card-head">
-        <h2 class="card-title">Listing Performance</h2>
-        <span class="badge">{totalViewsP} views · {totalClicksP} click-outs</span>
-        <span class="badge-sub">{periodLabel}</span>
-        <span class="info" data-tip="Views = page opens. Click-outs = WA tap, call, email, or AutoTrader link. CTR = click-outs ÷ views. High views + low CTR = people are interested but not converting on the detail page.">?</span>
-        {totalClicksP > 0 && (
-          <span class="chip-row chip-row-inline">
-            {allClicksBySourceP.map(r => (
-              <span class="stat-chip">{SOURCE_LABEL[r.source] ?? r.source} <strong>{r.count}</strong></span>
-            ))}
-          </span>
-        )}
-      </div>
-      {perfRowsP.length === 0 ? (
-        <p class="empty">No listing activity in {periodLabel}.</p>
-      ) : (
-        <div class="table-wrap">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>Listing</th>
-                <th class="num-c">Views</th>
-                <th class="num-c">Click-outs</th>
-                <th class="num-c">CTR</th>
-              </tr>
-            </thead>
-            <tbody>
-              {perfRowsP.map(r => (
-                <tr>
-                  <td><a href={`/listings/${r.slug}/`} target="_blank">{r.title ?? r.slug}</a></td>
-                  <td class="num-c" style="font-weight:700">{r.views}</td>
-                  <td class="num-c">{r.clicks}</td>
-                  <td class="num-c" style="color:#9CA3AF">{r.views > 0 ? Math.round((r.clicks / r.views) * 100) + '%' : '—'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </section>
-
-    <!-- ── ROW: SELLER CONTACTS (period) + PARTNERS (all-time) ─ -->
-    <div class="grid-2">
-
+    <!-- ── SELLER CONTACTS (period) ──────────────────────────── -->
       <section class="card">
         <div class="card-head">
           <h2 class="card-title">Seller Contact &amp; Leads</h2>
@@ -811,116 +786,6 @@ const SOURCE_LABEL: Record<string, string> = {
           </div>
         )}
       </section>
-
-      <section class="card">
-        <div class="card-head">
-          <h2 class="card-title">Partner Clicks</h2>
-          <span class="badge">{totalPartnerClicks}</span>
-          <span class="badge-sub">all time</span>
-          <span class="info" data-tip="Outbound clicks from partner pages to the partner's website, email, or Instagram. This data builds the case for paid partner placements.">?</span>
-        </div>
-        {totalPartnerClicks === 0 ? (
-          <p class="empty">No partner clicks tracked yet.</p>
-        ) : (
-          <div class="table-wrap">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>Partner</th>
-                  <th class="num">Web</th>
-                  <th class="num">Email</th>
-                  <th class="num">IG</th>
-                  <th class="num">Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {partnerRows.map(r => (
-                  <tr>
-                    <td><a href={`/partners/${r.slug}/`} target="_blank">{r.name}</a></td>
-                    <td class="num">{r.website}</td>
-                    <td class="num">{r.email}</td>
-                    <td class="num">{r.instagram}</td>
-                    <td class="num" style="font-weight:700">{r.total}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
-
-    </div>
-
-    <!-- ── LISTINGS GROWTH (all-time) ───────────────────────── -->
-    {listingsGrowth.length > 0 && (
-      <section class="card">
-        <div class="card-head">
-          <h2 class="card-title">Listings Growth</h2>
-          <span class="badge">{totalListingCount} total</span>
-          <span class="badge-sub">{activeListingCount} active · {offMarketCount} off-market</span>
-        </div>
-        <div class="growth-body">
-          <div class="growth-chart-wrap">
-            <p class="mini-label">Cumulative total — hover to explore</p>
-            <div class="growth-canvas-outer">
-              <canvas id="growth-canvas" class="growth-canvas"></canvas>
-              <div id="growth-tooltip" class="growth-tooltip" style="display:none"></div>
-            </div>
-          </div>
-          <div class="growth-bars-wrap">
-            <p class="mini-label">New listings per day (last 30 days)</p>
-            <div class="bar-chart">
-              {listingsGrowth.slice(-30).map(r => (
-                <div class="bar-row">
-                  <span class="bar-day">{r.day.slice(5)}</span>
-                  <div class="bar-track">
-                    <div class="bar-fill" style={`width:${Math.round((r.count / maxDailyCount) * 100)}%`}></div>
-                  </div>
-                  <span class="bar-count">{r.count}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-    )}
-
-    <!-- ── TRAINING LEADS ────────────────────────────────────── -->
-    <section class="card">
-      <div class="card-head">
-        <h2 class="card-title">Training Enquiries</h2>
-        <span class="badge">{leads.length}</span>
-      </div>
-      {leads.length === 0 ? (
-        <p class="empty">No enquiries yet.</p>
-      ) : (
-        <div class="table-wrap">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Name</th>
-                <th>Contact</th>
-                <th>Message</th>
-              </tr>
-            </thead>
-            <tbody>
-              {leads.map(l => (
-                <tr>
-                  <td class="nowrap">{fmt(l.created_at)}</td>
-                  <td class="nowrap">{l.name}</td>
-                  <td>
-                    <a href={`mailto:${l.email}`}>{l.email}</a>
-                    <span class="sub-line">{l.phone}{l.location ? ` · ${l.location}` : ''}</span>
-                  </td>
-                  <td class="msg">{l.message ?? '—'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </section>
 
     <!-- ── FINANCE LEADS ─────────────────────────────────────── -->
     <section class="card">
@@ -977,6 +842,110 @@ const SOURCE_LABEL: Record<string, string> = {
       )}
     </section>
 
+    <!-- ══ SECTION: ARCHIVE — the long tail, collapsed by default ═ -->
+    <h2 class="section-head" id="archive">🗄 More</h2>
+
+    <details class="arch">
+      <summary class="arch-summary">Partner Clicks <span class="arch-count">{totalPartnerClicks} all time</span></summary>
+      <section class="card">
+        {totalPartnerClicks === 0 ? (
+          <p class="empty">No partner clicks tracked yet.</p>
+        ) : (
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Partner</th>
+                  <th class="num">Web</th>
+                  <th class="num">Email</th>
+                  <th class="num">IG</th>
+                  <th class="num">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {partnerRows.map(r => (
+                  <tr>
+                    <td><a href={`/partners/${r.slug}/`} target="_blank">{r.name}</a></td>
+                    <td class="num">{r.website}</td>
+                    <td class="num">{r.email}</td>
+                    <td class="num">{r.instagram}</td>
+                    <td class="num" style="font-weight:700">{r.total}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p class="card-note">Outbound clicks from partner pages — the case for paid partner placements.</p>
+          </div>
+        )}
+      </section>
+    </details>
+
+    <details class="arch" id="arch-growth">
+      <summary class="arch-summary">Listings Growth <span class="arch-count">{totalListingCount} total · {activeListingCount} active · {offMarketCount} off-market</span></summary>
+      {listingsGrowth.length > 0 && (
+        <section class="card">
+          <div class="growth-body">
+            <div class="growth-chart-wrap">
+              <p class="mini-label">Cumulative total — hover to explore</p>
+              <div class="growth-canvas-outer">
+                <canvas id="growth-canvas" class="growth-canvas"></canvas>
+                <div id="growth-tooltip" class="growth-tooltip" style="display:none"></div>
+              </div>
+            </div>
+            <div class="growth-bars-wrap">
+              <p class="mini-label">New listings per day (last 30 days)</p>
+              <div class="bar-chart">
+                {listingsGrowth.slice(-30).map(r => (
+                  <div class="bar-row">
+                    <span class="bar-day">{r.day.slice(5)}</span>
+                    <div class="bar-track">
+                      <div class="bar-fill" style={`width:${Math.round((r.count / maxDailyCount) * 100)}%`}></div>
+                    </div>
+                    <span class="bar-count">{r.count}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+    </details>
+
+    <details class="arch">
+      <summary class="arch-summary">Training Enquiries <span class="arch-count">{leads.length} all time</span></summary>
+      <section class="card">
+        {leads.length === 0 ? (
+          <p class="empty">No enquiries yet.</p>
+        ) : (
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Name</th>
+                  <th>Contact</th>
+                  <th>Message</th>
+                </tr>
+              </thead>
+              <tbody>
+                {leads.map(l => (
+                  <tr>
+                    <td class="nowrap">{fmt(l.created_at)}</td>
+                    <td class="nowrap">{l.name}</td>
+                    <td>
+                      <a href={`mailto:${l.email}`}>{l.email}</a>
+                      <span class="sub-line">{l.phone}{l.location ? ` · ${l.location}` : ''}</span>
+                    </td>
+                    <td class="msg">{l.message ?? '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+    </details>
+
   </div>
 </AdminLayout>
 
@@ -1006,15 +975,41 @@ const SOURCE_LABEL: Record<string, string> = {
   .ptab:hover { border-color: #111; color: #111; }
   .ptab-active { background: #111; color: white; border-color: #111; }
 
+  /* Section heads + jump pills */
+  .section-head {
+    font-size: 0.8rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em;
+    color: #374151; margin: 0.75rem 0 -0.5rem; padding-top: 0.5rem; scroll-margin-top: 5rem;
+    border-top: 2px solid #F3F4F6;
+  }
+  .jump-pills { display: flex; gap: 0.25rem; flex-wrap: wrap; margin-left: auto; }
+  .jump {
+    font-size: 0.68rem; font-weight: 700; text-decoration: none;
+    padding: 0.25rem 0.625rem; border-radius: 9999px;
+    background: #F9FAFB; border: 1.5px solid #E5E7EB; color: #6B7280;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .jump:hover { border-color: #F5A623; color: #111; }
+
+  /* Archive collapsibles */
+  .arch { border: 1px solid #E5E7EB; border-radius: 0.75rem; background: white; overflow: hidden; }
+  .arch-summary {
+    cursor: pointer; padding: 0.875rem 1.25rem; font-size: 0.8125rem; font-weight: 700; color: #374151;
+    list-style: none; display: flex; align-items: center; gap: 0.625rem; user-select: none;
+  }
+  .arch-summary::-webkit-details-marker { display: none; }
+  .arch-summary::before { content: '▸'; color: #9CA3AF; transition: transform 0.15s; }
+  .arch[open] .arch-summary::before { transform: rotate(90deg); }
+  .arch-count { font-size: 0.68rem; font-weight: 600; color: #9CA3AF; }
+  .arch .card { border: none; border-top: 1px solid #F3F4F6; border-radius: 0; }
+
   /* KPI strips */
   .kpi-strip { display: grid; gap: 0.75rem; }
   .kpi-strip-3 { grid-template-columns: repeat(3, 1fr); }
-  .kpi-strip-4 { grid-template-columns: repeat(2, 1fr); }
-  .kpi-strip-6 { grid-template-columns: repeat(2, 1fr); }
-  @media (min-width: 640px)  { .kpi-strip-6 { grid-template-columns: repeat(3, 1fr); } }
-  @media (min-width: 1024px) { .kpi-strip-4 { grid-template-columns: repeat(4, 1fr); } }
-  @media (min-width: 1024px) { .kpi-strip-6 { grid-template-columns: repeat(6, 1fr); } }
+  .kpi-strip-5 { grid-template-columns: repeat(2, 1fr); }
+  @media (min-width: 640px)  { .kpi-strip-5 { grid-template-columns: repeat(3, 1fr); } }
+  @media (min-width: 1024px) { .kpi-strip-5 { grid-template-columns: repeat(5, 1fr); } }
   @media (max-width: 639px)  { .kpi-strip-3 { grid-template-columns: repeat(2, 1fr); } }
+  .kpi-hero { border-color: #F5A623; background: #FFFBF0; }
 
   .kpi {
     background: white; border: 1px solid #E5E7EB; border-radius: 0.75rem;
@@ -1239,5 +1234,8 @@ const SOURCE_LABEL: Record<string, string> = {
   canvas.addEventListener('mouseleave', () => { hoverIdx = -1; draw(-1); tooltip.style.display = 'none'; });
   draw(-1);
   window.addEventListener('resize', () => draw(hoverIdx));
+  // Canvas sits inside a collapsed <details> — clientWidth is 0 until it opens,
+  // so redraw on expand or the chart renders blank.
+  document.getElementById('arch-growth')?.addEventListener('toggle', () => draw(hoverIdx));
 })();
 </script>
