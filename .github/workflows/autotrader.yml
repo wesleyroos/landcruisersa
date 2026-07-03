@@ -72,9 +72,29 @@ jobs:
           PROXY_USER: ${{ secrets.PROXY_USER }}
           PROXY_PASS: ${{ secrets.PROXY_PASS }}
 
+  # Rehost runs as its OWN job with its own clock. As the last step of the
+  # scrape job it was the one killed by the 150-min job timeout — every day,
+  # for days (runs show "cancelled" on exactly this step) — so hotlinked-AT
+  # backlog grew and fresh listings couldn't be posted to Instagram (IG rejects
+  # non-JPEG hotlinks; see igSafePhotos in src/lib/instagram.ts).
+  # if: always() → it still runs when the scrape job itself times out.
+  rehost:
+    name: Rehost AT images to R2
+    runs-on: ubuntu-latest
+    needs: autotrader
+    if: always()
+    timeout-minutes: 150
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+
       # Direct (no proxy) — img.autotrader.co.za CDN is datacenter-accessible.
       - name: Rehost images to R2
-        continue-on-error: true
         run: node --experimental-strip-types src/scripts/rehost-at-images.ts
         env:
           INGEST_TOKEN: ${{ secrets.INGEST_TOKEN }}

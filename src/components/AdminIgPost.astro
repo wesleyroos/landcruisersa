@@ -127,7 +127,8 @@
       modalCaption.value    = data.caption;
       modalCaption.disabled = false;
       modalConfirm.disabled = false;
-      modalMeta.textContent = `${data.photoCount} photo${data.photoCount !== 1 ? 's' : ''} will be posted as ${data.photoCount > 1 ? 'a carousel' : 'a single image'}`;
+      modalMeta.textContent = `${data.photoCount} photo${data.photoCount !== 1 ? 's' : ''} will be posted as ${data.photoCount > 1 ? 'a carousel' : 'a single image'}`
+        + (data.skippedPhotos > 0 ? ` — ${data.skippedPhotos} skipped (AutoTrader hotlinks IG rejects; the AT rehost will convert them)` : '');
     } finally {
       btn.disabled = false;
       btn.textContent = originalLabel;
@@ -199,6 +200,11 @@
     if (res?.ok) {
       const data = await res.json();
       if (data.posted) { showToast('Posted to Instagram!', 'ok'); markPosted(id, btn); return; }
+      if (data.error) {
+        showToast(`Post failed: ${data.error}`, 'err');
+        if (btn) { btn.disabled = false; btn.textContent = 'Post to IG'; }
+        return;
+      }
     }
     setTimeout(() => pollPosted(id, btn, deadline), 4000);
   }

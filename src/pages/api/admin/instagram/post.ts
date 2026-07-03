@@ -1,12 +1,26 @@
 export const prerender = false;
 
 import type { APIRoute } from 'astro';
-import { getCredentials, postListingToInstagram, buildCaptionWithAIHashtags, buildCaption } from '@/lib/instagram';
+import { getCredentials, postListingToInstagram, buildCaptionWithAIHashtags, buildCaption, igSafePhotos } from '@/lib/instagram';
 import { classifyIgSlot, detectMods } from '@/lib/post-suggestions';
 import { db } from '@/db/index';
 import { listings, igPosts } from '@/db/schema';
 import { requireAdmin, unauthorized } from '@/lib/admin-auth';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
+
+// Background-publish errors keyed per listing so post-status can surface the
+// real reason (the publish is fire-and-forget; without this a failure just
+// looks like a poll timeout in the admin).
+export function setIgPostError(listingId: number, message: string): void {
+  db.run(sql`
+    INSERT INTO site_config (key, value, updated_at)
+    VALUES (${'ig_post_error_' + listingId}, ${message.slice(0, 300)}, ${Math.floor(Date.now() / 1000)})
+    ON CONFLICT(key) DO UPDATE SET value = ${message.slice(0, 300)}, updated_at = ${Math.floor(Date.now() / 1000)}
+  `);
+}
+export function clearIgPostError(listingId: number): void {
+  db.run(sql`DELETE FROM site_config WHERE key = ${'ig_post_error_' + listingId}`);
+}
 
 export const POST: APIRoute = async ({ request, cookies }) => {
   if (!requireAdmin(cookies)) return unauthorized();
@@ -42,10 +56,25 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     ? detectMods(`${listing.description}\n${listing.mods ?? ''}`)
     : [];
 
+  const allPhotos: string[] = JSON.parse(listing.photos);
+  const safePhotos = igSafePhotos(allPhotos);
+
+  // Fail up front with the real reason — IG can't ingest hotlinked/non-JPEG
+  // photos, and a background failure would otherwise read as a poll timeout.
+  if (safePhotos.length === 0) {
+    return new Response(JSON.stringify({
+      error: `None of this listing's ${allPhotos.length} photos are IG-publishable yet — they're AutoTrader hotlinks, which Instagram rejects. Run the AT image rehost (src/scripts/rehost-at-images.ts), then retry.`,
+    }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+  }
+
   if (previewOnly) {
-    const photos: string[] = JSON.parse(listing.photos);
     const caption = await buildCaptionWithAIHashtags(listing, heroMods);
-    return new Response(JSON.stringify({ caption, photoCount: photos.length, slot }), {
+    return new Response(JSON.stringify({
+      caption,
+      photoCount: Math.min(safePhotos.length, 10),
+      skippedPhotos: allPhotos.length - safePhotos.length,
+      slot,
+    }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     });
@@ -55,6 +84,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
   // which exceeds Fly's proxy timeout. Return 202 immediately and let
   // the browser poll /api/admin/instagram/post-status for completion.
   const caption = customCaption || buildCaption(listing);
+  clearIgPostError(listingId);
   postListingToInstagram(listing, creds, caption)
     .then(mediaId => {
       db.update(listings).set({ ig_posted_at: new Date(), ig_media_id: mediaId }).where(eq(listings.id, listingId)).run();
@@ -69,7 +99,9 @@ export const POST: APIRoute = async ({ request, cookies }) => {
       console.log(`[IG post] listing ${listingId} posted successfully (slot: ${slot}, media: ${mediaId})`);
     })
     .catch(err => {
-      console.error(`[IG post] listing ${listingId} failed:`, err);
+      const message = err instanceof Error ? err.message : String(err);
+      setIgPostError(listingId, message);
+      console.error(`[IG post] listing ${listingId} failed:`, message);
     });
 
   return new Response(JSON.stringify({ ok: true, pending: true, slot }), {

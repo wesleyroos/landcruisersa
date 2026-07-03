@@ -414,11 +414,33 @@ export async function publishImageToInstagram(creds: IgCredentials, imageUrl: st
 
 // ─── Main post function ───────────────────────────────────────────────────────
 
+// Filter out photo URLs Instagram's publisher is KNOWN to reject (observed
+// 2026-07-03: an extensionless img.autotrader.co.za hotlink failed the whole
+// carousel with "Only photo or video can be accepted as media type" — that CDN
+// also rate-limits hotlinks, so IG's fetcher often gets a 503 anyway). SVGs are
+// not photos. Everything else passes: R2 .jpgs obviously, and WBC .webp is
+// proven in practice (3 WBC listings posted successfully) despite IG's docs
+// saying JPEG — so this is exclusion-based, not a strict JPEG whitelist. The AT
+// rehost (src/scripts/rehost-at-images.ts + the rehost job in autotrader.yml)
+// converts hotlinks to R2 JPEGs; fresh scrapes may not have had a pass yet, so
+// we post with the safe subset rather than failing the whole post.
+export function igSafePhotos(photos: string[]): string[] {
+  return photos.filter(u =>
+    !/^https?:\/\/img\.autotrader\.co\.za\//i.test(u) &&
+    !/\.svg(\?|#|$)/i.test(u),
+  );
+}
+
 export async function postListingToInstagram(listing: Listing, creds: IgCredentials, customCaption?: string): Promise<string> {
   const photos: string[] = JSON.parse(listing.photos);
   if (!photos.length) throw new Error('Listing has no photos');
 
-  const imageUrls = photos.slice(0, 10); // IG carousel max 10
+  const safe = igSafePhotos(photos);
+  if (!safe.length) {
+    throw new Error(`No IG-publishable photos: all ${photos.length} are AutoTrader hotlinks (IG rejects them) — run the AT image rehost, then retry`);
+  }
+
+  const imageUrls = safe.slice(0, 10); // IG carousel max 10
   const caption   = customCaption ?? buildCaption(listing);
 
   if (imageUrls.length === 1) {
