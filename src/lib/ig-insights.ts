@@ -1,5 +1,5 @@
 import { db } from '@/db/index';
-import { listings, igPosts, igPostMetrics } from '@/db/schema';
+import { listings, igPosts, igPostMetrics, igAccountSnapshots } from '@/db/schema';
 import { sql, isNotNull, and } from 'drizzle-orm';
 import { getCredentials } from './instagram';
 
@@ -61,6 +61,22 @@ export async function syncIgInsights(): Promise<IgSyncResult | null> {
 
   const media = await fetchMediaList(creds.userId, creds.accessToken);
   const byId = new Map(media.map(m => [m.id, m]));
+
+  // Account-level snapshot — the flywheel's headline metric (follower curve vs
+  // posting cadence). Non-fatal: per-post sync still runs if this call fails.
+  try {
+    const res = await fetch(`${IG_API}/me?fields=followers_count,media_count&access_token=${creds.accessToken}`);
+    const acc = await res.json();
+    if (res.ok) {
+      db.insert(igAccountSnapshots).values({
+        fetched_at: new Date(),
+        followers_count: acc.followers_count ?? null,
+        media_count: acc.media_count ?? null,
+      }).run();
+    }
+  } catch (e) {
+    console.error('[ig-insights] account snapshot failed:', e instanceof Error ? e.message : e);
+  }
 
   // ── Backfill: posted listings with no ig_posts row → match by timestamp ──
   let backfilled = 0;

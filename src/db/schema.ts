@@ -407,6 +407,16 @@ export const igPostMetrics = sqliteTable('ig_post_metrics', {
   total_interactions: integer('total_interactions'),
 });
 
+// Daily account-level snapshot (followers, media count) — the flywheel's
+// headline curve: hero posts → follows → reach → follows. Written by the same
+// daily insights sync as ig_post_metrics.
+export const igAccountSnapshots = sqliteTable('ig_account_snapshots', {
+  id:              integer('id').primaryKey({ autoIncrement: true }),
+  fetched_at:      integer('fetched_at', { mode: 'timestamp' }).notNull(),
+  followers_count: integer('followers_count'),
+  media_count:     integer('media_count'),
+});
+
 // One row per morning suggestion — powers the engine's real KPI: acceptance
 // ("did Wesley post the #1 suggestion?"), not score deltas.
 export const igSuggestionLog = sqliteTable('ig_suggestion_log', {

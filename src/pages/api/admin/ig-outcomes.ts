@@ -134,6 +134,19 @@ export const GET: APIRoute = async ({ request }) => {
   const siteViews7d = (db.get<{ n: number }>(sql`SELECT count(*) n FROM view_events WHERE created_at >= ${wk}`))?.n ?? 0;
   const igViews7d = (db.get<{ n: number }>(sql`SELECT count(*) n FROM view_events WHERE created_at >= ${wk} AND utm_source = 'ig'`))?.n ?? 0;
 
+  // Flywheel legs: follower curve (latest + 30d-ago snapshot) and the
+  // audience→sellers leg (active private-seller listings).
+  const followersNow = db.get<{ followers_count: number | null; fetched_at: number }>(sql`
+    SELECT followers_count, fetched_at FROM ig_account_snapshots ORDER BY fetched_at DESC LIMIT 1
+  `);
+  const mo = Math.floor(Date.now() / 1000) - 30 * 86400;
+  const followers30dAgo = db.get<{ followers_count: number | null }>(sql`
+    SELECT followers_count FROM ig_account_snapshots WHERE fetched_at <= ${mo} ORDER BY fetched_at DESC LIMIT 1
+  `);
+  const privateSellers = (db.get<{ n: number }>(sql`
+    SELECT count(*) n FROM listings WHERE status = 'active' AND source = 'own'
+  `))?.n ?? 0;
+
   return new Response(JSON.stringify({
     generated_at: new Date().toISOString(),
     posts: perPost,
@@ -141,6 +154,11 @@ export const GET: APIRoute = async ({ request }) => {
     by_slot: bySlot,
     acceptance: { suggested_days: suggested.length, accepted_days: accepted, rate: suggested.length ? Math.round((accepted / suggested.length) * 100) / 100 : null },
     context: { site_views_7d: siteViews7d, ig_views_7d: igViews7d },
+    flywheel: {
+      followers: followersNow?.followers_count ?? null,
+      followers_30d_ago: followers30dAgo?.followers_count ?? null,
+      private_seller_listings: privateSellers,
+    },
   }, null, 1), {
     status: 200,
     headers: { 'Content-Type': 'application/json' },

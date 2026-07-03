@@ -434,6 +434,16 @@ db.exec(`
 db.exec(`CREATE INDEX IF NOT EXISTS ig_post_metrics_media ON ig_post_metrics (media_id, fetched_at)`);
 
 db.exec(`
+  CREATE TABLE IF NOT EXISTS ig_account_snapshots (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    fetched_at      INTEGER NOT NULL,
+    followers_count INTEGER,
+    media_count     INTEGER
+  )
+`);
+db.exec(`CREATE INDEX IF NOT EXISTS ig_account_snapshots_fetched ON ig_account_snapshots (fetched_at)`);
+
+db.exec(`
   CREATE TABLE IF NOT EXISTS ig_suggestion_log (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     date       TEXT    NOT NULL,
