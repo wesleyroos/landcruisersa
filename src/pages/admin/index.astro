@@ -4,7 +4,7 @@ export const prerender = false;
 import AdminLayout from '@/layouts/AdminLayout.astro';
 import AdminIgPost from '@/components/AdminIgPost.astro';
 import { getCredentials } from '@/lib/instagram';
-import { getPostSuggestions } from '@/lib/post-suggestions';
+import { getIgSuggestions } from '@/lib/post-suggestions';
 import { modelFamily, modelLabel } from '@/lib/sources/normalize';
 import { db } from '@/db/index';
 import { listings, clickEvents, priceEvents } from '@/db/schema';
@@ -143,9 +143,12 @@ const sold = db.select().from(listings)
 const creds = await getCredentials();
 const igConnected = !!creds;
 
-// IG suggestions — same scoring the morning email uses. Show the whole ranked
-// shortlist (not just the top pick) so it can be skimmed and posted from here.
-const igSuggestions = igConnected ? getPostSuggestions(12) : [];
+// IG suggestions — same Hero Engine scoring the morning email uses. Show the
+// slot plan + whole ranked shortlist so it can be skimmed and posted from here.
+const igSet = igConnected ? getIgSuggestions(12) : { plan: { slot: 'hero' as const, reason: '' }, suggestions: [] };
+const igPlan = igSet.plan;
+const igSuggestions = igSet.suggestions;
+const SLOT_LABEL: Record<string, string> = { hero: '🔥 Hero build', deal: '💰 Deal', drop: '▼ Price drop', cta: '📢 Seller CTA' };
 const igPick = igSuggestions[0];
 const igMore = igSuggestions.slice(1);
 const igMoreNonPrado = igMore.filter(s => modelFamily(s.model) !== 'prado').length;
@@ -283,6 +286,15 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
   <!-- Scraper tools (Run Ingest / backfills) moved to /admin/scrapers -->
 
   <!-- TODAY'S IG PICK -->
+  {igPlan.slot === 'cta' && (
+    <div class="pick-card" style="border-color:#F5A623;">
+      <div class="pick-info">
+        <p class="pick-eyebrow">📢 Today's IG slot: Seller CTA</p>
+        <p class="pick-title">Post the seller-acquisition template — "Selling your Cruiser? List it free on landcruisersa.co.za."</p>
+        <p class="pick-reasons">{igPlan.reason} · backup hero pick below</p>
+      </div>
+    </div>
+  )}
   {igPick && (
     <div class="pick-card">
       <a href={`/admin/listings/${igPick.id}`} class="pick-thumb-link">
@@ -292,7 +304,7 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
         }
       </a>
       <div class="pick-info">
-        <p class="pick-eyebrow">📣 Today's IG pick</p>
+        <p class="pick-eyebrow">{SLOT_LABEL[igPick.slot] ?? '📣'} — today's IG pick</p>
         <p class="pick-title">
           <a href={`/admin/listings/${igPick.id}`}>{igPick.title}</a>
           <span class="pick-price">R{igPick.price.toLocaleString('en-ZA')}</span>

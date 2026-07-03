@@ -342,3 +342,30 @@ date, compare to baseline, mark HIT / MISS / PARTIAL, and write the lesson.
   Record the choice + rationale in Result/Lesson below.
 - **Result:** _pending 2026-08-27_
 - **Lesson:** _tbd_
+
+## P13 — IG Hero Engine v2 (acceptance rate + follows per post)
+
+- **Opened:** 2026-07-03
+- **Review on:** 2026-08-03 (one month of daily suggestions + the ~early-Aug Meta re-export)
+- **Surface:** IG post-suggestion engine (`src/lib/post-suggestions.ts`, spec `docs/ig-engine-v2-spec.md`)
+- **Thesis:** v1 ranked by dealScore (cheap vs market) — the wrong objective. Wesley
+  ignored 100% of its suggestions and hand-picked "impressive muscly builds", which
+  outperformed (Jun 2026 Meta export: top 3 posts — all kitted R1.6M–R2.6M 79s —
+  drove 130 of 160 monthly follows). v2 ranks by HeroScore (mod lexicon +
+  kitted-build premium + 70-series prior) in a hero-dominant slot mix, and pulls
+  real per-post IG metrics into `ig_post_metrics` daily.
+- **Baseline (Jun 4 – Jul 1 2026):** suggestion acceptance ≈ 0% · 6.2 follows/post
+  avg (160/26) · listings 1.85 follows/1k views.
+- **Predictions (review 2026-08-03, via `/api/admin/ig-outcomes` acceptance block):**
+  1. **Acceptance rate ≥ 50%** — the published post matches the day's #1 suggestion
+     on at least half the suggested days. *Primary: this is the whole test.*
+  2. Hero-slot posts average **≥ 10 follows/post** (needs the `follows` metric to be
+     available via the insights API; if not exposed, judge on saves+reach vs the
+     Jun baseline instead).
+  3. The insights sync runs clean (≥ 25 of 30 days with snapshots, backfill matched
+     most legacy posts).
+- **Caveat:** acceptance is also a UX/habit question, not purely a ranking one — if
+  Wesley never opens the morning email the rate reads falsely low; check that before
+  blaming the scorer.
+- **Result:** _pending 2026-08-03_
+- **Lesson:** _tbd_

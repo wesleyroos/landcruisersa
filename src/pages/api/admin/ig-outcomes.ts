@@ -5,9 +5,12 @@ import { db } from '@/db/index';
 import { listings, viewEvents, clickEvents } from '@/db/schema';
 import { sql, isNotNull } from 'drizzle-orm';
 
-// One-call outcome report for tuning the IG post-suggestion weights.
-// Per posted listing: traffic and actions SINCE its post date, plus per-model
-// rollups. Consumed by the periodic weight-tuning review (Claude session):
+// One-call outcome report for tuning the IG Hero Engine weights.
+// Per posted listing: site traffic/actions SINCE its post date PLUS the latest
+// IG metrics snapshot (views/reach/likes/saves/… from ig_post_metrics — the
+// engine's real target), per-model and per-slot rollups, and the acceptance
+// KPI (did the published post match the day's #1 suggestion?). Consumed by the
+// periodic weight-tuning review (Claude session):
 //   curl -s $SITE_URL/api/admin/ig-outcomes -H "Authorization: Bearer $INGEST_TOKEN"
 export const GET: APIRoute = async ({ request }) => {
   // Accepts the full ingest token or the read-only REPORT_TOKEN (used by the
@@ -27,7 +30,25 @@ export const GET: APIRoute = async ({ request }) => {
     model: listings.model,
     price: listings.price,
     posted_at: listings.ig_posted_at,
+    media_id: listings.ig_media_id,
   }).from(listings).where(isNotNull(listings.ig_posted_at)).all();
+
+  // Slot per listing post (from the ig_posts log; 'legacy' = pre-log backfill)
+  const slotByListing = new Map<number, string>(
+    db.all<{ listing_id: number; slot: string }>(sql`
+      SELECT listing_id, slot FROM ig_posts WHERE listing_id IS NOT NULL
+    `).map(r => [r.listing_id, r.slot]),
+  );
+
+  // Latest IG metrics snapshot per media id — the engine's real target variable
+  const igMetrics = new Map<string, Record<string, number | null>>(
+    db.all<{ media_id: string; views: number | null; reach: number | null; likes: number | null; comments: number | null; saves: number | null; shares: number | null; profile_visits: number | null; follows: number | null }>(sql`
+      SELECT m.media_id, m.views, m.reach, m.likes, m.comments, m.saves, m.shares, m.profile_visits, m.follows
+      FROM ig_post_metrics m
+      INNER JOIN (SELECT media_id, MAX(fetched_at) mf FROM ig_post_metrics GROUP BY media_id) latest
+        ON latest.media_id = m.media_id AND latest.mf = m.fetched_at
+    `).map(r => [r.media_id, { views: r.views, reach: r.reach, likes: r.likes, comments: r.comments, saves: r.saves, shares: r.shares, profile_visits: r.profile_visits, follows: r.follows }]),
+  );
 
   const perPost = posted.map(p => {
     const since = Math.floor(p.posted_at!.getTime() / 1000);
@@ -55,12 +76,14 @@ export const GET: APIRoute = async ({ request }) => {
 
     return {
       id: p.id, title: p.title, model: p.model, price: p.price,
+      slot: slotByListing.get(p.id) ?? 'legacy',
       posted_at: p.posted_at!.toISOString(),
       days_live: Math.round((Date.now() - p.posted_at!.getTime()) / 86_400_000 * 10) / 10,
       views_since_post: views,
       ig_attributed_views: igViews,
       portal_clicks: portalClicks,
       contact_clicks: contactClicks,
+      ig: (p.media_id && igMetrics.get(p.media_id)) || null,
     };
   }).sort((a, b) => b.posted_at.localeCompare(a.posted_at));
 
@@ -75,6 +98,37 @@ export const GET: APIRoute = async ({ request }) => {
     byModel[p.model] = m;
   }
 
+  // Per-slot rollup on the REAL objective (latest IG snapshot per post)
+  const bySlot: Record<string, { posts: number; ig_views: number; reach: number; likes: number; saves: number; follows: number; with_metrics: number }> = {};
+  for (const p of perPost) {
+    const s = bySlot[p.slot] ?? { posts: 0, ig_views: 0, reach: 0, likes: 0, saves: 0, follows: 0, with_metrics: 0 };
+    s.posts += 1;
+    if (p.ig) {
+      s.with_metrics += 1;
+      s.ig_views += p.ig.views ?? 0;
+      s.reach += p.ig.reach ?? 0;
+      s.likes += p.ig.likes ?? 0;
+      s.saves += p.ig.saves ?? 0;
+      s.follows += p.ig.follows ?? 0;
+    }
+    bySlot[p.slot] = s;
+  }
+
+  // Acceptance KPI: of the days we suggested a listing, how often did the post
+  // published that same SAST day match the suggestion? (v1 baseline ≈ 0%.)
+  const suggested = db.all<{ date: string; listing_id: number | null }>(sql`
+    SELECT date, listing_id FROM ig_suggestion_log WHERE listing_id IS NOT NULL ORDER BY date DESC LIMIT 30
+  `);
+  let accepted = 0;
+  for (const s of suggested) {
+    const hit = db.get<{ n: number }>(sql`
+      SELECT count(*) n FROM ig_posts
+      WHERE listing_id = ${s.listing_id}
+        AND date(posted_at + 7200, 'unixepoch') = ${s.date}
+    `)?.n ?? 0;
+    if (hit > 0) accepted++;
+  }
+
   // Site-wide context (7d) for baseline comparison
   const wk = Math.floor(Date.now() / 1000) - 7 * 86400;
   const siteViews7d = (db.get<{ n: number }>(sql`SELECT count(*) n FROM view_events WHERE created_at >= ${wk}`))?.n ?? 0;
@@ -84,6 +138,8 @@ export const GET: APIRoute = async ({ request }) => {
     generated_at: new Date().toISOString(),
     posts: perPost,
     by_model: byModel,
+    by_slot: bySlot,
+    acceptance: { suggested_days: suggested.length, accepted_days: accepted, rate: suggested.length ? Math.round((accepted / suggested.length) * 100) / 100 : null },
     context: { site_views_7d: siteViews7d, ig_views_7d: igViews7d },
   }, null, 1), {
     status: 200,

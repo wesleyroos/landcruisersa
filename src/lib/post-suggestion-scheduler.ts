@@ -1,4 +1,5 @@
 import { sendPostSuggestionEmail } from './post-suggestion-email';
+import { syncIgInsightsDaily } from './ig-insights';
 
 // Server-side morning trigger. The site runs 24/7 on Fly, so we don't depend on
 // GitHub's (chronically delayed) scheduled Actions for the daily IG email.
@@ -17,6 +18,9 @@ export function ensurePostSuggestionScheduler(): void {
       // SAST = UTC+2 (no DST). Only the 07:xx SAST window is eligible.
       const sastHour = new Date(Date.now() + 2 * 3600 * 1000).getUTCHours();
       if (sastHour !== 7) return;
+      // Insights sync first so the morning email sees fresh outcome data. Own
+      // once-a-day guard; a sync failure must not block the email.
+      try { await syncIgInsightsDaily(); } catch (e) { console.error('[ig-insights] daily sync failed', e); }
       const res = await sendPostSuggestionEmail();
       if (res.emailed) console.log(`[ig-suggestion] sent morning email (${res.suggestions.length} picks)`);
     } catch (e) {

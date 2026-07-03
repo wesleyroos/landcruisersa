@@ -63,6 +63,7 @@ addCol('off_market_at',  "off_market_at  INTEGER");
 addCol('seller_notified_at', "seller_notified_at INTEGER");
 addCol('dealer_offer_optin', "dealer_offer_optin INTEGER NOT NULL DEFAULT 0");
 addCol('sold_price',     "sold_price     INTEGER");
+addCol('ig_media_id',    "ig_media_id    TEXT");
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS site_config (
@@ -397,6 +398,53 @@ const addRunCol = (col, def) => {
 addRunCol('source_total', "source_total INTEGER");
 addRunCol('cap_hit',      "cap_hit      INTEGER NOT NULL DEFAULT 0");
 
+// ── IG Hero Engine ────────────────────────────────────────────────────────────
+// Post log, per-post metric snapshots, and the daily suggestion log. New tables
+// → CREATE TABLE IF NOT EXISTS (NOT REQUIRED_COLS — that guards listings only).
+db.exec(`
+  CREATE TABLE IF NOT EXISTS ig_posts (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    listing_id INTEGER,
+    slug       TEXT,
+    slot       TEXT    NOT NULL DEFAULT 'hero',
+    media_id   TEXT,
+    caption    TEXT,
+    posted_at  INTEGER NOT NULL
+  )
+`);
+db.exec(`CREATE INDEX IF NOT EXISTS ig_posts_posted ON ig_posts (posted_at)`);
+db.exec(`CREATE INDEX IF NOT EXISTS ig_posts_media ON ig_posts (media_id)`);
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS ig_post_metrics (
+    id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+    media_id           TEXT    NOT NULL,
+    fetched_at         INTEGER NOT NULL,
+    views              INTEGER,
+    reach              INTEGER,
+    likes              INTEGER,
+    comments           INTEGER,
+    saves              INTEGER,
+    shares             INTEGER,
+    profile_visits     INTEGER,
+    follows            INTEGER,
+    total_interactions INTEGER
+  )
+`);
+db.exec(`CREATE INDEX IF NOT EXISTS ig_post_metrics_media ON ig_post_metrics (media_id, fetched_at)`);
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS ig_suggestion_log (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    date       TEXT    NOT NULL,
+    slot       TEXT    NOT NULL,
+    listing_id INTEGER,
+    score      INTEGER,
+    created_at INTEGER NOT NULL
+  )
+`);
+db.exec(`CREATE INDEX IF NOT EXISTS ig_suggestion_log_date ON ig_suggestion_log (date)`);
+
 // Price changes observed at ingest — fuels price-trend pages and price-drop surfacing
 db.exec(`
   CREATE TABLE IF NOT EXISTS price_events (
@@ -540,7 +588,7 @@ const REQUIRED_COLS = [
   'fuel_type', 'fuel_consumption', 'power_kw', 'seats', 'co2',
   'source_url', 'source', 'source_id', 'last_polled_at', 'review_flag',
   'created_at', 'ig_posted_at', 'featured', 'segment', 'off_market_at',
-  'seller_notified_at', 'dealer_offer_optin', 'sold_price',
+  'seller_notified_at', 'dealer_offer_optin', 'sold_price', 'ig_media_id',
 ];
 const finalCols = new Set(
   db.prepare("SELECT name FROM pragma_table_info('listings')").all().map(r => r.name)

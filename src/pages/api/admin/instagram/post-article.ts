@@ -4,6 +4,8 @@ import type { APIRoute } from 'astro';
 import { getCollection } from 'astro:content';
 import { getCredentials, publishImageToInstagram, buildArticleCaptionWithAIHashtags } from '@/lib/instagram';
 import { setArticlePosted, setArticlePostError, clearArticlePostError } from '@/lib/article-config';
+import { db } from '@/db/index';
+import { igPosts } from '@/db/schema';
 import { requireAdmin, unauthorized } from '@/lib/admin-auth';
 import { SITE } from '@/data/site';
 
@@ -71,6 +73,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
   publishImageToInstagram(creds, imageUrl, caption)
     .then((mediaId) => {
       setArticlePosted(slug, { postedAt: Math.floor(Date.now() / 1000), mediaId, caption, imageUrl });
+      db.insert(igPosts).values({ slug, slot: 'article', media_id: mediaId, caption, posted_at: new Date() }).run();
       console.log(`[IG article] ${slug} posted successfully (media ${mediaId})`);
     })
     .catch(err => {

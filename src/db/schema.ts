@@ -373,6 +373,51 @@ export const favorites = sqliteTable('favorites', {
 }));
 export type Favorite = typeof favorites.$inferSelect;
 
+// ── IG Hero Engine ───────────────────────────────────────────────────────────
+// Post log — one row per IG publish (listing carousels and article images).
+// slot records the job the post was doing (hero/deal/drop/article) so the slot
+// planner can pace the weekly mix and outcomes roll up per slot; 'legacy' marks
+// rows backfilled from before this table existed (slot unknown).
+export const igPosts = sqliteTable('ig_posts', {
+  id:         integer('id').primaryKey({ autoIncrement: true }),
+  listing_id: integer('listing_id'),                    // null for article posts
+  slug:       text('slug'),                              // listing slug or article slug
+  slot:       text('slot').notNull().default('hero'),   // 'hero' | 'deal' | 'drop' | 'article' | 'legacy'
+  media_id:   text('media_id'),                          // IG media id — insights join key
+  caption:    text('caption'),
+  posted_at:  integer('posted_at', { mode: 'timestamp' }).notNull(),
+});
+export type IgPost = typeof igPosts.$inferSelect;
+
+// Per-post IG metric snapshots, appended by the daily insights sync while a
+// post is < 30 days old. Per-metric nullable — availability varies by Graph API
+// version and account type. Replaces the manual monthly Meta CSV export.
+export const igPostMetrics = sqliteTable('ig_post_metrics', {
+  id:                 integer('id').primaryKey({ autoIncrement: true }),
+  media_id:           text('media_id').notNull(),
+  fetched_at:         integer('fetched_at', { mode: 'timestamp' }).notNull(),
+  views:              integer('views'),
+  reach:              integer('reach'),
+  likes:              integer('likes'),
+  comments:           integer('comments'),
+  saves:              integer('saves'),
+  shares:             integer('shares'),
+  profile_visits:     integer('profile_visits'),
+  follows:            integer('follows'),
+  total_interactions: integer('total_interactions'),
+});
+
+// One row per morning suggestion — powers the engine's real KPI: acceptance
+// ("did Wesley post the #1 suggestion?"), not score deltas.
+export const igSuggestionLog = sqliteTable('ig_suggestion_log', {
+  id:         integer('id').primaryKey({ autoIncrement: true }),
+  date:       text('date').notNull(),                   // SAST YYYY-MM-DD
+  slot:       text('slot').notNull(),
+  listing_id: integer('listing_id'),                    // null on cta days
+  score:      integer('score'),
+  created_at: integer('created_at', { mode: 'timestamp' }).notNull(),
+});
+
 // A user's saved search — criteria for "alert me when a matching Cruiser is
 // listed". Pre-created here; the matching cron + UI land in the alerts phase.
 export const savedSearches = sqliteTable('saved_searches', {

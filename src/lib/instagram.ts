@@ -200,9 +200,60 @@ const MODEL_TAGS: Record<string, string> = {
   'other':      '#LandCruiser',
 };
 
-function buildCaptionBody(listing: Listing): string {
+// Hero-slot opener — every outlier post in the Jun 2026 export led with a hook
+// line ("Check out this beast!", "BEAST MODE ACTIVATED", "Done right!"). AI
+// writes one per listing; this pool is the deterministic fallback.
+const FALLBACK_HOOKS = [
+  'Check out this beast! 🔥',
+  'BEAST MODE. ⚡',
+  'Done right. 👌',
+  'Built for the long way round. 🌍',
+  'This one means business. 💪',
+  'Now THIS is a build. 🛠️',
+];
+
+export async function generateHeroHook(listing: Listing, mods: string[]): Promise<string> {
+  const fallback = FALLBACK_HOOKS[listing.id % FALLBACK_HOOKS.length];
+  const apiKey = process.env.ANTHROPIC_API_KEY ?? import.meta.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return fallback;
+
+  try {
+    const client = new Anthropic({ apiKey });
+    const message = await client.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 60,
+      messages: [{
+        role: 'user',
+        content: `Write ONE punchy Instagram opening line (3–7 words, max 50 characters, end with a single fitting emoji) for a post showcasing an impressive built-up 4x4. Confident and admiring, no hashtags, no price, no quotes around it.
+
+Vehicle: ${listing.year} Land Cruiser ${listing.model.replace(/-/g, ' ').toUpperCase()}
+${mods.length ? `Standout mods: ${mods.slice(0, 4).join(', ')}` : ''}
+
+Examples of the register: "Check out this beast! 🔥" / "BEAST MODE ACTIVATED ⚡" / "Done right. 👌"
+
+Return the line only.`,
+      }],
+    });
+    const text = message.content[0].type === 'text' ? message.content[0].text.trim().replace(/^["']|["']$/g, '') : '';
+    return text && text.length <= 60 ? text : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+interface HeroCaptionOpts {
+  hook: string;
+  mods: string[];   // detected build mods (display names) — top 3 go above the fold
+}
+
+function buildCaptionBody(listing: Listing, hero?: HeroCaptionOpts): string {
   const modelLabel = listing.model.replace(/-/g, ' ').toUpperCase();
   const lines: string[] = [];
+
+  if (hero) {
+    lines.push(hero.hook);
+    lines.push('');
+  }
 
   if (listing.listing_type === 'for_sale') {
     lines.push(`${listing.year} Land Cruiser ${modelLabel} — R${listing.price.toLocaleString('en-ZA')}`);
@@ -210,6 +261,12 @@ function buildCaptionBody(listing: Listing): string {
   } else {
     lines.push(`${listing.year} Land Cruiser ${modelLabel}`);
     lines.push(`📍 ${listing.province}`);
+  }
+
+  // Hero posts surface the build above the fold — the mods ARE the content.
+  if (hero?.mods.length) {
+    lines.push('');
+    lines.push('🔧 ' + hero.mods.slice(0, 3).join(' · '));
   }
 
   lines.push('');
@@ -279,9 +336,14 @@ export function buildCaption(listing: Listing): string {
   return buildCaptionBody(listing) + '\n\n' + buildFallbackHashtags(listing);
 }
 
-export async function buildCaptionWithAIHashtags(listing: Listing): Promise<string> {
+// heroMods (detected build mods) switches the caption into hero mode: AI hook
+// opener + top mods above the fold. Deal/drop posts keep the spec-sheet format.
+export async function buildCaptionWithAIHashtags(listing: Listing, heroMods?: string[]): Promise<string> {
+  const hero = heroMods?.length
+    ? { hook: await generateHeroHook(listing, heroMods), mods: heroMods }
+    : undefined;
   const hashtags = await generateAIHashtags(listing);
-  return buildCaptionBody(listing) + '\n\n' + hashtags;
+  return buildCaptionBody(listing, hero) + '\n\n' + hashtags;
 }
 
 // ─── Article captions ─────────────────────────────────────────────────────────

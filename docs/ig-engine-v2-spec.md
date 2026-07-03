@@ -1,6 +1,6 @@
 # IG Post Engine v2 — "Hero Engine" Spec
 
-**Status:** approved 2026-07-02, not yet built
+**Status:** BUILT + shipped 2026-07-03 (Phases 1 & 2 in one pass); Phase 3 = retune at reviews. KPI bet: prediction-ledger P13 (review 2026-08-03)
 **Decisions (Wesley, 2026-07-02):** hero-dominant post mix ✔ · build the Graph API insights loop ✔
 **Supersedes:** the dealScore-ranked suggestion list in `src/lib/post-suggestions.ts` (dealScore survives, demoted to one slot).
 
