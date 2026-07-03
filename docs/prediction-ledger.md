@@ -367,5 +367,20 @@ date, compare to baseline, mark HIT / MISS / PARTIAL, and write the lesson.
 - **Caveat:** acceptance is also a UX/habit question, not purely a ranking one — if
   Wesley never opens the morning email the rate reads falsely low; check that before
   blaming the scorer.
+- **Measurement notes (added 2026-07-03, same day):**
+  - The flywheel end-goal is on record: posts → follows → reach → site traffic →
+    seller listings → more hero builds. Instrumented via `ig_account_snapshots`
+    (daily follower count, first snapshot 2026-07-04) + the `flywheel` block in
+    ig-outcomes (followers, 30d delta, private-seller count) + the IG Followers
+    KPI on /admin/insights.
+  - **IG→site attribution was undercounted before 2026-07-03:** Wesley adds a
+    story + link badge after every post but pasted raw URLs (no utm) — story
+    clicks were invisible. Tagged `utm_source=ig-story` links now ship in the
+    admin + morning email; filters widened to `ig%`. Judge the traffic leg on
+    post-03-Jul data only, and compare `ig` (bio) vs `ig-story` at the review.
+  - Day-1 gotcha fixed before it could poison the data: IG rejects AT-hotlinked
+    photos, and the cloud rehost had been timing out for 5 days (955-listing
+    backlog, cleared + rehost moved to its own workflow job). Posts before ~18:00
+    on 03 Jul could fail silently.
 - **Result:** _pending 2026-08-03_
 - **Lesson:** _tbd_
