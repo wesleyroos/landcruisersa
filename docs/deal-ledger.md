@@ -120,6 +120,20 @@ so threads either progress or get consciously dropped — never drift.
 
 ---
 
+## D6 — Auto Investments North Coast (dealer buyer-leads) 🟢 INBOUND
+
+- **Stage:** Conversation (inbound — they contacted US, 2026-07-02 site enquiry + 2026-07-03 call)
+- **Who:** **Blair** (recon@autoinorthcoast.co.za), Auto Investments **North Coast** branch (Ballito/KZN); group has ~25+ branches nationally. Claims: top-rated dealership on AutoTrader; dealer principal (= owner?) briefed and keen.
+- **What they want:** list their Land Cruiser stock with us + we send buyers; **pay-per-converted-buyer** ("spotter" fee — they already pay spotters "a couple hundred thousand rand a month" and R200k/mo on social ads). Sold 2 Cruisers last month = **R5m** (~R2.5m avg — premium builds; claim to supply Zambian government).
+- **What we already have (verified in prod DB 2026-07-03):** we ALREADY carry the whole group via scrapers — ~270 lifetime listings across ~25 branches; **North Coast alone ~20 active LCs on autotrader source + ~6 via carsza**. Traffic sent to the group so far: 33 views, 3 outbound clicks, 1 finance-calc open — honest baseline, don't overpromise volume.
+- **⚠️ Philosophy gate ([[project-monetization-philosophy]]):** "pay when it converts, if we can track" is EXACTLY the leaky lead-gen shape — conversion is observable only by THEM. Mitigants that make it acceptable: (1) inbound + existing spotter-payment culture (the rail exists), (2) WE capture every lead first (form on our site, not a deeplink) with a per-lead reference ID → papered record + audit right + we can survey buyers ourselves, (3) written spotter agreement BEFORE the first lead (learned from Gys/D3), (4) prefer hybrid: small per-lead floor + larger per-sale success fee, or a flat monthly "featured dealer" fee (the WBC-sponsorship shape in miniature).
+- **⚠️ WBC conflict (D1):** the WBC offering sells *exclusive* buyer-funnel routing. Keep this deal **non-exclusive + 30-day terminable**; frame internally as the **paid pilot that proves + prices the funnel math** for the network pitch ("dealers already come to us and pay"). Do NOT sign anything exclusive with Auto Investments.
+- **Build (minimum, not a "dealer section"):** flip their listings from external deeplink → on-site lead capture + forward-with-reference; pull stock direct from their site (bypasses AutoTrader). **Site audit 2026-07-03: EASY.** autoinorthcoast.co.za = custom multi-tenant Django, server-rendered, robots allows all, full sitemap.xml (64 vehicles, ~16 LC-family incl. 9× LC79), and every `/vehicle/<slug>/` page embeds clean schema.org/Vehicle JSON-LD (price/year/mileage/fuel/images/spec) — sitemap → JSON-LD parse, <70 req/day, no headless browser. Same codebase runs every group branch domain (e.g. autoinvestments.co.za) → one generalized crawler covers the whole group. Leads POST to their own Django endpoints (no 3rd-party CRM). No official feed though — still ask Blair to bless the pull + for a feed/DMS export as the durable option.
+- **Next action:** WhatsApp Blair (he asked for it); discovery call — what they pay spotters per car, feed access, then paper the fee.
+- **Kill-or-advance:** written fee terms + stock feed access agreed by **2026-07-24**, else park.
+
+---
+
 ## D5 — Ghost (immobiliser) — tracked in prediction-ledger P6
 
 - **Stage:** Monitoring (content live; outbound clicks tracked)
