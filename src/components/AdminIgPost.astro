@@ -178,7 +178,7 @@
     await doPost(id, btn, caption);
   });
 
-  function markPosted(id: number, btn: HTMLButtonElement | null) {
+  function markPosted(id: number, btn: HTMLButtonElement | null, storyLink?: string) {
     const slot = document.querySelector(`[data-ig-posted-slot="${id}"]`);
     if (slot && !slot.querySelector('.ig-posted-note')) {
       const today = new Intl.DateTimeFormat('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date());
@@ -188,6 +188,24 @@
       slot.appendChild(p);
     }
     if (btn) { btn.classList.remove('btn-post'); btn.classList.add('btn-repost'); btn.textContent = 'Repost'; btn.disabled = false; }
+    // The story + link-badge step is manual — hand over a utm-tagged link so
+    // story clicks show up as ig-story in attribution (raw URLs are invisible).
+    if (btn && storyLink && !btn.parentElement?.querySelector('.ig-story-copy')) {
+      const copy = document.createElement('button');
+      copy.className = 'btn ig-story-copy';
+      copy.type = 'button';
+      copy.textContent = '📋 Story link';
+      copy.title = 'Copy the tagged link for the IG story link badge';
+      copy.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(storyLink);
+          showToast('Story link copied — paste it into the link badge', 'ok');
+        } catch {
+          window.prompt('Copy the story link:', storyLink);
+        }
+      });
+      btn.insertAdjacentElement('afterend', copy);
+    }
   }
 
   async function pollPosted(id: number, btn: HTMLButtonElement | null, deadline: number) {
@@ -199,7 +217,7 @@
     const res = await fetch(`/api/admin/instagram/post-status?id=${id}`).catch(() => null);
     if (res?.ok) {
       const data = await res.json();
-      if (data.posted) { showToast('Posted to Instagram!', 'ok'); markPosted(id, btn); return; }
+      if (data.posted) { showToast('Posted to Instagram!', 'ok'); markPosted(id, btn, data.storyLink); return; }
       if (data.error) {
         showToast(`Post failed: ${data.error}`, 'err');
         if (btn) { btn.disabled = false; btn.textContent = 'Post to IG'; }

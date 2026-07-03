@@ -14,7 +14,7 @@ export const GET: APIRoute = ({ url, cookies }) => {
     return new Response(JSON.stringify({ error: 'id required' }), { status: 400 });
   }
 
-  const listing = db.select({ ig_posted_at: listings.ig_posted_at })
+  const listing = db.select({ ig_posted_at: listings.ig_posted_at, slug: listings.slug })
     .from(listings).where(eq(listings.id, id)).get();
 
   if (!listing) {
@@ -31,5 +31,8 @@ export const GET: APIRoute = ({ url, cookies }) => {
     posted: !!listing.ig_posted_at,
     postedAt: listing.ig_posted_at ? listing.ig_posted_at.toISOString() : null,
     error,
+    // Tagged link for the manual story + link-badge step — raw listing URLs
+    // carry no utm, so story clicks were invisible to ig attribution.
+    storyLink: `https://landcruisersa.co.za/listings/${listing.slug}/?utm_source=ig-story`,
   }), { headers: { 'Content-Type': 'application/json' } });
 };

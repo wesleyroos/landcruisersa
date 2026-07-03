@@ -235,7 +235,7 @@ const viewsBySourceP = db.select({
   count: sql<number>`cast(count(*) as int)`,
 }).from(viewEvents).where(pWhere).groupBy(sql`COALESCE(utm_source, 'direct')`).all();
 const totalViewsP = viewsBySourceP.reduce((s, r) => s + r.count, 0);
-const igViewsP    = viewsBySourceP.find(r => r.source === 'ig')?.count ?? 0;
+const igViewsP    = viewsBySourceP.filter(r => r.source?.startsWith('ig')).reduce((s, r) => s + r.count, 0);
 
 // Listing performance in period (views + clicks)
 type PerfRow = { slug: string; title: string | null; views: number; clicks: number };
@@ -354,6 +354,22 @@ const funnelRows = [...funnelMap.values()]
   .filter(r => r.views + r.portal + r.contact > 0)
   .sort((a, b) => b.views - a.views);
 
+// ─── IG follower curve — daily snapshots from the insights sync ───────────────
+const igSnapNow = db.get<{ followers_count: number | null; fetched_at: number }>(sql`
+  SELECT followers_count, fetched_at FROM ig_account_snapshots ORDER BY fetched_at DESC LIMIT 1
+`);
+const igSnap30 = db.get<{ followers_count: number | null }>(sql`
+  SELECT followers_count FROM ig_account_snapshots
+  WHERE fetched_at <= ${Math.floor(Date.now() / 1000) - 30 * 86400}
+  ORDER BY fetched_at DESC LIMIT 1
+`);
+const igFollowers = igSnapNow?.followers_count ?? null;
+const igFollowersDelta = (igFollowers !== null && igSnap30?.followers_count != null)
+  ? igFollowers - igSnap30.followers_count : null;
+const igFollowersAt = igSnapNow
+  ? new Intl.DateTimeFormat('en-ZA', { day: 'numeric', month: 'short' }).format(new Date(igSnapNow.fetched_at * 1000))
+  : '';
+
 // ─── IG post performance — outcomes since each post date ─────────────────────
 const igPosts = db.select({
   id: listings.id,
@@ -366,7 +382,7 @@ const igPosts = db.select({
 const igPostRows = igPosts.map(p => {
   const since = Math.floor(p.posted_at!.getTime() / 1000);
   const views = (db.get<{ n: number }>(sql`SELECT count(*) n FROM view_events WHERE listing_slug = ${p.slug} AND created_at >= ${since}`))?.n ?? 0;
-  const igViews = (db.get<{ n: number }>(sql`SELECT count(*) n FROM view_events WHERE listing_slug = ${p.slug} AND created_at >= ${since} AND utm_source = 'ig'`))?.n ?? 0;
+  const igViews = (db.get<{ n: number }>(sql`SELECT count(*) n FROM view_events WHERE listing_slug = ${p.slug} AND created_at >= ${since} AND utm_source LIKE 'ig%'`))?.n ?? 0;
   const contacts = (db.get<{ n: number }>(sql`SELECT count(*) n FROM click_events WHERE listing_slug = ${p.slug} AND created_at >= ${since} AND source IN ('whatsapp','call','email','reveal_number','reveal_email')`))?.n ?? 0;
   const portal = (db.get<{ n: number }>(sql`SELECT count(*) n FROM click_events WHERE listing_slug = ${p.slug} AND created_at >= ${since} AND source NOT IN ('whatsapp','call','email')`))?.n ?? 0;
   const days = Math.max(0.1, (Date.now() - p.posted_at!.getTime()) / 86_400_000);
@@ -455,6 +471,15 @@ const SOURCE_LABEL: Record<string, string> = {
         <p class="kpi-value">{igViewsP}</p>
         <p class="kpi-label">Views from IG</p>
         <p class="kpi-sub">IG link → listing page</p>
+      </div>
+      <div class="kpi">
+        <p class="kpi-value">{igFollowers === null ? '—' : igFollowers.toLocaleString('en-ZA')}</p>
+        <p class="kpi-label">IG Followers</p>
+        <p class="kpi-sub">{igFollowers === null
+          ? 'first snapshot lands 07:00 tomorrow'
+          : igFollowersDelta === null
+            ? `as of ${igFollowersAt}`
+            : `${igFollowersDelta >= 0 ? '+' : ''}${igFollowersDelta.toLocaleString('en-ZA')} in 30d`}</p>
       </div>
       <div class="kpi">
         <span class="kpi-dir dir-out">↑ Out</span>

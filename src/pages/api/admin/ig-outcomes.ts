@@ -60,7 +60,7 @@ export const GET: APIRoute = async ({ request }) => {
 
     const igViews = (db.get<{ n: number }>(sql`
       SELECT count(*) n FROM view_events
-      WHERE listing_slug = ${p.slug} AND created_at >= ${since} AND utm_source = 'ig'
+      WHERE listing_slug = ${p.slug} AND created_at >= ${since} AND utm_source LIKE 'ig%'
     `))?.n ?? 0;
 
     const clicks = db.all<{ source: string; n: number }>(sql`
@@ -132,7 +132,7 @@ export const GET: APIRoute = async ({ request }) => {
   // Site-wide context (7d) for baseline comparison
   const wk = Math.floor(Date.now() / 1000) - 7 * 86400;
   const siteViews7d = (db.get<{ n: number }>(sql`SELECT count(*) n FROM view_events WHERE created_at >= ${wk}`))?.n ?? 0;
-  const igViews7d = (db.get<{ n: number }>(sql`SELECT count(*) n FROM view_events WHERE created_at >= ${wk} AND utm_source = 'ig'`))?.n ?? 0;
+  const igViews7d = (db.get<{ n: number }>(sql`SELECT count(*) n FROM view_events WHERE created_at >= ${wk} AND utm_source LIKE 'ig%'`))?.n ?? 0;
 
   // Flywheel legs: follower curve (latest + 30d-ago snapshot) and the
   // audience→sellers leg (active private-seller listings).
