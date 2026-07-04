@@ -118,10 +118,6 @@ function formatMileage(n: number) {
       <div class="flex gap-2" id="type-filter">
         <button class="type-pill active" data-type="all">All</button>
         <button class="type-pill" data-type="for_sale">For Sale</button>
-        <button class="type-pill" data-type="show_off">
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-          Show Off
-        </button>
         <button class="type-pill" data-type="game-viewer">Game Viewers</button>
         <button class="type-pill" data-type="sold">Sold</button>
       </div>
@@ -987,9 +983,7 @@ function formatMileage(n: number) {
       typePills.forEach(p => p.classList.remove('active'));
       pill.classList.add('active');
       const priceFilter = document.getElementById('price-filter') as HTMLElement;
-      const hide = (activeType === 'show_off' || activeType === 'sold') ? 'none' : '';
-      priceFilter.style.display = hide;
-      (document.getElementById('ms-mileage') as HTMLElement).style.display = (activeType === 'show_off') ? 'none' : '';
+      priceFilter.style.display = activeType === 'sold' ? 'none' : '';
       applyFilters();
     });
   });
