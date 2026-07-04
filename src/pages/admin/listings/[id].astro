@@ -47,7 +47,8 @@ const igCaption = `${listing.year} Toyota ${modelLabel} — ${priceStr}
 🛣️ ${mileageStr}
 ⚙️ ${transStr}${fuelStr}
 
-${listing.description ? listing.description.slice(0, 200).trim() + (listing.description.length > 200 ? '...' : '') + '\n\n' : ''}🔗 Link in bio to view full listing.
+${listing.description ? listing.description.slice(0, 200).trim() + (listing.description.length > 200 ? '...' : '') + '\n\n' : ''}🔗 Link in bio to view full listing:
+https://landcruisersa.co.za/listings/${listing.slug}/?utm_source=fb-caption
 
 #LandCruiser #Toyota #${listing.model.replace(/-/g, '')} #4x4 #Offroad #SouthAfrica #LandCruiserSA #4WD #TruckLife #Overlanding`;
 
@@ -356,12 +357,19 @@ const waSpec = [
               </button>
               <button
                 type="button"
-                id="ig-story-link"
-                class="btn-ig-post btn-repost"
-                data-story-link={`https://landcruisersa.co.za/listings/${listing.slug}/?utm_source=ig-story`}
+                class="btn-ig-post btn-repost ig-copy-utm"
+                data-utm-link={`https://landcruisersa.co.za/listings/${listing.slug}/?utm_source=ig-story`}
                 title="Copy the utm-tagged link for the IG story link badge — raw URLs are invisible to attribution"
               >
                 📋 Story link
+              </button>
+              <button
+                type="button"
+                class="btn-ig-post btn-repost ig-copy-utm"
+                data-utm-link={`https://landcruisersa.co.za/listings/${listing.slug}/?utm_source=fb-caption`}
+                title="Copy the utm-tagged link for the caption — not clickable on IG, but the FB cross-post makes it clickable there"
+              >
+                📋 FB caption link
               </button>
               {listing.ig_posted_at && (
                 <button type="button" id="ig-clear-posted" class="ig-clear-link" data-id={listing.id}>
@@ -978,17 +986,19 @@ const waSpec = [
     });
   }
 
-  // ── Copy the utm-tagged story link (for the IG story link badge) ───────────
-  document.getElementById('ig-story-link')?.addEventListener('click', async function () {
-    const link = this.dataset.storyLink;
-    const orig = this.textContent;
-    try {
-      await navigator.clipboard.writeText(link);
-      this.textContent = '✓ Copied';
-      setTimeout(() => { this.textContent = orig; }, 2000);
-    } catch {
-      window.prompt('Copy the story link:', link);
-    }
+  // ── Copy utm-tagged share links (IG story badge / FB caption) ──────────────
+  document.querySelectorAll('.ig-copy-utm').forEach(btn => {
+    btn.addEventListener('click', async function () {
+      const link = this.dataset.utmLink;
+      const orig = this.textContent;
+      try {
+        await navigator.clipboard.writeText(link);
+        this.textContent = '✓ Copied';
+        setTimeout(() => { this.textContent = orig; }, 2000);
+      } catch {
+        window.prompt('Copy the link:', link);
+      }
+    });
   });
 
   // ── Undo a mistaken IG post marker ─────────────────────────────────────────

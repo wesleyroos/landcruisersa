@@ -279,7 +279,11 @@ function buildCaptionBody(listing: Listing, hero?: HeroCaptionOpts): string {
   }
 
   lines.push('');
-  lines.push('📲 Link in bio to view full listing');
+  // The URL isn't clickable on IG (bio/story links cover that) but the caption
+  // is cross-posted to Facebook where it IS clickable — fb-caption tags those
+  // clicks so FB-driven traffic is attributable separately from IG bio/story.
+  lines.push('📲 Link in bio to view full listing:');
+  lines.push(`https://landcruisersa.co.za/listings/${listing.slug}/?utm_source=fb-caption`);
 
   return lines.join('\n');
 }

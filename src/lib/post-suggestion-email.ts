@@ -112,6 +112,7 @@ export async function sendPostSuggestionEmail({ force = false }: { force?: boole
         </ul>
         <a href="https://landcruisersa.co.za/admin/listings/${s.id}" style="display:inline-block;background:#111;color:#fff;font-size:12px;font-weight:700;text-decoration:none;padding:8px 16px;border-radius:6px;">Open &amp; Post →</a>
         <p style="margin:10px 0 0;font-size:11px;color:#9CA3AF;">Story link badge: <span style="color:#374151;">https://landcruisersa.co.za/listings/${s.slug}/?utm_source=ig-story</span></p>
+        <p style="margin:4px 0 0;font-size:11px;color:#9CA3AF;">FB caption link: <span style="color:#374151;">https://landcruisersa.co.za/listings/${s.slug}/?utm_source=fb-caption</span> <span style="color:#C4C9D0;">(auto-included in the caption)</span></p>
       </div>`;
 
     const html = `
