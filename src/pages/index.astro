@@ -373,12 +373,15 @@ function formatPrice(n: number) {
     justify-content: center;
     padding: 3.5rem 0 2.75rem;
   }
+  /* Wider screens keep the cinematic band via min-height ONLY — never a hard
+     height. A hard 65vh clipped the hero on short-wide viewports (landscape
+     tablets ~1333x643: heading cut off, the third button + stats pushed onto
+     the white background). clamp() = at least 480px, at most demand 700px;
+     the hero still grows beyond that whenever the content needs it. */
   @media (min-width: 768px) {
     .hero {
-      height: 65vh;
-      min-height: 480px;
-      max-height: 700px;
-      padding: 2rem 0;
+      min-height: clamp(480px, 65vh, 700px);
+      padding: 3rem 0 2.5rem;
     }
   }
   .hero-img {

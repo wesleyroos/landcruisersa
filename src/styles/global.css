@@ -177,6 +177,32 @@
   margin: 1.5rem 0;
   font-size: 0.9375rem;
 }
+/* Mobile: wide comparison tables scroll within themselves instead of
+   stretching the whole page wider than the viewport (which also dragged the
+   header off-screen). Min column widths stop the one-word-per-line crush —
+   the row scrolls sideways instead. */
+@media (max-width: 700px) {
+  .article-body table {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    font-size: 0.875rem;
+  }
+  .article-body th,
+  .article-body td {
+    min-width: 6.5rem;
+    padding: 0.55rem 0.75rem;
+  }
+  .article-body th:first-child,
+  .article-body td:first-child {
+    min-width: 9rem;
+  }
+  .article-body th:last-child,
+  .article-body td:last-child {
+    min-width: 13rem;
+  }
+}
 .article-body th {
   background: #111111;
   color: #fff;
