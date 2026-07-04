@@ -384,3 +384,36 @@ date, compare to baseline, mark HIT / MISS / PARTIAL, and write the lesson.
     on 03 Jul could fail silently.
 - **Result:** _pending 2026-08-03_
 - **Lesson:** _tbd_
+
+---
+
+## P14 — Game Viewer vertical (new section + articles)
+
+- **Opened:** 2026-07-04
+- **Review on:** 2026-08-17 (≥6-week window; GSC lags ~3 days)
+- **Surface:** `/game-viewers/` (new listings vertical) + planned articles (see `docs/game-viewers-content-plan.md`)
+- **Thesis:** "Game viewer" is live commercial search vocabulary on every major SA portal,
+  but the SERP is served by **thin aggregators with no editorial** (Waa2 ~#1 with a bare
+  grid; Trovit 4 listings; cars.co.za puts "Safari Game Viewer" in titles but zero
+  conversion detail). LCSA has ~32 live game-viewer listings + live price data + (planned)
+  the only informational layer — the same weak-SERP setup we beat on model queries. The
+  buyers are lodges/operators (B2B, high value), which fits the data-and-relationships reframe.
+- **Change (shipped 2026-07-04):**
+  - `body_type` classifier + `/game-viewers/` page (live median/range, definition, grid)
+  - Prominence: nav Listings→dropdown (All Listings / Game Viewers), footer, homepage
+    CTA, 78/79 model-guide cross-links, NL-search ("game viewer"/"safari" → gv filter)
+  - Trimmed the page intro to a single citable definition ("answer capsule") — depth
+    moved to the planned buyer's-guide article
+  - **Not yet shipped:** the 2 articles (buyer's-guide/prices + licensing) — Article 2
+    is gated on professional verification of the conversion-registration rules.
+- **Baseline (2026-07-04, pre-launch):**
+  - Game-viewer query clicks/impressions in GSC: **~0** (no page existed / not indexed)
+  - `/game-viewers/` traffic: 0 · AI citations for "game viewer for sale SA": 0
+  - Live game-viewer listings classified: **32 active** (of 11,663 total)
+- **Predictions (review 2026-08-17):**
+  1. `/game-viewers/` is indexed and appears for ≥3 distinct game-viewer queries in GSC (primary).
+  2. The page draws ≥1 game-viewer query into the **top 10** average position within the window (weak-SERP thesis).
+  3. If Article 1 ships: it captures ≥2 informational queries ("game viewer price/cost") the listings page can't.
+  4. Stretch: a first AI-citation for a "game viewer for sale South Africa"-class query (the hero metric).
+- **Result:** _pending 2026-08-17_
+- **Lesson:** _tbd_
