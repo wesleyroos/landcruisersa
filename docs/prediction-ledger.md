@@ -404,8 +404,10 @@ date, compare to baseline, mark HIT / MISS / PARTIAL, and write the lesson.
     CTA, 78/79 model-guide cross-links, NL-search ("game viewer"/"safari" → gv filter)
   - Trimmed the page intro to a single citable definition ("answer capsule") — depth
     moved to the planned buyer's-guide article
-  - **Not yet shipped:** the 2 articles (buyer's-guide/prices + licensing) — Article 2
-    is gated on professional verification of the conversion-registration rules.
+  - **Not yet shipped:** the 2 articles — (1) prices/buyer's-guide, (2) conversion guide
+    (cost + builders). Both ship without a legal gate. Standalone licensing article was
+    dropped (low demand / no funnel / gated) — its facts fold into Article 1. See
+    `docs/game-viewers-content-plan.md`.
 - **Baseline (2026-07-04, pre-launch):**
   - Game-viewer query clicks/impressions in GSC: **~0** (no page existed / not indexed)
   - `/game-viewers/` traffic: 0 · AI citations for "game viewer for sale SA": 0

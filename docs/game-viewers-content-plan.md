@@ -95,8 +95,18 @@ Two claims failed verification (1-2). They point at a genuinely murky area — t
 ## The articles (prioritized)
 
 **Recommendation: write #1 and #2 only.** Per the locked strategy (WIP limit; traffic
-isn't the binding constraint), two high-differentiation articles beat a content cluster.
-#3 is an optional fold-in.
+isn't the binding constraint), two high-demand articles beat a content cluster.
+Both feed the buying funnel and ship without a legal gate. #3 (comparison) is an
+optional fold-in.
+
+> **Revised 2026-07-04 (2nd pass):** the standalone *licensing* article was dropped as #2.
+> On reflection it's the weakest candidate — low search demand (operators googling
+> "game viewer licence" is rare; they already know or have a compliance person), it
+> doesn't feed the buying funnel, and it's the only piece gated on professional legal
+> verification (slowest to ship). The verified regulations are instead folded into a
+> short **"Is it road-legal?"** subsection of Article 1. The **conversion guide** takes
+> the #2 slot: higher buyer intent, drives donor-vehicle demand to our listings, and
+> ships immediately.
 
 ### 📄 Article 1 — "Game Viewers for Sale in South Africa: Prices & Buyer's Guide" ⭐ PRIORITY 1
 
@@ -111,29 +121,29 @@ isn't the binding constraint), two high-differentiation articles beat a content 
   3. **What they cost — the three routes** (the price table above). Explain donor-cost vs conversion-cost — the insight no competitor gives.
   4. **Land Cruiser vs Mahindra game viewer** — factory R521k Mahindra vs R1.3m LC79 conversion: price vs durability/resale/parts. (Absorbs the Article-3 comparison query.)
   5. **What to check before buying** — service history, **hours vs odometer** (game-drive km are slow/heavy — lodge fleet retirements are the value buy), roadworthy of the open body, is the conversion on the licence.
-  6. **Who builds conversions in SA** — the 5-builder directory above (neutral, informational — not endorsements; consistent with monetization philosophy).
-  7. **FAQ** (→ FAQPage schema): "How much does a game viewer cost in SA?" · "What's the cheapest way to get one?" · "Land Cruiser or Mahindra game viewer?" · "How many seats?" · "Where can I buy one?" (→ links `/game-viewers/`).
+  6. **Is it road-legal? (short subsection — the folded-in licensing facts)** — the conversion must be correctly registered (NRCS homologation; "modify" legally includes altering seat count; NATIS number) and, **for commercial passenger use**, needs an NPTR **operating licence + PrDP driver + Public Passenger Liability Insurance**, and the vehicle must have been **first registered 2009 or later** (so a pre-2009 used game viewer can't get a *new* operating licence — fine for private/farm use). Keep it tight — 4–6 sentences + a "not legal advice, confirm with NRCS/NPTR" disclaimer. **🚩 the private-owner registration path (self-converted, not-for-sale) is unverified — either omit it or state it only after professional confirmation. Do NOT publish the 2 refuted framings.**
+  7. **Who builds conversions in SA** — the 5-builder directory above (neutral, informational — not endorsements; consistent with monetization philosophy).
+  8. **FAQ** (→ FAQPage schema): "How much does a game viewer cost in SA?" · "What's the cheapest way to get one?" · "Land Cruiser or Mahindra game viewer?" · "How many seats?" · "Do you need a licence to operate one?" · "Where can I buy one?" (→ links `/game-viewers/`).
 - **Schema:** FAQPage (required). Optional: `Product` + `AggregateOffer` using the live price band.
 - **Internal links:** `/game-viewers/` (live inventory — primary CTA), `/listings/model/79-series/`, `/listings/model/78-series/`, `/market/79-series/`.
 
-### 📄 Article 2 — "Do You Need a Licence to Operate a Game Viewer in South Africa?" ⭐ PRIORITY 2
+### 📄 Article 2 — "How to Convert a Land Cruiser into a Game Viewer: Cost, Builders & What's Involved" ⭐ PRIORITY 2
 
-- **Slug:** `/useful-info/game-viewer-licence-south-africa/`
-- **Primary keyword:** game viewer licence / operating licence game drive south africa
-- **Secondary:** roadworthy game viewer, homologation vehicle conversion SA, PrDP game drive, register a converted vehicle
-- **Intent:** lodge/operator + private buyer checking legality — **pure whitespace; no competitor covers this.**
-- **Why second (arguably the most valuable):** highest differentiation, fully verified regulations, and it targets the **B2B lodge/operator** audience — the high-value buyers who fit the data-and-relationships strategy. This is the article a generalist marketplace will never write.
+- **Slug:** `/useful-info/land-cruiser-game-viewer-conversion-south-africa/`
+- **Primary keyword:** game viewer conversion / convert land cruiser to game viewer
+- **Secondary:** game viewer conversion cost, game viewer builders south africa, land cruiser safari conversion, who builds game viewers
+- **Intent:** active builder/buyer — owns or is about to buy a Cruiser and wants it converted (higher purchase intent than a general price-browser).
+- **Why second:** real, verified demand (the converters themselves rank for these terms); **feeds our funnel directly** — the natural CTA is "get your donor first: browse Land Cruiser 79s" → our listings + 78/79 model pages. Ships now (no legal gate). Distinct intent from Article 1 (buy ready-made vs build your own).
 - **Section outline:**
-  1. **Answer-capsule lead:** Yes — if you carry paying passengers you need an **operating licence + a PrDP driver + a roadworthy, correctly-registered conversion**; private own-use is lighter but the conversion must still be legal.
-  2. **Two separate questions** — frame explicitly: (A) is the *vehicle* legal, (B) is the *operation* legal.
-  3. **(A) Registering a converted game viewer** — homologation via NRCS; "modify" legally = altering seat count; NATIS number; Letter of Authority for modified vehicles. **⚠️ flag the private-conversion path as needing confirmation from NRCS / a specialist.**
-  4. **(B) Operating commercially** — NPTR operating licence (NLTA s50), the <3-car courtesy exemption, the **2009+ first-registration cut-off**, Public Passenger Liability Insurance, PrDP for drivers.
-  5. **What this means for buyers** — an older (pre-2009) used game viewer **cannot get a new operating licence** for commercial passenger use; fine for private/farm use. This single fact is worth the whole article to a lodge buyer.
-  6. **FAQ** (→ FAQPage schema).
-  7. **Disclaimer:** "This is a general guide, not legal advice — confirm current requirements with the NRCS, the NPTR/your provincial regulatory entity, and a qualified professional." (Required given the flagged items.)
-- **Schema:** FAQPage.
-- **Internal links:** `/game-viewers/`, Article 1, `/listings/model/79-series/`.
-- **🚩 Publish gate:** the two REFUTED framings + the private-conversion registration path **must be professionally verified** (NRCS enquiry + a road-traffic attorney or a specialist converter) before this goes live. Do not state the refuted claims. Ship with the disclaimer regardless.
+  1. **Answer-capsule lead** (~40 words): a game-viewer conversion turns a Land Cruiser (usually a 79 pick-up) into a 9–11-seat open safari vehicle; the **conversion work costs ~R95k–R175k**, on top of the donor vehicle.
+  2. **Donor cost vs conversion cost — the number nobody explains.** A R1.3m turnkey LC79 game viewer is expensive because it *includes a brand-new Cruiser*; the conversion itself is R95k (standard, 3-row) to R175k (truck, 5-row/10 doors). Choose your donor by budget → link `/listings/model/79-series/` and `/game-viewers/`.
+  3. **What a conversion involves** — roof cut, tiered bench seating, safety doors/steps, canvas upholstery, rubberising, cooler racks; body/seat changes trigger re-registration (short pointer to the "is it road-legal" facts + disclaimer, cross-linking Article 1's subsection).
+  4. **Which base vehicle** — LC79 single cab (dominant for commercial fleets), 78 Troopcarrier, FJ/Prado (lighter/private). Why the 79 wins for operators (parts, durability, resale).
+  5. **Who builds conversions in SA (directory)** — Game Viewers RSA (Pretoria, published R95k/R175k pricing), Safari Game Viewers (Pretoria; LC FJ + Prado; exports regionally), Maruleng Auto (Hoedspruit; new/used + service; SANParks-compliant), Meano & Sons (LC pick-up → 5-door wagon), Baillies Off Road (30+ yr LC specialist). Neutral/informational, `outbound_clicks`-tracked.
+  6. **Convert vs buy ready-made** — short decision aid; link Article 1 for the buy-ready-made path and `/game-viewers/` for live converted stock.
+  7. **FAQ** (→ FAQPage schema): "How much does it cost to convert a Land Cruiser into a game viewer?" · "Which Land Cruiser is best for a game-viewer conversion?" · "Who builds game viewers in South Africa?" · "Is a converted game viewer road-legal?" · "Convert my own or buy one already done?"
+- **Schema:** FAQPage. Optional: `HowTo` for the conversion-steps section.
+- **Internal links:** `/listings/model/79-series/` + `/listings/model/78-series/` (donor vehicles — **primary CTA**), `/game-viewers/` (ready-made), Article 1, `/market/79-series/`.
 
 ### 📄 Article 3 — "Land Cruiser vs Mahindra Game Viewer: Which Should You Buy?" (OPTIONAL)
 
@@ -141,6 +151,16 @@ isn't the binding constraint), two high-differentiation articles beat a content 
 - **Primary:** land cruiser vs mahindra game viewer · **Secondary:** mahindra game viewer price, best game viewer vehicle
 - **Intent:** comparison/decision. Captures the Mahindra brand query (factory S4 at R521k) and the head-to-head.
 - **Note:** largely absorbed by Article 1 §4. Write standalone **only if** Articles 1 & 2 land well — otherwise fold in and skip.
+
+### 🅿️ Parked — standalone "Do You Need a Licence to Operate a Game Viewer?"
+
+Dropped from the priority list (see the revision note above): low search demand + no
+funnel contribution + legal-verification gate. The verified regulations live in Article 1's
+"Is it road-legal?" subsection instead. **Revisit only if** GSC shows real impressions on
+licence/permit/roadworthy game-viewer queries after Article 1 ships — that would be the
+signal the standalone demand actually exists. If revived, it still needs professional
+verification of the conversion-registration rules (esp. the private-owner path + the 2
+refuted framings) before publishing.
 
 ---
 
