@@ -64,6 +64,25 @@ addCol('seller_notified_at', "seller_notified_at INTEGER");
 addCol('dealer_offer_optin', "dealer_offer_optin INTEGER NOT NULL DEFAULT 0");
 addCol('sold_price',     "sold_price     INTEGER");
 addCol('ig_media_id',    "ig_media_id    TEXT");
+addCol('body_type',      "body_type      TEXT");
+
+// Backfill body_type = 'game-viewer' from title/description keywords. Mirrors
+// detectBodyType() in src/lib/sources/normalize.ts (SQLite LIKE approximation —
+// keep the two lexicons in step). Only touches NULL rows, so an admin's manual
+// 'standard' (not a game viewer) or 'game-viewer' verdict is never overwritten.
+db.exec(`
+  UPDATE listings SET body_type = 'game-viewer'
+  WHERE body_type IS NULL AND (
+    LOWER(title) LIKE '%game view%'  OR LOWER(title) LIKE '%game-view%'  OR LOWER(title) LIKE '%gameview%'
+    OR LOWER(title) LIKE '%game drive%' OR LOWER(title) LIKE '%game-drive%'
+    OR LOWER(title) LIKE '%safari conversion%' OR LOWER(title) LIKE '%safari vehicle%'
+    OR LOWER(description) LIKE '%game view%'  OR LOWER(description) LIKE '%game-view%' OR LOWER(description) LIKE '%gameview%'
+    OR LOWER(description) LIKE '%game drive vehicle%' OR LOWER(description) LIKE '%game-drive vehicle%'
+    OR LOWER(description) LIKE '%safari conversion%'  OR LOWER(description) LIKE '%safari vehicle%'
+    OR LOWER(description) LIKE '%safari-ready%'       OR LOWER(description) LIKE '%safari ready%'
+    OR LOWER(description) LIKE '%open safari%'        OR LOWER(description) LIKE '%open game%'
+  )
+`);
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS site_config (
@@ -599,6 +618,7 @@ const REQUIRED_COLS = [
   'source_url', 'source', 'source_id', 'last_polled_at', 'review_flag',
   'created_at', 'ig_posted_at', 'featured', 'segment', 'off_market_at',
   'seller_notified_at', 'dealer_offer_optin', 'sold_price', 'ig_media_id',
+  'body_type',
 ];
 const finalCols = new Set(
   db.prepare("SELECT name FROM pragma_table_info('listings')").all().map(r => r.name)

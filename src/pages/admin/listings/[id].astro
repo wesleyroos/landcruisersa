@@ -171,6 +171,14 @@ const waSpec = [
             </select>
           </div>
           <div class="field">
+            <label>Body type <span class="label-hint">game viewers get the /game-viewers/ section; "standard" blocks auto-classification</span></label>
+            <select name="body_type">
+              <option value=""            selected={!listing.body_type}>— Auto (unclassified) —</option>
+              <option value="game-viewer" selected={listing.body_type === 'game-viewer'}>🦒 Game Viewer</option>
+              <option value="standard"    selected={listing.body_type === 'standard'}>Standard — NOT a game viewer</option>
+            </select>
+          </div>
+          <div class="field">
             <label>Dealer offer</label>
             <select name="dealer_offer_optin" id="f-dealer-offer-optin">
               <option value="false" selected={!listing.dealer_offer_optin}>No</option>

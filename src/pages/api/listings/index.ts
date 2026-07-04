@@ -4,6 +4,7 @@ import type { APIRoute } from 'astro';
 import { db } from '@/db/index';
 import { listings } from '@/db/schema';
 import { rateLimited, clientIp } from '@/lib/rate-limit';
+import { detectBodyType } from '@/lib/sources/normalize';
 
 function slugify(str: string) {
   return str
@@ -22,6 +23,7 @@ export const POST: APIRoute = async ({ request }) => {
     description, mods, photos,
     seller_name, seller_email, seller_phone,
     dealer_offer_optin = false,
+    body_type = null,
     lcsa_hp,
   } = body;
 
@@ -69,6 +71,10 @@ export const POST: APIRoute = async ({ request }) => {
     seller_email,
     seller_phone,
     dealer_offer_optin: dealer_offer_optin === true && listing_type === 'for_sale',
+    // Seller's checkbox wins; otherwise auto-detect from what they wrote.
+    body_type: body_type === 'game-viewer'
+      ? 'game-viewer'
+      : detectBodyType(String(title), String(description ?? '')),
     status: 'pending',
     created_at: new Date(),
   });

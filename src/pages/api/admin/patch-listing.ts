@@ -4,6 +4,7 @@ import type { APIRoute } from 'astro';
 import { db } from '@/db/index';
 import { listings } from '@/db/schema';
 import { offMarketPatch } from '@/lib/listing-status';
+import { detectBodyType } from '@/lib/sources/normalize';
 import { eq } from 'drizzle-orm';
 
 export const POST: APIRoute = async ({ request }) => {
@@ -33,6 +34,17 @@ export const POST: APIRoute = async ({ request }) => {
 
   if (!Object.keys(updates).length) {
     return new Response(JSON.stringify({ error: 'Nothing to update' }), { status: 400 });
+  }
+
+  // The AT description backfill lands here — the game-viewer signal usually
+  // lives in that description, so re-classify unclassified rows when it arrives.
+  if (typeof description === 'string' && description.trim()) {
+    const row = db.select({ title: listings.title, body_type: listings.body_type })
+      .from(listings).where(eq(listings.source_id, source_id)).get();
+    if (row && row.body_type === null) {
+      const bt = detectBodyType(row.title, description);
+      if (bt) updates.body_type = bt;
+    }
   }
 
   const result = db.update(listings).set(updates).where(eq(listings.source_id, source_id)).run();

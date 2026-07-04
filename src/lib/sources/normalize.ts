@@ -35,6 +35,26 @@ export function segmentForModel(model: string): string {
   return (model.startsWith('hilux') || model.startsWith('fortuner')) ? 'toyota-4x4' : LC_SEGMENT;
 }
 
+// ── Body-type detection ──────────────────────────────────────────────────────
+// Game viewers (open safari vehicles) carry the signal differently per portal:
+// cars.co.za puts "Game Viewer" / "Game Drive Vehicle" in the title; AutoTrader
+// keeps a plain spec title and buries it in the (backfilled) description. Title
+// patterns can be loose; description patterns must be strict — bare "safari" or
+// "viewing vehicle" false-positive on ordinary dealer copy ("arrange a viewing,
+// vehicle is available…"), verified against prod data 2026-07-04.
+const GAME_VIEWER_TITLE_RE =
+  /game[\s-]?view|game[\s-]?drive|safari[\s-]?(?:conversion|vehicle|spec)/i;
+const GAME_VIEWER_DESC_RE =
+  /game[\s-]?view|game[\s-]?drive[\s-]?(?:vehicle|conversion)|safari[\s-]?(?:conversion|vehicle|ready|spec)|open\s(?:safari|game)/i;
+
+// Returns 'game-viewer' or null (unclassified). Never returns 'standard' — that
+// value is an explicit admin opt-out; callers must only fill body_type when it
+// is currently NULL so a manual verdict survives re-ingest.
+export function detectBodyType(title: string, description = ''): string | null {
+  if (GAME_VIEWER_TITLE_RE.test(title) || GAME_VIEWER_DESC_RE.test(description)) return 'game-viewer';
+  return null;
+}
+
 // Hilux & Fortuner split by engine era (mirrors prado-150/250): the GD-6
 // generation launched 2016, replacing the D-4D. Engine name in the title wins;
 // otherwise fall back to the model year.

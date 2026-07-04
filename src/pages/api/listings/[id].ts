@@ -11,7 +11,7 @@ import { eq } from 'drizzle-orm';
 const UPDATABLE_FIELDS = [
   'status', 'listing_type', 'featured', 'dealer_offer_optin', 'title', 'model', 'year', 'price', 'sold_price', 'mileage',
   'province', 'new_or_used', 'transmission', 'fuel_type', 'colour', 'description',
-  'mods', 'seller_name', 'seller_email', 'seller_phone',
+  'mods', 'seller_name', 'seller_email', 'seller_phone', 'body_type',
 ];
 
 export const PATCH: APIRoute = async ({ params, request, cookies }) => {
@@ -35,6 +35,14 @@ export const PATCH: APIRoute = async ({ params, request, cookies }) => {
 
   if ('featured' in updates) updates.featured = Boolean(updates.featured);
   if ('dealer_offer_optin' in updates) updates.dealer_offer_optin = Boolean(updates.dealer_offer_optin);
+
+  // '' (the admin form's "Auto" option) clears back to NULL = re-classifiable.
+  if ('body_type' in updates) {
+    if (!['', 'game-viewer', 'standard', null].includes(updates.body_type as string | null)) {
+      return new Response(JSON.stringify({ error: 'Invalid body_type' }), { status: 400 });
+    }
+    updates.body_type = updates.body_type || null;
+  }
 
   if (Object.keys(updates).length === 0) {
     return new Response(JSON.stringify({ error: 'No valid fields provided' }), { status: 400 });

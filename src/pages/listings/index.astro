@@ -22,6 +22,7 @@ const rawListings = await db
     transmission: listings.transmission, colour: listings.colour, photos: listings.photos,
     listing_type: listings.listing_type, status: listings.status,
     new_or_used: listings.new_or_used, featured: listings.featured,
+    body_type: listings.body_type,
   })
   .from(listings)
   .where(and(inArray(listings.status, ['active', 'sold']), eq(listings.segment, 'land-cruiser')))
@@ -40,7 +41,7 @@ const data = visibleListings.map(l => ({
   mileage: l.mileage, province: l.province, transmission: l.transmission,
   colour: l.colour, photo: firstPhoto(l.photos), type: l.listing_type,
   status: l.status, nu: l.new_or_used, drop: priceChanges.get(l.slug) ?? 0,
-  featured: l.featured,
+  featured: l.featured, bt: l.body_type,
 }));
 const dataJson = JSON.stringify(data).replace(/</g, '\\u003c');
 
@@ -121,6 +122,7 @@ function formatMileage(n: number) {
           <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
           Show Off
         </button>
+        <button class="type-pill" data-type="game-viewer">Game Viewers</button>
         <button class="type-pill" data-type="sold">Sold</button>
       </div>
       <div class="w-full sm:w-96"><VehicleSearch mode="filter" compact /></div>
@@ -282,6 +284,7 @@ function formatMileage(n: number) {
               <span class={`card-badge ${l.type === 'show_off' ? 'card-badge-show' : ''}`}>
                 {l.type === 'show_off' ? '★ ' : ''}{l.model.replaceAll('-', ' ').toUpperCase()}
               </span>
+              {l.bt === 'game-viewer' && <span class="card-badge card-badge-gv">Game Viewer</span>}
               {l.status === 'sold' && <span class="card-badge card-badge-sold">Sold</span>}
               {l.status === 'active' && l.drop < 0 && (
                 <span class="card-badge card-badge-drop">▼ R{Math.abs(l.drop).toLocaleString('en-ZA')}</span>
@@ -406,6 +409,7 @@ function formatMileage(n: number) {
   }
   .card-badge-sold { background: #dc2626; }
   .card-badge-drop { background: #166534; }
+  .card-badge-gv   { background: #F5A623; color: #111111; }
   .card-badge-featured {
     background: #F5A623;
     color: #111111;
@@ -492,7 +496,7 @@ function formatMileage(n: number) {
     slug: string; title: string; model: string; year: number; price: number;
     mileage: number; province: string; transmission: string; colour: string;
     photo: string; type: string; status: string; nu: string; drop: number;
-    featured: boolean;
+    featured: boolean; bt: string | null;
   };
   const DATA: Listing[] = JSON.parse(document.getElementById('listings-data')!.textContent || '[]');
 
@@ -571,6 +575,7 @@ function formatMileage(n: number) {
     const badges =
       (l.featured ? '<span class="card-badge card-badge-featured">★ Featured</span>' : '') +
       `<span class="card-badge ${isShow ? 'card-badge-show' : ''}">${isShow ? '★ ' : ''}${esc(l.model.replaceAll('-', ' ').toUpperCase())}</span>` +
+      (l.bt === 'game-viewer' ? '<span class="card-badge card-badge-gv">Game Viewer</span>' : '') +
       (isSold ? '<span class="card-badge card-badge-sold">Sold</span>' : '') +
       (!isSold && l.drop < 0 ? `<span class="card-badge card-badge-drop">▼ R${za(Math.abs(l.drop))}</span>` : '');
     const meta = isShow
@@ -846,7 +851,8 @@ function formatMileage(n: number) {
       l.model === sel
     );
 
-    const typeMatch = showingSold || activeType === 'all' || l.type === activeType;
+    const typeMatch = showingSold || activeType === 'all' ||
+      (activeType === 'game-viewer' ? l.bt === 'game-viewer' : l.type === activeType);
 
     const yearOk = (yearMin <= 0 && !isFinite(yearMax)) || (l.year >= yearMin && l.year <= yearMax);
 

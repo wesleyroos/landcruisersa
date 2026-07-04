@@ -59,6 +59,8 @@ export default defineConfig({
         'https://landcruisersa.co.za/listings/model/300-series/',
         'https://landcruisersa.co.za/listings/model/prado/',
         'https://landcruisersa.co.za/listings/model/fj-cruiser/',
+        // Body-type vertical
+        'https://landcruisersa.co.za/game-viewers/',
         // Valuation tool — hub + per-model citeable pages
         'https://landcruisersa.co.za/valuation/',
         'https://landcruisersa.co.za/valuation/76-series/',

@@ -4,7 +4,7 @@ import type { APIRoute } from 'astro';
 import { db } from '@/db/index';
 import { listings, priceEvents } from '@/db/schema';
 import { and, eq, ne } from 'drizzle-orm';
-import { segmentForModel } from '@/lib/sources/normalize';
+import { segmentForModel, detectBodyType } from '@/lib/sources/normalize';
 
 function slugify(str: string) {
   return str
@@ -55,6 +55,7 @@ export const POST: APIRoute = async ({ request }) => {
   const existing = await db.select({
     id: listings.id, slug: listings.slug, price: listings.price, model: listings.model,
     colour: listings.colour, description: listings.description, photos: listings.photos,
+    body_type: listings.body_type,
   })
     .from(listings)
     .where(and(eq(listings.source, String(source)), eq(listings.source_id, String(source_id))))
@@ -108,6 +109,10 @@ export const POST: APIRoute = async ({ request }) => {
       seats: seats ? Number(seats) : null,
       co2: co2 ? Number(co2) : null,
       segment: segmentForModel(String(model)),
+      // Classify only unclassified rows — an admin's manual body_type verdict
+      // ('standard' opt-out or confirmed 'game-viewer') survives re-ingest.
+      body_type: existing[0].body_type
+        ?? detectBodyType(String(title), String(description ?? '').trim() || existing[0].description),
       status: 'active',
     }).where(eq(listings.id, existing[0].id));
 
@@ -172,6 +177,7 @@ export const POST: APIRoute = async ({ request }) => {
     seats: seats ? Number(seats) : null,
     co2: co2 ? Number(co2) : null,
     segment: segmentForModel(String(model)),
+    body_type: detectBodyType(String(title), String(description ?? '')),
     created_at: new Date(),
   });
 

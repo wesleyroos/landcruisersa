@@ -173,6 +173,12 @@ import Base from '@/layouts/Base.astro';
             <input id="f-mileage" type="number" min="0" placeholder="87000" inputmode="numeric" />
           </div>
         </div>
+        <div class="field">
+          <label class="dealer-consent" for="f-game-viewer">
+            <input id="f-game-viewer" type="checkbox" />
+            <span><strong>Game viewer / open safari vehicle?</strong> Tick if this is a game-viewing conversion (open body, tiered seating). It will also appear in our dedicated <a href="/game-viewers/" target="_blank" style="text-decoration:underline">Game Viewers</a> section.</span>
+          </label>
+        </div>
       </div>
 
       <div class="field">
@@ -841,6 +847,11 @@ import Base from '@/layouts/Base.astro';
     });
   });
 
+  // Arriving from /game-viewers/ (?bt=game-viewer) — pre-tick the game-viewer box.
+  if (new URLSearchParams(location.search).get('bt') === 'game-viewer') {
+    (document.getElementById('f-game-viewer') as HTMLInputElement).checked = true;
+  }
+
   function adaptStep3() {
     const saleFields = document.getElementById('sale-fields')!;
     const modsField = document.getElementById('mods-field')!;
@@ -1025,6 +1036,9 @@ import Base from '@/layouts/Base.astro';
       seller_phone: phone,
       dealer_offer_optin: selectedType === 'for_sale'
         && (document.getElementById('f-dealer-optin') as HTMLInputElement).checked,
+      body_type: selectedType === 'for_sale'
+        && (document.getElementById('f-game-viewer') as HTMLInputElement).checked
+        ? 'game-viewer' : null,
       lcsa_hp: (document.getElementById('lcsa_hp') as HTMLInputElement).value,
     };
 
