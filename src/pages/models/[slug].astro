@@ -236,6 +236,21 @@ const faqSchema = faqItems.length ? {
           </div>
         </section>
 
+        <!-- Game-viewer cross-link — the 78/79 are the standard conversion bases -->
+        {(m.slug === '78-series' || m.slug === '79-series') && (
+          <section class="listings-cta-block">
+            <div class="listings-cta-inner">
+              <div>
+                <p class="listings-cta-label">Open safari vehicles</p>
+                <p class="listings-cta-title">The {m.name} is the classic game-viewer conversion base — browse converted examples</p>
+              </div>
+              <a href="/game-viewers/" class="listings-cta-btn">
+                Game Viewers →
+              </a>
+            </div>
+          </section>
+        )}
+
         <!-- Related Models -->
         {related.length > 0 && (
           <section class="content-section">

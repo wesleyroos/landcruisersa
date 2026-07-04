@@ -121,6 +121,7 @@ function formatMileage(n: number) {
         <button class="type-pill" data-type="game-viewer">Game Viewers</button>
         <button class="type-pill" data-type="sold">Sold</button>
       </div>
+      <a id="gv-page-link" href="/game-viewers/" class="hidden text-sm font-semibold text-[#D4881A] hover:underline">Game Viewers section: prices &amp; buying guide →</a>
       <div class="w-full sm:w-96"><VehicleSearch mode="filter" compact /></div>
     </div>
 
@@ -924,6 +925,7 @@ function formatMileage(n: number) {
 
     grid.innerHTML = pageItems.map((l, i) => cardHTML(l, i)).join('');
     grid.classList.toggle('hidden', matched.length === 0);
+    document.getElementById('gv-page-link')?.classList.toggle('hidden', activeType !== 'game-viewer');
     emptyState.classList.toggle('hidden', matched.length > 0);
     countEl.textContent = `${matched.length} listing${matched.length !== 1 ? 's' : ''}`;
     renderPagination(matched.length, totalPages);
@@ -941,6 +943,7 @@ function formatMileage(n: number) {
     models?: string[]; provinces?: string[];
     minPrice?: number; maxPrice?: number; minMileage?: number; maxMileage?: number;
     minYear?: number; maxYear?: number; cab?: 'single' | 'double' | null;
+    gameViewer?: boolean;
   };
   function mileageRangeLabel(min?: number, max?: number): string {
     const k = (n: number) => Math.round(n / 1000) + 'k km';
@@ -968,8 +971,8 @@ function formatMileage(n: number) {
     yearMaxInput.value = isFinite(yearMax) ? String(yearMax) : '';
     yearLabelEl.textContent = yearFilterLabel(yearMin, yearMax);
     selectedCab = f.cab || null;
-    activeType = 'all';
-    typePills.forEach(p => p.classList.toggle('active', p.dataset.type === 'all'));
+    activeType = f.gameViewer ? 'game-viewer' : 'all';
+    typePills.forEach(p => p.classList.toggle('active', p.dataset.type === activeType));
     (document.getElementById('price-filter') as HTMLElement).style.display = '';
     (document.getElementById('ms-mileage') as HTMLElement).style.display = '';
     applyFilters();
@@ -1095,7 +1098,7 @@ function formatMileage(n: number) {
   // NL-search param set handed over from the homepage search.
   const sp = new URLSearchParams(location.search);
   const spNum = (k: string) => { const v = sp.get(k); return v && v.trim() !== '' ? Number(v) : undefined; };
-  const hasUrlFilters = ['model', 'province', 'minPrice', 'maxPrice', 'minMileage', 'maxMileage', 'minYear', 'maxYear', 'cab']
+  const hasUrlFilters = ['model', 'province', 'minPrice', 'maxPrice', 'minMileage', 'maxMileage', 'minYear', 'maxYear', 'cab', 'gv']
     .some(k => sp.get(k));
   if (hasUrlFilters) {
     const cabParam = sp.get('cab');
@@ -1106,6 +1109,7 @@ function formatMileage(n: number) {
       minMileage: spNum('minMileage'), maxMileage: spNum('maxMileage'),
       minYear: spNum('minYear'), maxYear: spNum('maxYear'),
       cab: cabParam === 'single' || cabParam === 'double' ? cabParam : null,
+      gameViewer: sp.get('gv') === '1',
     });
     // ?alert=1 (model-page "Alert me when one is listed") — open the save-search
     // flow directly, pre-filled with these filters. Handles login redirect itself.

@@ -1,5 +1,8 @@
 export const NAV_LINKS = [
-  { label: 'Listings', href: '/listings/' },
+  { label: 'Listings', href: '/listings/', children: [
+    { label: 'All Listings', href: '/listings/' },
+    { label: 'Game Viewers', href: '/game-viewers/' },
+  ]},
   { label: 'Vehicle Valuation', href: '/valuation/' },
   { label: 'Market Data', href: '/market/' },
   { label: 'Useful Info', href: '/useful-info/' },

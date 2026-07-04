@@ -14,6 +14,7 @@ export interface ParsedQuery {
   maxMileage?: number;
   provinces: string[];       // canonical: 'Gauteng' | 'Western Cape' | ...
   cab?: 'single' | 'double'; // 79-series body style — matched against the title
+  gameViewer?: boolean;      // open safari vehicles — matched against body_type
   chips: { key: string; label: string }[]; // human-readable interpretation
   matched: boolean;          // did we understand anything at all?
 }
@@ -117,6 +118,13 @@ export function parseVehicleQuery(input: string): ParsedQuery {
     out.cab = 'double'; out.chips.push({ key: 'cab', label: 'Double Cab' }); out.matched = true;
   }
 
+  // 4c. Game viewers — body-type vertical, filtered via body_type. Strip the
+  //     phrase so "viewer"/"safari" text can't confuse the model matching below.
+  if (/game[\s-]?view\w*|game[\s-]?drive|safari/.test(q)) {
+    out.gameViewer = true; out.chips.push({ key: 'gameViewer', label: 'Game Viewer' }); out.matched = true;
+    q = q.replace(/game[\s-]?view\w*|game[\s-]?drive( vehicle)?|safari( vehicle| conversion)?/g, ' ');
+  }
+
   // 5. Models (last — the leftover digits are now model numbers, not price/km/year).
   for (const [re, val, label] of MODEL_ALIASES) {
     if (re.test(q) && !out.models.includes(val)) {
@@ -150,6 +158,7 @@ export function toListingsUrl(p: ParsedQuery): string {
   if (p.minYear != null) params.set('minYear', String(p.minYear));
   if (p.maxYear != null) params.set('maxYear', String(p.maxYear));
   if (p.cab) params.set('cab', p.cab);
+  if (p.gameViewer) params.set('gv', '1');
   const qs = params.toString();
   return '/listings/' + (qs ? '?' + qs : '');
 }
