@@ -9,6 +9,11 @@ import { reportRun } from '../lib/sources/report.ts';
 const SITE_URL = process.env.SITE_URL ?? 'https://landcruisersa.fly.dev';
 const TOKEN    = process.env.INGEST_TOKEN ?? '';
 const CONCURRENCY = 3;
+// Time budget: the backlog after a heavy ingest day can take hours, and running
+// past the GitHub job timeout gets the step KILLED mid-write (the whole run then
+// shows "cancelled" — that was 2026-07-02). Stop cleanly instead; the remainder
+// is picked up next run.
+const MAX_MINUTES = parseInt(process.env.MAX_MINUTES ?? '45', 10);
 
 async function run() {
   if (!TOKEN) throw new Error('INGEST_TOKEN not set');
@@ -29,8 +34,15 @@ async function run() {
   if (targets.length === 0) { await reportRun('at-image-rehost', { found: 0 }); return; }
 
   let updated = 0, skipped = 0, failed = 0, imgs = 0;
+  const deadline = Date.now() + MAX_MINUTES * 60_000;
+  let outOfTime = false;
 
   for (let i = 0; i < targets.length; i += CONCURRENCY) {
+    if (Date.now() > deadline) {
+      outOfTime = true;
+      console.log(`[at-image-rehost] ${MAX_MINUTES}min budget reached at ${i}/${targets.length} — stopping cleanly; remainder next run`);
+      break;
+    }
     await Promise.all(targets.slice(i, i + CONCURRENCY).map(async t => {
       let photos: string[];
       try { photos = JSON.parse(t.photos) ?? []; } catch { skipped++; return; }
@@ -53,8 +65,8 @@ async function run() {
     console.log(`[at-image-rehost] ${Math.min(i + CONCURRENCY, targets.length)}/${targets.length} — ${updated} updated, ${imgs} images copied`);
   }
 
-  console.log(`[at-image-rehost] done — updated: ${updated}, images: ${imgs}, skipped: ${skipped}, failed: ${failed}`);
-  await reportRun('at-image-rehost', { found: targets.length, updated, skipped });
+  console.log(`[at-image-rehost] done — updated: ${updated}, images: ${imgs}, skipped: ${skipped}, failed: ${failed}${outOfTime ? ' (time budget hit)' : ''}`);
+  await reportRun('at-image-rehost', { found: targets.length, updated, skipped, note: outOfTime ? `stopped at ${MAX_MINUTES}min budget — remainder next run` : undefined });
 }
 
 run().catch(async err => {

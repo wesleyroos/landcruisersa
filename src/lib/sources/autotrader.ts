@@ -198,13 +198,15 @@ export const AutoTraderAdapter: SourceAdapter = {
         // AutoTrader paginates via ?pagenumber=N (NOT ?p=N — that param is ignored
         // and silently re-serves page 1, which once truncated us to ~6% of stock).
         const pageUrl = page === 1 ? baseUrl : `${baseUrl}?pagenumber=${page}`;
-        // The residential proxy drops the odd page mid-crawl ("fetch failed"). Don't
-        // abandon the whole model for one bad page (that's what truncated us to ~40%):
-        // retry the page, then SKIP it and keep going. Only give up the model if page 1
-        // is unreadable (can't read totalPages) or many pages fail back-to-back (a real
-        // block, not a flaky IP).
-        let res: Response | null = null;
-        for (let attempt = 0; attempt <= 2 && !res; attempt++) {
+        // The residential proxy drops the odd page mid-crawl ("fetch failed") — and
+        // sometimes mid-BODY after clean headers ("TypeError: terminated" at .text(),
+        // which killed the whole 2026-07-03 run when the read sat outside this loop).
+        // So fetch AND read the body inside the retry. Don't abandon the whole model
+        // for one bad page (that's what truncated us to ~40%): retry the page, then
+        // SKIP it and keep going. Only give up the model if page 1 is unreadable
+        // (can't read totalPages) or many pages fail back-to-back (a real block).
+        let html: string | null = null;
+        for (let attempt = 0; attempt <= 2 && html === null; attempt++) {
           try {
             const pr = await politeFetch(pageUrl, {
               headers: {
@@ -213,7 +215,7 @@ export const AutoTraderAdapter: SourceAdapter = {
                 'Accept-Language': 'en-ZA,en;q=0.9',
               },
             }, 2, { min: 2500, max: 6000 }); // AT-only: 2.5–6 s/request to stay under rate limits
-            if (pr.ok) { res = pr; break; }
+            if (pr.ok) { html = await pr.text(); break; }
             console.warn(`[autotrader] ${slug} page ${page} → HTTP ${pr.status} (attempt ${attempt + 1})`);
           } catch (e) {
             console.warn(`[autotrader] ${slug} page ${page} fetch failed (attempt ${attempt + 1}): ${e}`);
@@ -221,7 +223,7 @@ export const AutoTraderAdapter: SourceAdapter = {
           if (attempt < 2) await new Promise(done => setTimeout(done, 5000 * (attempt + 1)));
         }
 
-        if (!res) {
+        if (html === null) {
           consecPageFail++;
           if (page === 1 || consecPageFail >= 6) {
             aborted = true;
@@ -232,8 +234,6 @@ export const AutoTraderAdapter: SourceAdapter = {
           continue; // skip this page's listings, keep crawling the rest of the model
         }
         consecPageFail = 0;
-
-        const html = await res.text();
 
         if (page === 1) {
           const tp = html.match(/"totalPages":(\d+)/);
