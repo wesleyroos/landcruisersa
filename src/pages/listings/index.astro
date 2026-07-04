@@ -224,6 +224,12 @@ function formatMileage(n: number) {
           </label>
         </div>
       </div>
+      <!-- Transmission — a slim segmented toggle (two values don't earn a dropdown) -->
+      <div class="flex items-stretch rounded-xl border border-[#DDD9D3] bg-white overflow-hidden min-h-[44px]" id="trans-toggle" role="group" aria-label="Transmission">
+        <button type="button" class="trans-btn active" data-trans="">Any</button>
+        <button type="button" class="trans-btn" data-trans="manual">Manual</button>
+        <button type="button" class="trans-btn" data-trans="automatic">Auto</button>
+      </div>
       <span id="results-count" class="self-center text-sm text-[#6B7280] ml-auto"></span>
       <button id="save-search-bar" type="button" class="hidden self-center inline-flex items-center gap-1.5 text-xs font-heading font-bold uppercase tracking-wide bg-[#F5A623] text-[#111111] px-3.5 py-1.5 rounded-full hover:bg-[#D4881A] transition-colors">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
@@ -449,6 +455,20 @@ function formatMileage(n: number) {
   }
 
   /* Type pill buttons */
+  .trans-btn {
+    padding: 0 0.9rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: #6B7280;
+    background: #fff;
+    border: none;
+    border-right: 1px solid #DDD9D3;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+  .trans-btn:last-child { border-right: none; }
+  .trans-btn:hover { color: #111111; }
+  .trans-btn.active { background: #111111; color: #fff; }
   .type-pill {
     display: inline-flex;
     align-items: center;
@@ -821,6 +841,16 @@ function formatMileage(n: number) {
   let activeType = 'all';
   let currentPage = 1;
   let selectedCab: 'single' | 'double' | null = null; // NL-search only (no dropdown); matched on title
+  let selectedTrans: '' | 'manual' | 'automatic' = '';
+  // Engine ('2.8' | '4.5' | 'v8' | …) — NL-search only; matched against the title.
+  let engineRe: RegExp | null = null;
+  let selectedEngine: string | null = null;
+  function setEngine(v: string | null) {
+    selectedEngine = v && /^([2-6]\.[0-9]|v[68])$/.test(v) ? v : null;
+    engineRe = selectedEngine
+      ? new RegExp('\\b' + selectedEngine.replace('.', '\\.') + '\\b', 'i')
+      : null;
+  }
 
   function matchesFilters(l: Listing): boolean {
     const showingSold = activeType === 'sold';
@@ -853,12 +883,17 @@ function formatMileage(n: number) {
 
     const yearOk = (yearMin <= 0 && !isFinite(yearMax)) || (l.year >= yearMin && l.year <= yearMax);
 
+    const transOk = !selectedTrans || l.transmission === selectedTrans;
+    const engineOk = !engineRe || engineRe.test(l.title);
+
     return modelMatch &&
       (selectedProvinces.length === 0 || selectedProvinces.includes(l.province)) &&
       priceOk &&
       mileageOk &&
       yearOk &&
       cabOk &&
+      transOk &&
+      engineOk &&
       typeMatch;
   }
 
@@ -944,6 +979,8 @@ function formatMileage(n: number) {
     minPrice?: number; maxPrice?: number; minMileage?: number; maxMileage?: number;
     minYear?: number; maxYear?: number; cab?: 'single' | 'double' | null;
     gameViewer?: boolean;
+    transmission?: 'manual' | 'automatic' | '';
+    engine?: string | null;
   };
   function mileageRangeLabel(min?: number, max?: number): string {
     const k = (n: number) => Math.round(n / 1000) + 'k km';
@@ -971,6 +1008,8 @@ function formatMileage(n: number) {
     yearMaxInput.value = isFinite(yearMax) ? String(yearMax) : '';
     yearLabelEl.textContent = yearFilterLabel(yearMin, yearMax);
     selectedCab = f.cab || null;
+    setTrans(f.transmission || '');
+    setEngine(f.engine || null);
     activeType = f.gameViewer ? 'game-viewer' : 'all';
     typePills.forEach(p => p.classList.toggle('active', p.dataset.type === activeType));
     (document.getElementById('price-filter') as HTMLElement).style.display = '';
@@ -979,6 +1018,17 @@ function formatMileage(n: number) {
     return DATA.filter(matchesFilters).length;
   }
   (window as any).__lcsaApplyFilters = applyParsed;
+
+  // Transmission toggle (Any | Manual | Auto)
+  const transBtns = Array.from(document.querySelectorAll<HTMLButtonElement>('.trans-btn'));
+  function setTrans(v: '' | 'manual' | 'automatic') {
+    selectedTrans = v;
+    transBtns.forEach(b => b.classList.toggle('active', (b.dataset.trans ?? '') === v));
+  }
+  transBtns.forEach(btn => btn.addEventListener('click', () => {
+    setTrans((btn.dataset.trans ?? '') as '' | 'manual' | 'automatic');
+    applyFilters();
+  }));
 
   typePills.forEach(pill => {
     pill.addEventListener('click', () => {
@@ -995,7 +1045,8 @@ function formatMileage(n: number) {
   function anyFilterActive(): boolean {
     return selectedModels.length > 0 || selectedProvinces.length > 0 ||
       selectedMileages.length > 0 || priceMin > 0 || isFinite(priceMax) ||
-      yearMin > 0 || isFinite(yearMax) || activeType !== 'all';
+      yearMin > 0 || isFinite(yearMax) || activeType !== 'all' ||
+      selectedTrans !== '' || selectedEngine !== null || selectedCab !== null;
   }
   // Filters that can be saved as a search (mileage/type aren't saved-search criteria).
   function anySaveableFilter(): boolean {
@@ -1011,6 +1062,9 @@ function formatMileage(n: number) {
     updateMileageLabel();
     resetPrice();
     resetYear();
+    selectedCab = null;
+    setTrans('');
+    setEngine(null);
     activeType = 'all';
     typePills.forEach(p => p.classList.toggle('active', p.dataset.type === 'all'));
     applyFilters();
@@ -1098,10 +1152,11 @@ function formatMileage(n: number) {
   // NL-search param set handed over from the homepage search.
   const sp = new URLSearchParams(location.search);
   const spNum = (k: string) => { const v = sp.get(k); return v && v.trim() !== '' ? Number(v) : undefined; };
-  const hasUrlFilters = ['model', 'province', 'minPrice', 'maxPrice', 'minMileage', 'maxMileage', 'minYear', 'maxYear', 'cab', 'gv']
+  const hasUrlFilters = ['model', 'province', 'minPrice', 'maxPrice', 'minMileage', 'maxMileage', 'minYear', 'maxYear', 'cab', 'gv', 'trans', 'engine']
     .some(k => sp.get(k));
   if (hasUrlFilters) {
     const cabParam = sp.get('cab');
+    const transParam = sp.get('trans');
     applyParsed({
       models: (sp.get('model') || '').split(',').filter(Boolean),
       provinces: (sp.get('province') || '').split(',').filter(Boolean),
@@ -1110,6 +1165,8 @@ function formatMileage(n: number) {
       minYear: spNum('minYear'), maxYear: spNum('maxYear'),
       cab: cabParam === 'single' || cabParam === 'double' ? cabParam : null,
       gameViewer: sp.get('gv') === '1',
+      transmission: transParam === 'manual' || transParam === 'automatic' ? transParam : '',
+      engine: sp.get('engine'),
     });
     // ?alert=1 (model-page "Alert me when one is listed") — open the save-search
     // flow directly, pre-filled with these filters. Handles login redirect itself.

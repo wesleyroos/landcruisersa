@@ -15,6 +15,8 @@ export interface ParsedQuery {
   provinces: string[];       // canonical: 'Gauteng' | 'Western Cape' | ...
   cab?: 'single' | 'double'; // 79-series body style — matched against the title
   gameViewer?: boolean;      // open safari vehicles — matched against body_type
+  transmission?: 'manual' | 'automatic';
+  engine?: string;           // '2.8' | '4.5' | 'v8' | … — matched against the title
   chips: { key: string; label: string }[]; // human-readable interpretation
   matched: boolean;          // did we understand anything at all?
 }
@@ -92,7 +94,9 @@ export function parseVehicleQuery(input: string): ParsedQuery {
   });
 
   // 3. Price — remaining R / k / m amounts, with a comparator.
-  q = q.replace(/(under|below|less than|up to|max(?:imum)?|<|cheaper than|no more than|over|above|more than|from|min(?:imum)?|at least|>|budget of|around|price)?\s*(r\s?\d[\d, ]*\.?\d*\s*(?:k|m|mil|million)?|\d[\d, ]*\.?\d*\s*(?:k|m|mil|million))/g, (full, cmp, val) => {
+  // Suffix is longest-first + guarded against word starts, so "2.8 manual"
+  // can't be read as "2.8 million" (the m of "manual" once ate the suffix).
+  q = q.replace(/(under|below|less than|up to|max(?:imum)?|<|cheaper than|no more than|over|above|more than|from|min(?:imum)?|at least|>|budget of|around|price)?\s*(r\s?\d[\d, ]*\.?\d*\s*(?:million|mil|k|m)?(?![a-z])|\d[\d, ]*\.?\d*\s*(?:million|mil|k|m)(?![a-z]))/g, (full, cmp, val) => {
     const n = amount(val.trim());
     if (n == null || n < 1000) return full; // ignore tiny stray numbers
     const before = (cmp || full).toLowerCase();
@@ -123,6 +127,26 @@ export function parseVehicleQuery(input: string): ParsedQuery {
   if (/game[\s-]?view\w*|game[\s-]?drive|safari/.test(q)) {
     out.gameViewer = true; out.chips.push({ key: 'gameViewer', label: 'Game Viewer' }); out.matched = true;
     q = q.replace(/game[\s-]?view\w*|game[\s-]?drive( vehicle)?|safari( vehicle| conversion)?/g, ' ');
+  }
+
+  // 4d. Transmission — real demand in the search logs ("79 series 2.8 manual").
+  if (/\bmanual\b/.test(q)) {
+    out.transmission = 'manual'; out.chips.push({ key: 'transmission', label: 'Manual' }); out.matched = true;
+    q = q.replace(/\bmanual\b/g, ' ');
+  } else if (/\bauto(matic)?\b/.test(q)) {
+    out.transmission = 'automatic'; out.chips.push({ key: 'transmission', label: 'Automatic' }); out.matched = true;
+    q = q.replace(/\bauto(matic)?\b/g, ' ');
+  }
+
+  // 4e. Engine — a litre size (2.8, 4.2, 4.5 …) or V6/V8, matched on the title.
+  //     Strip it so the digits can't confuse the model matching below.
+  const eng = q.match(/\b([2-6]\.[0-9])\s?(?:l|litre|liter|gd-?6?|d-?4d|td|dt|d)?\b/) || q.match(/\b(v[- ]?[68])\b/);
+  if (eng) {
+    const val = eng[1].replace(/[- ]/g, '').toLowerCase();
+    out.engine = val;
+    out.chips.push({ key: 'engine', label: val.startsWith('v') ? val.toUpperCase() : val });
+    out.matched = true;
+    q = q.replace(eng[0], ' ');
   }
 
   // 5. Models (last — the leftover digits are now model numbers, not price/km/year).
@@ -159,6 +183,8 @@ export function toListingsUrl(p: ParsedQuery): string {
   if (p.maxYear != null) params.set('maxYear', String(p.maxYear));
   if (p.cab) params.set('cab', p.cab);
   if (p.gameViewer) params.set('gv', '1');
+  if (p.transmission) params.set('trans', p.transmission);
+  if (p.engine) params.set('engine', p.engine);
   const qs = params.toString();
   return '/listings/' + (qs ? '?' + qs : '');
 }
