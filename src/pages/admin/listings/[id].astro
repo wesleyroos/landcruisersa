@@ -354,6 +354,15 @@ const waSpec = [
               >
                 {listing.ig_posted_at ? 'Repost' : 'Post to Instagram'}
               </button>
+              <button
+                type="button"
+                id="ig-story-link"
+                class="btn-ig-post btn-repost"
+                data-story-link={`https://landcruisersa.co.za/listings/${listing.slug}/?utm_source=ig-story`}
+                title="Copy the utm-tagged link for the IG story link badge — raw URLs are invisible to attribution"
+              >
+                📋 Story link
+              </button>
               {listing.ig_posted_at && (
                 <button type="button" id="ig-clear-posted" class="ig-clear-link" data-id={listing.id}>
                   ✕ Mark as not posted
@@ -968,6 +977,19 @@ const waSpec = [
       setTimeout(() => { waDlBtn.textContent = orig; waDlBtn.disabled = false; }, 2500);
     });
   }
+
+  // ── Copy the utm-tagged story link (for the IG story link badge) ───────────
+  document.getElementById('ig-story-link')?.addEventListener('click', async function () {
+    const link = this.dataset.storyLink;
+    const orig = this.textContent;
+    try {
+      await navigator.clipboard.writeText(link);
+      this.textContent = '✓ Copied';
+      setTimeout(() => { this.textContent = orig; }, 2000);
+    } catch {
+      window.prompt('Copy the story link:', link);
+    }
+  });
 
   // ── Undo a mistaken IG post marker ─────────────────────────────────────────
   document.getElementById('ig-clear-posted')?.addEventListener('click', async function () {
