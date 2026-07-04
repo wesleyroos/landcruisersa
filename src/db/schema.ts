@@ -37,6 +37,7 @@ export const listings = sqliteTable('listings', {
 
   ig_posted_at: integer('ig_posted_at', { mode: 'timestamp' }),    // last posted to Instagram
   ig_media_id:  text('ig_media_id'),                                // IG media id of that post — insights join key
+  ig_skipped_at: integer('ig_skipped_at', { mode: 'timestamp' }),   // admin skipped this suggestion — never suggest again (undo on listing page)
   seller_notified_at: integer('seller_notified_at', { mode: 'timestamp' }), // when a private seller was emailed that their listing went live (one-shot)
   segment:      text('segment').notNull().default('land-cruiser'), // 'land-cruiser' | 'toyota-4x4' — only LC is shown publicly
   body_type:    text('body_type'),                                 // 'game-viewer' | 'standard' (admin opt-out) | null = unclassified

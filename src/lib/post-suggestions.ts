@@ -167,6 +167,7 @@ function evaluateCandidates(): Evaluated[] {
       eq(listings.listing_type, 'for_sale'),
       gt(listings.price, 0),
       isNull(listings.ig_posted_at),
+      isNull(listings.ig_skipped_at),   // admin hit Skip on this one — never suggest again
       sql`json_array_length(photos) >= 4`,
       eq(listings.segment, LC_SEGMENT),   // LC only — never suggest a Hilux/Fortuner for the LC IG
     ))

@@ -312,7 +312,10 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
         </p>
         <p class="pick-reasons">{igPick.reasons.slice(0, 3).join(' · ')}</p>
       </div>
-      <button class="btn btn-post" data-action="post" data-id={igPick.id}>Post to IG</button>
+      <div class="pick-actions">
+        <button class="btn btn-post" data-action="post" data-id={igPick.id}>Post to IG</button>
+        <button class="btn btn-skip" data-action="skip-suggestion" data-id={igPick.id} title="Never suggest this listing again — the next-ranked pick takes its place">Skip</button>
+      </div>
     </div>
   )}
 
@@ -341,6 +344,7 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
             </div>
             <span class="sug-score" title="Suggestion score">{s.score}</span>
             <button class="btn btn-post sug-post" data-action="post" data-id={s.id}>Post</button>
+            <button class="btn btn-skip sug-post" data-action="skip-suggestion" data-id={s.id} title="Never suggest this listing again">✕</button>
           </div>
         ))}
       </div>
@@ -862,6 +866,10 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
   .btn-repost  { background: white; color: #6B7280; border-color: #E5E7EB; }
   .btn-repost:hover:not(:disabled) { background: #F9FAFB; border-color: #9CA3AF; color: #374151; }
 
+  .btn-skip    { background: white; color: #9CA3AF; border-color: #E5E7EB; }
+  .btn-skip:hover:not(:disabled) { background: #FEF2F2; border-color: #FECACA; color: #B91C1C; }
+  .pick-actions { display: flex; flex-direction: column; gap: 0.375rem; }
+
   /* PAGINATION */
   .pagination {
     display: flex; align-items: center; justify-content: center; gap: 1rem;
@@ -886,6 +894,25 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
 </style>
 
 <script>
+  // ── Skip an IG suggestion — never suggest that listing again ─────────────
+  document.querySelectorAll<HTMLButtonElement>('[data-action="skip-suggestion"]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      try {
+        const res = await fetch('/api/admin/instagram/skip-suggestion', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ listingId: Number(btn.dataset.id) }),
+        });
+        if (res.ok) { window.location.reload(); return; }
+        alert('Skip failed — try again.');
+      } catch {
+        alert('Network error — try again.');
+      }
+      btn.disabled = false;
+    });
+  });
+
   // ── Admin filters — server-side, navigate on change ──────────────────────
   document.querySelectorAll<HTMLSelectElement>('.af-sel[data-filter]').forEach(sel => {
     sel.addEventListener('change', () => {

@@ -65,6 +65,7 @@ addCol('dealer_offer_optin', "dealer_offer_optin INTEGER NOT NULL DEFAULT 0");
 addCol('sold_price',     "sold_price     INTEGER");
 addCol('ig_media_id',    "ig_media_id    TEXT");
 addCol('body_type',      "body_type      TEXT");
+addCol('ig_skipped_at',  "ig_skipped_at  INTEGER");
 
 // Backfill body_type = 'game-viewer' from title/description keywords. Mirrors
 // detectBodyType() in src/lib/sources/normalize.ts (SQLite LIKE approximation —
@@ -618,7 +619,7 @@ const REQUIRED_COLS = [
   'source_url', 'source', 'source_id', 'last_polled_at', 'review_flag',
   'created_at', 'ig_posted_at', 'featured', 'segment', 'off_market_at',
   'seller_notified_at', 'dealer_offer_optin', 'sold_price', 'ig_media_id',
-  'body_type',
+  'body_type', 'ig_skipped_at',
 ];
 const finalCols = new Set(
   db.prepare("SELECT name FROM pragma_table_info('listings')").all().map(r => r.name)

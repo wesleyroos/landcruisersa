@@ -354,6 +354,11 @@ const waSpec = [
             {listing.ig_posted_at && (
               <p class="ig-posted-note">✓ Posted to IG {new Intl.DateTimeFormat('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' }).format(listing.ig_posted_at)}</p>
             )}
+            {listing.ig_skipped_at && (
+              <p class="ig-posted-note" style="color:#B91C1C;">✕ Excluded from IG suggestions (skipped)
+                <button type="button" id="ig-unskip" class="ig-clear-link" data-id={listing.id} style="margin-left:0.5rem;">↺ Suggest again</button>
+              </p>
+            )}
             <div class="ig-post-actions">
               <button
                 type="button"
@@ -1007,6 +1012,23 @@ const waSpec = [
         window.prompt('Copy the link:', link);
       }
     });
+  });
+
+  // ── Un-skip: put this listing back in the IG suggestion pool ───────────────
+  document.getElementById('ig-unskip')?.addEventListener('click', async function () {
+    this.disabled = true;
+    try {
+      const res = await fetch('/api/admin/instagram/skip-suggestion', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ listingId: Number(this.dataset.id), undo: true }),
+      });
+      if (res.ok) { window.location.reload(); return; }
+      alert('Failed — try again.');
+    } catch {
+      alert('Network error — try again.');
+    }
+    this.disabled = false;
   });
 
   // ── Undo a mistaken IG post marker ─────────────────────────────────────────
