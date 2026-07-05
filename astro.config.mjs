@@ -94,10 +94,11 @@ export default defineConfig({
         'https://landcruisersa.co.za/market/fortuner-gd6/',
         'https://landcruisersa.co.za/market/fortuner-d4d/',
       ],
-      // Keep admin pages — and the unlisted Faan-collection preview — out of the sitemap.
-      // Keep admin pages — and the unlisted Faan-collection preview — out of the sitemap.
+      // Keep admin pages — and unlisted previews (Faan collection, canopy-guide
+      // draft) — out of the sitemap. Remove a slug here when its post publishes.
       filter: (page) => !page.includes('/admin/')
-        && !page.includes('/inside-the-webuycars-land-cruiser-collection'),
+        && !page.includes('/inside-the-webuycars-land-cruiser-collection')
+        && !page.includes('/land-cruiser-canopies-trays-south-africa'),
     }),
   ],
   vite: {

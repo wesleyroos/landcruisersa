@@ -419,3 +419,29 @@ date, compare to baseline, mark HIT / MISS / PARTIAL, and write the lesson.
   4. Stretch: a first AI-citation for a "game viewer for sale South Africa"-class query (the hero metric).
 - **Result:** _pending 2026-08-17_
 - **Lesson:** _tbd_
+
+## P14 — Canopies & trays content category (pillar)
+
+- **Opened:** 2026-07-05 (drafted; publishes after Wesley's review)
+- **Review on:** 2026-09-05 (8 weeks post-publish; new page needs time to index)
+- **Surface:** `/useful-info/land-cruiser-canopies-trays-south-africa/` — the
+  5-tier ladder pillar (canopy → tray → tray-system → canopy camper → full-body),
+  all SA builders with verified prices (R34k Big Country → R547k Bushwakka
+  Kamelback). Spokes (brand comparison, tray systems, full-body, where-to-buy)
+  deliberately HELD until P1 grades the accessories-guide pattern on 2026-07-20.
+- **Thesis:** Zero canopy/tray queries in our GSC today because we have zero
+  content — but the demand exists (dedicated canopy retail sites rank, "4x4
+  megaworld" is our #1 impression query at 3,044, and 60 of our active listings
+  mention a canopy). Nobody has published the full priced ladder in one place;
+  structured + priced + SA-specific = the citable shape that worked before.
+- **Metric (GSC via report endpoint):** impressions + position for canopy/tray
+  query family ("land cruiser canopy", "canopy for land cruiser 79", "bakkie
+  tray conversion", brand queries). Baseline 2026-07-05: 0 impressions.
+- **Prediction (review 2026-09-05):** ≥ 150 combined impressions on
+  canopy/tray-family queries AND the pillar ranks ≤ 20 (page 1–2) for at least
+  one "land cruiser canopy"-family query. Directional: ≥ 1 outbound click to a
+  canopy manufacturer logged in outbound_clicks.
+- **Caveat:** competing sites are commercial (retailers with fitment pages);
+  8 weeks is early for a fresh page; publish date depends on review.
+- **Result:** _pending 2026-09-05_
+- **Lesson:** _tbd_
