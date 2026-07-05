@@ -420,7 +420,7 @@ date, compare to baseline, mark HIT / MISS / PARTIAL, and write the lesson.
 - **Result:** _pending 2026-08-17_
 - **Lesson:** _tbd_
 
-## P14 — Canopies & trays content category (pillar)
+## P15 — Canopies & trays content category (pillar)
 
 - **Opened:** 2026-07-05 (drafted; publishes after Wesley's review)
 - **Review on:** 2026-09-05 (8 weeks post-publish; new page needs time to index)
