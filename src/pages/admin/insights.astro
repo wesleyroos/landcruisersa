@@ -370,6 +370,39 @@ const igFollowersAt = igSnapNow
   ? new Intl.DateTimeFormat('en-ZA', { day: 'numeric', month: 'short' }).format(new Date(igSnapNow.fetched_at * 1000))
   : '';
 
+// Follower sparkline — one point per day (latest snapshot that day), last 60d.
+const igFollowerSeries = db.all<{ day: string; followers: number }>(sql`
+  SELECT date(fetched_at, 'unixepoch') day, followers_count followers
+  FROM ig_account_snapshots s
+  WHERE followers_count IS NOT NULL
+    AND fetched_at >= ${Math.floor(Date.now() / 1000) - 60 * 86400}
+    AND fetched_at = (
+      SELECT MAX(fetched_at) FROM ig_account_snapshots s2
+      WHERE date(s2.fetched_at, 'unixepoch') = date(s.fetched_at, 'unixepoch')
+    )
+  ORDER BY day
+`);
+
+// Build a compact SVG polyline. Needs ≥2 points to draw a line. viewBox is
+// unit-agnostic (0..100 × 0..30); the container sizes it. y flips so higher
+// followers sit higher. A flat series (min==max) draws a mid-height line.
+const SPARK_W = 100, SPARK_H = 30, SPARK_PAD = 3;
+let igSparkPath = '', igSparkArea = '', igSparkLastXY: [number, number] | null = null;
+if (igFollowerSeries.length >= 2) {
+  const vals = igFollowerSeries.map(r => r.followers);
+  const min = Math.min(...vals), max = Math.max(...vals);
+  const span = max - min || 1;
+  const n = igFollowerSeries.length;
+  const pts = igFollowerSeries.map((r, i) => {
+    const x = SPARK_PAD + (i / (n - 1)) * (SPARK_W - 2 * SPARK_PAD);
+    const y = SPARK_PAD + (1 - (r.followers - min) / span) * (SPARK_H - 2 * SPARK_PAD);
+    return [Math.round(x * 100) / 100, Math.round(y * 100) / 100] as [number, number];
+  });
+  igSparkPath = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p[0]},${p[1]}`).join(' ');
+  igSparkArea = `${igSparkPath} L${pts[n - 1][0]},${SPARK_H} L${pts[0][0]},${SPARK_H} Z`;
+  igSparkLastXY = pts[n - 1];
+}
+
 // ─── IG post performance — outcomes since each post date ─────────────────────
 const igPosts = db.select({
   id: listings.id,
@@ -434,6 +467,13 @@ const SOURCE_LABEL: Record<string, string> = {
       <div class="kpi kpi-hero">
         <p class="kpi-value">{igFollowers === null ? '—' : igFollowers.toLocaleString('en-ZA')}</p>
         <p class="kpi-label">IG Followers</p>
+        {igSparkPath && (
+          <svg class="spark" viewBox={`0 0 ${SPARK_W} ${SPARK_H}`} preserveAspectRatio="none" role="img" aria-label="Follower growth, last 60 days">
+            <path d={igSparkArea} fill="#F5A623" fill-opacity="0.12" stroke="none" />
+            <path d={igSparkPath} fill="none" stroke="#F5A623" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke" />
+            {igSparkLastXY && <circle cx={igSparkLastXY[0]} cy={igSparkLastXY[1]} r="1.8" fill="#F5A623" />}
+          </svg>
+        )}
         <p class="kpi-sub">{igFollowers === null
           ? 'first snapshot lands 07:00 tomorrow'
           : igFollowersDelta === null
@@ -1012,6 +1052,7 @@ const SOURCE_LABEL: Record<string, string> = {
   @media (min-width: 1024px) { .kpi-strip-5 { grid-template-columns: repeat(5, 1fr); } }
   @media (max-width: 639px)  { .kpi-strip-3 { grid-template-columns: repeat(2, 1fr); } }
   .kpi-hero { border-color: #F5A623; background: #FFFBF0; }
+  .spark { width: 100%; height: 22px; display: block; margin: 0.4rem 0 0.1rem; overflow: visible; }
 
   .kpi {
     background: white; border: 1px solid #E5E7EB; border-radius: 0.75rem;
