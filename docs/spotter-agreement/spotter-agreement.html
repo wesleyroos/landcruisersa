@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --amber:#F5A623; --amber-d:#C9790F; --ink:#111111;
+    --paper:#FFFFFF; --soft:#F6F4EF; --line:#E4E0D9; --grey:#56565B; --grey-l:#92928f;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  @page{ size:A4; margin:0; }
+  html,body{font-family:'Inter',sans-serif;color:var(--ink);background:var(--paper);}
+  .page{
+    position:relative;width:210mm;height:297mm;overflow:hidden;
+    padding:16mm 18mm 14mm;display:flex;flex-direction:column;
+    page-break-after:always;
+  }
+  .page:last-child{page-break-after:auto;}
+  .bar{position:absolute;top:0;left:0;height:7px;width:100%;
+       background:linear-gradient(90deg,var(--amber) 62%,var(--ink) 62%);}
+  h1,h2,.eyebrow,.foot b{font-family:'Barlow Condensed',sans-serif;}
+
+  .head{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid var(--ink);padding-bottom:10px;}
+  .eyebrow{font-weight:700;text-transform:uppercase;letter-spacing:.18em;font-size:9.5pt;color:var(--amber-d);margin-bottom:3px;}
+  h1{font-weight:800;text-transform:uppercase;font-size:27pt;line-height:.98;}
+  h1 .o{color:var(--amber);}
+  .head-r{text-align:right;font-size:8pt;color:var(--grey);line-height:1.55;}
+  .head-r b{font-weight:700;font-size:12pt;color:var(--ink);letter-spacing:.02em;display:block;text-transform:uppercase;font-family:'Barlow Condensed',sans-serif;}
+
+  .parties{background:var(--soft);border:1px solid var(--line);border-radius:12px;padding:14px 18px;margin-top:16px;font-size:9.6pt;line-height:1.65;color:#3a3a3a;}
+  .parties b{color:var(--ink);font-weight:600;}
+  .blank{display:inline-block;min-width:64mm;border-bottom:1px solid var(--grey-l);}
+  .blank-s{display:inline-block;min-width:34mm;border-bottom:1px solid var(--grey-l);}
+
+  h2{font-weight:700;text-transform:uppercase;font-size:11.5pt;letter-spacing:.05em;margin:14px 0 5px;
+     display:flex;align-items:center;gap:8px;}
+  h2::before{content:"";width:5px;height:14px;background:var(--amber);border-radius:1px;}
+  .clause{font-size:9.3pt;line-height:1.58;color:#3a3a3a;}
+  .clause b{color:var(--ink);font-weight:600;}
+  .clause ol{margin:3px 0 0 16px;}
+  .clause ol li{margin-bottom:3px;}
+
+  .foot{margin-top:auto;border-top:1px solid var(--line);padding-top:8px;font-size:7.8pt;color:var(--grey-l);
+        display:flex;justify-content:space-between;}
+  .foot b{color:var(--grey);font-weight:700;text-transform:uppercase;letter-spacing:.06em;}
+
+  /* Schedule */
+  .mhead{display:flex;justify-content:space-between;align-items:baseline;border-bottom:2px solid var(--ink);padding-bottom:9px;}
+  .mhead .t{font-family:'Barlow Condensed',sans-serif;font-weight:800;text-transform:uppercase;font-size:16pt;}
+  .fee-box{margin-top:16px;border:1.5px solid var(--ink);border-radius:14px;overflow:hidden;}
+  .fee-h{background:var(--ink);color:#fff;font-family:'Barlow Condensed',sans-serif;font-weight:700;text-transform:uppercase;letter-spacing:.06em;font-size:12pt;padding:10px 20px;}
+  .fee-grid{display:grid;grid-template-columns:1fr 1fr;}
+  .fee-cell{padding:16px 20px;border-right:1px solid var(--line);}
+  .fee-cell:last-child{border-right:none;}
+  .fee-cell .lbl{font-size:8pt;text-transform:uppercase;letter-spacing:.12em;color:var(--grey-l);font-weight:600;}
+  .fee-cell .amt{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:23pt;line-height:1.05;margin-top:5px;}
+  .fee-cell .amt small{font-family:'Inter';font-size:9.5pt;font-weight:600;color:var(--grey);}
+  .fee-cell .note{font-size:8.6pt;color:var(--grey);margin-top:6px;line-height:1.5;}
+
+  .steps{margin-top:16px;display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
+  .step{background:var(--soft);border:1px solid var(--line);border-radius:11px;padding:12px 13px;position:relative;}
+  .step .n{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:15pt;color:var(--amber-d);}
+  .step p{font-size:8.4pt;line-height:1.5;color:#3f3f3f;margin-top:3px;}
+  .step p b{color:var(--ink);font-weight:600;}
+
+  .sig-grid{display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-top:22px;}
+  .sig{border:1px solid var(--line);border-radius:12px;padding:16px 18px;}
+  .sig .who{font-family:'Barlow Condensed',sans-serif;font-weight:700;text-transform:uppercase;font-size:11pt;margin-bottom:12px;}
+  .sig .ln{border-bottom:1px solid var(--grey-l);height:9mm;margin-bottom:4px;}
+  .sig .lbl{font-size:7.8pt;color:var(--grey-l);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px;}
+
+  .legal-note{margin-top:14px;font-size:8pt;color:var(--grey-l);line-height:1.55;font-style:italic;}
+</style>
+</head>
+<body>
+
+<!-- ─────────────── PAGE 1: TERMS ─────────────── -->
+<section class="page">
+  <div class="bar"></div>
+  <div class="head">
+    <div>
+      <p class="eyebrow">Referral (Spotter) Agreement</p>
+      <h1>Buyer &amp; Seller<br>Referrals<span class="o">.</span></h1>
+    </div>
+    <div class="head-r">
+      <b>Land Cruiser SA</b>
+      landcruisersa.co.za<br>
+      The Land Cruiser marketplace &amp; community<br>
+      Agreement date: <span class="blank-s">&nbsp;</span>
+    </div>
+  </div>
+
+  <div class="parties">
+    Entered into between <b>Wesley Roos trading as Land Cruiser SA</b> (“the Spotter”)
+    and <b><span class="blank">&nbsp;</span></b> (“the Dealer”),
+    registration&nbsp;no. <span class="blank-s">&nbsp;</span>,
+    represented by <span class="blank">&nbsp;</span>, who warrants authority to sign.
+  </div>
+
+  <h2>1 · Purpose</h2>
+  <p class="clause">The Spotter operates landcruisersa.co.za and will refer prospective vehicle <b>buyers</b> (persons enquiring about the Dealer's stock) and, where applicable, prospective <b>sellers</b> (private owners whose vehicle the Dealer may wish to purchase) to the Dealer, in exchange for the success fees in <b>Schedule A</b>.</p>
+
+  <h2>2 · Referral mechanics</h2>
+  <div class="clause"><ol>
+    <li>Every referral is first captured by the Spotter and forwarded to the Dealer with a unique reference number (format <b>LCSA-R-YYYY-NNNN</b>) identifying the lead, the vehicle of interest, and the date.</li>
+    <li>A lead is a <b>Qualified Referral</b> only if introduced under a reference number. Persons already recorded in the Dealer's CRM at the time of referral are excluded — the Dealer must flag such exclusions within <b>5 business days</b> of receiving the referral, failing which the referral stands.</li>
+    <li>A fee is earned when a Qualified Referral <b>completes a purchase from the Dealer</b> (buyer-side) or when the Dealer <b>purchases the referred vehicle</b> (seller-side), within <b>90 days</b> of referral.</li>
+  </ol></div>
+
+  <h2>3 · Reporting &amp; audit</h2>
+  <div class="clause"><ol>
+    <li>The Dealer reports the outcome of each open referral (sold / lost / in progress) <b>monthly</b>, by reference number.</li>
+    <li>The Spotter may contact referred persons directly to confirm outcomes. Referred persons are informed of the referral relationship.</li>
+    <li>On reasonable notice, the Spotter may request supporting confirmation (e.g. invoice date, not price) for any referral reported as sold or lost.</li>
+  </ol></div>
+
+  <h2>4 · Payment</h2>
+  <p class="clause">Fees are invoiced when a sale is confirmed and payable within <b>14 days</b> of invoice. Late amounts bear interest at the prime overdraft rate plus 2%.</p>
+
+  <h2>5 · Relationship, non-exclusivity &amp; independence</h2>
+  <div class="clause"><ol>
+    <li>This is a <b>non-exclusive</b> arrangement. Both parties remain free to work with any other party, and the Spotter's website remains an independent, whole-of-market platform — nothing in this agreement obliges the Spotter to feature, rank or promote the Dealer's stock.</li>
+    <li>The Spotter acts as an independent referrer — not an agent, employee, partner or F&amp;I intermediary of the Dealer. The Dealer alone concludes all sales and is responsible for its own regulatory compliance (incl. CPA and FICA).</li>
+  </ol></div>
+
+  <h2>6 · Personal information (POPIA)</h2>
+  <p class="clause">Referred persons consent to their details being shared for the referred purpose. The Dealer may use referred details <b>only</b> to serve that enquiry and must not add them to marketing lists without the person's own consent.</p>
+
+  <h2>7 · Term &amp; termination</h2>
+  <p class="clause">Month-to-month from the agreement date. Either party may terminate on <b>30 days' written notice</b> (email suffices). Fees on referrals made before termination remain payable if the sale completes within the 90-day window.</p>
+
+  <div class="foot">
+    <span><b>Land Cruiser SA</b> · Referral (Spotter) Agreement</span>
+    <span>Page 1 of 2</span>
+  </div>
+</section>
+
+<!-- ─────────────── PAGE 2: SCHEDULE A + SIGNATURES ─────────────── -->
+<section class="page">
+  <div class="bar"></div>
+  <div class="mhead">
+    <p class="eyebrow">Schedule A</p>
+    <p class="t">Fees &amp; Process</p>
+  </div>
+
+  <div class="fee-box">
+    <div class="fee-h">Success fees — pay on completion only</div>
+    <div class="fee-grid">
+      <div class="fee-cell">
+        <div class="lbl">Buyer-side · per completed purchase</div>
+        <div class="amt">R <span class="blank-s">&nbsp;</span></div><p class="note" style="margin-top:4px;font-weight:600;color:#111;">per vehicle sold to a Qualified Referral</p>
+        <p class="note">Flat fee per vehicle the Dealer sells to a buyer referred under an LCSA reference number.</p>
+      </div>
+      <div class="fee-cell">
+        <div class="lbl">Seller-side · per sourced vehicle</div>
+        <div class="amt">R <span class="blank-s">&nbsp;</span></div><p class="note" style="margin-top:4px;font-weight:600;color:#111;">per referred vehicle the Dealer buys</p>
+        <p class="note">Flat fee per private-seller vehicle introduced by the Spotter that the Dealer purchases.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="steps">
+    <div class="step"><div class="n">1</div><p><b>Capture.</b> Buyer or seller enquires via landcruisersa.co.za; consent to referral recorded.</p></div>
+    <div class="step"><div class="n">2</div><p><b>Refer.</b> Lead forwarded to the Dealer's nominated contact with reference no. LCSA-R-YYYY-NNNN.</p></div>
+    <div class="step"><div class="n">3</div><p><b>Report.</b> Dealer flags CRM exclusions within 5 days; reports outcomes monthly by reference no.</p></div>
+    <div class="step"><div class="n">4</div><p><b>Settle.</b> Sale confirmed → invoice issued → payable in 14 days.</p></div>
+  </div>
+
+  <h2 style="margin-top:18px;">8 · General</h2>
+  <p class="clause">South African law applies. This document plus Schedule A is the whole agreement; changes must be agreed in writing (email suffices). Neither party will make public statements about the other without consent.</p>
+
+  <h2 style="margin-top:20px;">Nominated contacts</h2>
+  <p class="clause">
+    Dealer contact for referrals: <span class="blank">&nbsp;</span> &nbsp; (WhatsApp/email): <span class="blank">&nbsp;</span><br>
+    Spotter contact: Wesley Roos &nbsp;·&nbsp; landcruisersa.co.za
+  </p>
+
+  <div class="sig-grid">
+    <div class="sig">
+      <div class="who">For the Spotter — Land Cruiser SA</div>
+      <div class="ln"></div><div class="lbl">Signature</div>
+      <div class="ln"></div><div class="lbl">Name &amp; date</div>
+    </div>
+    <div class="sig">
+      <div class="who">For the Dealer</div>
+      <div class="ln"></div><div class="lbl">Signature</div>
+      <div class="ln"></div><div class="lbl">Name, capacity &amp; date</div>
+    </div>
+  </div>
+
+  <p class="legal-note">Template prepared for negotiation purposes — have an attorney review before first signature. Key commercial choices left blank by design: the two fee amounts and the Dealer's nominated contact.</p>
+
+  <div class="foot">
+    <span><b>Land Cruiser SA</b> · Referral (Spotter) Agreement — Schedule A</span>
+    <span>Page 2 of 2</span>
+  </div>
+</section>
+
+</body>
+</html>
