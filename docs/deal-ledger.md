@@ -88,6 +88,7 @@ so threads either progress or get consciously dropped — never drift.
   - **Included per engine:** independent platform (listings + market/price data + valuation + community/IG) · content engine (AI-citable guides + monthly market reports) · "Powered by WeBuyCars" branding · exclusive buyer+seller funnel · self-improving methodology · monthly reporting.
   - **Rollout:** Phase 1 = LCSA + Jimny (live proof) → Phase 2 = expand to agreed makes/models quarterly.
   - **Next:** send the one-pager to **Tersia** (the internal champion) to circulate; the technical asks (stock-API access, sales-API mechanics, sold/M&M data) fold in once the sponsorship is agreed in principle. See memory [[project-webuycars]].
+- **STATUS (2026-07-07):** Wesley asked Tersia whether she's happy for him to follow up with Wynand directly (Faan article sign-off still pending since ~2026-06-29). Kill-or-advance 2026-07-18 unchanged.
 
 ---
 
@@ -96,7 +97,7 @@ so threads either progress or get consciously dropped — never drift.
 - **Stage:** Conversation (warm — Wesley's father-in-law is **CFO of mSure**, a Motus arm)
 - **Value hypothesis:** Data IN (proprietary SA vehicle data carVertical can't get — Motus dealer service records, mSure claims/write-offs, TransUnion/Lightstone) + Distribution OUT (B2B2C: engine serves mSure underwriting/claims + Motus dealers as a per-car VAP). Sidesteps the traffic constraint; a B2B contract + proprietary data >> a lead-gen site for exit. See [[project-book-of-life-msure]].
 - **Next action:** build the one-page concept + a mock Book-of-Life report layout; ask FIL the three scoping questions (what data they can expose / appetite: pilot vs supply vs JV / which pain he'd pay to solve today).
-- **Kill-or-advance:** one-pager + mock to FIL by **2026-07-11**. ADVANCE = he names a data source he can expose OR a pain he'd pilot.
+- **⏸️ PARKED by choice (2026-07-07):** Wesley explicitly deferred — "don't want to do anything with mSure yet." Not a silent miss of the 2026-07-11 date; revisit when WBC/D6 resolve (family-adjacent deal, no urgency decay).
 
 ---
 
@@ -130,14 +131,15 @@ so threads either progress or get consciously dropped — never drift.
 - **⚠️ WBC conflict (D1):** the WBC offering sells *exclusive* buyer-funnel routing. Keep this deal **non-exclusive + 30-day terminable**; frame internally as the **paid pilot that proves + prices the funnel math** for the network pitch ("dealers already come to us and pay"). Do NOT sign anything exclusive with Auto Investments.
 - **Build (minimum, not a "dealer section"):** flip their listings from external deeplink → on-site lead capture + forward-with-reference; pull stock direct from their site (bypasses AutoTrader). **Site audit 2026-07-03: EASY.** autoinorthcoast.co.za = custom multi-tenant Django, server-rendered, robots allows all, full sitemap.xml (64 vehicles, ~16 LC-family incl. 9× LC79), and every `/vehicle/<slug>/` page embeds clean schema.org/Vehicle JSON-LD (price/year/mileage/fuel/images/spec) — sitemap → JSON-LD parse, <70 req/day, no headless browser. Same codebase runs every group branch domain (e.g. autoinvestments.co.za) → one generalized crawler covers the whole group. Leads POST to their own Django endpoints (no 3rd-party CRM). No official feed though — still ask Blair to bless the pull + for a feed/DMS export as the durable option.
 - **Next action:** WhatsApp Blair (he asked for it); discovery call — what they pay spotters per car, feed access, then paper the fee.
+- **STATUS (2026-07-07):** Blair owes Wesley two replies — (1) an offer on a **private-seller vehicle Wesley sent him** (⭐ first cross-loop event: consumer sell-side → dealer buyer, the D3 shape running through D6) and (2) the commercials. Ball in Blair's court — draft the spotter agreement NOW so there's zero lag when he responds.
 - **Kill-or-advance:** written fee terms + stock feed access agreed by **2026-07-24**, else park.
 
 ---
 
 ## D5 — Ghost (immobiliser) — tracked in prediction-ledger P6
 
-- **Stage:** Monitoring (content live; outbound clicks tracked)
-- **Gate:** pursue only as a self-serve trackable affiliate, never chased lead-gen. See [[project-ghost-referral]] + `prediction-ledger.md` P6 (review 2026-07-20; ≥1 outbound click = go/no-go).
+- **Stage:** Conversation (Wesley followed up 2026-07-07, after the P6 go-signal fired: 3 outbound clicks to ghostsouthafrica.co.za in 30d)
+- **Gate:** pursue only as a self-serve trackable affiliate, never chased lead-gen. If Ghost has no self-serve/trackable program, the content stays a pure citation asset — do not negotiate a "send us leads, we'll pay" arrangement. See [[project-ghost-referral]] + `prediction-ledger.md` P6 (review 2026-07-20).
 
 ---
 
