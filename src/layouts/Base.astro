@@ -161,7 +161,10 @@ const ogImage = new URL(image, SITE.url).href;
 
     <!-- LLM-citation capture: when the visit was referred by an AI assistant
          (plain link, no utm param), log the source + landing page once per
-         session. Server re-classifies the host; this just pre-filters. -->
+         session. Server re-classifies the host; this just pre-filters.
+         NOTE: reads/creates lcsa_vcid itself — Astro emits these inline scripts
+         in an order that differs from source, so window.__lcsaCid may not be
+         set yet when this runs (that bug nulled client_id on every referral). -->
     <script>
       try {
         const ref = document.referrer;
@@ -169,11 +172,20 @@ const ogImage = new URL(image, SITE.url).href;
           const h = new URL(ref).hostname.toLowerCase().replace(/^www\./, '');
           const isAi = /(^|\.)(chatgpt\.com|openai\.com|gemini\.google\.com|bard\.google\.com|perplexity\.ai|copilot\.microsoft\.com|claude\.ai|deepseek\.com|grok\.com|x\.ai|mistral\.ai|you\.com|poe\.com|phind\.com)$/.test(h);
           if (isAi) {
+            let cid = null;
+            try {
+              cid = localStorage.getItem('lcsa_vcid');
+              if (!cid) {
+                cid = (self.crypto && crypto.randomUUID) ? crypto.randomUUID()
+                    : (Date.now().toString(36) + Math.random().toString(36).slice(2));
+                localStorage.setItem('lcsa_vcid', cid);
+              }
+            } catch {}
             sessionStorage.setItem('lcsa_ref_sent', '1');
             navigator.sendBeacon('/api/track-referral', JSON.stringify({
               referrer: ref,
               landing_path: location.pathname,
-              client_id: window.__lcsaCid || null,
+              client_id: cid,
             }));
           }
         }
