@@ -5,14 +5,38 @@ import AdminLayout from '@/layouts/AdminLayout.astro';
 import AdminIgPost from '@/components/AdminIgPost.astro';
 import { getCredentials } from '@/lib/instagram';
 import { db } from '@/db/index';
-import { listings } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { listings, dealerOffers, listingDocs } from '@/db/schema';
+import { eq, desc } from 'drizzle-orm';
 
 const id = Number(Astro.params.id);
 if (isNaN(id)) return Astro.redirect('/admin');
 
 const [listing] = await db.select().from(listings).where(eq(listings.id, id));
 if (!listing) return Astro.redirect('/admin');
+
+// Private-seller deal data (own listings only): dealer offers + vehicle identity.
+const isOwn = listing.source === 'own';
+const offers = isOwn
+  ? await db.select().from(dealerOffers).where(eq(dealerOffers.listing_id, id)).orderBy(desc(dealerOffers.offer_date))
+  : [];
+const [doc] = isOwn
+  ? await db.select({
+      vin: listingDocs.vin, engine_no: listingDocs.engine_no, licence_no: listingDocs.licence_no,
+      register_no: listingDocs.register_no, disc_expiry: listingDocs.disc_expiry, notes: listingDocs.notes,
+      hasImage: listingDocs.disc_image_type,
+    }).from(listingDocs).where(eq(listingDocs.listing_id, id))
+  : [];
+
+const VERIF_LABEL: Record<string, string> = {
+  sight_unseen: 'Sight unseen', vin_verified: 'VIN verified', inspected: 'Inspected',
+};
+const randFmt = (n: number | null) => n != null ? `R${n.toLocaleString('en-ZA')}` : '—';
+const dateFmt = (d: Date | null) => d
+  ? new Intl.DateTimeFormat('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' }).format(d)
+  : '';
+// Best (highest) offer vs asking → the headline spread for this vehicle.
+const bestOffer = offers.length ? Math.max(...offers.map(o => o.offer_amount)) : null;
+const spreadPct = bestOffer && listing.price ? Math.round((1 - bestOffer / listing.price) * 100) : null;
 
 function firstPhoto(photos: string) {
   try { return JSON.parse(photos)[0] ?? null; } catch { return null; }
@@ -300,6 +324,133 @@ const waSpec = [
         </div>
 
       </form>
+
+      {isOwn && (
+        <>
+          <!-- DEALER OFFERS (own/private-seller listings only) -->
+          <div class="card offers-card">
+            <h2 class="card-heading">
+              Dealer Offers
+              {spreadPct != null && (
+                <span class="spread-pill" title="Best offer vs asking price">
+                  {randFmt(bestOffer)} best · {spreadPct}% below asking
+                </span>
+              )}
+            </h2>
+            <p class="panel-hint">Log the raw offer each dealer makes (not the net you quote the seller). This is proprietary trade-value data — it feeds the valuation engine and Book of Life.</p>
+
+            <div id="offers-list">
+              {offers.length === 0 && <p class="offers-empty" id="offers-empty">No offers logged yet.</p>}
+              {offers.map(o => (
+                <div class="offer-row" data-offer-id={o.id}>
+                  <div class="offer-main">
+                    <span class="offer-amount">{randFmt(o.offer_amount)}</span>
+                    <span class="offer-dealer">{o.dealer_name}</span>
+                  </div>
+                  <div class="offer-meta">
+                    <span class={`verif-badge verif-${o.verification}`}>{VERIF_LABEL[o.verification] ?? o.verification}</span>
+                    {o.conditional ? <span class="offer-cond">subject to viewing</span> : null}
+                    <span class="offer-date">{dateFmt(o.offer_date)}</span>
+                  </div>
+                  {o.notes && <p class="offer-notes">{o.notes}</p>}
+                  <button type="button" class="offer-del" data-offer-id={o.id} title="Delete offer">✕</button>
+                </div>
+              ))}
+            </div>
+
+            <div class="offer-form" id="offer-form">
+              <div class="field-row">
+                <div class="field">
+                  <label>Dealer</label>
+                  <input type="text" id="of-dealer" placeholder="e.g. WeBuyCars" />
+                </div>
+                <div class="field">
+                  <label>Offer (R)</label>
+                  <input type="number" id="of-amount" min="0" placeholder="950000" />
+                </div>
+              </div>
+              <div class="field-row">
+                <div class="field">
+                  <label>Verification</label>
+                  <select id="of-verif">
+                    <option value="sight_unseen">Sight unseen (no disc/VIN)</option>
+                    <option value="vin_verified">VIN verified (disc seen)</option>
+                    <option value="inspected">Physically inspected</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label>Offer date</label>
+                  <input type="date" id="of-date" />
+                </div>
+              </div>
+              <div class="field">
+                <label class="cond-check"><input type="checkbox" id="of-cond" checked /> Conditional — subject to physical viewing/inspection</label>
+              </div>
+              <div class="field">
+                <label>Notes <span class="label-hint">optional — e.g. "revised up after pushback"</span></label>
+                <input type="text" id="of-notes" placeholder="" />
+              </div>
+              <button type="button" class="btn-add-offer" id="btn-add-offer">+ Add offer</button>
+              <span class="offer-status" id="offer-status"></span>
+            </div>
+          </div>
+
+          <!-- VEHICLE IDENTITY / LICENCE DISC (private, admin-only) -->
+          <div class="card docs-card">
+            <h2 class="card-heading">Vehicle Identity <span class="private-tag">🔒 private</span></h2>
+            <p class="panel-hint">Off the licence disc — what dealers need to run a history/insurance check. Admin-only, never shown publicly. The disc image is stored privately in the database.</p>
+
+            <div id="doc-save-banner" class="save-banner hidden">Saved.</div>
+
+            <div class="field-row">
+              <div class="field">
+                <label>VIN</label>
+                <input type="text" id="dc-vin" value={doc?.vin ?? ''} placeholder="JTEBV71J70B057452" />
+              </div>
+              <div class="field">
+                <label>Engine no.</label>
+                <input type="text" id="dc-engine" value={doc?.engine_no ?? ''} placeholder="1VD0627796" />
+              </div>
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label>Licence no.</label>
+                <input type="text" id="dc-licence" value={doc?.licence_no ?? ''} placeholder="LD65HYGP" />
+              </div>
+              <div class="field">
+                <label>Register no.</label>
+                <input type="text" id="dc-register" value={doc?.register_no ?? ''} placeholder="JWD982L" />
+              </div>
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label>Disc expiry</label>
+                <input type="date" id="dc-expiry" value={doc?.disc_expiry ?? ''} />
+              </div>
+              <div class="field">
+                <label>Notes</label>
+                <input type="text" id="dc-notes" value={doc?.notes ?? ''} placeholder="optional" />
+              </div>
+            </div>
+
+            <div class="field">
+              <label>Licence disc photo</label>
+              <div class="disc-image-row">
+                <img
+                  id="disc-thumb"
+                  src={doc?.hasImage ? `/api/admin/listing-doc-image/${listing.id}?t=${Date.now()}` : ''}
+                  alt="Licence disc"
+                  style={doc?.hasImage ? '' : 'display:none'}
+                />
+                <input type="file" id="dc-image" accept="image/jpeg,image/png,image/webp" />
+              </div>
+            </div>
+
+            <button type="button" class="btn-save-doc" id="btn-save-doc">Save identity</button>
+            <span class="offer-status" id="doc-status"></span>
+          </div>
+        </>
+      )}
     </div>
 
     <!-- RIGHT: Photos -->
@@ -1050,3 +1201,165 @@ const waSpec = [
     btn.disabled = false;
   });
 </script>
+
+<!-- Private-seller deal data: dealer offers + vehicle identity -->
+<script define:vars={{ listingId: listing.id }}>
+  // ── Add a dealer offer ─────────────────────────────────────────────────────
+  const addOfferBtn = document.getElementById('btn-add-offer');
+  if (addOfferBtn) {
+    const offStatus = document.getElementById('offer-status');
+    addOfferBtn.addEventListener('click', async () => {
+      const dealer = document.getElementById('of-dealer').value.trim();
+      const amount = Number(document.getElementById('of-amount').value);
+      if (!dealer) { offStatus.textContent = 'Enter a dealer name'; offStatus.className = 'offer-status err'; return; }
+      if (!amount || amount <= 0) { offStatus.textContent = 'Enter a valid offer'; offStatus.className = 'offer-status err'; return; }
+
+      addOfferBtn.disabled = true;
+      offStatus.textContent = 'Saving…';
+      offStatus.className = 'offer-status';
+      try {
+        const res = await fetch('/api/admin/dealer-offers', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            listing_id: listingId,
+            dealer_name: dealer,
+            offer_amount: amount,
+            verification: document.getElementById('of-verif').value,
+            conditional: document.getElementById('of-cond').checked,
+            offer_date: document.getElementById('of-date').value || undefined,
+            notes: document.getElementById('of-notes').value.trim() || undefined,
+          }),
+        });
+        if (res.ok) { window.location.reload(); return; }
+        const j = await res.json().catch(() => ({}));
+        offStatus.textContent = j.error || 'Failed — try again';
+        offStatus.className = 'offer-status err';
+      } catch {
+        offStatus.textContent = 'Network error';
+        offStatus.className = 'offer-status err';
+      }
+      addOfferBtn.disabled = false;
+    });
+
+    // Delete an offer
+    document.querySelectorAll('.offer-del').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if (!confirm('Delete this offer?')) return;
+        btn.disabled = true;
+        try {
+          const res = await fetch('/api/admin/dealer-offers', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: Number(btn.dataset.offerId) }),
+          });
+          if (res.ok) { window.location.reload(); return; }
+        } catch { /* fall through */ }
+        alert('Failed to delete — try again.');
+        btn.disabled = false;
+      });
+    });
+  }
+
+  // ── Save vehicle identity (+ optional disc image) ──────────────────────────
+  const saveDocBtn = document.getElementById('btn-save-doc');
+  if (saveDocBtn) {
+    const docStatus = document.getElementById('doc-status');
+    const docBanner = document.getElementById('doc-save-banner');
+    saveDocBtn.addEventListener('click', async () => {
+      saveDocBtn.disabled = true;
+      docStatus.textContent = 'Saving…';
+      docStatus.className = 'offer-status';
+      const fd = new FormData();
+      fd.append('listing_id', String(listingId));
+      fd.append('vin', document.getElementById('dc-vin').value.trim());
+      fd.append('engine_no', document.getElementById('dc-engine').value.trim());
+      fd.append('licence_no', document.getElementById('dc-licence').value.trim());
+      fd.append('register_no', document.getElementById('dc-register').value.trim());
+      fd.append('disc_expiry', document.getElementById('dc-expiry').value);
+      fd.append('notes', document.getElementById('dc-notes').value.trim());
+      const fileInput = document.getElementById('dc-image');
+      if (fileInput.files && fileInput.files[0]) fd.append('disc_image', fileInput.files[0]);
+
+      try {
+        const res = await fetch('/api/admin/listing-docs', { method: 'POST', body: fd });
+        if (res.ok) {
+          docStatus.textContent = '';
+          docBanner.classList.remove('hidden');
+          const thumb = document.getElementById('disc-thumb');
+          if (fileInput.files && fileInput.files[0]) {
+            thumb.src = `/api/admin/listing-doc-image/${listingId}?t=${Date.now()}`;
+            thumb.style.display = '';
+            fileInput.value = '';
+          }
+          setTimeout(() => docBanner.classList.add('hidden'), 2500);
+        } else {
+          const j = await res.json().catch(() => ({}));
+          docStatus.textContent = j.error || 'Failed — try again';
+          docStatus.className = 'offer-status err';
+        }
+      } catch {
+        docStatus.textContent = 'Network error';
+        docStatus.className = 'offer-status err';
+      }
+      saveDocBtn.disabled = false;
+    });
+  }
+</script>
+
+<style>
+  .panel-hint { font-size: 0.75rem; color: #9CA3AF; margin: -0.5rem 0 1rem; line-height: 1.4; }
+  .offers-card .card-heading, .docs-card .card-heading { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap; }
+  .spread-pill {
+    font-size: 0.68rem; font-weight: 700; text-transform: none; letter-spacing: 0;
+    background: rgba(245,166,35,0.15); color: #92400E; padding: 0.25rem 0.6rem; border-radius: 9999px;
+  }
+  .private-tag { font-size: 0.62rem; font-weight: 700; text-transform: none; letter-spacing: 0; color: #6B7280; }
+
+  .offers-empty { font-size: 0.85rem; color: #9CA3AF; margin-bottom: 1rem; }
+  .offer-row {
+    position: relative; border: 1px solid #EAE8E3; border-radius: 0.625rem;
+    padding: 0.75rem 0.875rem; margin-bottom: 0.625rem; background: #FAFAF8;
+  }
+  .offer-main { display: flex; align-items: baseline; gap: 0.6rem; flex-wrap: wrap; }
+  .offer-amount { font-size: 1.05rem; font-weight: 800; color: #111; }
+  .offer-dealer { font-size: 0.85rem; font-weight: 600; color: #374151; }
+  .offer-meta { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.35rem; flex-wrap: wrap; }
+  .verif-badge {
+    font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+    padding: 0.15rem 0.45rem; border-radius: 9999px;
+  }
+  .verif-sight_unseen { background: #FEE2E2; color: #991B1B; }
+  .verif-vin_verified { background: rgba(245,166,35,0.18); color: #92400E; }
+  .verif-inspected    { background: #DCFCE7; color: #166534; }
+  .offer-cond, .offer-date { font-size: 0.7rem; color: #9CA3AF; }
+  .offer-notes { font-size: 0.78rem; color: #6B7280; margin: 0.4rem 0 0; font-style: italic; }
+  .offer-del {
+    position: absolute; top: 0.5rem; right: 0.5rem; background: none; border: none;
+    color: #D1D5DB; font-size: 0.85rem; cursor: pointer; line-height: 1; padding: 0.2rem;
+  }
+  .offer-del:hover { color: #DC2626; }
+
+  .offer-form { border-top: 1px solid #EAE8E3; padding-top: 1rem; margin-top: 0.5rem; }
+  .cond-check {
+    display: flex; align-items: center; gap: 0.5rem; text-transform: none;
+    letter-spacing: 0; font-weight: 500; color: #374151; font-size: 0.82rem;
+  }
+  .cond-check input { width: auto; }
+  .btn-add-offer, .btn-save-doc {
+    background: #111; color: white; border: none; border-radius: 0.5rem;
+    font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+    padding: 0.6rem 1.25rem; cursor: pointer; transition: background 0.15s;
+  }
+  .btn-add-offer:hover, .btn-save-doc:hover { background: #333; }
+  .btn-add-offer:disabled, .btn-save-doc:disabled { opacity: 0.5; cursor: not-allowed; }
+  .offer-status { margin-left: 0.75rem; font-size: 0.78rem; font-weight: 600; color: #6B7280; }
+  .offer-status.err { color: #DC2626; }
+
+  .disc-image-row { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+  #disc-thumb {
+    width: 120px; height: 120px; object-fit: cover; border-radius: 0.625rem;
+    border: 1px solid #DDD9D3; background: #EAE8E3;
+  }
+  .disc-image-row input[type="file"] { flex: 1; min-width: 180px; }
+</style>

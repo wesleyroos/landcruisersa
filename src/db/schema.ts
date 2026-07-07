@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, real, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, real, blob, uniqueIndex } from 'drizzle-orm/sqlite-core';
 
 export const listings = sqliteTable('listings', {
   id:           integer('id').primaryKey({ autoIncrement: true }),
@@ -450,3 +450,56 @@ export const savedSearches = sqliteTable('saved_searches', {
   created_at:       integer('created_at', { mode: 'timestamp' }).notNull(),
 });
 export type SavedSearch = typeof savedSearches.$inferSelect;
+
+// ── Dealer offers (private-seller deal data) ─────────────────────────────────
+// Manually-logged offers a dealer made on an OWN/private-seller listing while
+// we broker it. This is the proprietary "trade/wholesale floor" that no scraper
+// can produce — the third price point between asking (scraped) and sold (rare),
+// and the exact data that breaks the valuation engine's asking-anchored ceiling.
+// Append-only: one row per offer event, so a revised offer (e.g. R938k → R1m
+// after pushback) is just two rows. Vehicle context is denormalised so a
+// datapoint survives even if the listing is later deleted or churns off-market.
+export const dealerOffers = sqliteTable('dealer_offers', {
+  id:            integer('id').primaryKey({ autoIncrement: true }),
+  listing_id:    integer('listing_id').notNull(),
+  slug:          text('slug').notNull(),
+  dealer_name:   text('dealer_name').notNull(),
+  offer_amount:  integer('offer_amount').notNull(),   // RAW dealer offer in Rand (NOT the net quoted to the seller)
+  // How much the dealer could verify — explains large swings (a blind offer
+  // lowballs vs a disc/VIN-verified one). Makes offers comparable.
+  verification:  text('verification').notNull().default('sight_unseen'), // 'sight_unseen' | 'vin_verified' | 'inspected'
+  conditional:   integer('conditional', { mode: 'boolean' }).notNull().default(true), // subject to physical viewing/inspection
+  notes:         text('notes'),
+  offer_date:    integer('offer_date', { mode: 'timestamp' }).notNull(),  // when the dealer made the offer
+  // Denormalised vehicle snapshot at time of offer (durability + analysis):
+  year:          integer('year'),
+  model:         text('model'),
+  mileage:       integer('mileage'),
+  asking_price:  integer('asking_price'),             // listing asking at time of offer
+  created_at:    integer('created_at', { mode: 'timestamp' }).notNull(),
+});
+export type DealerOffer = typeof dealerOffers.$inferSelect;
+
+// ── Listing documents / vehicle identity (private-seller, admin-only) ─────────
+// One row per OWN/private-seller listing. Holds the identity fields off the
+// licence disc (VIN, engine + registration numbers) that dealers need to run a
+// history/insurance check — the "vin_verified" input for dealer_offers and the
+// seed of the Book-of-Life dataset. SENSITIVE: never rendered publicly; the disc
+// image is stored as a private BLOB (served only via an admin-authed route), NOT
+// on the public R2 bucket. POPIA-minimal: capture only what the deal needs.
+export const listingDocs = sqliteTable('listing_docs', {
+  id:              integer('id').primaryKey({ autoIncrement: true }),
+  listing_id:      integer('listing_id').notNull().unique(),
+  slug:            text('slug').notNull(),
+  vin:             text('vin'),
+  engine_no:       text('engine_no'),
+  licence_no:      text('licence_no'),      // e.g. LD65HYGP
+  register_no:     text('register_no'),     // vehicle register no, e.g. JWD982L
+  disc_expiry:     text('disc_expiry'),     // YYYY-MM-DD off the disc
+  disc_image:      blob('disc_image'),      // compressed JPEG bytes of the licence disc (private)
+  disc_image_type: text('disc_image_type'), // MIME, e.g. image/jpeg
+  notes:           text('notes'),
+  updated_at:      integer('updated_at', { mode: 'timestamp' }).notNull(),
+  created_at:      integer('created_at', { mode: 'timestamp' }).notNull(),
+});
+export type ListingDoc = typeof listingDocs.$inferSelect;

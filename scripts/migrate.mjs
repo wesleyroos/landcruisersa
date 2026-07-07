@@ -555,6 +555,50 @@ db.exec(`
 `);
 db.exec(`CREATE INDEX IF NOT EXISTS saved_searches_user ON saved_searches (user_id)`);
 
+// ── Dealer offers + listing docs (private-seller deal data) ──────────────────
+// New tables → CREATE TABLE IF NOT EXISTS (the finance_leads pattern). Do NOT
+// add these columns to REQUIRED_COLS — that guard is for the listings table only.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS dealer_offers (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    listing_id   INTEGER NOT NULL,
+    slug         TEXT    NOT NULL,
+    dealer_name  TEXT    NOT NULL,
+    offer_amount INTEGER NOT NULL,
+    verification TEXT    NOT NULL DEFAULT 'sight_unseen',
+    conditional  INTEGER NOT NULL DEFAULT 1,
+    notes        TEXT,
+    offer_date   INTEGER NOT NULL,
+    year         INTEGER,
+    model        TEXT,
+    mileage      INTEGER,
+    asking_price INTEGER,
+    created_at   INTEGER NOT NULL
+  )
+`);
+db.exec(`CREATE INDEX IF NOT EXISTS dealer_offers_listing ON dealer_offers (listing_id)`);
+db.exec(`CREATE INDEX IF NOT EXISTS dealer_offers_model ON dealer_offers (model, offer_date)`);
+
+// Vehicle identity off the licence disc — SENSITIVE, admin-only. disc_image is a
+// private BLOB (served only via the admin-authed route), never on public R2.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS listing_docs (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    listing_id      INTEGER NOT NULL UNIQUE,
+    slug            TEXT    NOT NULL,
+    vin             TEXT,
+    engine_no       TEXT,
+    licence_no      TEXT,
+    register_no     TEXT,
+    disc_expiry     TEXT,
+    disc_image      BLOB,
+    disc_image_type TEXT,
+    notes           TEXT,
+    updated_at      INTEGER NOT NULL,
+    created_at      INTEGER NOT NULL
+  )
+`);
+
 // Unique index for aggregator dedup — safe to run repeatedly
 db.exec(`
   CREATE UNIQUE INDEX IF NOT EXISTS listings_source_source_id
