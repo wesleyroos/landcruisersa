@@ -969,6 +969,65 @@ function formatMileage(n: number) {
     // The "alert me" CTA in the empty state only makes sense when the 0-result
     // search has saveable criteria (model/province/price/year).
     document.getElementById('empty-alert-btn')?.classList.toggle('hidden', !anySaveableFilter());
+    saveFilterState();
+  }
+
+  // ── Session persistence: clicking into a listing and coming BACK used to wipe
+  //    the filters (all state is client-side). Snapshot on every change; restore
+  //    on load when the URL carries no explicit filters (URL always wins).
+  const FILTER_KEY = 'lcsa_listings_filters';
+  function saveFilterState() {
+    try {
+      sessionStorage.setItem(FILTER_KEY, JSON.stringify({
+        models: selectedModels,
+        provinces: selectedProvinces,
+        mileages: selectedMileages.map(([mn, mx]) => [mn, isFinite(mx) ? mx : null]),
+        priceMin, priceMax: isFinite(priceMax) ? priceMax : null,
+        yearMin, yearMax: isFinite(yearMax) ? yearMax : null,
+        type: activeType,
+        cab: selectedCab,
+        trans: selectedTrans,
+        engine: selectedEngine,
+        page: currentPage,
+      }));
+    } catch {}
+  }
+  function restoreFilterState(): boolean {
+    try {
+      const raw = sessionStorage.getItem(FILTER_KEY);
+      if (!raw) return false;
+      const s = JSON.parse(raw);
+      msBoxes.forEach(b => { b.checked = (s.models || []).includes(b.value); });
+      updateModelLabel();
+      provBoxes.forEach(b => { b.checked = (s.provinces || []).includes(b.value); });
+      updateProvinceLabel();
+      const saved: [number, number][] = (s.mileages || []).map((r: [number, number | null]) => [r[0], r[1] == null ? Infinity : r[1]]);
+      mileBoxes.forEach(b => {
+        const mn = Number(b.dataset.min || 0);
+        const mx = b.dataset.max ? Number(b.dataset.max) : Infinity;
+        b.checked = saved.some(([a, z]) => a === mn && z === mx);
+      });
+      updateMileageLabel();
+      priceMin = s.priceMin || 0;
+      priceMax = s.priceMax == null ? Infinity : s.priceMax;
+      priceMinInput.value = priceMin > 0 ? String(priceMin) : '';
+      priceMaxInput.value = isFinite(priceMax) ? String(priceMax) : '';
+      priceLabelEl.textContent = customPriceLabel(priceMin, priceMax);
+      yearMin = s.yearMin || 0;
+      yearMax = s.yearMax == null ? Infinity : s.yearMax;
+      yearMinInput.value = yearMin > 0 ? String(yearMin) : '';
+      yearMaxInput.value = isFinite(yearMax) ? String(yearMax) : '';
+      yearLabelEl.textContent = yearFilterLabel(yearMin, yearMax);
+      selectedCab = s.cab === 'single' || s.cab === 'double' ? s.cab : null;
+      setTrans(s.trans === 'manual' || s.trans === 'automatic' ? s.trans : '');
+      setEngine(typeof s.engine === 'string' ? s.engine : null);
+      activeType = typeof s.type === 'string' ? s.type : 'all';
+      typePills.forEach(p => p.classList.toggle('active', p.dataset.type === activeType));
+      (document.getElementById('price-filter') as HTMLElement).style.display = activeType === 'sold' ? 'none' : '';
+      currentPage = Number(s.page) >= 1 ? Number(s.page) : 1;
+      applyFilters(false);
+      return true;
+    } catch { return false; }
   }
 
   // ── NL search hook: apply a parsed query to the existing filter controls,
@@ -1173,7 +1232,8 @@ function formatMileage(n: number) {
     if (sp.get('alert') === '1') {
       window.setTimeout(() => saveSearchBtn?.click(), 300);
     }
-  } else {
+  } else if (!restoreFilterState()) {
+    // No URL filters and nothing saved this session — clean default view.
     updateModelLabel();
     updateProvinceLabel();
     updateMileageLabel();
