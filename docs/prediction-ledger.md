@@ -453,3 +453,22 @@ date, compare to baseline, mark HIT / MISS / PARTIAL, and write the lesson.
   8 weeks is early for a fresh page; publish date depends on review.
 - **Result:** _pending 2026-09-05_
 - **Lesson:** _tbd_
+
+## P16 — Dealer-offer data: the verification premium + the trade-vs-asking floor
+
+- **Opened:** 2026-07-07
+- **Review on:** **volume-gated** — whichever comes first: (a) ≥ 15 logged offers across ≥ 8 distinct own listings **with** ≥ 5 sight-unseen AND ≥ 5 VIN-verified/inspected, or (b) **2026-10-01** as a longstop to force a look even if thin.
+- **Surface:** `dealer_offers` capture on `/admin/listings/[id]` (own/private-seller listings only). This is a **data-collection instrument**, not a traffic/conversion change — it's in this ledger because it carries two falsifiable *numeric* claims worth pre-registering before the data exists (the anti-hindsight point of the ledger). The dataset itself is the proprietary "trade/wholesale floor" that no scraper can produce.
+- **Thesis (two linked claims):**
+  1. **Verification premium** (Wesley's stated belief): dealers lowball a car they can't verify; an offer made with the licence disc/VIN (or after inspection) is systematically higher, as a % of asking, than a sight-unseen offer on a comparable car. If true, the sourcing playbook is "always get the disc first" — worth real rand per deal.
+  2. **Trade-vs-asking floor:** a dealer's *trade* offer sits a fairly stable ~25–30% below asking. This is the number that breaks the valuation engine's asking-anchored ceiling ([[project-valuation-tool]]) and powers the asking-vs-selling article — because asking (which we scrape in bulk) can be mapped to a likely trade value.
+- **Baseline (2026-07-07 — n = 1 vehicle, explicitly anecdotal):** Francois Mouton 2023 LC79 D/C 4.5 V8 (65k km), asking **R1,325,000**. Four offers logged, **all sight-unseen**: Gys R950k (−28.3%), WBC R938k (−29.2%) → revised R1.0m (−24.5%); plus a seller-*reported* ~R1.225m from ~2 months prior (−7.5%, **confounded** — unknown conditions + time, logged as sight_unseen, do NOT treat as verified evidence). **Zero VIN-verified offers exist yet.** Independent anchor: sold comp #1 (2009 79 single-cab) transacted −27% vs asking ([[project-sold-comp-2009-79-singlecab]]). So the *floor* claim has weak support (~25–27% from 1 offer-set + 1 sold comp); the *verification premium* claim has **no** support yet — pure pre-registration.
+- **Predictions (score at the volume-gated review):**
+  1. *(PRIMARY — verification premium)* median offer-as-%-of-asking for **VIN-verified/inspected** offers is **≥ 8 percentage points higher** than for **sight-unseen** offers. Graded only once ≥ 5 of each exist; below that, report the raw split and treat as directional.
+  2. *(trade floor)* across ≥ 8 distinct own vehicles, the median **best-dealer-offer-vs-asking gap** falls in **18–32%** (dealers pay ~68–82% of asking).
+  3. *(collection viability — a deal-flow check, not a data one)* ≥ 15 offers across ≥ 8 distinct own listings are actually logged by the review. **A miss here means the sourcing loop (D3 Gys / D6 Auto Investments) isn't producing** — that's the finding, and it re-points effort to deal-flow, not analysis.
+- **Cleanest test to chase (within-vehicle, controls for spec/condition):** the Francois 79 drew R938k–950k **blind**; the disc is now captured. A re-quote on the **same car** with the disc, logged as `vin_verified`, is worth more than any cross-car comparison — capture it if any dealer re-offers.
+- **Confounds to respect (why this stays directional):** verification is **not randomly assigned** — Wesley chooses which cars to chase a disc for (selection bias); different vehicles aren't directly comparable (%-of-asking normalises value but not spec/condition/desirability); market moves over time; dealers differ. Per the LOCKED business-brain drift guard, the first read is baseline-building, not proof.
+- **Ties:** feeds [[project-valuation-tool]] accuracy (the asking-anchored unlock), the asking-vs-selling article, the dealer-sourcing loop economics ([[project-dealer-sourcing-fee]], deal-ledger D3/D6), and the WBC/mSure sold-data prize (a home-grown version of the same dataset).
+- **Result:** _pending (volume-gated; longstop 2026-10-01)_
+- **Lesson:** _tbd_
