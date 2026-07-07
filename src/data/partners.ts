@@ -69,7 +69,7 @@ export const PARTNERS: Partner[] = [
     description: 'Cape Town-based fabrication specialists creating bespoke overland vehicle conversions with aluminium storage systems and full living space solutions.',
     longDescription: `Manjaro Industries is Cape Town's premier custom fabrication shop for overland vehicles. Specialising in Toyota Land Cruiser Troopy conversions, the team designs and builds bespoke modular living systems — from aluminium drawer systems and cabinetry to full off-grid electrical and water integration.\n\nEvery Manjaro build is designed around the way you actually travel. Whether you need a weekend warrior setup or a fully self-sufficient expedition vehicle capable of months in the bush, Manjaro Industries delivers precision fabrication that's built to last. Featured by Expedition Portal and 4XOverland, and the preferred fabricator of Paul Marsh 4x4.`,
     email: 'info@manjaroindustries.co.za',
-    website: 'https://manjaroindustries.co.za',
+    website: 'https://www.manjaroindustries.africa/',
     instagram: 'manjaroindustries',
     logo: 'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/partners/manjaro/manjaro-logo.jpg',
     hero: 'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/partners/manjaro/manjaro-hero-camping.jpg',
