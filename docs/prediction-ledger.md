@@ -428,6 +428,30 @@ date, compare to baseline, mark HIT / MISS / PARTIAL, and write the lesson.
 - **Result:** _pending 2026-08-17_
 - **Lesson:** _tbd_
 
+## P16 — Data-backed dealer outreach converts (deal-ledger D7)
+
+- **Opened:** 2026-07-07 (**armed when D6's commercials land** — Blair's number
+  prices the funnel; if D6 dies by its 2026-07-24 kill date, decide whether to
+  arm with our own R10k/car anchor from D3 instead)
+- **Review on:** 30 days after the first pitch is sent (set the date when armed)
+- **Surface:** `/admin/dealers` (the hit-list) + `docs/spotter-agreement/`
+- **Thesis:** An LC-specialist dealer already came to us unprompted offering to
+  pay per converted buyer (D6) — so a personalised, data-backed opener ("we sent
+  you N buyers last month", real numbers from our own click_events) to dealers
+  ALREADY receiving our handoffs should convert at a meaningful rate. This tests
+  whether the warm-inbound signal generalises into a repeatable outbound motion.
+- **Baseline (2026-07-07):** 0 outbound dealer pitches ever sent; 123 buyer
+  handoffs/30d flowing free; 45 pitchable dealers on the hit-list.
+- **Prediction:** of the first **3** dealers pitched, **≥1 signs a papered
+  spotter pilot** (agreement template, fees filled in) within 30 days of the
+  first pitch. Directional secondary: ≥2 of 3 reply/take a call.
+- **Caveat:** n=3 is tiny — this grades the MOTION (does data-backed outreach
+  open doors?), not the channel economics; those come from the pilots
+  themselves. Guardrails in deal-ledger D7 (non-exclusive, 30-day terminable,
+  max 2–3 pilots, WBC branches excluded).
+- **Result:** _pending (arm on D6 commercials)_
+- **Lesson:** _tbd_
+
 ## P15 — Canopies & trays content category (pillar)
 
 - **Opened:** 2026-07-05 (drafted; publishes after Wesley's review)

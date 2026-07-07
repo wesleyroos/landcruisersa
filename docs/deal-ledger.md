@@ -136,6 +136,18 @@ so threads either progress or get consciously dropped — never drift.
 
 ---
 
+## D7 — Dealer spotter outbound motion (data-backed pipeline)
+
+- **Stage:** Lead (asset built 2026-07-07; **armed when D6's commercials land** — Blair's number prices the funnel first)
+- **Value hypothesis:** replicate the D6 shape across 2–3 LC-specialist dealers so no single counterparty's silence stalls the motion, and "dealers already pay us" becomes a fact (not a claim) in the WBC pitch. The product is real: **123 buyers handed to portals free in the 30d to 2026-07-07** (~500/mo by Sep at current growth).
+- **The asset:** `/admin/dealers` ranks every dealer by stock + demand we already send them, with a per-dealer copy-pitch opener ("we sent you N buyers last month"). Agreement template ready at `docs/spotter-agreement/` (attorney review before first signature).
+- **Guardrails:** max 2–3 pilots (WIP limit per [[project-strategy-reframe]]); ALL non-exclusive + 30-day terminable (WBC exclusivity conflict); leads captured on OUR site with reference IDs (the D6 mitigants); WBC branches excluded from outreach (they're D1).
+- **Candidates (from /admin/dealers, 2026-07-07):** Adios 4x4 (13 handoffs/30d — already receiving the most buyers), Slabbert Motors (48 seventy-series in stock), Halfway Toyota Honeydew (114 LCs, 33 seventies), Kloof Car Sales / Koos and Mike (specialist stock + handoffs). Vintage Cars SA for the classics angle (221 views on one R2.5m 6x6).
+- **Next action:** WAIT for D6 commercials → then pitch the top 2 non-conflicting candidates within a week, using the copy-pitch opener + agreement template. Falsifiable bet logged as prediction-ledger **P16**.
+- **Kill-or-advance:** if D6 hasn't produced a priced fee by 2026-07-24 (its kill date), decide whether to pitch anyway with our own anchor (R10k/car from D3) or park.
+
+---
+
 ## D5 — Ghost (immobiliser) — tracked in prediction-ledger P6
 
 - **Stage:** Conversation (Wesley followed up 2026-07-07, after the P6 go-signal fired: 3 outbound clicks to ghostsouthafrica.co.za in 30d)
