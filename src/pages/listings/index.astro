@@ -230,6 +230,14 @@ function formatMileage(n: number) {
         <button type="button" class="trans-btn" data-trans="manual">Manual</button>
         <button type="button" class="trans-btn" data-trans="automatic">Auto</button>
       </div>
+      <!-- Sort — applies within the current filters -->
+      <select id="sort-select" aria-label="Sort listings"
+        class="border border-[#DDD9D3] rounded-xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:border-[#F5A623] transition-colors cursor-pointer min-h-[44px]">
+        <option value="newest">Newest first</option>
+        <option value="price-asc">Price: low → high</option>
+        <option value="price-desc">Price: high → low</option>
+        <option value="mileage-asc">Mileage: low → high</option>
+      </select>
       <span id="results-count" class="self-center text-sm text-[#6B7280] ml-auto"></span>
       <button id="save-search-bar" type="button" class="hidden self-center inline-flex items-center gap-1.5 text-xs font-heading font-bold uppercase tracking-wide bg-[#F5A623] text-[#111111] px-3.5 py-1.5 rounded-full hover:bg-[#D4881A] transition-colors">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
@@ -949,10 +957,35 @@ function formatMileage(n: number) {
     paginationEl.appendChild(btn('Next →', currentPage + 1, currentPage === totalPages));
   }
 
+  // Sort — applied AFTER filtering. 'newest' keeps the server order (featured
+  // first, then created_at desc); price/mileage sorts are honest pure sorts
+  // (no featured boost). POA/zero values sink to the end rather than faking
+  // cheapness; show-offs (no price) likewise.
+  let sortMode: 'newest' | 'price-asc' | 'price-desc' | 'mileage-asc' = 'newest';
+  const sortSelect = document.getElementById('sort-select') as HTMLSelectElement | null;
+  sortSelect?.addEventListener('change', () => {
+    sortMode = (sortSelect.value as typeof sortMode) || 'newest';
+    applyFilters();
+  });
+  function sortMatched(rows: Listing[]): Listing[] {
+    if (sortMode === 'newest') return rows;
+    const val = (l: Listing) =>
+      sortMode === 'mileage-asc'
+        ? (l.mileage > 0 ? l.mileage : Infinity)
+        : (l.price > 0 ? l.price : Infinity);
+    const dir = sortMode === 'price-desc' ? -1 : 1;
+    return [...rows].sort((a, b) => {
+      const av = val(a), bv = val(b);
+      // Unpriced/unknown always last, regardless of direction.
+      if (av === Infinity || bv === Infinity) return av === bv ? 0 : av === Infinity ? 1 : -1;
+      return (av - bv) * dir;
+    });
+  }
+
   function applyFilters(resetPage = true) {
     if (resetPage) currentPage = 1;
 
-    const matched = DATA.filter(matchesFilters);
+    const matched = sortMatched(DATA.filter(matchesFilters));
     const totalPages = Math.ceil(matched.length / PAGE_SIZE);
     if (currentPage > totalPages) currentPage = Math.max(1, totalPages);
     const start = (currentPage - 1) * PAGE_SIZE;
@@ -988,6 +1021,7 @@ function formatMileage(n: number) {
         cab: selectedCab,
         trans: selectedTrans,
         engine: selectedEngine,
+        sort: sortMode,
         page: currentPage,
       }));
     } catch {}
@@ -1021,6 +1055,8 @@ function formatMileage(n: number) {
       selectedCab = s.cab === 'single' || s.cab === 'double' ? s.cab : null;
       setTrans(s.trans === 'manual' || s.trans === 'automatic' ? s.trans : '');
       setEngine(typeof s.engine === 'string' ? s.engine : null);
+      sortMode = ['newest', 'price-asc', 'price-desc', 'mileage-asc'].includes(s.sort) ? s.sort : 'newest';
+      if (sortSelect) sortSelect.value = sortMode;
       activeType = typeof s.type === 'string' ? s.type : 'all';
       typePills.forEach(p => p.classList.toggle('active', p.dataset.type === activeType));
       (document.getElementById('price-filter') as HTMLElement).style.display = activeType === 'sold' ? 'none' : '';
@@ -1124,6 +1160,8 @@ function formatMileage(n: number) {
     selectedCab = null;
     setTrans('');
     setEngine(null);
+    sortMode = 'newest';
+    if (sortSelect) sortSelect.value = 'newest';
     activeType = 'all';
     typePills.forEach(p => p.classList.toggle('active', p.dataset.type === 'all'));
     applyFilters();
