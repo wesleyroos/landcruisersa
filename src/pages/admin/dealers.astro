@@ -1,0 +1,226 @@
+---
+export const prerender = false;
+
+import AdminLayout from '@/layouts/AdminLayout.astro';
+import { db } from '@/db/index';
+import { sql } from 'drizzle-orm';
+
+const cookie = Astro.cookies.get('lcsa_admin');
+const adminSecret = import.meta.env.ADMIN_SECRET ?? process.env.ADMIN_SECRET ?? '';
+if (!cookie || cookie.value !== adminSecret) {
+  return Astro.redirect('/admin/login');
+}
+
+// ─── Period selection ────────────────────────────────────────────────────────
+const period = Astro.url.searchParams.get('period') ?? '30d';
+const VALID_PERIODS = ['7d', '30d', '90d'] as const;
+const validPeriod = (VALID_PERIODS as readonly string[]).includes(period) ? period : '30d';
+const days = validPeriod === '7d' ? 7 : validPeriod === '90d' ? 90 : 30;
+const since = sql`unixepoch('now', ${'-' + days + ' days'})`;
+
+// ─── Dealer pipeline — who we already send buyers to ─────────────────────────
+// The sales asset behind the spotter-fee motion (deal-ledger D6/D7): every
+// scraped listing carries seller_name, so our own DB ranks every LC dealer in
+// SA by stock and by the demand we ALREADY send them for free. Aggregated
+// queries only (no row pulls) — this runs on the 256MB prod machine.
+
+// Active stock per dealer
+const stockRows = db.all<{
+  dealer: string; source: string; stock: number; lc70s: number;
+  min_p: number | null; max_p: number | null;
+}>(sql`
+  SELECT seller_name AS dealer, source,
+         count(*) AS stock,
+         sum(CASE WHEN model LIKE '7%-series' THEN 1 ELSE 0 END) AS lc70s,
+         min(price) AS min_p, max(price) AS max_p
+  FROM listings
+  WHERE status = 'active' AND seller_name IS NOT NULL AND seller_name != '' AND source != 'own'
+  GROUP BY lower(seller_name)
+`);
+
+// Listing-page views we sent to each dealer's stock (any listing status —
+// credit persists after the car sells/delists)
+const viewRows = db.all<{ dealer: string; n: number }>(sql`
+  SELECT l.seller_name AS dealer, count(*) AS n
+  FROM view_events v JOIN listings l ON l.slug = v.listing_slug
+  WHERE v.created_at >= ${since} AND l.seller_name IS NOT NULL AND l.seller_name != '' AND l.source != 'own'
+  GROUP BY lower(l.seller_name)
+`);
+
+// Buyer handoffs: every click_events row EXCEPT finance_calc — external
+// "view on <portal>" clicks are logged with the portal name as source
+// (autotrader/wbc/carsza/adios), plus direct contact (whatsapp/call/email/reveal_*)
+const handoffRows = db.all<{ dealer: string; n: number }>(sql`
+  SELECT l.seller_name AS dealer, count(*) AS n
+  FROM click_events c JOIN listings l ON l.slug = c.listing_slug
+  WHERE c.created_at >= ${since} AND c.source != 'finance_calc'
+    AND l.seller_name IS NOT NULL AND l.seller_name != '' AND l.source != 'own'
+  GROUP BY lower(l.seller_name)
+`);
+
+// Finance-calc opens on each dealer's stock (purchase-intent signal)
+const financeRows = db.all<{ dealer: string; n: number }>(sql`
+  SELECT l.seller_name AS dealer, count(*) AS n
+  FROM click_events c JOIN listings l ON l.slug = c.listing_slug
+  WHERE c.created_at >= ${since} AND c.source = 'finance_calc'
+    AND l.seller_name IS NOT NULL AND l.seller_name != '' AND l.source != 'own'
+  GROUP BY lower(l.seller_name)
+`);
+
+type Row = {
+  dealer: string; source: string; stock: number; lc70s: number;
+  min_p: number | null; max_p: number | null;
+  views: number; handoffs: number; finance: number;
+};
+const byKey = new Map<string, Row>();
+for (const r of stockRows) {
+  byKey.set(r.dealer.toLowerCase(), { ...r, views: 0, handoffs: 0, finance: 0 });
+}
+const bump = (rows: { dealer: string; n: number }[], field: 'views' | 'handoffs' | 'finance') => {
+  for (const r of rows) {
+    const key = r.dealer.toLowerCase();
+    const row = byKey.get(key);
+    if (row) row[field] = r.n;
+    else byKey.set(key, { dealer: r.dealer, source: '?', stock: 0, lc70s: 0, min_p: null, max_p: null, views: 0, handoffs: 0, finance: 0, [field]: r.n } as Row);
+  }
+};
+bump(viewRows, 'views');
+bump(handoffRows, 'handoffs');
+bump(financeRows, 'finance');
+
+const dealers = [...byKey.values()]
+  .filter(d => d.handoffs > 0 || d.views > 0 || d.finance > 0 || d.stock >= 20)
+  .sort((a, b) => b.handoffs - a.handoffs || b.views - a.views || b.stock - a.stock)
+  .slice(0, 60);
+
+// KPI strip
+const totals = dealers.reduce(
+  (t, d) => ({ handoffs: t.handoffs + d.handoffs, views: t.views + d.views, finance: t.finance + d.finance }),
+  { handoffs: 0, views: 0, finance: 0 },
+);
+const dealersWithDemand = dealers.filter(d => d.handoffs > 0).length;
+
+const fmtR = (n: number | null) =>
+  n == null ? '—' : n >= 1_000_000 ? `R${(n / 1_000_000).toFixed(2).replace(/\.?0+$/, '')}m` : `R${Math.round(n / 1000)}k`;
+
+// Personalised outreach line per dealer (the copy-pitch button)
+const pitch = (d: Row) =>
+  `Hi — I run LandCruiserSA.co.za, the Land Cruiser marketplace + community. ` +
+  `In the last ${days} days we sent ${d.handoffs} buyer${d.handoffs === 1 ? '' : 's'} directly to your Cruiser stock` +
+  `${d.views ? ` (${d.views} listing views across your ${d.stock} live Cruisers)` : ''} — for free. ` +
+  `We work with dealers on a simple pay-on-conversion spotter basis. Worth a quick call?`;
+
+// WBC branches are the D1 sponsorship target — exclude from spotter outreach
+const isWbc = (d: Row) => d.source === 'wbc' || /webuycars/i.test(d.dealer);
+---
+
+<AdminLayout title="Dealers" activePage="dealers">
+  <div class="page-head">
+    <div>
+      <h1>Dealer pipeline</h1>
+      <p class="sub">Who we already send buyers to — the outbound hit-list for the spotter-fee motion. Ranked by handoffs (external portal clicks + direct contact) in the selected period.</p>
+    </div>
+    <nav class="period-nav">
+      {VALID_PERIODS.map(p => (
+        <a href={`/admin/dealers?period=${p}`} class={p === validPeriod ? 'active' : ''}>{p}</a>
+      ))}
+    </nav>
+  </div>
+
+  <div class="kpis">
+    <div class="kpi"><span class="kpi-n">{totals.handoffs}</span><span class="kpi-l">buyers handed off ({validPeriod})</span></div>
+    <div class="kpi"><span class="kpi-n">{totals.views.toLocaleString()}</span><span class="kpi-l">listing views sent</span></div>
+    <div class="kpi"><span class="kpi-n">{totals.finance}</span><span class="kpi-l">finance-calc opens</span></div>
+    <div class="kpi"><span class="kpi-n">{dealersWithDemand}</span><span class="kpi-l">dealers received buyers</span></div>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Dealer</th>
+          <th>Source</th>
+          <th class="num">Stock</th>
+          <th class="num">70-series</th>
+          <th class="num">Price range</th>
+          <th class="num">Views</th>
+          <th class="num">Handoffs</th>
+          <th class="num">Finance</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {dealers.map(d => (
+          <tr class={isWbc(d) ? 'wbc-row' : ''}>
+            <td class="dealer-cell">
+              {d.dealer}
+              {isWbc(d) && <span class="wbc-badge" title="WeBuyCars branch — D1 sponsorship target, exclude from spotter outreach">WBC · sponsor deal</span>}
+            </td>
+            <td><span class="src-badge">{d.source}</span></td>
+            <td class="num">{d.stock}</td>
+            <td class="num">{d.lc70s || '—'}</td>
+            <td class="num range">{d.stock ? `${fmtR(d.min_p)}–${fmtR(d.max_p)}` : '—'}</td>
+            <td class="num">{d.views}</td>
+            <td class="num strong">{d.handoffs}</td>
+            <td class="num">{d.finance || '—'}</td>
+            <td>
+              {!isWbc(d) && d.handoffs > 0 && (
+                <button type="button" class="pitch-btn" data-pitch={pitch(d)}>📋 pitch</button>
+              )}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+
+  <p class="foot-note">
+    Handoffs = clicks through to the source portal + WhatsApp/call/email/reveals on that dealer's listings.
+    WBC branches are dimmed — they belong to the sponsorship conversation (deal ledger D1), not spotter outreach.
+    Keep spotter deals non-exclusive and 30-day terminable so they never conflict with a WBC exclusivity term.
+  </p>
+</AdminLayout>
+
+<script>
+  document.addEventListener('click', (e) => {
+    const btn = (e.target as HTMLElement).closest('.pitch-btn') as HTMLButtonElement | null;
+    if (!btn) return;
+    navigator.clipboard.writeText(btn.dataset.pitch ?? '').then(() => {
+      const prev = btn.textContent;
+      btn.textContent = '✓ copied';
+      setTimeout(() => { btn.textContent = prev; }, 1500);
+    });
+  });
+</script>
+
+<style>
+  .page-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; }
+  h1 { font-size: 22px; font-weight: 700; }
+  .sub { color: #666; font-size: 13px; margin-top: 4px; max-width: 640px; }
+  .period-nav { display: flex; gap: 4px; }
+  .period-nav a { padding: 5px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 12.5px; color: #444; text-decoration: none; }
+  .period-nav a.active { background: #111; color: white; border-color: #111; }
+
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-bottom: 20px; }
+  .kpi { border: 1px solid #e5e5e5; border-radius: 8px; padding: 12px 14px; display: flex; flex-direction: column; gap: 2px; }
+  .kpi-n { font-size: 22px; font-weight: 700; }
+  .kpi-l { font-size: 11.5px; color: #777; }
+
+  .table-wrap { overflow-x: auto; border: 1px solid #e5e5e5; border-radius: 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: #888; padding: 10px 12px; border-bottom: 1px solid #e5e5e5; background: #fafafa; }
+  td { padding: 9px 12px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+  th.num { text-align: right; }
+  .strong { font-weight: 700; }
+  .range { white-space: nowrap; color: #555; }
+  .dealer-cell { font-weight: 600; }
+  .src-badge { font-size: 11px; background: #f2f2f2; border-radius: 4px; padding: 2px 6px; color: #666; }
+  .wbc-row td { opacity: 0.55; }
+  .wbc-badge { font-size: 10.5px; background: #fff4dd; color: #9a6b00; border-radius: 4px; padding: 2px 6px; margin-left: 8px; font-weight: 600; white-space: nowrap; }
+  .pitch-btn { font-size: 11.5px; border: 1px solid #ddd; background: white; border-radius: 6px; padding: 4px 8px; cursor: pointer; white-space: nowrap; }
+  .pitch-btn:hover { background: #f7f7f7; }
+
+  .foot-note { color: #888; font-size: 12px; margin-top: 14px; max-width: 720px; line-height: 1.5; }
+</style>
