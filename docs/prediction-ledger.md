@@ -265,6 +265,14 @@ date, compare to baseline, mark HIT / MISS / PARTIAL, and write the lesson.
 - **Caveat:** below the ≥5-graded-outcomes signal bar and tiny volume; referrer
   stripping under-counts referrals. Treat the first read as directional
   baseline-building, not proof (per the locked business-brain drift guard).
+- **Measurement note (2026-07-07):** the instrumentation was silently broken from
+  launch — Astro reordered the inline head scripts so the beacon ran before
+  `window.__lcsaCid` was set, nulling client_id on ALL referrals to date (13/13).
+  Fixed 2026-07-07 (beacon now self-reads localStorage). **The ≥25-referral clock
+  effectively starts 2026-07-07**; ignore earlier rows for the conversion join.
+  Volume check: Plausible shows 46 ChatGPT visitors/30d vs only 13 beacon rows —
+  the beacon undercounts ~3.5× (sessionStorage guard + sendBeacon losses), so use
+  Plausible for volume, the DB only for the join.
 - **Result:** _pending 2026-09-01_
 - **Lesson:** _tbd_
 
