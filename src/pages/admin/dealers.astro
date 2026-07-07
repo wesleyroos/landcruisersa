@@ -134,24 +134,39 @@ const isWbc = (d: Row) => d.source === 'wbc' || /webuycars/i.test(d.dealer);
     <div class="kpi"><span class="kpi-n">{dealersWithDemand}</span><span class="kpi-l">dealers received buyers</span></div>
   </div>
 
+  <div class="toolbar">
+    <input type="search" id="dealer-search" placeholder="Search dealerships…" autocomplete="off" />
+    <span class="result-count" id="result-count"></span>
+  </div>
+
   <div class="table-wrap">
-    <table>
+    <table id="dealer-table">
       <thead>
         <tr>
-          <th>Dealer</th>
-          <th>Source</th>
-          <th class="num">Stock</th>
-          <th class="num">70-series</th>
-          <th class="num">Price range</th>
-          <th class="num">Views</th>
-          <th class="num">Handoffs</th>
-          <th class="num">Finance</th>
+          <th class="sortable" data-key="name" data-type="text">Dealer</th>
+          <th class="sortable" data-key="source" data-type="text">Source</th>
+          <th class="num sortable" data-key="stock" data-type="num">Stock</th>
+          <th class="num sortable" data-key="lc70s" data-type="num">70-series</th>
+          <th class="num sortable" data-key="minp" data-type="num">Price range</th>
+          <th class="num sortable" data-key="views" data-type="num">Views</th>
+          <th class="num sortable sorted-desc" data-key="handoffs" data-type="num">Handoffs</th>
+          <th class="num sortable" data-key="finance" data-type="num">Finance</th>
           <th></th>
         </tr>
       </thead>
       <tbody>
         {dealers.map(d => (
-          <tr class={isWbc(d) ? 'wbc-row' : ''}>
+          <tr
+            class={isWbc(d) ? 'wbc-row' : ''}
+            data-name={d.dealer.toLowerCase()}
+            data-source={d.source}
+            data-stock={d.stock}
+            data-lc70s={d.lc70s}
+            data-minp={d.min_p ?? 0}
+            data-views={d.views}
+            data-handoffs={d.handoffs}
+            data-finance={d.finance}
+          >
             <td class="dealer-cell">
               {d.dealer}
               {isWbc(d) && <span class="wbc-badge" title="WeBuyCars branch — D1 sponsorship target, exclude from spotter outreach">WBC · sponsor deal</span>}
@@ -191,6 +206,51 @@ const isWbc = (d: Row) => d.source === 'wbc' || /webuycars/i.test(d.dealer);
       setTimeout(() => { btn.textContent = prev; }, 1500);
     });
   });
+
+  // ── Search + column sorting (client-side; the table is fully rendered) ──
+  const tbody = document.querySelector('#dealer-table tbody') as HTMLTableSectionElement | null;
+  const search = document.getElementById('dealer-search') as HTMLInputElement | null;
+  const countEl = document.getElementById('result-count');
+
+  const updateCount = () => {
+    if (!tbody || !countEl) return;
+    const rows = [...tbody.rows];
+    const visible = rows.filter(r => !r.hidden).length;
+    countEl.textContent = visible === rows.length ? `${rows.length} dealers` : `${visible} of ${rows.length} dealers`;
+  };
+  updateCount();
+
+  search?.addEventListener('input', () => {
+    if (!tbody) return;
+    const q = search.value.trim().toLowerCase();
+    for (const row of tbody.rows) {
+      row.hidden = q !== '' && !(row.dataset.name ?? '').includes(q);
+    }
+    updateCount();
+  });
+
+  document.querySelectorAll<HTMLTableCellElement>('#dealer-table th.sortable').forEach(th => {
+    th.addEventListener('click', () => {
+      if (!tbody) return;
+      const key = th.dataset.key ?? '';
+      const isText = th.dataset.type === 'text';
+      // Toggle direction; numeric columns start descending (biggest first)
+      const wasDesc = th.classList.contains('sorted-desc');
+      const wasAsc = th.classList.contains('sorted-asc');
+      const desc = isText ? wasAsc : !wasDesc && !wasAsc ? true : wasAsc;
+      document.querySelectorAll('#dealer-table th.sortable').forEach(h => h.classList.remove('sorted-asc', 'sorted-desc'));
+      th.classList.add(desc ? 'sorted-desc' : 'sorted-asc');
+
+      const rows = [...tbody.rows];
+      rows.sort((a, b) => {
+        const av = a.dataset[key] ?? '';
+        const bv = b.dataset[key] ?? '';
+        const cmp = isText ? av.localeCompare(bv) : Number(av) - Number(bv);
+        return desc ? -cmp : cmp;
+      });
+      rows.forEach(r => tbody.appendChild(r));
+    });
+  });
 </script>
 
 <style>
@@ -206,7 +266,17 @@ const isWbc = (d: Row) => d.source === 'wbc' || /webuycars/i.test(d.dealer);
   .kpi-n { font-size: 22px; font-weight: 700; }
   .kpi-l { font-size: 11.5px; color: #777; }
 
+  .toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+  #dealer-search { flex: 0 1 320px; padding: 8px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 13.5px; }
+  #dealer-search:focus { outline: none; border-color: #999; }
+  .result-count { font-size: 12px; color: #888; }
+
   .table-wrap { overflow-x: auto; border: 1px solid #e5e5e5; border-radius: 8px; }
+  th.sortable { cursor: pointer; user-select: none; white-space: nowrap; }
+  th.sortable:hover { color: #333; }
+  th.sortable::after { content: '↕'; opacity: 0.35; margin-left: 5px; font-size: 10px; }
+  th.sortable.sorted-desc::after { content: '↓'; opacity: 1; }
+  th.sortable.sorted-asc::after { content: '↑'; opacity: 1; }
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
   th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: #888; padding: 10px 12px; border-bottom: 1px solid #e5e5e5; background: #fafafa; }
   td { padding: 9px 12px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
