@@ -478,7 +478,7 @@ date, compare to baseline, mark HIT / MISS / PARTIAL, and write the lesson.
 - **Result:** _pending 2026-09-05_
 - **Lesson:** _tbd_
 
-## P16 — Dealer-offer data: the verification premium + the trade-vs-asking floor
+## P17 — Dealer-offer data: the verification premium + the trade-vs-asking floor
 
 - **Opened:** 2026-07-07
 - **Review on:** **volume-gated** — whichever comes first: (a) ≥ 15 logged offers across ≥ 8 distinct own listings **with** ≥ 5 sight-unseen AND ≥ 5 VIN-verified/inspected, or (b) **2026-10-01** as a longstop to force a look even if thin.
