@@ -148,10 +148,14 @@ so threads either progress or get consciously dropped — never drift.
 
 ---
 
-## D5 — Ghost (immobiliser) — tracked in prediction-ledger P6
+## D5 — Anti-hijack partner: Ghost → **Titan Secure** (pivoted 2026-07-08)
 
-- **Stage:** Conversation (Wesley followed up 2026-07-07, after the P6 go-signal fired: 3 outbound clicks to ghostsouthafrica.co.za in 30d)
-- **Gate:** pursue only as a self-serve trackable affiliate, never chased lead-gen. If Ghost has no self-serve/trackable program, the content stays a pure citation asset — do not negotiate a "send us leads, we'll pay" arrangement. See [[project-ghost-referral]] + `prediction-ledger.md` P6 (review 2026-07-20).
+- **Stage:** Proposal / Outreach sent — **Victor email sent 2026-07-08**.
+- **⚠️ PIVOT:** Ghost (Reniel) went COLD after multiple unanswered emails → switched to **Titan Secure** (titansecure.co.za), a WARM lead via Wesley's FIL Brad Salters (mSure/Motus; a Motus Toyota dealership uses it). Contact = **Victor / Henno Victor Claassens, Titan National BD Manager** (victor@titansecure.co.za) — the partnerships decision-maker.
+- **Why Titan > Ghost:** multi-layer system (smart engine-lock + remote fuel-cut + GPS tracking + AI tamper detection + SOS + 24/7 armed response), insurer-recognised (incl. MyToyota Insurance), warm intro to the right person, subscription model = better advertiser economics. Full detail in [[project-ghost-referral]].
+- **Done:** both theft guides reworked to feature Titan (Ghost fully removed) + Titan imagery added; Titan UTM links tracking outbound clicks. Content-first complete.
+- **Value hypothesis:** sponsored placement (~R3.5k/mo) and/or a trackable referral (Titan has a "Become a Partner" page). Gate (per [[project-monetization-philosophy]]): trackable affiliate or own-inventory advertising only — never chase-to-invoice.
+- **Next / kill-or-advance:** await Victor's reply; **follow up by ~2026-07-15** if silent. ADVANCE = a call booked / partnership terms discussed.
 
 ---
 
