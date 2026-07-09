@@ -89,6 +89,8 @@ so threads either progress or get consciously dropped — never drift.
   - **Rollout:** Phase 1 = LCSA + Jimny (live proof) → Phase 2 = expand to agreed makes/models quarterly.
   - **Next:** send the one-pager to **Tersia** (the internal champion) to circulate; the technical asks (stock-API access, sales-API mechanics, sold/M&M data) fold in once the sponsorship is agreed in principle. See memory [[project-webuycars]].
 - **STATUS (2026-07-07):** Wesley asked Tersia whether she's happy for him to follow up with Wynand directly (Faan article sign-off still pending since ~2026-06-29). Kill-or-advance 2026-07-18 unchanged.
+- **⚠️ STATUS (2026-07-09): Tersia asked Wesley to WAIT** — she does not want the Wynand follow-up to happen yet (reason not given; reads as champion-managed timing/gatekeeping). Implications: (1) do NOT go around her — she IS the relationship, and every deal in this ledger came through a relationship; (2) the deal's tempo is now champion-controlled, so the 2026-07-18 ADVANCE condition may be unmeetable through no fault of ours; (3) one clarifying question converts an open-ended hold into a scheduled one ("no problem — is there a better moment you have in mind? anything I should have ready?"). Plausible benign explanation: Wynand was just appointed deputy CEO — internal reshuffle timing.
+- **Kill-or-advance (amended 2026-07-09):** at **2026-07-18**, if still held, do NOT silently drift: either extend with a dated reason (champion-imposed hold + her indicated timing) or escalate the ask to Tersia for a concrete window. Meanwhile D5-Titan/D6/D3 carry the momentum — WBC frozen ≠ motion frozen.
 
 ---
 
@@ -151,12 +153,12 @@ so threads either progress or get consciously dropped — never drift.
 
 ## D5 — Anti-hijack partner: Ghost → **Titan Secure** (pivoted 2026-07-08)
 
-- **Stage:** Proposal / Outreach sent — **Victor email sent 2026-07-08**.
+- **Stage:** Proposal → **Meeting (Victor replied 2026-07-08, VERY positive — wants an in-person meeting next week; will send official brand assets; open to referral / sponsored content).** LCSA's first real paying-partner conversation.
 - **⚠️ PIVOT:** Ghost (Reniel) went COLD after multiple unanswered emails → switched to **Titan Secure** (titansecure.co.za), a WARM lead via Wesley's FIL Brad Salters (mSure/Motus; a Motus Toyota dealership uses it). Contact = **Victor / Henno Victor Claassens, Titan National BD Manager** (victor@titansecure.co.za) — the partnerships decision-maker.
 - **Why Titan > Ghost:** multi-layer system (smart engine-lock + remote fuel-cut + GPS tracking + AI tamper detection + SOS + 24/7 armed response), insurer-recognised (incl. MyToyota Insurance), warm intro to the right person, subscription model = better advertiser economics. Full detail in [[project-ghost-referral]].
 - **Done:** both theft guides reworked to feature Titan (Ghost fully removed) + Titan imagery added; Titan UTM links tracking outbound clicks. Content-first complete.
 - **Value hypothesis:** sponsored placement (~R3.5k/mo) and/or a trackable referral (Titan has a "Become a Partner" page). Gate (per [[project-monetization-philosophy]]): trackable affiliate or own-inventory advertising only — never chase-to-invoice.
-- **Next / kill-or-advance:** await Victor's reply; **follow up by ~2026-07-15** if silent. ADVANCE = a call booked / partnership terms discussed.
+- **Next / kill-or-advance:** reply accepting the meeting (in-person, propose slots) + request assets → **meeting next week**. Aim for a base sponsored placement (~R3.5k/mo) + a trackable referral. ADVANCE = terms agreed / first paid placement or referral link live.
 
 ---
 
