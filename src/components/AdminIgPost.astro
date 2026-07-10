@@ -128,7 +128,8 @@
       modalCaption.disabled = false;
       modalConfirm.disabled = false;
       modalMeta.textContent = `${data.photoCount} photo${data.photoCount !== 1 ? 's' : ''} will be posted as ${data.photoCount > 1 ? 'a carousel' : 'a single image'}`
-        + (data.skippedPhotos > 0 ? ` — ${data.skippedPhotos} skipped (AutoTrader hotlinks IG rejects; the AT rehost will convert them)` : '');
+        + (data.preparingImages ? ' — images are fetched at post time, so this post may take a little longer' : '')
+        + (data.skippedPhotos > 0 ? ` — ${data.skippedPhotos} skipped (not a usable image format)` : '');
     } finally {
       btn.disabled = false;
       btn.textContent = originalLabel;
@@ -237,8 +238,10 @@
       });
       const data = await res.json();
       if (res.status === 202 || res.ok) {
-        // Background job started — poll until ig_posted_at is stamped (2 min timeout)
-        pollPosted(id, btn, Date.now() + 120_000);
+        // Background job started — poll until ig_posted_at is stamped. 3 min:
+        // on-demand image rehost (AT hotlinks → R2) can add ~30-60s before the
+        // IG container processing even begins.
+        pollPosted(id, btn, Date.now() + 180_000);
       } else {
         showToast(data.error ?? 'Post failed', 'err');
         if (btn) { btn.disabled = false; btn.textContent = btn.classList.contains('btn-repost') ? 'Repost' : 'Post to IG'; }

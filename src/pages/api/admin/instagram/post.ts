@@ -3,10 +3,35 @@ export const prerender = false;
 import type { APIRoute } from 'astro';
 import { getCredentials, postListingToInstagram, buildCaptionWithAIHashtags, buildCaption, igSafePhotos } from '@/lib/instagram';
 import { classifyIgSlot, detectMods } from '@/lib/post-suggestions';
+import { rehostAutotraderImages } from '@/lib/sources/r2';
 import { db } from '@/db/index';
 import { listings, igPosts } from '@/db/schema';
 import { requireAdmin, unauthorized } from '@/lib/admin-auth';
 import { eq, sql } from 'drizzle-orm';
+
+const AT_HOTLINK = /img\.autotrader\.co\.za/i;
+
+// On-demand image prep: convert any AutoTrader hotlinks on this listing to R2
+// JPEGs so Instagram can ingest them. The daily cloud rehost can't keep up with
+// fresh AT scrapes (throughput < inflow — ~160/day arrive, ~40/day cleared), so
+// the listing being posted is prepared here rather than waiting in the backlog.
+// Fly can fetch img.autotrader.co.za directly (datacenter-OK, unlike AT's HTML).
+// Idempotent — images already on R2 are skipped — and it persists the rewritten
+// photos so the public site and future posts get the fixed URLs too. Mutates
+// listing.photos in place so downstream postListingToInstagram uses the new set.
+async function ensurePublishablePhotos(listing: { id: number; photos: string }): Promise<string[]> {
+  let photos: string[];
+  try { photos = JSON.parse(listing.photos); } catch { return []; }
+  if (!photos.some(u => AT_HOTLINK.test(u))) return photos;
+
+  const rehosted = await rehostAutotraderImages(photos);
+  if (rehosted.some((u, i) => u !== photos[i])) {
+    const json = JSON.stringify(rehosted);
+    db.update(listings).set({ photos: json }).where(eq(listings.id, listing.id)).run();
+    listing.photos = json;
+  }
+  return rehosted;
+}
 
 // Background-publish errors keyed per listing so post-status can surface the
 // real reason (the publish is fire-and-forget; without this a failure just
@@ -57,22 +82,27 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     : [];
 
   const allPhotos: string[] = JSON.parse(listing.photos);
-  const safePhotos = igSafePhotos(allPhotos);
+  const safeNow = igSafePhotos(allPhotos);
+  const hasHotlinks = allPhotos.some(u => AT_HOTLINK.test(u));
 
-  // Fail up front with the real reason — IG can't ingest hotlinked/non-JPEG
-  // photos, and a background failure would otherwise read as a poll timeout.
-  if (safePhotos.length === 0) {
+  // Genuinely unpostable only if nothing is IG-safe AND nothing can be rehosted
+  // (e.g. all SVG / non-JPEG, no AutoTrader hotlinks to convert). Hotlinked
+  // listings are NOT rejected here — they get prepared on demand below.
+  if (safeNow.length === 0 && !hasHotlinks) {
     return new Response(JSON.stringify({
-      error: `None of this listing's ${allPhotos.length} photos are IG-publishable yet — they're AutoTrader hotlinks, which Instagram rejects. Run the AT image rehost (src/scripts/rehost-at-images.ts), then retry.`,
+      error: `None of this listing's ${allPhotos.length} photos are IG-publishable (non-JPEG / SVG). Swap in usable photos, then retry.`,
     }), { status: 400, headers: { 'Content-Type': 'application/json' } });
   }
 
   if (previewOnly) {
+    // Post-rehost, hotlinks become usable JPEGs — so project the full count.
+    const projected = hasHotlinks ? allPhotos.filter(u => !/\.svg(\?|#|$)/i.test(u)).length : safeNow.length;
     const caption = await buildCaptionWithAIHashtags(listing, heroMods);
     return new Response(JSON.stringify({
       caption,
-      photoCount: Math.min(safePhotos.length, 10),
-      skippedPhotos: allPhotos.length - safePhotos.length,
+      photoCount: Math.min(projected, 10),
+      skippedPhotos: allPhotos.length - projected,
+      preparingImages: hasHotlinks,   // modal note: images fetched at post time
       slot,
     }), {
       status: 200,
@@ -80,13 +110,20 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     });
   }
 
-  // Fire-and-forget — Instagram container processing can take 30-90s,
-  // which exceeds Fly's proxy timeout. Return 202 immediately and let
+  // Fire-and-forget — image prep (rehost) + Instagram container processing can
+  // take 60-120s, well past Fly's proxy timeout. Return 202 immediately and let
   // the browser poll /api/admin/instagram/post-status for completion.
   const caption = customCaption || buildCaption(listing);
   clearIgPostError(listingId);
-  postListingToInstagram(listing, creds, caption)
-    .then(mediaId => {
+  (async () => {
+    try {
+      // Prepare images first (rehost AT hotlinks → R2), then post. Mutates
+      // listing.photos so postListingToInstagram publishes the rehosted set.
+      const photos = await ensurePublishablePhotos(listing);
+      if (igSafePhotos(photos).length === 0) {
+        throw new Error(`Couldn't prepare any of this listing's ${photos.length} photos — AutoTrader's image server kept refusing them. Try again in a minute.`);
+      }
+      const mediaId = await postListingToInstagram(listing, creds, caption);
       db.update(listings).set({ ig_posted_at: new Date(), ig_media_id: mediaId }).where(eq(listings.id, listingId)).run();
       db.insert(igPosts).values({
         listing_id: listingId,
@@ -97,12 +134,12 @@ export const POST: APIRoute = async ({ request, cookies }) => {
         posted_at: new Date(),
       }).run();
       console.log(`[IG post] listing ${listingId} posted successfully (slot: ${slot}, media: ${mediaId})`);
-    })
-    .catch(err => {
+    } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       setIgPostError(listingId, message);
       console.error(`[IG post] listing ${listingId} failed:`, message);
-    });
+    }
+  })();
 
   return new Response(JSON.stringify({ ok: true, pending: true, slot }), {
     status: 202,
