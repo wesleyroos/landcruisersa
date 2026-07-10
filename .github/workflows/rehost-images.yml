@@ -1,0 +1,56 @@
+name: Rehost AT Images to R2
+
+# Converts AutoTrader-hotlinked listing photos (img.autotrader.co.za, which
+# rate-limits hotlinks and which Instagram refuses to ingest) to our own R2
+# JPEGs. AT's image CDN is datacenter-accessible, so this runs directly on a
+# GitHub runner — no residential proxy needed (the HTML scrape needs one; images
+# don't).
+#
+# Runs every 6 hours because fresh AT scrapes add ~160 hotlinked listings/day
+# and a single daily pass (~40-190/run, bounded by AT's rate limiting) couldn't
+# keep up — the backlog grew unbounded (~935). Four passes/day gives ample
+# headroom to drain it and then stay at zero; each run stops early once the
+# backlog is empty, so it self-tapers and doesn't burn time when caught up.
+# Public repo → Actions minutes are free, so frequency is the cheap lever.
+
+on:
+  schedule:
+    - cron: '15 */6 * * *'   # every 6h, offset 15min past the hour (clear of the 03:00 AT scrape)
+  workflow_dispatch:
+    inputs:
+      max_minutes:
+        description: 'Time budget in minutes (default 150)'
+        required: false
+        default: '150'
+
+# Never let two rehost runs overlap — they'd hit AT's per-IP rate limiter twice
+# as hard for no net gain. A new scheduled run waits for the current to finish.
+concurrency:
+  group: rehost-images
+  cancel-in-progress: false
+
+jobs:
+  rehost:
+    name: Rehost AT images to R2
+    runs-on: ubuntu-latest
+    timeout-minutes: 170
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+
+      - name: Rehost images to R2
+        run: node --experimental-strip-types src/scripts/rehost-at-images.ts
+        env:
+          MAX_MINUTES: ${{ github.event.inputs.max_minutes || '150' }}
+          INGEST_TOKEN: ${{ secrets.INGEST_TOKEN }}
+          SITE_URL: ${{ secrets.SITE_URL }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_PUBLIC_URL: ${{ secrets.R2_PUBLIC_URL }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
