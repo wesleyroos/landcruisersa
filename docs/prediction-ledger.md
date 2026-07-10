@@ -390,6 +390,18 @@ date, compare to baseline, mark HIT / MISS / PARTIAL, and write the lesson.
     photos, and the cloud rehost had been timing out for 5 days (955-listing
     backlog, cleared + rehost moved to its own workflow job). Posts before ~18:00
     on 03 Jul could fail silently.
+- **Mid-point reading (Jun 12 – Jul 9 2026, Meta export — NOT the final score):**
+  Trending toward HIT. IG posts: 190k views / 94k reach / **334 follows** vs the
+  June baseline's 106k / 51k / 160 — follows +109%, and **8.8 follows/post** (vs
+  6.2 baseline, target ≥10 — closing). Hero thesis strongly confirmed: the top
+  follow-drivers are all kitted builds (74/48/31/24/18 follows), every zero-follow
+  post is a plain listing or price-drop. New finding: **IG stories drove 87 link
+  clicks in 28d** (≈ all other channels combined) — the weak IG→traffic leg is
+  healthier than the June read suggested, and now trackable via `ig-story` utm.
+  Platform-follower nuance: gross follows near-equal per platform (FB 511 / IG 538)
+  but net differs (FB +500 / IG +346, IG churn 192) and FB followers are near-inert
+  (median FB post 221 views) — IG remains the real asset. Acceptance-rate KPI still
+  needs the `ig_suggestion_log` vs `ig_posts` join at review; not measured here.
 - **Result:** _pending 2026-08-03_
 - **Lesson:** _tbd_
 
