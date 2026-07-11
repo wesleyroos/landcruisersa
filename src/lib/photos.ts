@@ -25,6 +25,26 @@ export const LISTING_PLACEHOLDER =
 const isUsablePhoto = (u: unknown): u is string =>
   typeof u === 'string' && u.trim() !== '' && !/no-image-car/i.test(u);
 
+/**
+ * Card-thumbnail URL via the wsrv.nl image proxy (resize + WebP + global CDN
+ * cache). Listing photos are stored full-res (300-800KB); serving those into a
+ * ~400px card slot is why browsing felt broken on slow connections — a 640px
+ * WebP is ~25-50KB. Works for every origin we render (R2, WBC, cars.co.za, and
+ * not-yet-rehosted img.autotrader.co.za hotlinks, which it also shields behind
+ * its cache). wsrv never upscales, so small images pass through unchanged.
+ * BaseLayout has a global onerror fallback that recovers the original from the
+ * ?url= param if wsrv is ever down — so this must stay the ONLY thumb format.
+ */
+export function thumb(url: string, width = 640): string {
+  if (!/^https?:\/\//i.test(url)) return url;
+  return `https://wsrv.nl/?url=${encodeURIComponent(url)}&w=${width}&q=75&output=webp`;
+}
+
+/** First usable photo as a card thumbnail (see thumb()). */
+export function firstThumb(json: string | null | undefined, width = 640): string {
+  return thumb(firstPhoto(json), width);
+}
+
 /** Parse + clean a listing's photos JSON into a usable URL array (may be empty). */
 export function parsePhotos(json: string | null | undefined): string[] {
   try {

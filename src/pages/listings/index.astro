@@ -8,7 +8,7 @@ import { listings, favorites } from '@/db/schema';
 import { inArray, desc, and, eq } from 'drizzle-orm';
 import { getRecentPriceChanges } from '@/lib/price-changes';
 import { getCurrentUser } from '@/lib/auth-user';
-import { firstPhoto, hasUsablePhoto } from '@/lib/photos';
+import { firstThumb, hasUsablePhoto } from '@/lib/photos';
 import VehicleSearch from '@/components/VehicleSearch.astro';
 
 // Only the Land Cruiser segment is public. Hilux/Fortuner (segment = 'toyota-4x4')
@@ -39,7 +39,7 @@ const PAGE_SIZE = 18;
 const data = visibleListings.map(l => ({
   slug: l.slug, title: l.title, model: l.model, year: l.year, price: l.price,
   mileage: l.mileage, province: l.province, transmission: l.transmission,
-  colour: l.colour, photo: firstPhoto(l.photos), type: l.listing_type,
+  colour: l.colour, photo: firstThumb(l.photos), type: l.listing_type,
   status: l.status, nu: l.new_or_used, drop: priceChanges.get(l.slug) ?? 0,
   featured: l.featured, bt: l.body_type,
 }));

@@ -8,7 +8,7 @@ import { db } from '@/db/index';
 import { listings } from '@/db/schema';
 import { desc, eq, and, isNotNull } from 'drizzle-orm';
 import { getRecentPriceChanges } from '@/lib/price-changes';
-import { firstPhoto } from '@/lib/photos';
+import { firstThumb } from '@/lib/photos';
 
 const posted = await db.select().from(listings)
   .where(and(eq(listings.status, 'active'), eq(listings.segment, 'land-cruiser'), isNotNull(listings.ig_posted_at)))
@@ -45,7 +45,7 @@ function formatMileage(n: number) {
           return (
             <a href={`/listings/${l.slug}/`} class="ig-card">
               <div class="ig-img-wrap">
-                <img src={firstPhoto(l.photos)} alt={l.title} loading="lazy" width="640" height="400" />
+                <img src={firstThumb(l.photos)} alt={l.title} loading="lazy" width="640" height="400" />
                 {drop > 0 && <span class="ig-drop">▼ R{drop.toLocaleString('en-ZA')}</span>}
               </div>
               <div class="ig-body">

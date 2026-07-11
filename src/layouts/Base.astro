@@ -35,6 +35,7 @@ const ogImage = new URL(image, SITE.url).href;
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/png" href="https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/favicon.png" />
     <link rel="preconnect" href="https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev" />
+    <link rel="preconnect" href="https://wsrv.nl" />
     <link rel="preconnect" href="https://overlandsupply.co.za" />
     <link rel="canonical" href={canonicalUrl} />
 
@@ -190,6 +191,18 @@ const ogImage = new URL(image, SITE.url).href;
           }
         }
       } catch {}
+    </script>
+    <script is:inline>
+      // Card thumbnails are served via the wsrv.nl resize proxy (lib/photos.ts
+      // thumb()). If wsrv is ever down, recover the original image from the
+      // proxy URL's ?url= param — capture phase, since error events don't bubble.
+      document.addEventListener('error', (e) => {
+        const t = e.target;
+        if (t instanceof HTMLImageElement && t.src.startsWith('https://wsrv.nl/')) {
+          const orig = new URL(t.src).searchParams.get('url');
+          if (orig) t.src = orig;
+        }
+      }, true);
     </script>
   </head>
   <body class="min-h-screen flex flex-col">

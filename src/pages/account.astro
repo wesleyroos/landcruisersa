@@ -6,7 +6,7 @@ import { db } from '@/db/index';
 import { favorites, listings, savedSearches } from '@/db/schema';
 import { and, desc, eq } from 'drizzle-orm';
 import { getCurrentUser } from '@/lib/auth-user';
-import { firstPhoto } from '@/lib/photos';
+import { firstThumb } from '@/lib/photos';
 
 const user = getCurrentUser(Astro.cookies);
 if (!user) return Astro.redirect('/signin/?next=/account/');
@@ -79,7 +79,7 @@ const fmt = (n: number | null | undefined) => (n ? 'R' + n.toLocaleString('en-ZA
             {saved.map((l) => (
               <div class="saved-card border border-[#DDD9D3] rounded-xl overflow-hidden flex flex-col" data-slug={l.slug}>
                 <a href={`/listings/${l.slug}/`} class="block aspect-[4/3] bg-[#F5F3EE] overflow-hidden">
-                  <img src={firstPhoto(l.photos)} alt={l.title} loading="lazy" class="w-full h-full object-cover" />
+                  <img src={firstThumb(l.photos)} alt={l.title} loading="lazy" class="w-full h-full object-cover" />
                 </a>
                 <div class="p-4 flex flex-col flex-1">
                   <a href={`/listings/${l.slug}/`} class="font-heading font-bold text-sm text-[#111111] hover:text-[#D4881A] line-clamp-2 mb-1">{l.title}</a>

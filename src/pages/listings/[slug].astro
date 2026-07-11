@@ -6,7 +6,7 @@ import { db } from '@/db/index';
 import { listings, favorites, savedSearches } from '@/db/schema';
 import { and, eq, ne } from 'drizzle-orm';
 import { getCurrentUser } from '@/lib/auth-user';
-import { parsePhotos, firstPhoto, LISTING_PLACEHOLDER } from '@/lib/photos';
+import { parsePhotos, firstThumb, LISTING_PLACEHOLDER } from '@/lib/photos';
 // NB: do NOT import modelLabel/normalize here — this page already pulls modelLabel
 // transitively via getMarketPosition, and a second direct import creates a
 // bundler init-order crash ("Cannot access 'modelLabel2' before initialization").
@@ -698,7 +698,7 @@ if (metaDescription.length > 160) {
           {similarFiltered.map(l => (
             <a href={`/listings/${l.slug}/`} class="sim-card">
               <div class="sim-img">
-                <img src={firstPhoto(l.photos)} alt={l.title} loading="lazy" />
+                <img src={firstThumb(l.photos)} alt={l.title} loading="lazy" />
                 <span class="sim-badge">{l.model.replaceAll('-', ' ').toUpperCase()}</span>
               </div>
               <div class="sim-body">

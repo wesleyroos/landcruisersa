@@ -10,7 +10,7 @@ import { listings, priceEvents, favorites } from '@/db/schema';
 import { eq, desc, and, not, sql, gte } from 'drizzle-orm';
 import { getSiteStats } from '@/lib/site-stats';
 import { getCurrentUser } from '@/lib/auth-user';
-import { firstPhoto, hasUsablePhoto } from '@/lib/photos';
+import { firstThumb, hasUsablePhoto } from '@/lib/photos';
 import VehicleSearch from '@/components/VehicleSearch.astro';
 
 const allPosts = await getCollection('posts', p => !p.data.draft && !p.data.unlisted);
@@ -132,7 +132,7 @@ function formatPrice(n: number) {
         {featuredListings.map(l => (
           <a href={`/listings/${l.slug}/`} class="lc lc-light">
             <div class="lc-img">
-              <img src={firstPhoto(l.photos)} alt={l.title} loading="lazy" />
+              <img src={firstThumb(l.photos)} alt={l.title} loading="lazy" />
               <span class="lc-badge">{l.model.replace('-', ' ').toUpperCase()}</span>
               {l.featured && <span class="lc-badge-featured">★ Featured</span>}
               <span
