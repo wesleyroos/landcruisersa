@@ -6,6 +6,7 @@ export const prerender = false;
 
 import Base from '@/layouts/Base.astro';
 import { SITE } from '@/data/site';
+import { igFollowersDisplay } from '@/lib/ig-followers';
 import { getSiteStats } from '@/lib/site-stats';
 
 const { liveListings: activeCount, models: modelCount } = getSiteStats();
@@ -75,7 +76,7 @@ const aboutSchema = {
     <h2>Backed by the community</h2>
     <p>
       Land Cruiser SA is backed by South Africa's largest Land Cruiser community —
-      20,000+ followers on <a href={SITE.socials.instagram} rel="noopener">Instagram</a>
+      {igFollowersDisplay()}+ followers on <a href={SITE.socials.instagram} rel="noopener">Instagram</a>
       (@landcruisersa). That community is what makes the data current: real owners, dealers
       and sellers across the country feed the most accurate picture of the South African
       Land Cruiser market available anywhere.

@@ -1,6 +1,7 @@
 ---
 export const prerender = false;
 import Base from '@/layouts/Base.astro';
+import { igFollowersDisplay, igFollowersK } from '@/lib/ig-followers';
 ---
 
 <Base
@@ -14,8 +15,8 @@ import Base from '@/layouts/Base.astro';
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1112.63 8 4 4 0 0116 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
     </div>
     <div class="ig-value-text">
-      <p class="ig-value-head">Reach 18,800 Land Cruiser buyers on Instagram</p>
-      <p class="ig-value-sub">Every listing submitted here gets posted to our Instagram following — 18.8k people who specifically follow Land Cruisers in South Africa. Free.</p>
+      <p class="ig-value-head">Reach {igFollowersDisplay()} Land Cruiser buyers on Instagram</p>
+      <p class="ig-value-sub">Every listing submitted here gets posted to our Instagram following — {igFollowersK()} people who specifically follow Land Cruisers in South Africa. Free.</p>
     </div>
   </div>
 </div>
