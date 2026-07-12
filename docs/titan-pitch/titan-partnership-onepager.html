@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --amber:#F5A623; --amber-d:#C9790F; --ink:#111111;
+    --paper:#FFFFFF; --soft:#F6F4EF; --line:#E4E0D9; --grey:#56565B; --grey-l:#92928f;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  @page{ size:A4; margin:0; }
+  html,body{font-family:'Inter',sans-serif;color:var(--ink);background:var(--paper);}
+  .page{position:relative;width:210mm;height:297mm;overflow:hidden;
+    padding:16mm 18mm 14mm;display:flex;flex-direction:column;page-break-after:always;}
+  .page:last-child{page-break-after:auto;}
+  .bar{position:absolute;top:0;left:0;height:7px;width:100%;
+       background:linear-gradient(90deg,var(--amber) 62%,var(--ink) 62%);}
+  h1,h2,.eyebrow,.k,.amt,.foot b,.kicker{font-family:'Barlow Condensed',sans-serif;}
+
+  .head{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid var(--ink);padding-bottom:11px;}
+  .eyebrow{font-weight:700;text-transform:uppercase;letter-spacing:.18em;font-size:9.5pt;color:var(--amber-d);margin-bottom:4px;}
+  h1{font-weight:800;text-transform:uppercase;font-size:30pt;line-height:.97;}
+  h1 .o{color:var(--amber);}
+  .head-r{text-align:right;font-size:8pt;color:var(--grey);line-height:1.55;}
+  .head-r b{font-weight:700;font-size:12pt;color:var(--ink);display:block;text-transform:uppercase;font-family:'Barlow Condensed',sans-serif;}
+
+  .lead{font-size:11pt;line-height:1.65;color:#3a3a3a;margin-top:16px;}
+  .lead b{color:var(--ink);font-weight:600;}
+
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:18px;}
+  .stat{background:var(--soft);border:1px solid var(--line);border-radius:12px;padding:14px 15px;}
+  .stat .amt{font-weight:800;font-size:22pt;line-height:1;}
+  .stat .amt small{font-family:'Inter';font-size:8pt;font-weight:600;color:var(--grey);}
+  .stat .lbl{font-size:8pt;text-transform:uppercase;letter-spacing:.08em;color:var(--grey-l);font-weight:600;margin-top:5px;line-height:1.4;}
+
+  h2{font-weight:700;text-transform:uppercase;font-size:12.5pt;letter-spacing:.05em;margin:18px 0 8px;
+     display:flex;align-items:center;gap:8px;}
+  h2::before{content:"";width:5px;height:15px;background:var(--amber);border-radius:1px;}
+  .body-txt{font-size:9.8pt;line-height:1.62;color:#3a3a3a;}
+  .body-txt b{color:var(--ink);font-weight:600;}
+  .body-txt ul{margin:5px 0 0 16px;}
+  .body-txt li{margin-bottom:4px;}
+
+  .dark{background:var(--ink);color:#e9e9e9;border-radius:13px;padding:16px 20px;margin-top:16px;font-size:9.8pt;line-height:1.65;}
+  .dark .kicker{display:block;color:var(--amber);font-weight:700;text-transform:uppercase;font-size:11.5pt;letter-spacing:.04em;margin-bottom:4px;}
+  .dark b{color:#fff;font-weight:600;}
+
+  .foot{margin-top:auto;border-top:1px solid var(--line);padding-top:8px;font-size:7.8pt;color:var(--grey-l);display:flex;justify-content:space-between;}
+  .foot b{color:var(--grey);font-weight:700;text-transform:uppercase;letter-spacing:.06em;}
+
+  /* page 2 */
+  .mhead{display:flex;justify-content:space-between;align-items:baseline;border-bottom:2px solid var(--ink);padding-bottom:9px;}
+  .mhead .t{font-family:'Barlow Condensed',sans-serif;font-weight:800;text-transform:uppercase;font-size:16pt;}
+  .offer{margin-top:16px;border:1.5px solid var(--ink);border-radius:14px;overflow:hidden;}
+  .offer-h{background:var(--ink);color:#fff;font-family:'Barlow Condensed',sans-serif;font-weight:700;text-transform:uppercase;letter-spacing:.06em;font-size:12.5pt;padding:11px 20px;display:flex;justify-content:space-between;align-items:center;}
+  .offer-h span{font-family:'Inter';font-weight:500;font-size:8.5pt;color:#bcbcbc;text-transform:none;letter-spacing:0;}
+  .offer-grid{display:grid;grid-template-columns:1fr 1fr;}
+  .ocell{padding:16px 20px;border-right:1px solid var(--line);}
+  .ocell:last-child{border-right:none;}
+  .ocell .lbl{font-size:8pt;text-transform:uppercase;letter-spacing:.12em;color:var(--grey-l);font-weight:600;}
+  .ocell .amt{font-weight:800;font-size:24pt;line-height:1.05;margin-top:5px;}
+  .ocell .amt small{font-family:'Inter';font-size:9.5pt;font-weight:600;color:var(--grey);}
+  .ocell p{font-size:8.8pt;color:var(--grey);margin-top:6px;line-height:1.55;}
+  .offer-f{border-top:1px solid var(--line);padding:12px 20px;font-size:9pt;color:#3f3f3f;}
+  .offer-f b{color:var(--ink);font-family:'Barlow Condensed',sans-serif;font-weight:700;text-transform:uppercase;letter-spacing:.03em;}
+
+  .incl{margin-top:16px;}
+  .incl ul{list-style:none;display:grid;grid-template-columns:1fr 1fr;gap:10px 24px;}
+  .incl li{font-size:9.3pt;line-height:1.5;color:#3f3f3f;padding-left:18px;position:relative;}
+  .incl li::before{content:"";position:absolute;left:0;top:6px;width:8px;height:8px;border-radius:50%;background:var(--amber);}
+  .incl li b{color:var(--ink);font-weight:600;}
+</style>
+</head>
+<body>
+
+<!-- ─────────────── PAGE 1: WHY ─────────────── -->
+<section class="page">
+  <div class="bar"></div>
+  <div class="head">
+    <div>
+      <p class="eyebrow">Partnership proposal · Titan Secure</p>
+      <h1>SA's Cruiser owners,<br>in one place<span class="o">.</span></h1>
+    </div>
+    <div class="head-r">
+      <b>Land Cruiser SA</b>
+      landcruisersa.co.za<br>
+      @landcruisersa<br>
+      <span style="white-space:nowrap;">Prepared for Victor Claassens &amp; Stephan Kemp</span><br>July 2026
+    </div>
+  </div>
+
+  <p class="lead">
+    Land Cruiser SA is South Africa's dedicated Land Cruiser platform — live market data,
+    every Cruiser for sale in the country, buyer's guides, and the largest Cruiser community
+    on Instagram. Our audience owns (or is about to buy) exactly one thing: <b>the most
+    hijack-targeted premium vehicle in South Africa.</b>
+  </p>
+
+  <div class="stats">
+    <div class="stat"><div class="amt">19,400<small>+</small></div><div class="lbl">Instagram followers, growing ~200/wk</div></div>
+    <div class="stat"><div class="amt">190k</div><div class="lbl">IG post views last 28 days</div></div>
+    <div class="stat"><div class="amt">2×</div><div class="lbl">Site traffic doubled in the last month</div></div>
+    <div class="stat"><div class="amt">R1m<small>+</small></div><div class="lbl">Typical vehicle value browsed on-site</div></div>
+  </div>
+
+  <h2>Why this audience needs Titan</h2>
+  <p class="body-txt">
+    Land Cruisers — the 79 in particular — sit at the top of every 2026 hijacking and theft
+    target list in South Africa. Our readers know it: they arrive asking exactly the questions
+    Titan answers.
+  </p>
+  <ul class="body-txt" style="margin-top:6px;margin-left:16px;">
+    <li>Two dedicated security guides are already live — <b>Theft &amp; Hijacking Protection</b> (hub) and <b>Immobiliser vs Tracker</b> — and Titan is already featured editorially in both.</li>
+    <li>Before any commercial relationship existed, these guides sent unpaid, organic clicks through to a security vendor's site — <b>reader intent we can now route to Titan.</b></li>
+    <li>Our buyers are researching a <b>R700k–R2.5m purchase</b>; security is a natural, high-attention part of that journey — and insurers increasingly require it.</li>
+  </ul>
+
+  <div class="dark">
+    <span class="kicker">The differentiator: measured, not promised</span>
+    Every Titan link on our platform carries tracking. You receive a <b>monthly report</b> —
+    impressions, guide readership, clicks through to Titan — so the partnership's value is
+    visible, not vibes. If it doesn't perform, you'll see it; when it does, you'll know exactly
+    what a lead from us costs.
+  </div>
+
+  <div class="foot">
+    <span><b>Land Cruiser SA</b> · Titan Secure partnership proposal</span>
+    <span>Page 1 of 2</span>
+  </div>
+</section>
+
+<!-- ─────────────── PAGE 2: THE OFFER ─────────────── -->
+<section class="page">
+  <div class="bar"></div>
+  <div class="mhead">
+    <p class="eyebrow">The offer</p>
+    <p class="t">Founding Security Partner</p>
+  </div>
+
+  <div class="offer">
+    <div class="offer-h">Two components — start with either <span>anchors, open to discussion</span></div>
+    <div class="offer-grid">
+      <div class="ocell">
+        <div class="lbl">1 · Sponsored placement</div>
+        <div class="amt">R3,500 <small>/month</small></div>
+        <p>Titan featured as the recommended anti-hijack system across both security guides,
+           the partner directory, and one dedicated Instagram feature per month to 19k+ Cruiser
+           owners. Month-to-month after a 3-month founding term.</p>
+      </div>
+      <div class="ocell">
+        <div class="lbl">2 · Tracked referrals</div>
+        <div class="amt">R <small>per installed referral — your number</small></div>
+        <p>Every enquiry from our platform carries a reference. You pay only when a referred
+           reader becomes an installed customer. Requires a referral link or code on Titan's
+           side (your "Become a Partner" rail).</p>
+      </div>
+    </div>
+    <div class="offer-f">
+      <b>Founding exclusivity:</b> Titan becomes the only vehicle-security brand across the
+      Land Cruiser SA network — including new vertical sites as they launch (Jimny SA is live now).
+    </div>
+  </div>
+
+  <div class="incl">
+    <h2>What's included</h2>
+    <ul>
+      <li><b>Editorial integration</b> in the theft-protection hub + immobiliser/tracker guide (already live)</li>
+      <li><b>Partner directory listing</b> with UTM-tracked links</li>
+      <li><b>1× monthly Instagram feature</b> — the channel that drove 190k views last month</li>
+      <li><b>Monthly performance report</b> — views, readers, clicks to Titan, referral count</li>
+      <li><b>Content collaboration</b> — real installs, owner stories, anti-hijack explainers (shot with your team)</li>
+      <li><b>Network expansion</b> — placement extends to each new vertical at no extra founding cost</li>
+    </ul>
+  </div>
+
+  <h2>Why now</h2>
+  <p class="body-txt">
+    The platform's search and AI-assistant visibility is compounding — Land Cruiser SA is
+    already the answer ChatGPT and Copilot cite for South African Land Cruiser questions.
+    Security queries are next: the guides are new and climbing. A founding partner locks the
+    category before that curve matures — at founding pricing.
+  </p>
+
+  <div class="dark" style="margin-top:14px;">
+    <span class="kicker">Suggested close for the meeting</span>
+    Agree the 3-month founding placement (R3,500/mo) today; set up the referral link in
+    parallel so the pay-per-install rail is live by month two. First monthly report lands
+    30 days after go-live.
+  </div>
+
+  <div class="foot">
+    <span><b>Land Cruiser SA</b> · Wesley Roos · landcruisersa.co.za</span>
+    <span>Page 2 of 2</span>
+  </div>
+</section>
+
+</body>
+</html>

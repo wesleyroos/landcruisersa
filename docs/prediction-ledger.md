@@ -402,6 +402,14 @@ date, compare to baseline, mark HIT / MISS / PARTIAL, and write the lesson.
   but net differs (FB +500 / IG +346, IG churn 192) and FB followers are near-inert
   (median FB post 221 views) — IG remains the real asset. Acceptance-rate KPI still
   needs the `ig_suggestion_log` vs `ig_posts` join at review; not measured here.
+- **Acceptance check-in (2026-07-12, ig-outcomes):** 3/8 suggested days = **38%**
+  (below the ≥50% bar) while output stays strong (hero slots 15.1 follows/post vs
+  ≥10 target; ig-story 44 visitors/7d). Wesley confirmed the cause is
+  **disagreement with the picks, not habit/UX** — he sees the suggestions and
+  chooses differently. Before the 03-Aug review: diff the mismatch days
+  (suggested #1 vs actually-posted) to characterise his taste vs the scorer, then
+  tune MOD_LEXICON/FAMILY_PRIOR — the scorer converges on the taste that
+  demonstrably works, not vice versa.
 - **Result:** _pending 2026-08-03_
 - **Lesson:** _tbd_
 
