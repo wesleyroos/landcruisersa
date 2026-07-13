@@ -44,8 +44,12 @@ export function segmentForModel(model: string): string {
 // vehicle is available…"), verified against prod data 2026-07-04.
 const GAME_VIEWER_TITLE_RE =
   /game[\s-]?view|game[\s-]?drive|safari[\s-]?(?:conversion|vehicle|spec)/i;
+// The description alternative must be the NOUN form ("game viewer"), never bare
+// "game view/viewing" — sellers mention game-viewing as a past USE on standard
+// bakkies ("previously used on the farm as a game-viewing/support vehicle"),
+// which put a stock 79 single cab on /game-viewers/ (id 16938, 2026-07-13).
 const GAME_VIEWER_DESC_RE =
-  /game[\s-]?view|game[\s-]?drive[\s-]?(?:vehicle|conversion)|safari[\s-]?(?:conversion|vehicle|ready|spec)|open\s(?:safari|game)/i;
+  /game[\s-]?viewer|game[\s-]?drive[\s-]?(?:vehicle|conversion)|safari[\s-]?(?:conversion|vehicle|ready|spec)|open\s(?:safari|game)/i;
 
 // Returns 'game-viewer' or null (unclassified). Never returns 'standard' — that
 // value is an explicit admin opt-out; callers must only fill body_type when it
