@@ -42,7 +42,14 @@ async function ingest() {
   let consecFail = 0, aborted = false;
   const ABORT_CONSEC = 5;
 
+  let processed = 0;
   for (const ref of refs) {
+    // The upload phase is ~5,300 sequential POSTs (~25 min) — log progress so a
+    // long quiet stretch in CI reads as "working", not "hung" (the silent
+    // 2026-07-11/12 runs looked frozen and were in fact just mid-upload).
+    if (++processed % 500 === 0) {
+      console.log(`[carsza] uploading… ${processed}/${refs.length} (created ${created}, updated ${updated})`);
+    }
     const listing = await CarsZaAdapter.fetchListing(ref);
     if (!listing) { skipped++; continue; }
 
@@ -55,6 +62,9 @@ async function ingest() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(listing),
+        // A stuck connection must fail fast into the consecFail logic below —
+        // an untimed fetch can sit for minutes and silently eat the job budget.
+        signal: AbortSignal.timeout(30_000),
       });
     } catch (err) {
       // Network-level error (timeout/DNS/connection) — fetch throws, no response.

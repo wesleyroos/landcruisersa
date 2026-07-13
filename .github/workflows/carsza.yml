@@ -19,7 +19,10 @@ jobs:
   carsza:
     name: Cars.co.za (headed Chrome via xvfb + proxy)
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # Discovery is ~3 min but the upload loop is ~5,300 sequential POSTs to prod
+    # (~25 min and growing with the Hilux/Fortuner catalogue). 30 min left zero
+    # headroom — the 2026-07-11/12 runs were killed mid-upload.
+    timeout-minutes: 75
 
     steps:
       - uses: actions/checkout@v4
