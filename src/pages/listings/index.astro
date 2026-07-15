@@ -321,7 +321,7 @@ function formatMileage(n: number) {
             {l.type === 'show_off' ? (
               <p class="text-xs text-[rgba(255,255,255,0.4)] mb-4 truncate">{l.province} · {l.year} · {l.transmission === 'manual' ? 'Manual' : 'Auto'} · {l.colour}</p>
             ) : (
-              <p class="text-xs text-[#6B7280] mb-4 truncate">{l.province} · {formatMileage(l.mileage)} · {l.transmission === 'manual' ? 'Manual' : 'Auto'} · {l.colour}</p>
+              <p class="text-xs text-[#6B7280] mb-4 truncate">{l.province}{l.mileage > 0 ? ` · ${formatMileage(l.mileage)}` : ''} · {l.transmission === 'manual' ? 'Manual' : 'Auto'} · {l.colour}</p>
             )}
             <div class="flex items-center justify-between mt-auto">
               {l.type === 'for_sale' ? (
@@ -606,7 +606,7 @@ function formatMileage(n: number) {
       (!isSold && l.drop < 0 ? `<span class="card-badge card-badge-drop">▼ R${za(Math.abs(l.drop))}</span>` : '');
     const meta = isShow
       ? `<p class="text-xs text-[rgba(255,255,255,0.4)] mb-4 truncate">${esc(l.province)} · ${l.year} · ${l.transmission === 'manual' ? 'Manual' : 'Auto'} · ${esc(l.colour)}</p>`
-      : `<p class="text-xs text-[#6B7280] mb-4 truncate">${esc(l.province)} · ${za(l.mileage)} km · ${l.transmission === 'manual' ? 'Manual' : 'Auto'} · ${esc(l.colour)}</p>`;
+      : `<p class="text-xs text-[#6B7280] mb-4 truncate">${esc(l.province)}${l.mileage > 0 ? ` · ${za(l.mileage)} km` : ''} · ${l.transmission === 'manual' ? 'Manual' : 'Auto'} · ${esc(l.colour)}</p>`;
     const foot = l.type === 'for_sale'
       ? `<p class="font-heading font-bold text-2xl text-[#111111]">R${za(l.price)}${l.drop < 0 ? `<span class="was-price">R${za(l.price - l.drop)}</span>` : ''}</p>` +
         `<span class="text-xs font-bold uppercase px-2.5 py-1 rounded-full bg-[#F5F3EE] text-[#6B7280]">${esc(l.nu)}</span>`

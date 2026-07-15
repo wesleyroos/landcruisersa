@@ -180,7 +180,15 @@ export const CarsZaAdapter: SourceAdapter = {
           if (batch.length === 0) break;
           for (const rec of batch) {
             const listing = toListing(rec);
-            if (listing) cache.set(listing.source_id, listing);
+            if (!listing) continue;
+            // Vintage Cars SA cross-posts its stock here, but we scrape their
+            // site directly (vcsa.ts) — the direct row has the full 20-photo
+            // gallery and hands the buyer to the dealer's own page. Skipping
+            // the cross-post here (not at fetchListing) also drops it from the
+            // refs the off-market sweep reconciles against, so a lingering
+            // carsza copy gets reaped rather than resurrected every crawl.
+            if (/vintage cars sa/i.test(listing.seller_name)) continue;
+            cache.set(listing.source_id, listing);
           }
           offset += batch.length;
           await page.waitForTimeout(400); // polite pacing

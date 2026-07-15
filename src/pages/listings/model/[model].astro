@@ -246,7 +246,7 @@ const description = results.length
                 {l.title}
               </h2>
               <p class={`text-xs mb-4 truncate ${l.listing_type === 'show_off' ? 'text-white/40' : 'text-[#6B7280]'}`}>
-                {formatMileage(l.mileage)} · {l.transmission === 'manual' ? 'Manual' : 'Auto'} · {l.province}
+                {l.mileage > 0 ? `${formatMileage(l.mileage)} · ` : ''}{l.transmission === 'manual' ? 'Manual' : 'Auto'} · {l.province}
               </p>
               <div class="mt-auto">
                 {l.listing_type === 'for_sale'

@@ -148,7 +148,7 @@ function formatPrice(n: number) {
             </div>
             <div class="lc-body">
               <p class="lc-title lc-title-dark">{l.title}</p>
-              <p class="lc-meta lc-meta-light">{l.province} · {l.mileage.toLocaleString('en-ZA')} km · {l.transmission.charAt(0).toUpperCase() + l.transmission.slice(1)}</p>
+              <p class="lc-meta lc-meta-light">{l.province}{l.mileage > 0 ? ` · ${l.mileage.toLocaleString('en-ZA')} km` : ''} · {l.transmission.charAt(0).toUpperCase() + l.transmission.slice(1)}</p>
               <p class="lc-price lc-price-dark">{formatPrice(l.price)}</p>
             </div>
           </a>

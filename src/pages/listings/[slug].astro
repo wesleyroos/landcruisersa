@@ -340,10 +340,12 @@ if (metaDescription.length > 160) {
         <img src="https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/icons/year.svg" width="14" height="14" alt="" class="chip-icon" />
         {listing.year}
       </span>
-      <span class="chip">
-        <img src="https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/icons/mileage.svg" width="14" height="14" alt="" class="chip-icon" />
-        {formatMileage(listing.mileage)}
-      </span>
+      {listing.mileage > 0 && (
+        <span class="chip">
+          <img src="https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/images/icons/mileage.svg" width="14" height="14" alt="" class="chip-icon" />
+          {formatMileage(listing.mileage)}
+        </span>
+      )}
       <span class="chip">
         <img src={`/images/icons/transmission-${listing.transmission}.svg`} width="14" height="14" alt="" class="chip-icon" />
         {cap(listing.transmission)}
@@ -611,7 +613,7 @@ if (metaDescription.length > 160) {
                       <span class="price-drop-chip">▼ R{priceDropAmount.toLocaleString('en-ZA')} price drop</span>
                     </p>
                   )}
-                  <p class="price-sub">{listing.year} · {formatMileage(listing.mileage)}</p>
+                  <p class="price-sub">{listing.year}{listing.mileage > 0 ? ` · ${formatMileage(listing.mileage)}` : ''}</p>
                 </div>
                 <span class="condition-badge cb-neutral">{listing.new_or_used}</span>
               </div>
@@ -704,7 +706,7 @@ if (metaDescription.length > 160) {
               </div>
               <div class="sim-body">
                 <p class="sim-title">{l.title}</p>
-                <p class="sim-meta">{l.province} · {l.mileage.toLocaleString('en-ZA')} km</p>
+                <p class="sim-meta">{l.province}{l.mileage > 0 ? ` · ${l.mileage.toLocaleString('en-ZA')} km` : ''}</p>
                 <p class="sim-price">{formatPrice(l.price)}</p>
               </div>
             </a>

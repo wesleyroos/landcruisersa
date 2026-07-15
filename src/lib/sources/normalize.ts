@@ -89,7 +89,13 @@ export function normalizeModel(raw: string, year?: number): string {
         if (year <= 2002) return 'prado-90';
         if (year <= 2008) return 'prado-120';
       }
-      // New Land Cruiser FJ launched 2026; older "Land Cruiser FJ" listings are FJ Cruisers
+      // A bare "Land Cruiser FJ" splits three ways by year: pre-1990 is a
+      // classic with the chassis number missing from the title (AT lists a 1983
+      // "Land Cruiser FJ 4.2"). 40-series is the default because SA sellers
+      // titling a classic without its code are near-always selling a 40/45 —
+      // FJ60/62s carry their code, which the chassis patterns above catch first.
+      // 1990–2025 is the retro FJ Cruiser; 2026+ is the new Land Cruiser FJ.
+      if (slug === 'land-cruiser-fj' && year && year <= 1990) return '40-series';
       if (slug === 'land-cruiser-fj' && year && year <= 2025) return 'fj-cruiser';
       // Hilux / Fortuner → engine-era slugs (hilux-gd6, fortuner-d4d, …)
       if (slug === 'hilux' || slug === 'fortuner') return `${slug}-${hiluxFortunerEra(raw, year)}`;
