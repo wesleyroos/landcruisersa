@@ -81,6 +81,14 @@ function hiluxFortunerEra(raw: string, year?: number): 'gd6' | 'd4d' {
 export function normalizeModel(raw: string, year?: number): string {
   for (const [re, slug] of MODEL_MAP) {
     if (re.test(raw)) {
+      // Classic chassis codes only exist on cars built before ~1990, so a match
+      // paired with a modern year is dealer title garbage, not a classic — an AT
+      // dealer titled a 2022 FJ Cruiser "Land Cruiser FJ 62 4.0 Station Wagon",
+      // which put it on the classics page. Skip the classic match and let the
+      // later patterns classify it (that title falls through to fj-cruiser).
+      // Cutoff is 1995, not 1990: imports/restorations sometimes carry a
+      // slightly later registration year than their build year.
+      if ((slug === '40-series' || slug === '55-series' || slug === '60-series') && year && year > 1995) continue;
       // The generic 'prado' match defaults to the J150; split the other Prado
       // generations out by model year (they don't overlap in SA):
       //   J90 ≤2002 · J120 2003–2008 · J150 2009–2023 · J250 2024+

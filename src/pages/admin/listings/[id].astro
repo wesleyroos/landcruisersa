@@ -56,7 +56,7 @@ const portalLabel = SOURCE_LABEL[listing.source] ?? listing.source;
 
 const igConnected = !!(await getCredentials());
 
-const MODELS = ['70-series','76-series','78-series','79-series','80-series','100-series','200-series','300-series','prado-150','prado-250','fj-cruiser','land-cruiser-fj','other'];
+const MODELS = ['40-series','55-series','60-series','70-series','76-series','78-series','79-series','80-series','100-series','200-series','300-series','prado-150','prado-250','fj-cruiser','land-cruiser-fj','other'];
 const PROVINCES = ['Gauteng','Western Cape','KwaZulu-Natal','Eastern Cape','Limpopo','Mpumalanga','North West','Free State','Northern Cape'];
 
 // IG caption generation
@@ -222,7 +222,10 @@ const waSpec = [
 
           <div class="field-row">
             <div class="field">
-              <label>Model</label>
+              <label>Model {listing.model_locked
+                ? <span class="label-hint">🔒 locked — the scraper can't overwrite it</span>
+                : <span class="label-hint">changing this locks it against scraper overwrite</span>}
+              </label>
               <select name="model">
                 {MODELS.map(m => <option value={m} selected={listing.model === m}>{m.replaceAll('-', ' ').toUpperCase()}</option>)}
               </select>

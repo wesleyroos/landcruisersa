@@ -55,7 +55,7 @@ export const POST: APIRoute = async ({ request }) => {
   const existing = await db.select({
     id: listings.id, slug: listings.slug, price: listings.price, model: listings.model,
     colour: listings.colour, description: listings.description, photos: listings.photos,
-    body_type: listings.body_type,
+    body_type: listings.body_type, model_locked: listings.model_locked,
   })
     .from(listings)
     .where(and(eq(listings.source, String(source)), eq(listings.source_id, String(source_id))))
@@ -79,9 +79,16 @@ export const POST: APIRoute = async ({ request }) => {
     let existingPhotoCount = 0;
     try { const p = JSON.parse(existing[0].photos); if (Array.isArray(p)) existingPhotoCount = p.length; } catch { /* keep 0 */ }
 
+    // An admin model verdict beats the classifier: some cars can't be classified
+    // from the title (a dealer titled an FJ Cruiser "FJ 62 4.0 Station Wagon";
+    // a bare "FJ 4.2" turned out to be a 60-series game viewer). Same idea as
+    // the body_type verdict below, but as an explicit flag since model is
+    // otherwise re-asserted on every crawl.
+    const effectiveModel = existing[0].model_locked ? existing[0].model : String(model);
+
     await db.update(listings).set({
       title: String(title),
-      model: String(model),
+      model: effectiveModel,
       year: Number(year),
       price: Number(price ?? 0),
       mileage: Number(mileage ?? 0),
@@ -108,7 +115,7 @@ export const POST: APIRoute = async ({ request }) => {
       power_kw: power_kw ? Number(power_kw) : null,
       seats: seats ? Number(seats) : null,
       co2: co2 ? Number(co2) : null,
-      segment: segmentForModel(String(model)),
+      segment: segmentForModel(effectiveModel),
       // Classify only unclassified rows — an admin's manual body_type verdict
       // ('standard' opt-out or confirmed 'game-viewer') survives re-ingest.
       body_type: existing[0].body_type

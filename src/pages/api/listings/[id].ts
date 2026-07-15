@@ -6,6 +6,7 @@ import { listings } from '@/db/schema';
 import { offMarketPatch } from '@/lib/listing-status';
 import { sendSellerLiveEmail } from '@/lib/seller-live-email';
 import { requireAdmin, unauthorized } from '@/lib/admin-auth';
+import { segmentForModel } from '@/lib/sources/normalize';
 import { eq } from 'drizzle-orm';
 
 const UPDATABLE_FIELDS = [
@@ -54,6 +55,18 @@ export const PATCH: APIRoute = async ({ params, request, cookies }) => {
 
   // Keep off_market_at in step with any status change (stamp on sold, clear on reactivate).
   Object.assign(updates, offMarketPatch(updates.status as string | undefined));
+
+  // An admin setting the model is a human verdict on an ambiguous title — lock
+  // it so the next crawl's classifier can't overwrite it (/api/ingest checks the
+  // flag), and keep segment in step since it derives from model. Only when the
+  // value actually changes: re-saving the form untouched must not lock anything.
+  if ('model' in updates) {
+    const current = db.select({ model: listings.model }).from(listings).where(eq(listings.id, id)).get();
+    if (current && current.model !== updates.model) {
+      updates.model_locked = true;
+      updates.segment = segmentForModel(String(updates.model));
+    }
+  }
 
   await db.update(listings).set(updates).where(eq(listings.id, id));
 
