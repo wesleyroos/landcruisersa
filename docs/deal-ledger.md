@@ -111,6 +111,13 @@ so threads either progress or get consciously dropped — never drift.
 - **Next action:** close deal #1 (inspection → purchase → fee); get the R10k terms in writing.
 - **STATUS (2026-07-12): STALLED/quiet** — no movement from Gys or the sellers (Jared's Meano; Francois 79 had Gys's R950k offer). One push before the Wednesday deadline: a single Monday-morning WhatsApp to Jurie/Gys ("still keen on the Meano inspection? and does the R950k on the Francois 79 stand?"). If no response by 15-Jul → park with lesson (verbal pilots without papered terms drift; the spotter agreement exists now to fix exactly this).
 - **Kill-or-advance:** deal #1 closes or is declared dead by **2026-07-15**. NOTE: WBC angle B may supersede/augment this with a bigger buyer — don't over-invest here if WBC moves.
+- **STATUS (2026-07-15): kill date reached.** Pre-commitment from 12-Jul: no
+  reply to Monday's WhatsApp → **PARK** with the lesson (verbal pilots without
+  papered terms drift; the spotter agreement template now exists to prevent a
+  repeat). ⚠️ Awaiting Wesley's confirmation on whether Jurie/Gys replied —
+  if yes, log the reply and reset the clock; if no, this entry is parked as of
+  today. Either way the R950k offer on the Francois 79 remains a logged data
+  point (P17).
 
 ---
 
@@ -161,6 +168,24 @@ so threads either progress or get consciously dropped — never drift.
 - **Done:** both theft guides reworked to feature Titan (Ghost fully removed) + Titan imagery added; Titan UTM links tracking outbound clicks. Content-first complete.
 - **Value hypothesis:** sponsored placement (~R3.5k/mo) and/or a trackable referral (Titan has a "Become a Partner" page). Gate (per [[project-monetization-philosophy]]): trackable affiliate or own-inventory advertising only — never chase-to-invoice.
 - **Next / kill-or-advance:** reply accepting the meeting (in-person, propose slots) + request assets → **meeting next week**. Aim for a base sponsored placement (~R3.5k/mo) + a trackable referral. ADVANCE = terms agreed / first paid placement or referral link live.
+- **⭐ STATUS (2026-07-15): MEETING HAPPENED — very positive.** Titan is keen to
+  work together on **both** structures at once: a **small monthly fixed
+  advertising fee** AND a **referral / commission arrangement**. They are
+  sending a proposal/terms **later today (15-Jul)**. Stage → **Proposal
+  (theirs incoming)** — LCSA's first paying-partner terms on paper.
+  - **When their paper lands, check it against:** (1) base placement anchored
+    ~R3.5k/mo (they floated "more than the base" energy — don't under-ask);
+    (2) referral leg MUST be trackable/self-serve attributable (unique code,
+    UTM'd landing page, or partner portal) per the locked monetization
+    philosophy — a "send us names and we'll pay you if they buy" shape gets
+    countered with a tracking mechanism, not accepted; (3) non-exclusive on
+    our side unless priced way up (WBC network conflict); (4) term short
+    (3–6mo pilot) so pricing can reset as traffic grows — site is 5× its
+    22-Jun benchmark and IG is 19.6k followers.
+  - Honesty note held up: Titan outbound clicks = 0 to date (links live only
+    since 08-Jul) — the pitch led with audience, which is what they bought.
+  - **Next / kill-or-advance:** respond within 24h of their proposal; ADVANCE
+    = signed terms / first invoice or referral link live by **2026-07-25**.
 - **STATUS (2026-07-12): meeting = WEDNESDAY 2026-07-15 at Titan's Centurion office (Berkley Office Park, Highveld Techno Park), time TBC from their side. CEO Stephan Kemp will likely join — he happens to be up from Cape Town that week (NOT flying up for this; don't over-read it).** Still meaningful: they're choosing to put the CEO in the room while he's around, so a decision CAN happen Wednesday — prep for the close, expect it might be an intro. Full email thread: Victor complimented both articles, comfortable with messaging, sending official brand assets; they floated "referral partnership, sponsored content, or other collaborative initiatives" (their words — they may want MORE than the base placement; don't under-ask). Prep pack built: `docs/titan-pitch/titan-partnership-onepager.pdf` (bring printed copies). ⚠️ Pitch honesty: theft guides ~47 visitors/30d, Titan outbound = 0 (links live only since ~08-Jul; Ghost got 4 unpaid clicks) — lead with the AUDIENCE (19.4k IG followers, 190k IG views/28d, site doubling monthly, Cruisers = top hijack-target list) not guide traffic. Note the mSure/Brad thread in the room: Titan is insurer-recognised (MyToyota) and Brad made the intro — an insurer/dealer-channel angle may surface; park it for a follow-up rather than diluting the placement+referral close.
 
 ---
