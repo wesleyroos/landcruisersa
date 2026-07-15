@@ -1,0 +1,142 @@
+---
+// "Looking for a game viewer?" wanted-request form. Captures a structured spec
+// on OUR site (reference-ID'd) so the buyer can be matched to stock or routed
+// to a dealer/builder under a papered agreement — never a raw deeplink handoff.
+---
+
+<div id="wanted" class="mt-12 bg-white border border-[#DDD9D3] rounded-xl overflow-hidden">
+  <div class="bg-[#111111] px-5 py-4">
+    <p class="text-[#F5A623] font-heading font-bold uppercase tracking-widest text-xs mb-1">Can't find the right one?</p>
+    <h2 class="font-heading font-bold uppercase text-white text-xl leading-tight">Tell us what you're looking for</h2>
+    <p class="text-white/50 text-sm mt-1">We track every game viewer on the market. Tell us your spec and we'll point you at matches — including ones that haven't been listed yet.</p>
+  </div>
+
+  <form id="gv-wanted-form" class="p-5 grid grid-cols-1 sm:grid-cols-2 gap-4" novalidate>
+    <label class="gvw-field">
+      <span>Name *</span>
+      <input type="text" name="name" required autocomplete="name" />
+    </label>
+    <label class="gvw-field">
+      <span>Phone *</span>
+      <input type="tel" name="phone" required autocomplete="tel" />
+    </label>
+    <label class="gvw-field sm:col-span-2">
+      <span>Email *</span>
+      <input type="email" name="email" required autocomplete="email" />
+    </label>
+    <label class="gvw-field">
+      <span>Seats needed</span>
+      <select name="seats">
+        <option value="">Not sure yet</option>
+        <option>6–8 seats</option>
+        <option>9–11 seats</option>
+        <option>12+ seats</option>
+      </select>
+    </label>
+    <label class="gvw-field">
+      <span>Budget</span>
+      <select name="budget">
+        <option value="">Not sure yet</option>
+        <option>Under R300k</option>
+        <option>R300k – R600k</option>
+        <option>R600k – R1m</option>
+        <option>Over R1m</option>
+      </select>
+    </label>
+    <label class="gvw-field">
+      <span>Intended use</span>
+      <select name="use_type">
+        <option value="">Select…</option>
+        <option>Commercial — lodge / safari operator</option>
+        <option>Private / game farm</option>
+        <option>Other</option>
+      </select>
+    </label>
+    <label class="gvw-field">
+      <span>How soon?</span>
+      <select name="timeline">
+        <option value="">Select…</option>
+        <option>As soon as possible</option>
+        <option>1–3 months</option>
+        <option>Just researching</option>
+      </select>
+    </label>
+    <label class="gvw-field sm:col-span-2">
+      <span>Anything else? (model, 4×4 or 4×2, canopy, region…)</span>
+      <textarea name="message" rows="3"></textarea>
+    </label>
+    <label class="gvw-hp">Leave this empty<input type="text" name="lcsa_hp" tabindex="-1" autocomplete="off" /></label>
+    <label class="flex items-start gap-2.5 sm:col-span-2 text-sm text-[#4A4A4A] cursor-pointer">
+      <input type="checkbox" name="consent" class="mt-0.5 accent-[#F5A623]" />
+      <span>I'm happy for Land Cruiser SA to contact me about matching vehicles, including via trusted dealers or builders. *</span>
+    </label>
+    <div class="sm:col-span-2 flex flex-col sm:flex-row items-start sm:items-center gap-3">
+      <button type="submit" class="inline-flex items-center bg-[#F5A623] text-[#111111] font-heading font-bold uppercase tracking-wide px-6 py-3 rounded-xl text-sm hover:bg-[#D4881A] transition-colors disabled:opacity-50">
+        Send my request →
+      </button>
+      <p id="gv-wanted-status" class="text-sm" aria-live="polite"></p>
+    </div>
+  </form>
+</div>
+
+<script>
+  const form = document.getElementById('gv-wanted-form') as HTMLFormElement | null;
+  const status = document.getElementById('gv-wanted-status');
+  form?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!status) return;
+    const fd = new FormData(form);
+    if (fd.get('consent') !== 'on') {
+      status.textContent = 'Please tick the consent box so we can send you matches.';
+      status.style.color = '#B91C1C';
+      return;
+    }
+    const btn = form.querySelector('button[type="submit"]') as HTMLButtonElement;
+    btn.disabled = true;
+    status.textContent = 'Sending…';
+    status.style.color = '#6B7280';
+    try {
+      const res = await fetch('/api/game-viewer-enquiry', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: fd.get('name'), email: fd.get('email'), phone: fd.get('phone'),
+          seats: fd.get('seats'), budget: fd.get('budget'), use_type: fd.get('use_type'),
+          timeline: fd.get('timeline'), message: fd.get('message'),
+          lcsa_hp: fd.get('lcsa_hp') || '', consent: fd.get('consent') === 'on',
+          source_path: location.pathname,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.ok) {
+        form.reset();
+        status.textContent = `Got it — your reference is ${data.reference}. We'll be in touch.`;
+        status.style.color = '#16803C';
+      } else {
+        status.textContent = data.error || 'Something went wrong — please try again.';
+        status.style.color = '#B91C1C';
+        btn.disabled = false;
+      }
+    } catch {
+      status.textContent = 'Network error — please try again.';
+      status.style.color = '#B91C1C';
+      btn.disabled = false;
+    }
+  });
+</script>
+
+<style>
+  .gvw-field { display: flex; flex-direction: column; gap: 0.35rem; }
+  .gvw-field span {
+    font-size: 0.65rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.08em; color: #6B7280;
+  }
+  .gvw-field input, .gvw-field select, .gvw-field textarea {
+    border: 1px solid #DDD9D3; border-radius: 0.6rem; padding: 0.55rem 0.75rem;
+    font-size: 0.9rem; color: #111111; background: #fff; width: 100%;
+  }
+  .gvw-field input:focus, .gvw-field select:focus, .gvw-field textarea:focus {
+    outline: none; border-color: #F5A623; box-shadow: 0 0 0 3px rgba(245, 166, 35, 0.15);
+  }
+  .gvw-hp { position: absolute; left: -9999px; top: -9999px; height: 0; width: 0; overflow: hidden; }
+</style>

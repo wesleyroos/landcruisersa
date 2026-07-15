@@ -8,6 +8,7 @@ import { listings } from '@/db/schema';
 import { and, eq, desc } from 'drizzle-orm';
 import { firstThumb, hasUsablePhoto } from '@/lib/photos';
 import { getRecentPriceChanges } from '@/lib/price-changes';
+import GameViewerWantedForm from '@/components/GameViewerWantedForm.astro';
 
 // Body-type vertical, deliberately segment-agnostic: a Hilux or Mahindra-based
 // game viewer is real inventory for this buyer, and listing detail pages are
@@ -179,6 +180,9 @@ const description = results.length
       </div>
       </>
     )}
+
+    <!-- Buyer wanted-request capture — the demand side of the spotter loop -->
+    <GameViewerWantedForm />
 
     <!-- Sell CTA -->
     <div class="mt-12 p-5 bg-[#F5F3EE] border border-[#DDD9D3] rounded-xl flex flex-col sm:flex-row items-start sm:items-center gap-4">

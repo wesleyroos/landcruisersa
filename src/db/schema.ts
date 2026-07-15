@@ -66,6 +66,26 @@ export const trainingLeads = sqliteTable('training_leads', {
   created_at:   integer('created_at', { mode: 'timestamp' }).notNull(),
 });
 
+// "Looking for a game viewer?" wanted-requests — structured buyer demand we can
+// route to a dealer/builder under a papered spotter agreement. `reference` is the
+// per-lead ID quoted in every handoff (the audit trail a pay-on-success fee needs).
+export const wantedRequests = sqliteTable('wanted_requests', {
+  id:          integer('id').primaryKey({ autoIncrement: true }),
+  reference:   text('reference').notNull(),
+  category:    text('category').notNull().default('game-viewer'),
+  name:        text('name').notNull(),
+  email:       text('email').notNull(),
+  phone:       text('phone').notNull(),
+  seats:       text('seats'),
+  budget:      text('budget'),
+  use_type:    text('use_type'),
+  timeline:    text('timeline'),
+  message:     text('message'),
+  source_path: text('source_path'),
+  consent_at:  integer('consent_at', { mode: 'timestamp' }),
+  created_at:  integer('created_at', { mode: 'timestamp' }).notNull(),
+});
+
 export const viewEvents = sqliteTable('view_events', {
   id:            integer('id').primaryKey({ autoIncrement: true }),
   listing_slug:  text('listing_slug').notNull(),

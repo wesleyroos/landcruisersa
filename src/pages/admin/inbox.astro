@@ -3,7 +3,7 @@ export const prerender = false;
 
 import AdminLayout from '@/layouts/AdminLayout.astro';
 import { db } from '@/db/index';
-import { enquiries, valuationFeedback, valuationRequests, valuationCertificates } from '@/db/schema';
+import { enquiries, valuationFeedback, valuationRequests, valuationCertificates, wantedRequests } from '@/db/schema';
 import { desc, sql } from 'drizzle-orm';
 import { modelLabel } from '@/lib/sources/normalize';
 
@@ -20,6 +20,10 @@ const dealerLeads = certs.filter(c => c.dealer_offer_optin).length;
 
 // ── Enquiries (chat widget) ──
 const recentEnquiries = db.select().from(enquiries).orderBy(desc(enquiries.created_at)).limit(50).all();
+
+// ── Wanted requests ("looking for a game viewer?" — buyer demand with reference IDs) ──
+const recentWanted = db.select().from(wantedRequests).orderBy(desc(wantedRequests.created_at)).limit(50).all();
+const wantedTotal = (db.select({ n: sql<number>`cast(count(*) as int)` }).from(wantedRequests).get())?.n ?? 0;
 
 // ── Valuation feedback ──
 const recentFeedback = db.select().from(valuationFeedback).orderBy(desc(valuationFeedback.created_at)).limit(50).all();
@@ -94,6 +98,32 @@ const VERDICT = { spot_on: '✅ Spot on', too_low: '⬇️ Too low', too_high: '
                 <td class="nowrap b">{R(c.asking_ceiling)}</td>
                 <td class="nowrap">{c.dealer_offer_optin ? '✅' : '—'}</td>
                 <td class="nowrap small"><a href={`/valuation/certificate/${c.cert_id}`} target="_blank">{c.cert_id}</a></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </section>
+
+    <section class="card">
+      <h2>Wanted — game viewers <span class="count">{wantedTotal}</span></h2>
+      <p class="sub">Buyers who told us the spec they're after. Quote the reference in any dealer/builder handoff (all consented to referral).</p>
+      {recentWanted.length === 0 ? <p class="empty">No wanted requests yet.</p> : (
+        <table>
+          <thead><tr><th>When</th><th>Ref</th><th>Name</th><th>Phone</th><th>Email</th><th>Seats</th><th>Budget</th><th>Use</th><th>Timeline</th><th>Details</th></tr></thead>
+          <tbody>
+            {recentWanted.map(w => (
+              <tr>
+                <td class="nowrap muted">{fmt(w.created_at)}</td>
+                <td class="b nowrap">{w.reference}</td>
+                <td class="b">{w.name}</td>
+                <td class="nowrap"><a href={`tel:${w.phone}`}>{w.phone}</a></td>
+                <td><a href={`mailto:${w.email}`}>{w.email}</a></td>
+                <td class="nowrap">{w.seats ?? '—'}</td>
+                <td class="nowrap">{w.budget ?? '—'}</td>
+                <td>{w.use_type ?? '—'}</td>
+                <td class="nowrap">{w.timeline ?? '—'}</td>
+                <td class="msg">{w.message ?? '—'}</td>
               </tr>
             ))}
           </tbody>

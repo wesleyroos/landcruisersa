@@ -106,6 +106,28 @@ db.exec(`
   )
 `);
 
+// "Looking for a game viewer?" wanted-requests — structured buyer demand with a
+// per-lead reference ID for papered dealer/builder handoffs.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS wanted_requests (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    reference   TEXT    NOT NULL,
+    category    TEXT    NOT NULL DEFAULT 'game-viewer',
+    name        TEXT    NOT NULL,
+    email       TEXT    NOT NULL,
+    phone       TEXT    NOT NULL,
+    seats       TEXT,
+    budget      TEXT,
+    use_type    TEXT,
+    timeline    TEXT,
+    message     TEXT,
+    source_path TEXT,
+    consent_at  INTEGER,
+    created_at  INTEGER NOT NULL
+  )
+`);
+db.exec(`CREATE INDEX IF NOT EXISTS wanted_requests_created ON wanted_requests (created_at)`);
+
 db.exec(`
   CREATE TABLE IF NOT EXISTS click_events (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
