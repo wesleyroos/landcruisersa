@@ -2,6 +2,7 @@ import { AutoTraderAdapter } from '../lib/sources/autotrader.ts';
 import { WbcAdapter } from '../lib/sources/wbc.ts';
 import { AdiosAdapter } from '../lib/sources/adios.ts';
 import { WbbAdapter } from '../lib/sources/wbb.ts';
+import { VcsaAdapter } from '../lib/sources/vcsa.ts';
 
 // Liveness poll: re-checks each active aggregated listing's source URL and marks
 // 404s as 'removed' (→ off_market_at). Runs per-site via env, exactly like ingest:
@@ -28,6 +29,9 @@ const ADAPTERS: Record<string, { isStillLive: typeof AutoTraderAdapter.isStillLi
   wbc: WbcAdapter,
   adios: AdiosAdapter,
   wbb: WbbAdapter,
+  // VCSA keeps sold cars published as an archive, so the poll can't rely on a
+  // 404 — the adapter reads their sold flag instead.
+  vcsa: VcsaAdapter,
 };
 
 // AutoTrader can't be liveness-polled (anti-bot resets the re-fetch → the poll

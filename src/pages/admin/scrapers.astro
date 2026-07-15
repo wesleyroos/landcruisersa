@@ -13,6 +13,7 @@ const SOURCES: { key: string; label: string }[] = [
   { key: 'carsza',     label: 'Cars.co.za' },
   { key: 'adios',      label: 'Adios' },
   { key: 'wbb',        label: 'We Buy Bakkies' },
+  { key: 'vcsa',       label: 'Vintage Cars SA' },
 ];
 
 // Per-source "run on schedule" flags (admin-toggleable; default on).
@@ -25,6 +26,8 @@ const SUPPORTS_EXTRA = new Set<string>(EXTRA_SEGMENT_SOURCES);
 const MODELS = [
   '79-series', '76-series', '78-series', '70-series', '80-series', '100-series',
   '200-series', '300-series', 'prado-150', 'prado-250', 'fj-cruiser', 'land-cruiser-fj',
+  // Chassis-code classics — mostly Vintage Cars SA stock.
+  '40-series', '55-series', '60-series',
   // Adjacent Toyota 4x4 segment — tracked for cross-segment benchmarking, kept off the public LC site.
   'hilux-gd6', 'hilux-d4d', 'fortuner-gd6', 'fortuner-d4d', 'other',
 ];
@@ -354,13 +357,14 @@ function fmtModel(m: string): string {
           <label class="source-opt"><input type="checkbox" name="segment" value="jimny" checked /> Jimny</label>
         </div>
         <p class="modal-label">Sources</p>
-        <p class="modal-hint">Jimny only crawls AutoTrader, WBC &amp; Cars.co.za; Adios &amp; We Buy Bakkies are Land&nbsp;Cruiser-only.</p>
+        <p class="modal-hint">Jimny only crawls AutoTrader, WBC &amp; Cars.co.za; Adios, We Buy Bakkies &amp; Vintage Cars SA are Land&nbsp;Cruiser-only.</p>
         <div class="modal-sources">
           <label class="source-opt"><input type="checkbox" name="source" value="autotrader" checked /> AutoTrader</label>
           <label class="source-opt"><input type="checkbox" name="source" value="wbc" checked /> WBC</label>
           <label class="source-opt"><input type="checkbox" name="source" value="adios" checked /> Adios</label>
           <label class="source-opt"><input type="checkbox" name="source" value="wbb" checked /> We Buy Bakkies</label>
           <label class="source-opt"><input type="checkbox" name="source" value="carsza" checked /> Cars.co.za</label>
+          <label class="source-opt"><input type="checkbox" name="source" value="vcsa" checked /> Vintage Cars SA</label>
         </div>
         <div class="modal-actions">
           <button id="ingest-cancel-btn" class="btn btn-edit">Cancel</button>
@@ -560,7 +564,7 @@ function fmtModel(m: string): string {
       const summaryRe = /\] done — created: (\d+), updated: (\d+)/;
       const SEG_LABELS: Record<string, string> = { 'land-cruiser': 'LC', 'jimny': 'Jimny' };
       const SRC_LABELS: Record<string, string> = {
-        autotrader: 'AT', wbc: 'WBC', adios: 'Adios', wbb: 'WBB', carsza: 'Cars.co.za',
+        autotrader: 'AT', wbc: 'WBC', adios: 'Adios', wbb: 'WBB', carsza: 'Cars.co.za', vcsa: 'VCSA',
         'gallery-backfill': 'Galleries', 'image-rehost': 'Image rehost',
       };
       let currentSegment = '';

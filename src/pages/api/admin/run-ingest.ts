@@ -15,11 +15,12 @@ const ALL_SCRIPTS: Record<string, string> = {
   adios:      'src/scripts/ingest-adios.ts',
   wbb:        'src/scripts/ingest-wbb.ts',
   carsza:     'src/scripts/ingest-carsza.ts',
+  vcsa:       'src/scripts/ingest-vcsa.ts',
 };
 
-// Jimny only exists on these sources — Adios is a Land Cruiser specialist and
-// We Buy Bakkies carries bakkies/LDVs, neither has Jimny stock. Mirrors
-// scripts/jimny-scrape.sh.
+// Jimny only exists on these sources — Adios is a Land Cruiser specialist, We
+// Buy Bakkies carries bakkies/LDVs and Vintage Cars SA sells classics; none has
+// Jimny stock. Mirrors scripts/jimny-scrape.sh.
 const JIMNY_SOURCES = new Set(['autotrader', 'carsza', 'wbc']);
 
 const VALID_SEGMENTS = new Set(['land-cruiser', 'jimny']);

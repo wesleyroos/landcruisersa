@@ -1,7 +1,17 @@
 const MODEL_MAP: [RegExp, string][] = [
-  // Prado must come first — "Land Cruiser Prado" contains "Land Cruiser" which
-  // would otherwise fall through to a numbered-series pattern if variant text
-  // contains a series number (e.g. "70th Anniversary Edition").
+  // ── Classics, by chassis code ── must precede BOTH the 'land-cruiser-fj' catch
+  // below (which would swallow "Land Cruiser FJ40" and then, being pre-2026, map
+  // it to the fj-cruiser — a 2011+ retro SUV, not a 1976 40-series) and the
+  // 78-series 'troop.?carrier' alternative (an FJ45 Troopy is a 40-series).
+  // Chassis codes are unambiguous, so matching them first is safe.
+  // Petrol (FJ), diesel (BJ/HJ) and the full body range of each generation:
+  //   40-series FJ/BJ/HJ40–47 · 55-series FJ/HJ55 · 60-series FJ/BJ/HJ60–62
+  [/\b[fbh]j[\s-]?4[0-7]\b/i,                        '40-series'],
+  [/\b[fbh]j[\s-]?55\b/i,                            '55-series'],
+  [/\b[fbh]j[\s-]?6[0-2]\b/i,                        '60-series'],
+  // Prado must come before the numbered series — "Land Cruiser Prado" contains
+  // "Land Cruiser" which would otherwise fall through to a numbered-series
+  // pattern if variant text contains a series number (e.g. "70th Anniversary Edition").
   [/prado.?250|250[\s-]?series/i,                    'prado-250'],
   [/prado.?150|150[\s-]?series|prado/i,              'prado-150'],
   // AutoTrader uses "70 Series 76 / 78 / 79" — must resolve before the generic 70-series catch-all
@@ -104,6 +114,13 @@ export function normalizeModel(raw: string, year?: number): string {
 // (76 wagon / 78 Troopcarrier / 79 bakkie), so offering it as a peer is
 // confusing and its mixed cohort is noisy — owners pick the specific body below.
 // '70-series' remains a valid INGEST slug (see MODEL_MAP) and shows on /market/.
+//
+// The chassis-code classics ('40-series' / '55-series' / '60-series') are
+// excluded on the same terms, for a stronger reason: they're APPRECIATING
+// collectibles priced on originality and provenance, not depreciating 4x4s
+// priced on year+mileage — the only inputs the cohort engine has. A handful of
+// listings whose value is set by condition we can't see would produce a
+// confident-looking number that is simply wrong. They still ingest and show.
 export const LC_MODEL_SLUGS = [
   '76-series', '78-series', '79-series', '80-series', '100-series',
   '200-series', '300-series', 'prado-90', 'prado-120', 'prado-150', 'prado-250', 'fj-cruiser', 'land-cruiser-fj',
@@ -127,6 +144,10 @@ export const MODEL_FAMILY: Record<string, string> = {
   'prado-90': 'prado', 'prado-120': 'prado', 'prado-150': 'prado', 'prado-250': 'prado',
   '76-series': '70-series', '78-series': '70-series', '79-series': '70-series', '70-series': '70-series',
   'fj-cruiser': 'fj', 'land-cruiser-fj': 'fj',
+  // Chassis-code classics share one rotation bucket: they're one collector
+  // cohort to a follower, and they're rare enough that per-slug buckets would
+  // let three FJs post back-to-back.
+  '40-series': 'classic', '55-series': 'classic', '60-series': 'classic',
   '80-series': 'main-line', '100-series': 'main-line', '200-series': 'main-line', '300-series': 'main-line',
 };
 export function modelFamily(model: string): string {
