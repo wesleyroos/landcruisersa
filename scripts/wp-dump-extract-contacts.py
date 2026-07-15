@@ -1,5 +1,7 @@
-import re, csv, collections
-DUMP = '/Users/wesleyroos/Downloads/landcjnqjh_wp00fd.sql'
+import re, csv, collections, sys
+# Usage: python3 scripts/wp-dump-extract-contacts.py <dump.sql> <out.csv>
+DUMP = sys.argv[1]
+OUT = sys.argv[2]
 WANT = {'wp_wc_customer_lookup','wp_comments','wp_e_submissions','wp_e_submissions_values','wp_users','wp_postmeta'}
 
 def parse_tuples(s):
@@ -109,7 +111,7 @@ def tier(rec):
         if t in rec['sources']: return i
     return 9
 rows = sorted(out.items(), key=lambda kv: (tier(kv[1]), kv[0]))
-with open('/Users/wesleyroos/Downloads/lcsa-mailing-list-seed.csv','w',newline='') as f:
+with open(OUT,'w',newline='') as f:
     w = csv.writer(f); w.writerow(['email','name','sources','note'])
     for e, rec in rows: w.writerow([e, rec['name'], '+'.join(sorted(rec['sources'])), rec['extra']])
 c = collections.Counter('+'.join(sorted(r['sources'])) for _, r in rows)
