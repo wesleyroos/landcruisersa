@@ -5,7 +5,7 @@ import Base from '@/layouts/Base.astro';
 import { SITE } from '@/data/site';
 import { db } from '@/db/index';
 import { listings } from '@/db/schema';
-import { and, eq, desc, or, like, inArray } from 'drizzle-orm';
+import { and, eq, desc, or, like } from 'drizzle-orm';
 import { MODELS } from '@/data/models';
 import { firstThumb, hasUsablePhoto } from '@/lib/photos';
 import { getRecentPriceChanges } from '@/lib/price-changes';
@@ -20,19 +20,19 @@ const MODEL_MAP: Record<string, { label: string; description: string }> = {
   '300-series': { label: '300 Series', description: 'Toyota Land Cruiser 300 Series' },
   'prado': { label: 'Prado', description: 'Toyota Land Cruiser Prado' },
   'fj-cruiser': { label: 'FJ Cruiser', description: 'Toyota FJ Cruiser' },
-  // One page for all three chassis-code classics: individually they're a car or
-  // two at a time, which is too thin to stand as a page, and buyers shop the
-  // era ("an old FJ") rather than the chassis code.
-  'classic': { label: 'Classics (FJ40 · FJ45 · FJ55 · FJ62)', description: 'Classic Toyota Land Cruiser FJ40, FJ45, FJ55 and FJ62' },
   // Hilux/Fortuner are intentionally absent — they're not public (any request
   // for those slugs falls through to the /listings/ redirect below).
 };
 
-// The chassis-code classics, grouped under the 'classic' slug above. Keep in
-// step with the classic entries in MODEL_MAP in lib/sources/normalize.ts.
-const CLASSIC_MODELS = ['40-series', '55-series', '60-series'];
-
 const { model } = Astro.params;
+
+// The classics graduated to their own vertical at /classics/ (nav, guide,
+// market strip) a day after this grouped slug shipped — permanent-redirect the
+// short-lived URL so nothing splits between two pages.
+if (model === 'classic' || model === '40-series' || model === '55-series' || model === '60-series') {
+  return Astro.redirect('/classics/', 301);
+}
+
 const modelInfo = MODEL_MAP[model!];
 
 if (!modelInfo) return Astro.redirect('/listings/');
@@ -51,10 +51,6 @@ if (model === 'prado') {
       eq(listings.status, 'active'),
       or(eq(listings.model, 'fj-cruiser'), eq(listings.model, 'land-cruiser-fj'))
     ))
-    .orderBy(desc(listings.featured), desc(listings.created_at));
-} else if (model === 'classic') {
-  results = await db.select().from(listings)
-    .where(and(eq(listings.status, 'active'), inArray(listings.model, CLASSIC_MODELS)))
     .orderBy(desc(listings.featured), desc(listings.created_at));
 } else {
   results = await db.select().from(listings)

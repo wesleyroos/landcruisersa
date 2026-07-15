@@ -516,3 +516,47 @@ date, compare to baseline, mark HIT / MISS / PARTIAL, and write the lesson.
 - **Ties:** feeds [[project-valuation-tool]] accuracy (the asking-anchored unlock), the asking-vs-selling article, the dealer-sourcing loop economics ([[project-dealer-sourcing-fee]], deal-ledger D3/D6), and the WBC/mSure sold-data prize (a home-grown version of the same dataset).
 - **Result:** _pending (volume-gated; longstop 2026-10-01)_
 - **Lesson:** _tbd_
+
+## P18 — Classic Cruisers vertical (page + guide + nav)
+
+- **Opened:** 2026-07-15
+- **Review on:** 2026-08-30 (≥6-week window; GSC lags ~3 days)
+- **Surface:** `/classics/` (new listings vertical: live median/range, definition capsule, grid) + `/useful-info/classic-land-cruiser-price-buyers-guide-south-africa/` (prices/buyer's guide, FAQPage schema) + nav/footer/chip prominence. Short-lived `/listings/model/classic/` 301s here.
+- **Thesis:** Classic-Cruiser search demand already exceeds the game-viewer vertical's
+  (P14) — **658 impressions / 38 clicks over 90d vs 234/33** — and we rank pos 8–13 for
+  "fj45/fj40 for sale south africa" queries with NO dedicated page (demand leaking
+  through mislabelled listings). On-site behaviour confirms the buyer is real: classics
+  generate **0.75 handoff clicks/listing/30d vs 0.04** for the 79-series average (~18×).
+  Nobody in SA aggregates classics (VCSA is a dealer; content sites have no listings);
+  same weak-SERP setup as P14. High-ticket stock (R250k–R999k) where a single
+  spotter-fee deal is real money; VCSA (4 of 9 classics) is the natural first
+  relationship — fits the data-and-relationships reframe.
+- **Change (shipped 2026-07-15):**
+  - `40/55/60-series` chassis-code classifier (+ year>1995 garbage-title guard +
+    `model_locked` admin verdicts) → 9 classics recovered from `fj-cruiser`/`other`
+  - `/classics/` page: live median/range/years strip, citable definition capsule,
+    sorted grid; nav Listings dropdown (under Game Viewers), footer, /listings/ +
+    /game-viewers/ chips
+  - Guide article with FAQPage schema quoting live numbers (median R480k, R250k–R999k,
+    n=9, dated mid-July 2026); two-way linked with /classics/ + /market/40-series/
+- **Baseline (90d to 2026-07-15, GSC):**
+  - Classic-term queries: 58 distinct · **658 impr · 38 clicks**, best positions 8–13
+    ("land cruiser fj45 for sale south africa": 115 impr / 15 clicks / pos 9)
+  - `/classics/` traffic: 0 (page didn't exist) · classic guide: 0
+  - Live classic listings: **9 active** (median R480,000 · R249,990–R999,000)
+  - Handoffs: classics 0.75 clicks/listing/30d · site classic handoffs all-time: 7
+- **Predictions (review 2026-08-30):**
+  1. *(PRIMARY)* Classic-term clicks **at least double**: ≥ 2× the pro-rated baseline
+     over the post-launch window (baseline ≈ 12–13 clicks/28d → predict ≥ 25/28d by review).
+  2. `/classics/` indexed and appearing for ≥ 3 distinct classic queries; ≥ 1 classic
+     query moves into the **top 5** average position (from pos 8–13, with a real page).
+  3. The guide captures ≥ 2 informational queries ("fj40 price", "classic land cruiser
+     value/worth") that listings pages can't.
+  4. ≥ 1 tracked handoff from a classic listing to VCSA (`click_events.source='vcsa'`) —
+     first evidence for the spotter conversation with Dehan.
+  5. Stretch: first AI citation on a classic query (ai_referrals landing on /classics/ or the guide).
+- **Caveat:** small absolute numbers throughout (38 clicks/quarter baseline); supply is
+  thin (9 cars, 4 from one dealer) and can halve if VCSA sells through — grade against
+  what was live during the window.
+- **Result:** _pending 2026-08-30_
+- **Lesson:** _tbd_

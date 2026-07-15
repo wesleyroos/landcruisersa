@@ -2,6 +2,7 @@ export const NAV_LINKS = [
   { label: 'Listings', href: '/listings/', children: [
     { label: 'All Listings', href: '/listings/' },
     { label: 'Game Viewers', href: '/game-viewers/' },
+    { label: 'Classic Cruisers', href: '/classics/' },
   ]},
   { label: 'Vehicle Valuation', href: '/valuation/' },
   { label: 'Market Data', href: '/market/' },
