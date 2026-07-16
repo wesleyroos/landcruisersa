@@ -144,7 +144,33 @@ so threads either progress or get consciously dropped — never drift.
 - **⭐ BUY-BOX (learned 2026-07-08):** Auto Investments **passed** on the Francois 2023 LC79 D/C 4.5 V8 (a desirable but relatively STOCK late-model V8). Blair: they only want **newer builds with lots of extras** — i.e. heavily-kitted premium modified builds (matches their "insane builds" self-description + the [[project-ig-weight-tuning]] finding that kitted 79s are the hero product). So AI's buy-box = **modified/kitted late-model 79s & premium builds, NOT stock vehicles.** ⟹ the sourcing loop is a **MATCHING problem**: each dealer has a distinct buy-box; a seller's car must be routed to the dealer whose box it fits (sending a stock 79 to a builds-specialist = guaranteed no). The Francois car's right home = a clean-stock buyer (Gys already offered R950k). Capture each dealer's buy-box as we learn it — declines ARE the data. (Do NOT build a structured buy-box matching engine yet — n=1 dealer criteria, WIP limit, drift guard; instrument informally first.)
 - **STATUS (2026-07-08):** (1) private-seller vehicle Wesley sent Blair (first cross-loop sell-side→dealer event) → **DECLINED** (wrong buy-box, see above) — not a failure, it taught us AI's criteria + the matching insight; (2) commercials still owed. Ball still in Blair's court on the fee. Draft the spotter agreement NOW so there's zero lag.
 - **STATUS (2026-07-12): still silent** — no commercials, buy-box question not yet answered. Clock unchanged (24-Jul). D7 outreach stays parked behind this.
-- **Kill-or-advance:** written fee terms + stock feed access agreed by **2026-07-24**, else park.
+- **⭐ STATUS (2026-07-15): UNSTUCK — moved up the org chart.** Wesley WhatsApped
+  Blair → got referred to **Tristan (dealership manager)** → called him. Org:
+  **Andre = owner · Tristan = manager · Blair = sales manager.** They are keen
+  to be listed. Tristan asked for a **simple email** (explicitly not a formal
+  proposal). What was discussed on the call:
+  - **Product:** Dealerships section on the site, Auto Investments North Coast
+    as dealer #1; "Featured Dealership" fold on the homepage (logo + a hero
+    build); their full LC stock listed on-site; leads captured on OUR site and
+    forwarded with a reference number (replaces the AutoTrader deeplink).
+  - **Their commercial offer:** standard **10% of net profit** referral on a
+    converted buyer (R300k profit → R30k; R10k → R1k). Self-described honest/
+    ethical; **Wesley chose to operate the commission leg on trust.**
+    Pre-registered mitigants still apply and are cheap: every lead carries a
+    reference ID (papered record), monthly sold/not-sold reconciliation against
+    our lead list, spotter-agreement template when the referral leg starts.
+  - **Wesley's counter (the right philosophy-compliant open):** 3-month pilot as
+    a listed dealership on a **fixed monthly marketing fee**, tiered by stock
+    count (~0–10 / 11–50 / 51–100), with a founding-dealer discount. Referral
+    leg layers on after the pilot. This is the WBC-sponsorship shape in
+    miniature — "dealers already pay us" becomes real for the D1 pitch.
+  - **Guardrails unchanged:** NON-exclusive (D1 WBC conflict — "first/founding
+    dealership" framing is fine, exclusivity is not), month-to-month terminable,
+    leads captured on our site. Their group (~25 branches, one Django codebase)
+    is the expansion path if the pilot works.
+  - **Next:** email to Tristan (drafted 2026-07-15); on acceptance → first
+    invoice + build the dealer section/featured fold (build AFTER yes, not before).
+- **Kill-or-advance:** written fee terms + stock feed access agreed by **2026-07-24**, else park. *(Email sent 15-Jul; a yes-in-principle by 24-Jul = ADVANCE.)*
 
 ---
 
@@ -168,7 +194,32 @@ so threads either progress or get consciously dropped — never drift.
 - **Done:** both theft guides reworked to feature Titan (Ghost fully removed) + Titan imagery added; Titan UTM links tracking outbound clicks. Content-first complete.
 - **Value hypothesis:** sponsored placement (~R3.5k/mo) and/or a trackable referral (Titan has a "Become a Partner" page). Gate (per [[project-monetization-philosophy]]): trackable affiliate or own-inventory advertising only — never chase-to-invoice.
 - **Next / kill-or-advance:** reply accepting the meeting (in-person, propose slots) + request assets → **meeting next week**. Aim for a base sponsored placement (~R3.5k/mo) + a trackable referral. ADVANCE = terms agreed / first paid placement or referral link live.
-- **⭐ STATUS (2026-07-15): MEETING HAPPENED — very positive.** Titan is keen to
+- **⭐ STATUS (2026-07-16): STRUCTURE DECIDED — fixed-fee-first.** Thank-you /
+  proposal email drafted to Victor + Stephan Kemp (CEO):
+  - **The ask: R4,000/mo fixed** — Titan banner on EVERY listing (directly
+    below the asking-price card) + featured-partner listing clicking through
+    to their site. Rate fixed for 6 months, then **reviewed every 6 months
+    against traffic + click data** (the escalator IS the upside; our data —
+    Plausible + outbound clicks — anchors every reprice).
+  - **LCSA10 dedicated discount code = measurement, not commission.** Their
+    10%-off idea, but on a code only we publish → clean conversion attribution
+    at their checkout. Purpose: evidence for fee bumps.
+  - **Annuity/trail analysis (run 2026-07-16, decided AGAINST for now):**
+    Titan's public price = **R199/mo month-to-month** (pricing page; two
+    quote-only tiers: 24-mo prepaid + "popular" 36-mo all-inclusive finance
+    plan, likely >R199). A 10% trail ≈ R20/sub/mo → needs **~200 active subs
+    to match the R4k fixed fee**; at realistic 1–3 installs/mo that's years
+    away (~R900/mo book after 24 months vs R150k+ cumulative from fixed with
+    escalators). Fixed = own-inventory advertising = philosophy-clean; trail =
+    dependent on their reporting.
+  - **If they offer commission anyway: accept as free upside on top** — never
+    trade fixed fee for it, zero build effort. Parked negotiation notes if a
+    trail ever gets real: base = total monthly amount collected (finance plan,
+    not just R199 service fee); prepaid deals need a once-off-equivalent
+    clause; life-of-subscriber beats a higher capped rate.
+  - **Revisit trail only if LCSA10 shows ~10+ installs/mo** — then negotiate
+    from proof at a scheduled review.
+- **STATUS (2026-07-15): MEETING HAPPENED — very positive.** Titan is keen to
   work together on **both** structures at once: a **small monthly fixed
   advertising fee** AND a **referral / commission arrangement**. They are
   sending a proposal/terms **later today (15-Jul)**. Stage → **Proposal
