@@ -108,6 +108,18 @@ function transmissionFor(blob: string): 'manual' | 'automatic' {
   return 'manual';
 }
 
+// VCSA's engine meta field is usually empty, but for chassis-coded classics the
+// badge itself states the fuel: the first letter is the engine family — F = the
+// petrol straight-six (F/2F), B and H = the diesels. Only trust the code on
+// classic-era years (same reason as the year guard in normalizeModel: modern
+// dealer titles reuse these strings as garbage, e.g. an FJ Cruiser sold as "FJ 62").
+function fuelFromChassisCode(title: string, year: number): string | undefined {
+  if (year > 1995) return undefined;
+  if (/\bfj[\s-]?\d/i.test(title)) return 'Petrol';
+  if (/\b[bh]j[\s-]?\d/i.test(title)) return 'Diesel';
+  return undefined;
+}
+
 function photosFor(meta: VcsaCar['meta']): string[] {
   const gallery = meta?.['buying-car-gallery'];
   if (!Array.isArray(gallery)) return [];
@@ -169,7 +181,7 @@ function normalizeCar(car: VcsaCar): NormalizedListing | null {
     description,
     photos: photosFor(meta),
     seller_name: 'Vintage Cars SA',
-    fuel_type: meta?.engine?.trim() || undefined,
+    fuel_type: meta?.engine?.trim() || fuelFromChassisCode(title, year),
   };
 }
 
