@@ -194,8 +194,14 @@ so threads either progress or get consciously dropped — never drift.
 - **Done:** both theft guides reworked to feature Titan (Ghost fully removed) + Titan imagery added; Titan UTM links tracking outbound clicks. Content-first complete.
 - **Value hypothesis:** sponsored placement (~R3.5k/mo) and/or a trackable referral (Titan has a "Become a Partner" page). Gate (per [[project-monetization-philosophy]]): trackable affiliate or own-inventory advertising only — never chase-to-invoice.
 - **Next / kill-or-advance:** reply accepting the meeting (in-person, propose slots) + request assets → **meeting next week**. Aim for a base sponsored placement (~R3.5k/mo) + a trackable referral. ADVANCE = terms agreed / first paid placement or referral link live.
-- **⭐ STATUS (2026-07-16): STRUCTURE DECIDED — fixed-fee-first.** Thank-you /
-  proposal email drafted to Victor + Stephan Kemp (CEO):
+- **⭐ STATUS (2026-07-16): PROPOSAL SENT — ball in Titan's court.** Email went
+  to Victor + Stephan Kemp (CEO) with the fixed-fee-first structure below.
+  Wesley's sent version added flexibility: banner below the asking-price card
+  **or under the market-position card**, click-through to **a link of their
+  choice** (placement + partner listing). Now waiting on their reply and/or
+  their own proposal (Victor said one was coming 15-Jul; ours lands as the
+  anchor either way). **Next:** respond within 24h when they reply; ADVANCE =
+  terms agreed / first invoice by **2026-07-25**.
   - **The ask: R4,000/mo fixed** — Titan banner on EVERY listing (directly
     below the asking-price card) + featured-partner listing clicking through
     to their site. Rate fixed for 6 months, then **reviewed every 6 months
