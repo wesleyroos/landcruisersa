@@ -17,14 +17,20 @@ org = "landcruiser-sa"
   auto_start_machines = true
   min_machines_running = 1
 
+  # Sized after the 16-Jul-2026 outage: a Facebook traffic spike saturated the
+  # old 25-connection hard limit on one shared core — pages queued to 3-4s and
+  # the proxy returned "no healthy instances" (site read as DOWN while the
+  # process was alive). Keep [[vm]] in step with the live machine: fly deploy
+  # recreates the machine from these values, so shrinking this config shrinks
+  # prod on the next deploy.
   [http_service.concurrency]
     type = "connections"
-    hard_limit = 25
-    soft_limit = 20
+    hard_limit = 60
+    soft_limit = 40
 
 [[vm]]
-  size = "shared-cpu-1x"
-  memory = "512mb"
+  size = "shared-cpu-2x"
+  memory = "1024mb"
 
 [[mounts]]
   source = "landcruisersa_data"
