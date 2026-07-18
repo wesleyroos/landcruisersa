@@ -215,7 +215,7 @@ const weekLabel = (ms: number) => new Intl.DateTimeFormat('en-ZA', { day: 'numer
     <span class="weekly-label">Weekly handoffs, all dealers</span>
     <div class="weekly-bars">
       {weeklyTotals.map((n, i) => (
-        <span class="wbar" title={`w/o ${weekLabel(weekStarts[i])}: ${n} handoff${n === 1 ? '' : 's'}`}>
+        <span class="wbar" data-tip={`${n} · w/o ${weekLabel(weekStarts[i])}`}>
           <span class="wbar-fill" style={`height:${Math.max(2, Math.round(n / maxWeekly * 100))}%`}></span>
         </span>
       ))}
@@ -333,8 +333,18 @@ const weekLabel = (ms: number) => new Intl.DateTimeFormat('en-ZA', { day: 'numer
   }
   .weekly-label { font-size: 11.5px; color: #777; white-space: nowrap; }
   .weekly-bars { flex: 1; display: flex; align-items: flex-end; gap: 3px; height: 34px; }
-  .wbar { flex: 1; display: flex; align-items: flex-end; height: 100%; }
+  .wbar { flex: 1; display: flex; align-items: flex-end; height: 100%; position: relative; }
   .wbar-fill { width: 100%; background: #F5A623; border-radius: 2px 2px 0 0; min-height: 2px; }
+  .wbar:hover .wbar-fill { background: #D4881A; }
+  /* Instant tooltip: count + week, centred above the hovered bar */
+  .wbar::after {
+    content: attr(data-tip);
+    position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%);
+    background: #111; color: #fff; font-size: 11px; font-weight: 600;
+    padding: 3px 8px; border-radius: 5px; white-space: nowrap;
+    opacity: 0; pointer-events: none; transition: opacity 0.1s; z-index: 5;
+  }
+  .wbar:hover::after { opacity: 1; }
   .weekly-now { font-size: 12px; font-weight: 700; color: #111; white-space: nowrap; }
 
   .toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; flex-wrap: wrap; }
