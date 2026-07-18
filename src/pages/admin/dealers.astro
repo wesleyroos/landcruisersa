@@ -13,11 +13,13 @@ if (!cookie || cookie.value !== adminSecret) {
 
 // ─── Dealer radar ────────────────────────────────────────────────────────────
 // Answers, from our own DB: who holds the stock (market structure), who sells
-// fast/slow (days on market), and who we send demand to (handoff dot plot —
-// Lieb method: rows = individual dealerships, columns = weeks, a dot = value
-// delivered that week). Branches stay separate — dealerships inside a group
-// often decide autonomously — but same-branch duplicates across portals are
-// merged, and a sort mode clusters group siblings for the group-level read.
+// fast/slow (days on market), and who we send buyers to — as a ranked bar list
+// with a 4-week trend. Deliberately NOT a per-dealer timeline: at current
+// volumes (~2 handoffs/branch/month) per-dealer time patterns are noise; the
+// aggregate weekly strip answers "is demand growing" and the ranking answers
+// "who matters". Branches stay separate — dealerships inside a group often
+// decide autonomously — but same-branch duplicates across portals are merged,
+// and a sort mode clusters group siblings for the group-level read.
 
 // Merge cross-source duplicates of the SAME physical dealership (singular/
 // plural, punctuation, abbreviations) — NOT group merging.
@@ -41,9 +43,9 @@ const stockRows = db.all<{ seller: string; source: string; n: number; minp: numb
 type Branch = {
   key: string; name: string; sources: Set<string>; stock: number;
   minp: number | null; maxp: number | null;
-  handoffs: number; sold: number; domN: number; domMedian: number | null;
-  firstHandoff: number | null;
-  weeks: { h: number; s: number }[];
+  h4: number; hPrior4: number; h12: number; sold4: number;
+  domN: number; domMedian: number | null;
+  isNew: boolean;      // first-ever handoff landed in the last 4 weeks
 };
 const branches = new Map<string, Branch>();
 const branch = (seller: string, source?: string): Branch => {
@@ -51,7 +53,7 @@ const branch = (seller: string, source?: string): Branch => {
   let b = branches.get(key);
   if (!b) {
     b = { key, name: seller, sources: new Set(), stock: 0, minp: null, maxp: null,
-          handoffs: 0, sold: 0, domN: 0, domMedian: null, firstHandoff: null, weeks: [] };
+          h4: 0, hPrior4: 0, h12: 0, sold4: 0, domN: 0, domMedian: null, isNew: false };
     branches.set(key, b);
   }
   if (source) b.sources.add(source);
@@ -62,17 +64,18 @@ for (const r of stockRows) {
   if (r.n > b.stock) { b.stock = r.n; b.name = r.seller; b.minp = r.minp; b.maxp = r.maxp; }
 }
 
-// ── Dot-plot event data: 12 weeks, Monday-aligned ──
+// ── Event windows: 12 weeks of weekly totals (aggregate strip); last-4 vs
+// prior-4 weeks per branch (rank + trend) ──
 const WEEKS = 12;
 const DAY = 86_400_000;
-const now = new Date();
-const monday = new Date(now); monday.setHours(0, 0, 0, 0);
+const monday = new Date(); monday.setHours(0, 0, 0, 0);
 monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
 const weekStarts: number[] = [];
 for (let i = WEEKS - 1; i >= 0; i--) weekStarts.push(monday.getTime() - i * 7 * DAY);
 const windowStartSec = Math.floor(weekStarts[0] / 1000);
+const last4Sec = Math.floor(weekStarts[WEEKS - 4] / 1000);
+const prior4Sec = Math.floor(weekStarts[WEEKS - 8] / 1000);
 const weekIdx = (tsSec: number) => Math.floor((tsSec * 1000 - weekStarts[0]) / (7 * DAY));
-const weekLabel = (ms: number) => new Intl.DateTimeFormat('en-ZA', { day: 'numeric', month: 'short' }).format(new Date(ms));
 
 // Handoffs: buyer value delivered — portal click-throughs + direct contact
 // (never finance_calc, never page views: views are vanity, not value).
@@ -82,13 +85,14 @@ const handoffEvents = db.all<{ seller: string; ts: number }>(sql`
   WHERE c.created_at >= ${windowStartSec} AND c.source != 'finance_calc'
     AND l.source != 'own' AND l.seller_name != ''
 `);
-// Sell-through: a car left the market that week (sold or delisted at source).
-const soldEvents = db.all<{ seller: string; ts: number }>(sql`
-  SELECT seller_name seller, off_market_at ts
+// Sell-through: cars that left the market in the last 4 weeks.
+const soldRows = db.all<{ seller: string; n: number }>(sql`
+  SELECT seller_name seller, count(*) n
   FROM listings
-  WHERE off_market_at >= ${windowStartSec} AND source != 'own' AND seller_name != ''
+  WHERE off_market_at >= ${last4Sec} AND source != 'own' AND seller_name != ''
+  GROUP BY lower(seller_name)
 `);
-// Ring marker: the dealer's FIRST-ever handoff (all-time) — "new to demand".
+// First-ever handoff (all-time) → "new" trend marker.
 const firstHandoffs = db.all<{ seller: string; ts: number }>(sql`
   SELECT l.seller_name seller, min(c.created_at) ts
   FROM click_events c JOIN listings l ON l.slug = c.listing_slug
@@ -96,18 +100,20 @@ const firstHandoffs = db.all<{ seller: string; ts: number }>(sql`
   GROUP BY lower(l.seller_name)
 `);
 
-for (const b of branches.values()) b.weeks = weekStarts.map(() => ({ h: 0, s: 0 }));
+const weeklyTotals = new Array(WEEKS).fill(0);
 for (const e of handoffEvents) {
-  const b = branch(e.seller); if (!b.weeks.length) b.weeks = weekStarts.map(() => ({ h: 0, s: 0 }));
-  const i = weekIdx(e.ts); if (i >= 0 && i < WEEKS) { b.weeks[i].h++; b.handoffs++; }
+  const i = weekIdx(e.ts);
+  if (i < 0 || i >= WEEKS) continue;
+  weeklyTotals[i]++;
+  const b = branch(e.seller);
+  b.h12++;
+  if (e.ts >= last4Sec) b.h4++;
+  else if (e.ts >= prior4Sec) b.hPrior4++;
 }
-for (const e of soldEvents) {
-  const b = branch(e.seller); if (!b.weeks.length) b.weeks = weekStarts.map(() => ({ h: 0, s: 0 }));
-  const i = weekIdx(e.ts); if (i >= 0 && i < WEEKS) { b.weeks[i].s++; b.sold++; }
-}
+for (const r of soldRows) branch(r.seller).sold4 = r.n;
 for (const e of firstHandoffs) {
   const b = branches.get(norm(e.seller));
-  if (b) b.firstHandoff = e.ts;
+  if (b) b.isNew = e.ts >= last4Sec;
 }
 
 // ── Days-on-market per branch (all-time; median where n ≥ 3) ──
@@ -135,17 +141,19 @@ const all = [...branches.values()];
 const totalStock = all.reduce((t, b) => t + b.stock, 0);
 const byStock = [...all].sort((a, b) => b.stock - a.stock);
 const top10Share = totalStock ? Math.round(byStock.slice(0, 10).reduce((t, b) => t + b.stock, 0) / totalStock * 100) : 0;
-const receiving = all.filter(b => b.handoffs > 0).sort((a, b) => b.handoffs - a.handoffs);
-const totalHandoffs = receiving.reduce((t, b) => t + b.handoffs, 0);
-const top5DemandShare = totalHandoffs ? Math.round(receiving.slice(0, 5).reduce((t, b) => t + b.handoffs, 0) / totalHandoffs * 100) : 0;
+const receiving = all.filter(b => b.h12 > 0).sort((a, b) => b.h12 - a.h12);
+const totalHandoffs12 = receiving.reduce((t, b) => t + b.h12, 0);
+const top5DemandShare = totalHandoffs12 ? Math.round(receiving.slice(0, 5).reduce((t, b) => t + b.h12, 0) / totalHandoffs12 * 100) : 0;
 
-// ── Rows: everyone with an event in-window, topped up by stock holders ──
-const active = all.filter(b => b.handoffs > 0 || b.sold > 0);
-const fillers = byStock.filter(b => b.handoffs === 0 && b.sold === 0).slice(0, Math.max(0, 40 - active.length));
+// ── Rows: everyone with a 12-week handoff or recent sale, topped up by the
+// biggest stock-holders so the market structure stays visible ──
+const active = all.filter(b => b.h12 > 0 || b.sold4 > 0);
+const fillers = byStock.filter(b => b.h12 === 0 && b.sold4 === 0).slice(0, Math.max(0, 40 - active.length));
 const rows = [...active, ...fillers]
-  .sort((a, b) => b.handoffs - a.handoffs || b.sold - a.sold || b.stock - a.stock)
+  .sort((a, b) => b.h4 - a.h4 || b.h12 - a.h12 || b.sold4 - a.sold4 || b.stock - a.stock)
   .slice(0, 80);
-const rowMax = (b: Branch, f: 'h' | 's') => Math.max(1, ...b.weeks.map(w => w[f]));
+const maxH4 = Math.max(1, ...rows.map(b => b.h4));
+const maxWeekly = Math.max(1, ...weeklyTotals);
 
 // Group chips only where ≥2 sibling branches exist among the rows.
 const groupCounts = new Map<string, number>();
@@ -155,7 +163,15 @@ const chip = (b: Branch) => (groupCounts.get(groupKey(b.name)) ?? 0) >= 2 ? grou
 const isWbc = (b: Branch) => b.sources.has('wbc');
 const fmtR = (n: number | null) =>
   n == null ? '—' : n >= 1_000_000 ? `R${(n / 1_000_000).toFixed(2).replace(/\.?0+$/, '')}m` : `R${Math.round(n / 1000)}k`;
-const dot = (n: number, max: number) => (6 + Math.sqrt(n / max) * 8).toFixed(1); // px, 6–14
+const trend = (b: Branch) => {
+  if (b.isNew && b.h4 > 0) return { cls: 'tr-new', txt: '● new' };
+  const d = b.h4 - b.hPrior4;
+  if (b.h4 === 0 && b.hPrior4 === 0) return { cls: 'tr-flat', txt: '—' };
+  if (d > 0) return { cls: 'tr-up', txt: `▲ +${d}` };
+  if (d < 0) return { cls: 'tr-down', txt: `▼ ${d}` };
+  return { cls: 'tr-flat', txt: '＝' };
+};
+const weekLabel = (ms: number) => new Intl.DateTimeFormat('en-ZA', { day: 'numeric', month: 'short' }).format(new Date(ms));
 ---
 
 <AdminLayout title="Dealers" activePage="dealers">
@@ -165,7 +181,7 @@ const dot = (n: number, max: number) => (6 + Math.sqrt(n / max) * 8).toFixed(1);
       <p class="sub">
         Who holds the stock, who sells fast, and who we send buyers to — per <strong>branch</strong>
         (branches decide autonomously, so they're never merged; sort by group to cluster siblings).
-        Dot plot: ● handoffs we delivered that week, ● cars that left the market, ◦ ring = first-ever handoff.
+        Bar = buyer handoffs in the last 4 weeks; trend compares to the 4 weeks before.
       </p>
     </div>
   </div>
@@ -183,7 +199,7 @@ const dot = (n: number, max: number) => (6 + Math.sqrt(n / max) * 8).toFixed(1);
       <span class="kpi-note">per-branch medians in the rows (n ≥ 3)</span>
     </div>
     <div class="kpi">
-      <span class="kpi-n">{totalHandoffs}</span>
+      <span class="kpi-n">{totalHandoffs12}</span>
       <span class="kpi-l">buyer handoffs, last {WEEKS} weeks</span>
       <span class="kpi-note">{receiving.length} branches received ≥1</span>
     </div>
@@ -194,70 +210,81 @@ const dot = (n: number, max: number) => (6 + Math.sqrt(n / max) * 8).toFixed(1);
     </div>
   </div>
 
+  <!-- Aggregate demand: the only time-series with enough volume to mean something -->
+  <div class="weekly">
+    <span class="weekly-label">Weekly handoffs, all dealers</span>
+    <div class="weekly-bars">
+      {weeklyTotals.map((n, i) => (
+        <span class="wbar" title={`w/o ${weekLabel(weekStarts[i])}: ${n} handoff${n === 1 ? '' : 's'}`}>
+          <span class="wbar-fill" style={`height:${Math.max(2, Math.round(n / maxWeekly * 100))}%`}></span>
+        </span>
+      ))}
+    </div>
+    <span class="weekly-now">{weeklyTotals[WEEKS - 1]} this week</span>
+  </div>
+
   <div class="toolbar">
     <input type="search" id="dealer-search" placeholder="Find a dealership…" autocomplete="off" />
     <div class="sorts" role="group" aria-label="Sort rows">
-      <button class="sort-btn active" data-sort="handoffs">Demand</button>
-      <button class="sort-btn" data-sort="sold">Sell-through</button>
+      <button class="sort-btn active" data-sort="h4">Demand</button>
+      <button class="sort-btn" data-sort="sold4">Sell-through</button>
       <button class="sort-btn" data-sort="stock">Stock</button>
       <button class="sort-btn" data-sort="group">Group</button>
     </div>
     <span class="result-count" id="result-count"></span>
   </div>
 
-  <!-- Dot plot -->
-  <div class="plot">
-    <div class="plot-head">
-      <span class="ph-label"></span>
-      <div class="ph-weeks">
-        {weekStarts.map(w => <span class="ph-week">{weekLabel(w)}</span>)}
-      </div>
-      <span class="ph-meta">stock · med DOM</span>
+  <!-- Ranked branches -->
+  <div class="rank">
+    <div class="rank-head">
+      <span class="rh-name"></span>
+      <span class="rh-bar">Handoffs · 4w</span>
+      <span class="rh-col">Trend</span>
+      <span class="rh-col">Sold 4w</span>
+      <span class="rh-col">Stock</span>
+      <span class="rh-col">Med DOM</span>
     </div>
-    <div id="plot-rows">
-      {rows.map(b => (
+    <div id="rank-rows">
+      {rows.map(b => { const t = trend(b); return (
         <div
-          class="prow"
+          class="rrow"
           data-name={b.name.toLowerCase()}
-          data-handoffs={b.handoffs}
-          data-sold={b.sold}
+          data-h4={b.h4}
+          data-sold4={b.sold4}
           data-stock={b.stock}
           data-group={groupKey(b.name)}
         >
-          <span class="pr-label" title={`${b.name} — ${[...b.sources].join(' + ')} · ${b.stock} in stock (${fmtR(b.minp)}–${fmtR(b.maxp)})`}>
-            <span class="pr-name">{b.name}</span>
-            {isWbc(b) && <span class="pr-wbc" title="WeBuyCars branch — partnership conversation, not spotter outreach">WBC</span>}
-            {chip(b) && !isWbc(b) && <span class="pr-group">{chip(b)}</span>}
+          <span class="rr-name" title={`${b.name} — ${[...b.sources].join(' + ')} · ${b.stock} in stock (${fmtR(b.minp)}–${fmtR(b.maxp)}) · ${b.h12} handoffs in ${WEEKS}w`}>
+            <span class="rr-title">{b.name}</span>
+            {isWbc(b) && <span class="rr-wbc" title="WeBuyCars branch — partnership conversation, not spotter outreach">WBC</span>}
+            {chip(b) && !isWbc(b) && <span class="rr-group">{chip(b)}</span>}
           </span>
-          <div class="pr-weeks">
-            {b.weeks.map((w, i) => {
-              const first = b.firstHandoff !== null && b.firstHandoff >= weekStarts[i] / 1000 && (i === WEEKS - 1 || b.firstHandoff < weekStarts[i + 1] / 1000);
-              return (
-                <span class="pr-cell" title={`w/o ${weekLabel(weekStarts[i])}: ${w.h} handoff${w.h === 1 ? '' : 's'} · ${w.s} left market`}>
-                  {w.h > 0 && <span class={`d d-h${first ? ' d-first' : ''}`} style={`width:${dot(w.h, rowMax(b, 'h'))}px;height:${dot(w.h, rowMax(b, 'h'))}px`}></span>}
-                  {w.s > 0 && <span class="d d-s" style={`width:${dot(w.s, rowMax(b, 's'))}px;height:${dot(w.s, rowMax(b, 's'))}px`}></span>}
-                </span>
-              );
-            })}
-          </div>
-          <span class="pr-meta">{b.stock || '—'} · {b.domMedian !== null ? `${b.domMedian}d` : '—'}</span>
+          <span class="rr-bar">
+            <span class="rr-fill" style={`width:${Math.round(b.h4 / maxH4 * 100)}%`}></span>
+            <span class="rr-n">{b.h4 || ''}</span>
+          </span>
+          <span class={`rr-col ${t.cls}`}>{t.txt}</span>
+          <span class="rr-col">{b.sold4 || '—'}</span>
+          <span class="rr-col">{b.stock || '—'}</span>
+          <span class="rr-col">{b.domMedian !== null ? `${b.domMedian}d` : '—'}</span>
         </div>
-      ))}
+      );})}
     </div>
   </div>
 
   <p class="foot-note">
-    Rows: every branch with an event in the last {WEEKS} weeks, topped up with the biggest stock-holders (max {rows.length} shown; search covers them all).
     Handoff = a portal click-through or WhatsApp/call/email/reveal on that branch's stock — value delivered, not page views.
-    Reading it (Lieb): dense rows = who we actually feed · dots that stop = demand we lost · dark dots without green = stock moving that we get no credit for · a ring with nothing after = one-off, never returned.
+    "● new" = the branch's first-ever handoff landed in the last 4 weeks.
+    Rows: every branch with recent activity, topped up with the biggest stock-holders ({rows.length} shown; search covers them).
+    Sold 4w without handoffs = stock moving that we get no credit for yet.
   </p>
 </AdminLayout>
 
 <script>
-  const rowsEl = document.getElementById('plot-rows')!;
+  const rowsEl = document.getElementById('rank-rows')!;
   const search = document.getElementById('dealer-search') as HTMLInputElement | null;
   const countEl = document.getElementById('result-count');
-  const allRows = [...rowsEl.querySelectorAll<HTMLElement>('.prow')];
+  const allRows = [...rowsEl.querySelectorAll<HTMLElement>('.rrow')];
 
   const updateCount = () => {
     const visible = allRows.filter(r => !r.hidden).length;
@@ -278,11 +305,10 @@ const dot = (n: number, max: number) => (6 + Math.sqrt(n / max) * 8).toFixed(1);
       const key = btn.dataset.sort!;
       const sorted = [...allRows].sort((a, b) => {
         if (key === 'group') {
-          // Cluster siblings, biggest group-demand first, then per-branch demand.
           const g = (a.dataset.group ?? '').localeCompare(b.dataset.group ?? '');
-          return g !== 0 ? g : Number(b.dataset.handoffs) - Number(a.dataset.handoffs);
+          return g !== 0 ? g : Number(b.dataset.h4) - Number(a.dataset.h4);
         }
-        return Number(b.dataset[key]) - Number(a.dataset[key]) || Number(b.dataset.handoffs) - Number(a.dataset.handoffs);
+        return Number(b.dataset[key]) - Number(a.dataset[key]) || Number(b.dataset.h4) - Number(a.dataset.h4);
       });
       sorted.forEach(r => rowsEl.appendChild(r));
     });
@@ -294,12 +320,22 @@ const dot = (n: number, max: number) => (6 + Math.sqrt(n / max) * 8).toFixed(1);
   h1 { font-size: 22px; font-weight: 700; }
   .sub { color: #666; font-size: 13px; margin-top: 4px; max-width: 720px; line-height: 1.55; }
 
-  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-bottom: 18px; }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-bottom: 14px; }
   .kpi { border: 1px solid #e5e5e5; border-radius: 8px; padding: 12px 14px; display: flex; flex-direction: column; gap: 2px; }
   .kpi-n { font-size: 21px; font-weight: 700; }
   .kpi-dim { font-size: 14px; color: #999; font-weight: 600; }
   .kpi-l { font-size: 11.5px; color: #777; }
   .kpi-note { font-size: 10.5px; color: #aaa; margin-top: 2px; }
+
+  .weekly {
+    display: flex; align-items: center; gap: 12px;
+    border: 1px solid #e5e5e5; border-radius: 8px; padding: 10px 14px; margin-bottom: 14px;
+  }
+  .weekly-label { font-size: 11.5px; color: #777; white-space: nowrap; }
+  .weekly-bars { flex: 1; display: flex; align-items: flex-end; gap: 3px; height: 34px; }
+  .wbar { flex: 1; display: flex; align-items: flex-end; height: 100%; }
+  .wbar-fill { width: 100%; background: #F5A623; border-radius: 2px 2px 0 0; min-height: 2px; }
+  .weekly-now { font-size: 12px; font-weight: 700; color: #111; white-space: nowrap; }
 
   .toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; flex-wrap: wrap; }
   #dealer-search { flex: 0 1 280px; padding: 7px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px; }
@@ -309,28 +345,30 @@ const dot = (n: number, max: number) => (6 + Math.sqrt(n / max) * 8).toFixed(1);
   .sort-btn.active { background: #111; color: white; border-color: #111; }
   .result-count { font-size: 12px; color: #888; }
 
-  .plot { border: 1px solid #e5e5e5; border-radius: 8px; overflow-x: auto; background: white; }
-  .plot-head, .prow { display: flex; align-items: center; min-width: 720px; }
-  .plot-head { border-bottom: 1px solid #e5e5e5; background: #fafafa; position: sticky; top: 0; z-index: 2; }
-  .ph-label, .pr-label { flex: 0 0 220px; padding: 6px 10px; min-width: 0; }
-  .ph-weeks, .pr-weeks { flex: 1; display: flex; }
-  .ph-week { flex: 1; text-align: center; font-size: 9.5px; color: #999; padding: 6px 0; white-space: nowrap; }
-  .ph-meta, .pr-meta { flex: 0 0 90px; text-align: right; padding: 6px 10px; font-size: 9.5px; color: #999; white-space: nowrap; }
+  .rank { border: 1px solid #e5e5e5; border-radius: 8px; overflow-x: auto; background: white; }
+  .rank-head, .rrow { display: flex; align-items: center; min-width: 680px; }
+  .rank-head { border-bottom: 1px solid #e5e5e5; background: #fafafa; font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; color: #999; }
+  .rh-name, .rr-name { flex: 0 0 230px; padding: 7px 10px; min-width: 0; }
+  .rh-bar, .rr-bar { flex: 1; padding: 7px 10px; }
+  .rh-col, .rr-col { flex: 0 0 72px; text-align: right; padding: 7px 10px; white-space: nowrap; }
 
-  .prow { border-bottom: 1px solid #f4f4f4; }
-  .prow:last-child { border-bottom: none; }
-  .prow:hover { background: #fffdf7; }
-  .pr-label { display: flex; align-items: center; gap: 6px; }
-  .pr-name { font-size: 12px; font-weight: 600; color: #222; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .pr-wbc { font-size: 9px; font-weight: 700; background: #fff4dd; color: #9a6b00; border-radius: 4px; padding: 1px 5px; flex-shrink: 0; }
-  .pr-group { font-size: 9px; font-weight: 600; background: #f2f2f2; color: #888; border-radius: 4px; padding: 1px 5px; flex-shrink: 0; text-transform: capitalize; }
-  .pr-cell { flex: 1; display: flex; align-items: center; justify-content: center; gap: 2px; height: 30px; border-left: 1px solid #fafafa; }
-  .pr-meta { font-variant-numeric: tabular-nums; color: #777; }
+  .rrow { border-bottom: 1px solid #f4f4f4; font-size: 12.5px; }
+  .rrow:last-child { border-bottom: none; }
+  .rrow:hover { background: #fffdf7; }
+  .rr-name { display: flex; align-items: center; gap: 6px; }
+  .rr-title { font-weight: 600; color: #222; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rr-wbc { font-size: 9px; font-weight: 700; background: #fff4dd; color: #9a6b00; border-radius: 4px; padding: 1px 5px; flex-shrink: 0; }
+  .rr-group { font-size: 9px; font-weight: 600; background: #f2f2f2; color: #888; border-radius: 4px; padding: 1px 5px; flex-shrink: 0; text-transform: capitalize; }
 
-  .d { border-radius: 50%; display: inline-block; flex-shrink: 0; }
-  .d-h { background: #F5A623; }
-  .d-s { background: #3a3f2e; opacity: 0.55; }
-  .d-first { box-shadow: 0 0 0 2px #fff, 0 0 0 3.5px #F5A623; }
+  .rr-bar { display: flex; align-items: center; gap: 8px; }
+  .rr-fill { height: 14px; background: #F5A623; border-radius: 3px; min-width: 0; transition: width 0.2s; }
+  .rr-n { font-size: 11.5px; font-weight: 700; color: #333; }
+
+  .rr-col { font-variant-numeric: tabular-nums; color: #555; }
+  .tr-up { color: #15803D; font-weight: 700; }
+  .tr-down { color: #B91C1C; font-weight: 700; }
+  .tr-flat { color: #bbb; }
+  .tr-new { color: #F5A623; font-weight: 700; }
 
   .foot-note { color: #888; font-size: 12px; margin-top: 12px; max-width: 780px; line-height: 1.55; }
 </style>
