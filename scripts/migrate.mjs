@@ -129,6 +129,19 @@ db.exec(`
 `);
 db.exec(`CREATE INDEX IF NOT EXISTS wanted_requests_created ON wanted_requests (created_at)`);
 
+// Imported/legacy contacts (old WP/WooCommerce list) — separate from users.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS contacts (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    email      TEXT    NOT NULL UNIQUE,
+    name       TEXT,
+    source     TEXT    NOT NULL,
+    origin     TEXT    NOT NULL DEFAULT 'wp-import',
+    note       TEXT,
+    created_at INTEGER NOT NULL
+  )
+`);
+
 db.exec(`
   CREATE TABLE IF NOT EXISTS click_events (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,

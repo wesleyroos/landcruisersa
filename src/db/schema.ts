@@ -87,6 +87,20 @@ export const wantedRequests = sqliteTable('wanted_requests', {
   created_at:  integer('created_at', { mode: 'timestamp' }).notNull(),
 });
 
+// Legacy/imported contacts — the owned mailing-list asset (e.g. the old
+// WordPress/WooCommerce extraction). Deliberately SEPARATE from `users`
+// (login accounts): importing here never pollutes the accounts metrics, and
+// nothing emails these people until the mailer plan is armed.
+export const contacts = sqliteTable('contacts', {
+  id:         integer('id').primaryKey({ autoIncrement: true }),
+  email:      text('email').notNull().unique(),
+  name:       text('name'),
+  source:     text('source').notNull(),              // 'shop_customer' | 'contact_form' | 'wp_user' | ...
+  origin:     text('origin').notNull().default('wp-import'),
+  note:       text('note'),
+  created_at: integer('created_at', { mode: 'timestamp' }).notNull(),
+});
+
 export const viewEvents = sqliteTable('view_events', {
   id:            integer('id').primaryKey({ autoIncrement: true }),
   listing_slug:  text('listing_slug').notNull(),
