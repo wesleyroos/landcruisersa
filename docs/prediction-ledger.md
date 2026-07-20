@@ -35,8 +35,17 @@ date, compare to baseline, mark HIT / MISS / PARTIAL, and write the lesson.
   1. "land cruiser tyre size" CTR rises from 0.7% → **≥3%** (≥9 clicks vs 2 on similar impressions). *Primary.*
   2. Average position holds or improves (≤3.2) — packaging change shouldn't hurt rank.
   3. At least **2 new per-model tyre-size queries** (100/200/300 series) appear with impressions, from the new FAQ sections.
-- **Result:** _pending 2026-07-20_
-- **Lesson:** _tbd_
+- **Result (graded 2026-07-20, GSC 28d to 17-Jul):** **MISS (1 of 3).**
+  1. ✗ CTR 1.5% (2c/134i) — up from 0.7% but half the ≥3% bar.
+  2. ✗ Position **8.4** vs 3.2 baseline — the retitle coincided with a hard,
+     unrecovered rank drop on the head query. The page still earns ~112
+     clicks/28d overall, but via a shifted query mix, not the target query.
+  3. ✓ ≥4 per-model queries with impressions ("79 tyre size", 2× "100 series",
+     "200 series", "best tyre size for 79") — the FAQ long-tail worked.
+- **Lesson:** retitling a page that ALREADY ranks top-3 carries real rank risk
+  — the head query never recovered. Adding new structured sections (FAQs) to
+  the same page worked fine. Repackage low-ranked pages; on ranking pages,
+  extend, don't rewrite the title.
 
 ---
 
@@ -61,8 +70,15 @@ date, compare to baseline, mark HIT / MISS / PARTIAL, and write the lesson.
   1. *(PRIMARY)* tyres bounce drops from 93% → **≤ 80%**.
   2. rooftop bounce drops from 55% → **≤ 48%**.
   3. 300-price bounce drops from 50% → **≤ 45%**. *(Caveat: tiny sample; treat as directional.)*
-- **Result:** _pending 2026-07-20_
-- **Lesson:** _tbd_
+- **Result (graded 2026-07-20, Plausible 30d):** **PARTIAL (1 of 3), and the
+  misses moved BACKWARDS.** 1. ✓ tyres 93% → **76%** (bar ≤80). 2. ✗ rooftop
+  55% → **70%** — worse than baseline. 3. ✗ 300-price 50% → **62%** — worse
+  (n=14, directional).
+- **Lesson:** the in-content CTA pattern did not generalise — 2 of 3 pages
+  bounced worse after the change. The tyres win likely owes as much to its new
+  internal links (a second step to take) as to the CTA itself. Do NOT roll
+  PostCTA out further on this evidence; if a page must convert, give the
+  reader a *next page*, not a pitch.
 
 ---
 
@@ -88,8 +104,16 @@ date, compare to baseline, mark HIT / MISS / PARTIAL, and write the lesson.
   1. "toyota land cruiser 300 price south africa" moves onto page 1 — **position ≤ 8** (from 10.1). *(Caveat: page was only ~1 week old at baseline, so some lift may be natural ageing, not the title change.)*
   2. "land cruiser roof tent" moves onto page 1 — **position ≤ 9** (from 11.7).
   3. Combined clicks for the two queries rise from 2 → **≥ 6**.
-- **Result:** _pending 2026-07-20_
-- **Lesson:** _tbd_
+- **Result (graded 2026-07-20):** **MISS.** Neither tracked query reached
+  page 1: the LC300 family sits pos 10–16 ("land cruiser 300" 234i pos 11.4;
+  "land cruiser 300 for sale in south africa" pos 10.2) and "land cruiser
+  roof tent" fell out of the visible top-query rows entirely. Both PAGES are
+  fine on other queries (rooftop page ~94 clicks/28d) — but that's not what
+  was predicted.
+- **Lesson:** title/meta relevance tweaks alone did not move page-2 rankings
+  onto page 1 in 28 days. The 300 gap keeps showing demand (3 checkups
+  running) — it likely needs a dedicated, current-content page (the P14/P18
+  new-surface shape), not another repackage.
 
 ---
 
@@ -115,8 +139,14 @@ date, compare to baseline, mark HIT / MISS / PARTIAL, and write the lesson.
   1. Combined per-model tyre-size impressions grow from ~46 → **≥ 90**.
   2. At least **4 distinct** per-model tyre-size queries (across 79/80/100/200/300) show impressions.
   3. The cluster earns **≥ 3 combined clicks** on per-model tyre-size queries (from ~1–2).
-- **Result:** _pending 2026-07-20_
-- **Lesson:** _tbd_
+- **Result (graded 2026-07-20):** **PARTIAL (2 of 3).** 1. ✗ combined
+  per-model impressions ~60 vs ≥90. 2. ✓ ≥4 distinct per-model queries
+  showing (79 / 100×2 / 200 / best-79-size). 3. ✓ ~9 combined clicks vs ≥3,
+  several at pos 3–7 with strong CTR.
+- **Lesson:** the spokes rank and convert clicks efficiently — the relevance
+  thesis held; the impression *volume* was over-forecast (the long-tail is
+  real but thin). Hub-and-spoke works; size the forecast to the tail, not the
+  head.
 
 ---
 
@@ -140,8 +170,15 @@ date, compare to baseline, mark HIT / MISS / PARTIAL, and write the lesson.
   1. Position holds top-5 — **≤ 4** (no 301 damage).
   2. Clicks grow from 5 → **≥ 8**.
   3. No drop below pos 6 for "land cruiser rental" / "land cruiser for hire" either.
-- **Result:** _pending 2026-07-20_
-- **Lesson:** _tbd_
+- **Result (graded 2026-07-20):** **PARTIAL.** 1. ✗ position settled ~6.1
+  (page-level) vs the ≤4 bar — the pre-registered 301 risk materialised and
+  only partly recovered. 2. ✓✓ clicks ~35/28d page-level vs the ≥8 bar
+  (baseline 5). 3. ~borderline at the pos-6 line.
+- **Lesson:** the slug/title retarget cost rank but the retargeted page
+  captures far more demand anyway — total clicks 7× the old baseline. A 301
+  rename is paying for itself here, but expect the rank dip to take >4 weeks
+  to fully heal; don't rename ranking URLs casually (same family of risk as
+  P1).
 
 ---
 
@@ -158,8 +195,19 @@ date, compare to baseline, mark HIT / MISS / PARTIAL, and write the lesson.
   2. **≥ 2 distinct** such queries show impressions.
   3. **≥ 1 outbound click** to ghostsouthafrica.co.za recorded in Plausible. *(The precondition for Ghost outreach.)*
 - **Monetization gate (per LOCKED monetization philosophy):** even if clicks materialise, only pursue Ghost as revenue if it's a **trackable self-serve affiliate** — do NOT chase Ghost to negotiate/pay a referral (that's the leaky lead-gen the philosophy forbids). Absent a self-serve program, the cluster stays a pure authority/citation asset.
-- **Result:** _pending 2026-07-20_
-- **Lesson:** _tbd_
+- **Result (graded 2026-07-20):** **HIT (3 of 3).** 1. ✓ hub alone ~700 impr /
+  20 clicks at pos ~4.4 vs the ≥40-impr bar. 2. ✓ multiple distinct
+  theft/security queries with impressions. 3. ✓ 1 outbound click to
+  ghostsouthafrica.co.za. And the strategic payoff dwarfs the metrics: the
+  cluster's existence created the anti-hijack partner conversation that became
+  the **Titan Secure proposal (D5, R4k/mo ask, sent 16-Jul)** — the
+  content→partner loop closed inside 4 weeks.
+- **Lesson:** cold-start clusters on real macro demand (hijacking) index and
+  earn a footprint fast when the SERP is weak — and the commercial value of a
+  cluster can arrive through the PARTNER door before the traffic door. This is
+  the repeatable shape (P6 → P14 game viewers → P18 classics): new structured
+  surface on unserved demand beats optimising an existing one (P1/P2/P3 all
+  underperformed the same month).
 
 ---
 
