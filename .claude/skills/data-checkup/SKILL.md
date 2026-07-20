@@ -67,6 +67,12 @@ Standard counts (30d unless noted):
 
 ## Grading rules
 
+- ⚠️ **Trailing-30d windows OVERLAP between checkups.** Seeing the same zero
+  (or the same number) in three consecutive checkups is ONE observation
+  period, not three — never write "N months of X" from repeated overlapping
+  windows. For duration claims, pull the LIFETIME count + the feature's
+  launch date from the DB (this exact mistake was made 2026-07-20: "3 months
+  of 0 finance leads" was actually 5 weeks).
 - Grade every open P# **against its pre-registered numeric bar** — trending
   HIT / MISS / PARTIAL / too-early. Call misses plainly; never rationalise
   (the ledger's whole point). Respect gates (e.g. P7 %s ungraded below volume

@@ -128,10 +128,13 @@ so threads either progress or get consciously dropped — never drift.
 - **⚠️ Philosophy gate:** only pursue partners offering **trackable self-serve attribution** (the WBC sales-API model is the template). Do NOT sign a "we email leads, you invoice us" arrangement — that's the leaky lead-gen [[project-monetization-philosophy]] forbids.
 - **Next action:** identify 1–2 SA finance partners with an affiliate/attribution API; outreach.
 - **Kill-or-advance:** a partner identified + contacted, or this surface parked, by **2026-07-20**.
-- **⏸️ PARKED (2026-07-20, per pre-commitment):** three straight months of
-  **0 finance leads** despite the calculator being used more than ever
-  (65 opens/30d, up 76% m/m). People model repayments; nobody leaves contact
-  details. The surface stays live (zero maintenance, the calc-opens data keeps
+- **⏸️ PARKED (2026-07-20, per pre-commitment):** the kill-or-advance date
+  arrived with no partner identified — that alone triggers the park. The data
+  (5 weeks live since 13-Jun, corrected from an earlier "3 months" miscount):
+  **0 leads from 75 lifetime calculator opens**, with usage accelerating
+  (65 opens in the last 30d). People model repayments; nobody leaves contact
+  details — though 5 weeks on a R300k+ considered purchase is suggestive, not
+  damning. The surface stays live (zero maintenance, the calc-opens data keeps
   accruing as demand evidence), but no partner outreach happens until a
   partner with genuine self-serve attribution appears OR lead volume exists to
   sell. Re-open trigger: WBC sales-API attribution (D1 value-hypothesis A)
