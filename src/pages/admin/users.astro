@@ -3,7 +3,7 @@ export const prerender = false;
 
 import AdminLayout from '@/layouts/AdminLayout.astro';
 import { db } from '@/db/index';
-import { users, favorites, savedSearches, contacts } from '@/db/schema';
+import { users, favorites, savedSearches, contacts, listings } from '@/db/schema';
 import { desc, sql } from 'drizzle-orm';
 
 const cookie = Astro.cookies.get('lcsa_admin');
@@ -40,6 +40,22 @@ const SOURCE_LABEL: Record<string, string> = {
   contact_form: '✉️ Contact form',
   wp_user: '👤 WP account',
 };
+
+// Private sellers — one row per person who has listed a vehicle with us.
+// Queried live off `listings` (single source of truth), not copied anywhere.
+const sellers = db.select({
+  email: listings.seller_email,
+  name: sql<string>`max(seller_name)`,
+  phone: sql<string>`max(seller_phone)`,
+  total: sql<number>`cast(count(*) as int)`,
+  active: sql<number>`cast(sum(status = 'active') as int)`,
+  sold: sql<number>`cast(sum(status = 'sold') as int)`,
+  latest: sql<number>`max(created_at)`,
+}).from(listings)
+  .where(sql`source = 'own' AND seller_email != '' AND seller_email NOT LIKE '%grodigital%' AND seller_email NOT LIKE '%landcruisersa%'`)
+  .groupBy(listings.seller_email)
+  .orderBy(sql`max(created_at) desc`)
+  .all();
 ---
 
 <AdminLayout title="Users" activePage="users">
@@ -67,6 +83,29 @@ const SOURCE_LABEL: Record<string, string> = {
                 <td class="nowrap b">{favCounts.get(u.id) ?? 0}</td>
                 <td class="nowrap">{searchCounts.get(u.id) ?? 0}</td>
                 <td class="nowrap muted small">{fmt(u.last_login_at)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </section>
+
+    <section class="card">
+      <h2>Private sellers <span class="count">{sellers.length}</span></h2>
+      <p class="sub">Everyone who has listed a vehicle with us (live from the listings table). These are the warmest contacts on the site — owners with a Cruiser to sell, and the seed of the dealer-sourcing loop.</p>
+      {sellers.length === 0 ? <p class="empty">No private sellers yet.</p> : (
+        <table>
+          <thead><tr><th>Latest listing</th><th>Name</th><th>Email</th><th>Phone</th><th>Listings</th><th>Active</th><th>Sold</th></tr></thead>
+          <tbody>
+            {sellers.map(s => (
+              <tr>
+                <td class="nowrap muted">{fmt(new Date(s.latest * 1000))}</td>
+                <td class="b">{s.name || '—'}</td>
+                <td><a href={`mailto:${s.email}`}>{s.email}</a></td>
+                <td class="nowrap"><a href={`tel:${s.phone}`}>{s.phone}</a></td>
+                <td class="nowrap b">{s.total}</td>
+                <td class="nowrap">{s.active}</td>
+                <td class="nowrap">{s.sold}</td>
               </tr>
             ))}
           </tbody>
