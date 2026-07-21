@@ -84,22 +84,29 @@ const itemListSchema = JSON.stringify({
   itemListElement: results.map((l, i) => ({
     '@type': 'ListItem',
     position: i + 1,
-    item: {
+    // POA listings (price 0) stay product-untyped: a Vehicle item without an
+    // offer fails Google's "offers/review/aggregateRating required" rule, and
+    // inventing a price or rating is worse than skipping the typing. Priced
+    // stock gets the full Vehicle + Offer treatment.
+    item: l.price > 0 ? {
       '@type': 'Vehicle',
       name: l.title,
       url: `${SITE.url}/listings/${l.slug}/`,
       image: firstPhoto(l.photos),
       bodyType: 'Game viewer (open safari vehicle)',
       itemCondition: l.new_or_used === 'New' ? 'https://schema.org/NewCondition' : 'https://schema.org/UsedCondition',
-      ...(l.price > 0 ? {
-        offers: {
-          '@type': 'Offer',
-          price: l.price,
-          priceCurrency: 'ZAR',
-          availability: 'https://schema.org/InStock',
-          itemCondition: l.new_or_used === 'New' ? 'https://schema.org/NewCondition' : 'https://schema.org/UsedCondition',
-        },
-      } : {}),
+      offers: {
+        '@type': 'Offer',
+        price: l.price,
+        priceCurrency: 'ZAR',
+        availability: 'https://schema.org/InStock',
+        itemCondition: l.new_or_used === 'New' ? 'https://schema.org/NewCondition' : 'https://schema.org/UsedCondition',
+      },
+    } : {
+      '@type': 'Thing',
+      name: l.title,
+      url: `${SITE.url}/listings/${l.slug}/`,
+      image: firstPhoto(l.photos),
     },
   })),
 }).replace(/</g, '\\u003c');
