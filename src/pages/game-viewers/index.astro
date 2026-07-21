@@ -44,6 +44,9 @@ function formatPrice(n: number) { return 'R' + n.toLocaleString('en-ZA'); }
 function formatMileage(n: number) { return n.toLocaleString('en-ZA') + ' km'; }
 
 // Market strip — same maths as the per-model pages.
+// POA units (price 0 — e.g. new factory Mahindras) count as for-sale stock but
+// stay out of the price stats, which must only aggregate real asking prices.
+const forSaleCount = results.filter(l => l.listing_type === 'for_sale').length;
 const priced = results
   .filter(l => l.listing_type === 'for_sale' && l.price > 0)
   .map(l => l.price)
@@ -125,7 +128,7 @@ const description = results.length
           </div>
           <div>
             <p class="text-[10px] font-bold uppercase tracking-widest text-[#9CA3AF] mb-0.5">For sale</p>
-            <p class="font-heading font-bold text-xl text-[#111111]">{priceCount}</p>
+            <p class="font-heading font-bold text-xl text-[#111111]">{forSaleCount}</p>
           </div>
         </div>
         <div class="flex flex-wrap items-center gap-x-5 gap-y-2 mt-4 pt-3.5 border-t border-[#F0EDE6] text-sm">
