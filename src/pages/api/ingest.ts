@@ -124,8 +124,9 @@ export const POST: APIRoute = async ({ request }) => {
       segment: segmentOverride ?? segmentForModel(effectiveModel),
       // Classify only unclassified rows — an admin's manual body_type verdict
       // ('standard' opt-out or confirmed 'game-viewer') survives re-ingest.
+      // Weak "safari" phrases are not trusted for other-4x4 bycatch.
       body_type: existing[0].body_type
-        ?? detectBodyType(String(title), String(description ?? '').trim() || existing[0].description),
+        ?? detectBodyType(String(title), String(description ?? '').trim() || existing[0].description, segmentOverride !== 'other-4x4'),
       status: 'active',
     }).where(eq(listings.id, existing[0].id));
 
@@ -190,7 +191,7 @@ export const POST: APIRoute = async ({ request }) => {
     seats: seats ? Number(seats) : null,
     co2: co2 ? Number(co2) : null,
     segment: segmentOverride ?? segmentForModel(String(model)),
-    body_type: detectBodyType(String(title), String(description ?? '')),
+    body_type: detectBodyType(String(title), String(description ?? ''), segmentOverride !== 'other-4x4'),
     created_at: new Date(),
   });
 

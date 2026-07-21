@@ -81,9 +81,18 @@ db.exec(`
     OR ((LOWER(description) LIKE '%game viewer%' OR LOWER(description) LIKE '%game-viewer%' OR LOWER(description) LIKE '%gameviewer%')
         AND LOWER(description) NOT LIKE '%game viewer seat%' AND LOWER(description) NOT LIKE '%game-viewer seat%' AND LOWER(description) NOT LIKE '%gameviewer seat%')
     OR LOWER(description) LIKE '%game drive vehicle%' OR LOWER(description) LIKE '%game-drive vehicle%'
-    OR LOWER(description) LIKE '%safari conversion%'  OR LOWER(description) LIKE '%safari vehicle%'
-    OR LOWER(description) LIKE '%safari-ready%'       OR LOWER(description) LIKE '%safari ready%'
+    OR LOWER(description) LIKE '%safari conversion%'
     OR LOWER(description) LIKE '%open safari%'        OR LOWER(description) LIKE '%open game%'
+  )
+`);
+// Weak description signals ("safari vehicle/ready" = dealer marketing copy on
+// ordinary cars) are trusted only outside the other-4x4 keyword-crawl bycatch —
+// mirrors detectBodyType()'s weakDescSignals flag.
+db.exec(`
+  UPDATE listings SET body_type = 'game-viewer'
+  WHERE body_type IS NULL AND segment != 'other-4x4' AND (
+    LOWER(description) LIKE '%safari vehicle%'
+    OR LOWER(description) LIKE '%safari-ready%' OR LOWER(description) LIKE '%safari ready%'
   )
 `);
 

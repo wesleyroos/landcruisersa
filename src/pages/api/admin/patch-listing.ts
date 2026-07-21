@@ -39,10 +39,12 @@ export const POST: APIRoute = async ({ request }) => {
   // The AT description backfill lands here — the game-viewer signal usually
   // lives in that description, so re-classify unclassified rows when it arrives.
   if (typeof description === 'string' && description.trim()) {
-    const row = db.select({ title: listings.title, body_type: listings.body_type })
+    const row = db.select({ title: listings.title, body_type: listings.body_type, segment: listings.segment })
       .from(listings).where(eq(listings.source_id, source_id)).get();
     if (row && row.body_type === null) {
-      const bt = detectBodyType(row.title, description);
+      // Weak "safari" phrases are not trusted for other-4x4 bycatch — a backfilled
+      // description saying "ideal safari vehicle" must not classify a random make.
+      const bt = detectBodyType(row.title, description, row.segment !== 'other-4x4');
       if (bt) updates.body_type = bt;
     }
   }

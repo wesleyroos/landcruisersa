@@ -60,14 +60,20 @@ const GAME_VIEWER_TITLE_RE =
 // which put a stock 79 single cab on /game-viewers/ (id 16938, 2026-07-13).
 // "game viewer seat(s)" is a drop-in load-bed accessory on stock bakkies, not a
 // conversion — it put a stock Hilux Xtra Cab on the page (id 18837, 2026-07-21).
-const GAME_VIEWER_DESC_RE =
-  /game[\s-]?viewer(?![\s-]*seat)|game[\s-]?drive[\s-]?(?:vehicle|conversion)|safari[\s-]?(?:conversion|vehicle|ready|spec)|open\s(?:safari|game)/i;
+// STRONG signals are unambiguous conversion phrases, safe for any make. WEAK
+// ones ("safari vehicle/ready/spec") appear as marketing copy on ordinary cars
+// ("ideal safari vehicle" on a VW van) — trusted only inside the curated Toyota
+// segments, never for keyword-crawl bycatch (segment 'other-4x4').
+const GAME_VIEWER_DESC_STRONG_RE =
+  /game[\s-]?viewer(?![\s-]*seat)|game[\s-]?drive[\s-]?(?:vehicle|conversion)|safari[\s-]?conversion|open\s(?:safari|game)/i;
+const GAME_VIEWER_DESC_WEAK_RE = /safari[\s-]?(?:vehicle|ready|spec)/i;
 
 // Returns 'game-viewer' or null (unclassified). Never returns 'standard' — that
 // value is an explicit admin opt-out; callers must only fill body_type when it
 // is currently NULL so a manual verdict survives re-ingest.
-export function detectBodyType(title: string, description = ''): string | null {
-  if (GAME_VIEWER_TITLE_RE.test(title) || GAME_VIEWER_DESC_RE.test(description)) return 'game-viewer';
+export function detectBodyType(title: string, description = '', weakDescSignals = true): string | null {
+  if (GAME_VIEWER_TITLE_RE.test(title) || GAME_VIEWER_DESC_STRONG_RE.test(description)) return 'game-viewer';
+  if (weakDescSignals && GAME_VIEWER_DESC_WEAK_RE.test(description)) return 'game-viewer';
   return null;
 }
 

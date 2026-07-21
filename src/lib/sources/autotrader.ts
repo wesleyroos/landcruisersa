@@ -45,8 +45,13 @@ const JIMNY_SEARCH_URLS = [
 // SSR tiles across ALL makes (Mahindra Pik Up conversions etc.). Keyword search
 // matches descriptions too, so it over-fetches — detectBodyType() remains the
 // gatekeeper for what actually reaches /game-viewers/.
+// "game viewing" is a distinct text match (~18 results, mostly real Mahindra/
+// Toyota conversions). "game drive" (~350) and "safari" (~60) were tested and
+// rejected: overwhelmingly marketing copy ("perfect for game drives" on a
+// Volvo), poor yield for the bycatch they'd ingest.
 const GV_SEARCH_URLS = [
   `${BASE}/cars-for-sale?keyword=game+viewer`,
+  `${BASE}/cars-for-sale?keyword=game+viewing`,
 ];
 // Built per-run inside discover() so the Hilux/Fortuner toggle is read at
 // runtime (after applyExtraSegments), not frozen at module load.
@@ -206,7 +211,7 @@ export const AutoTraderAdapter: SourceAdapter = {
     for (let mi = 0; mi < SEARCH_URLS.length; mi++) {
       const baseUrl = SEARCH_URLS[mi];
       const isKeywordCrawl = baseUrl.includes('keyword=');
-      const slug = isKeywordCrawl ? 'game-viewer-keyword' : baseUrl.split('/').pop()!;
+      const slug = isKeywordCrawl ? `kw:${baseUrl.split('keyword=')[1].replace('+', '-')}` : baseUrl.split('/').pop()!;
       let totalPages = 1;                 // refined from page 1's embedded count
       let totalCount = 0;
       const modelIds = new Set<string>(); // distinct listings this model's pages showed
