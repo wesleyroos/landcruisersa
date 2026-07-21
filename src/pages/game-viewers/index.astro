@@ -6,7 +6,7 @@ import { SITE } from '@/data/site';
 import { db } from '@/db/index';
 import { listings } from '@/db/schema';
 import { and, eq, desc } from 'drizzle-orm';
-import { firstThumb, hasUsablePhoto } from '@/lib/photos';
+import { firstThumb, firstPhoto, hasUsablePhoto } from '@/lib/photos';
 import { getRecentPriceChanges } from '@/lib/price-changes';
 import GameViewerWantedForm from '@/components/GameViewerWantedForm.astro';
 
@@ -88,8 +88,18 @@ const itemListSchema = JSON.stringify({
       '@type': 'Vehicle',
       name: l.title,
       url: `${SITE.url}/listings/${l.slug}/`,
+      image: firstPhoto(l.photos),
       bodyType: 'Game viewer (open safari vehicle)',
-      ...(l.price > 0 ? { offers: { '@type': 'Offer', price: l.price, priceCurrency: 'ZAR' } } : {}),
+      itemCondition: l.new_or_used === 'New' ? 'https://schema.org/NewCondition' : 'https://schema.org/UsedCondition',
+      ...(l.price > 0 ? {
+        offers: {
+          '@type': 'Offer',
+          price: l.price,
+          priceCurrency: 'ZAR',
+          availability: 'https://schema.org/InStock',
+          itemCondition: l.new_or_used === 'New' ? 'https://schema.org/NewCondition' : 'https://schema.org/UsedCondition',
+        },
+      } : {}),
     },
   })),
 }).replace(/</g, '\\u003c');
