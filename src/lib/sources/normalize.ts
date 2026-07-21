@@ -58,8 +58,10 @@ const GAME_VIEWER_TITLE_RE =
 // "game view/viewing" — sellers mention game-viewing as a past USE on standard
 // bakkies ("previously used on the farm as a game-viewing/support vehicle"),
 // which put a stock 79 single cab on /game-viewers/ (id 16938, 2026-07-13).
+// "game viewer seat(s)" is a drop-in load-bed accessory on stock bakkies, not a
+// conversion — it put a stock Hilux Xtra Cab on the page (id 18837, 2026-07-21).
 const GAME_VIEWER_DESC_RE =
-  /game[\s-]?viewer|game[\s-]?drive[\s-]?(?:vehicle|conversion)|safari[\s-]?(?:conversion|vehicle|ready|spec)|open\s(?:safari|game)/i;
+  /game[\s-]?viewer(?![\s-]*seat)|game[\s-]?drive[\s-]?(?:vehicle|conversion)|safari[\s-]?(?:conversion|vehicle|ready|spec)|open\s(?:safari|game)/i;
 
 // Returns 'game-viewer' or null (unclassified). Never returns 'standard' — that
 // value is an explicit admin opt-out; callers must only fill body_type when it

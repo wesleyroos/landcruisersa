@@ -78,7 +78,8 @@ db.exec(`
     LOWER(title) LIKE '%game view%'  OR LOWER(title) LIKE '%game-view%'  OR LOWER(title) LIKE '%gameview%'
     OR LOWER(title) LIKE '%game drive%' OR LOWER(title) LIKE '%game-drive%'
     OR LOWER(title) LIKE '%safari conversion%' OR LOWER(title) LIKE '%safari vehicle%'
-    OR LOWER(description) LIKE '%game view%'  OR LOWER(description) LIKE '%game-view%' OR LOWER(description) LIKE '%gameview%'
+    OR ((LOWER(description) LIKE '%game viewer%' OR LOWER(description) LIKE '%game-viewer%' OR LOWER(description) LIKE '%gameviewer%')
+        AND LOWER(description) NOT LIKE '%game viewer seat%' AND LOWER(description) NOT LIKE '%game-viewer seat%' AND LOWER(description) NOT LIKE '%gameviewer seat%')
     OR LOWER(description) LIKE '%game drive vehicle%' OR LOWER(description) LIKE '%game-drive vehicle%'
     OR LOWER(description) LIKE '%safari conversion%'  OR LOWER(description) LIKE '%safari vehicle%'
     OR LOWER(description) LIKE '%safari-ready%'       OR LOWER(description) LIKE '%safari ready%'
