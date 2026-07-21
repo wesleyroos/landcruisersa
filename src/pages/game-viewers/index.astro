@@ -263,7 +263,7 @@ const description = results.length
                 fetchpriority={i < 3 ? 'high' : 'auto'}
                 decoding="async"
               />
-              <span class="card-badge">{l.province}</span>
+              {l.province && <span class="card-badge">{l.province}</span>}
               {dropBySlug.has(l.slug) && (
                 <span class="card-badge-drop">▼ R{dropBySlug.get(l.slug)!.toLocaleString('en-ZA')} drop</span>
               )}
