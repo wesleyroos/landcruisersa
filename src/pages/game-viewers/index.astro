@@ -72,11 +72,32 @@ const kR = (n: number) =>
 
 const canonicalUrl = `${SITE.url}/game-viewers/`;
 const title = 'Game Viewers For Sale in South Africa';
+
+// ItemList schema — tells Google/LLMs this page is a listing hub for the whole
+// category, with every vehicle enumerated (name, URL, price where public).
+const itemListSchema = JSON.stringify({
+  '@context': 'https://schema.org',
+  '@type': 'ItemList',
+  name: 'Game Viewers For Sale in South Africa — All Brands',
+  description: 'Every game viewer (open safari vehicle) listed for sale in South Africa, across all brands.',
+  numberOfItems: results.length,
+  itemListElement: results.map((l, i) => ({
+    '@type': 'ListItem',
+    position: i + 1,
+    item: {
+      '@type': 'Vehicle',
+      name: l.title,
+      url: `${SITE.url}/listings/${l.slug}/`,
+      bodyType: 'Game viewer (open safari vehicle)',
+      ...(l.price > 0 ? { offers: { '@type': 'Offer', price: l.price, priceCurrency: 'ZAR' } } : {}),
+    },
+  })),
+}).replace(/</g, '\\u003c');
 const description = results.length
   ? (priceCount >= 2
-      ? `Browse ${results.length} game viewer${results.length !== 1 ? 's' : ''} (open safari vehicles) for sale in South Africa — median asking ${formatPrice(median)}, range ${kR(minPrice)}–${kR(maxPrice)}. Land Cruiser 79-based conversions and more, updated daily.`
-      : `Browse ${results.length} game viewer${results.length !== 1 ? 's' : ''} (open safari vehicles) for sale in South Africa. Land Cruiser-based conversions from dealers and private sellers, updated daily.`)
-  : 'Game viewer (open safari vehicle) classifieds in South Africa. Land Cruiser-based conversions from dealers and private sellers — updated daily.';
+      ? `Browse ${results.length} game viewer${results.length !== 1 ? 's' : ''} (open safari vehicles) for sale in South Africa — every brand: Land Cruiser and Hilux conversions, factory Mahindra units, Jimny builds and more. Median asking ${formatPrice(median)}, range ${kR(minPrice)}–${kR(maxPrice)}, updated daily.`
+      : `Browse ${results.length} game viewer${results.length !== 1 ? 's' : ''} (open safari vehicles) for sale in South Africa across all brands — Land Cruiser, Mahindra and more, from dealers and private sellers, updated daily.`)
+  : 'Game viewer (open safari vehicle) classifieds in South Africa across all brands — Land Cruiser, Mahindra and more, from dealers and private sellers — updated daily.';
 ---
 
 <Base
@@ -104,7 +125,8 @@ const description = results.length
       </nav>
       <p class="text-[#F5A623] font-heading font-bold uppercase tracking-widest text-xs mb-2">Open Safari Vehicles</p>
       <h1 class="font-heading font-bold uppercase text-white text-4xl md:text-5xl leading-none mb-2">{title}</h1>
-      <p class="text-white/50 text-sm">{results.length} active listing{results.length !== 1 ? 's' : ''} · lodge-ready, converted and factory-built</p>
+      <p class="text-white/50 text-sm">{results.length} active listing{results.length !== 1 ? 's' : ''} · every brand · lodge-ready, converted and factory-built</p>
+      <Fragment set:html={`<script type="application/ld+json">${itemListSchema}</script>`} />
     </div>
   </div>
   <div class="h-1 bg-[#F5A623]"></div>
@@ -143,6 +165,7 @@ const description = results.length
       A <strong>game viewer</strong> is an open-sided safari vehicle with raised, tiered bench seating — typically a 9 to 11-seat conversion on a
       <a href="/listings/model/79-series/" class="underline hover:text-[#D4881A]">Land Cruiser 79</a> or
       <a href="/listings/model/78-series/" class="underline hover:text-[#D4881A]">78 Troopcarrier</a> chassis, used by South African lodges and reserves.
+      This page lists <strong>every game viewer for sale in South Africa across all brands</strong> — Land Cruiser and Hilux conversions, factory Mahindra S4 and Scorpio units, Suzuki Jimny builds and more — updated daily from dealers and private sellers.
       <a href="/useful-info/game-viewer-price-buyers-guide-south-africa/" class="font-semibold text-[#D4881A] hover:underline whitespace-nowrap">Prices &amp; buyer's guide →</a>
     </p>
 

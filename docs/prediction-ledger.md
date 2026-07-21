@@ -608,3 +608,45 @@ date, compare to baseline, mark HIT / MISS / PARTIAL, and write the lesson.
   what was live during the window.
 - **Result:** _pending 2026-08-30_
 - **Lesson:** _tbd_
+
+## P19 — Game Viewers all-brand expansion (complete-supply bet)
+
+- **Opened:** 2026-07-21
+- **Review on:** 2026-09-01 (~6-week window; GSC lags ~3 days)
+- **Surface:** `/game-viewers/` — supply expanded from LC-only to **every brand on the
+  portal market** via an AutoTrader keyword crawl (`game viewer` + `game viewing`)
+  with non-Toyota stock contained in segment `other-4x4` (shows ONLY on this page).
+  Page gained a filter bar (base-vehicle pills w/ live counts, province/price/year,
+  sort). Builds on P14 (the vertical's launch bet) — P19 is specifically: *does
+  completing supply convert the generic demand we already rank for?*
+- **Thesis:** GSC shows ~80% of game-viewer search demand is brand-agnostic
+  ("game viewer(s) for sale") and we already rank pos 2–5 for it with what was an
+  LC-only page. Searchers clicking through previously found 34 Land Cruisers; now
+  they find the whole market (52 across 7 brands incl. factory Mahindras). Complete
+  supply should lift CTR/position on generic terms and capture brand-specific
+  queries we could never serve ("mahindra game viewer", "hilux game viewer").
+- **Change (shipped 2026-07-21):** all-brand keyword crawl + `other-4x4` containment +
+  strong/weak classifier split (marketing "safari vehicle" copy can't classify
+  bycatch) + filter bar + POA-aware stats. 34 → **52 active** same day (34 LC,
+  13 Mahindra, 2 Jimny conversions, NP300, Pajero, DFSK mini).
+- **Baseline (30d to 2026-07-21, GSC):**
+  - "game"-term queries: **~61 clicks / ~360 impressions**; top terms "game viewers
+    for sale" (19c/38i, pos 2), "game viewer for sale" (12c/77i, pos 5)
+  - Head term **"game viewer": 27 impr, pos 2, 0 clicks** — the CTR gap to close
+  - Brand-specific non-LC queries: ~20 impr/30d, ~5 clicks (hilux 4c, mahindra 0c/2i)
+  - `/game-viewers/` traffic: 204 visitors / 410 pageviews per 30d (site's #3 page)
+  - Market metric worth keeping: **zero Land Rover game viewers on AutoTrader**
+    (4 search phrasings tested 2026-07-21) — Defender conversions trade off-portal
+- **Predictions (review 2026-09-01):**
+  1. *(PRIMARY)* total game-term GSC clicks ≥ **85/28d** (pro-rated baseline ≈ 57/28d;
+     ~1.5×). Grading query: GSC query filter `contains "game"`, 28d window at review.
+  2. Head term "game viewer" converts: ≥ **5 clicks/28d** (from 0 at pos 2).
+  3. Brand-specific non-LC game-viewer queries: impressions ≥ **3×** baseline
+     (~20 → ≥ 60/30d) and first click on a "mahindra game viewer" term.
+  4. *(collection viability)* active game-viewer count still ≥ **45** at review —
+     the keyword crawl + reconcile sweep keeps supply fresh without manual runs.
+  5. *(stretch)* first AI citation landing on `/game-viewers/` (`ai_referrals`).
+- **Caveat:** absolute numbers are small (tens of clicks/month) — grade directionally,
+  don't over-read a ±20% wobble; peak-season effects (winter safari season ends ~Sep).
+- **Result:** _pending 2026-09-01_
+- **Lesson:** _tbd_
