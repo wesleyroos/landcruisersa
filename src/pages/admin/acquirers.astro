@@ -1,0 +1,347 @@
+---
+export const prerender = false;
+
+import AdminLayout from '@/layouts/AdminLayout.astro';
+import { db } from '@/db/index';
+import { sql } from 'drizzle-orm';
+
+const cookie = Astro.cookies.get('lcsa_admin');
+const adminSecret = import.meta.env.ADMIN_SECRET ?? process.env.ADMIN_SECRET ?? '';
+if (!cookie || cookie.value !== adminSecret) {
+  return Astro.redirect('/admin/login');
+}
+
+// ─── Acquirer scorecard ──────────────────────────────────────────────────────
+// One question: which portal gets the most value from LCSA — and is therefore
+// the most natural sponsor/acquirer? One card per portal (ranked by buyers
+// handed over), a shared-scale trend strip per card so the cards compare
+// honestly, and the WBC branch table (WBC is the only portal whose stock is
+// its own stores). A ?t= timeframe drives everything except live stock.
+// Handoff = click-through to the portal listing or WhatsApp/call/email/reveal
+// on that portal's stock (finance_calc excluded) — same definition as
+// /admin/dealers. Tracking is bot-filtered and admin-excluded: every number
+// is quotable in a partner conversation.
+
+const SOURCE_LABEL: Record<string, string> = {
+  autotrader: 'AutoTrader',
+  wbc:        'WeBuyCars',
+  adios:      'Adios',
+  wbb:        'WeBuy Bakkies',
+  carsza:     'Cars.co.za',
+  vcsa:       'Vintage Cars SA',
+};
+
+const T_OPTS = [
+  { key: '7d',  label: '7 days',    days: 7 },
+  { key: '30d', label: '30 days',   days: 30 },
+  { key: '60d', label: '60 days',   days: 60 },
+  { key: '90d', label: '90 days',   days: 90 },
+  { key: '6m',  label: '6 months',  days: 182 },
+  { key: '12m', label: '12 months', days: 365 },
+  { key: 'all', label: 'All time',  days: null as number | null },
+];
+const tKey = Astro.url.searchParams.get('t') ?? '30d';
+const t = T_OPTS.find(o => o.key === tKey) ?? T_OPTS[1];
+const nowSec = Math.floor(Date.now() / 1000);
+const startSec = t.days ? nowSec - t.days * 86_400 : 0;
+const priorStartSec = t.days ? nowSec - 2 * t.days * 86_400 : 0;
+
+// ── Live stock per portal (snapshot) ──
+const stockRows = db.all<{ src: string; n: number }>(sql`
+  SELECT source src, count(*) n FROM listings
+  WHERE source != 'own' AND status = 'active' GROUP BY source
+`);
+
+// ── Events back to the start of the prior period (delta needs both halves) ──
+const viewRows = db.all<{ ts: number; src: string }>(sql`
+  SELECT v.created_at ts, l.source src
+  FROM view_events v JOIN listings l ON l.slug = v.listing_slug
+  WHERE l.source != 'own' AND v.created_at >= ${priorStartSec}
+`);
+const handoffRows = db.all<{ ts: number; src: string; seller: string }>(sql`
+  SELECT c.created_at ts, l.source src, l.seller_name seller
+  FROM click_events c JOIN listings l ON l.slug = c.listing_slug
+  WHERE l.source != 'own' AND c.source != 'finance_calc' AND c.created_at >= ${priorStartSec}
+`);
+
+// ── Trend buckets: size follows the timeframe ──
+const DAY = 86_400_000;
+const midnight = new Date(); midnight.setHours(0, 0, 0, 0);
+let bucketStarts: number[] = [];   // ms
+let bucketMode: 'day' | 'week' | 'month';
+if (t.days && t.days <= 30) {
+  bucketMode = 'day';
+  for (let i = t.days - 1; i >= 0; i--) bucketStarts.push(midnight.getTime() - i * DAY);
+} else if (t.days && t.days <= 182) {
+  bucketMode = 'week';
+  const monday = new Date(midnight); monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+  const weeks = Math.ceil(t.days / 7);
+  for (let i = weeks - 1; i >= 0; i--) bucketStarts.push(monday.getTime() - i * 7 * DAY);
+} else {
+  bucketMode = 'month';
+  const firstTs = t.days
+    ? Date.now() - t.days * DAY
+    : Math.min(...handoffRows.map(r => r.ts * 1000), ...viewRows.map(r => r.ts * 1000), Date.now() - 182 * DAY);
+  const cur = new Date(firstTs); cur.setDate(1); cur.setHours(0, 0, 0, 0);
+  const end = new Date(); end.setDate(1); end.setHours(0, 0, 0, 0);
+  while (cur <= end) { bucketStarts.push(cur.getTime()); cur.setMonth(cur.getMonth() + 1); }
+}
+const bucketIdx = (tsSec: number) => {
+  const ms = tsSec * 1000;
+  for (let i = bucketStarts.length - 1; i >= 0; i--) if (ms >= bucketStarts[i]) return i;
+  return -1;
+};
+
+// ── Per-portal aggregation ──
+type Portal = {
+  src: string; name: string; stock: number;
+  views: number; viewsPrior: number; handoffs: number; handoffsPrior: number;
+  strip: number[];
+};
+const portals = new Map<string, Portal>();
+const portal = (src: string): Portal => {
+  let p = portals.get(src);
+  if (!p) {
+    p = { src, name: SOURCE_LABEL[src] ?? src, stock: 0, views: 0, viewsPrior: 0,
+          handoffs: 0, handoffsPrior: 0, strip: new Array(bucketStarts.length).fill(0) };
+    portals.set(src, p);
+  }
+  return p;
+};
+for (const r of stockRows) portal(r.src).stock = r.n;
+for (const r of viewRows) {
+  const p = portal(r.src);
+  r.ts >= startSec ? p.views++ : p.viewsPrior++;
+}
+for (const r of handoffRows) {
+  const p = portal(r.src);
+  if (r.ts >= startSec) {
+    p.handoffs++;
+    const i = bucketIdx(r.ts);
+    if (i >= 0) p.strip[i]++;
+  } else p.handoffsPrior++;
+}
+const ranked = [...portals.values()].sort((a, b) => b.handoffs - a.handoffs || b.views - a.views || b.stock - a.stock);
+const totalHandoffs = ranked.reduce((s, p) => s + p.handoffs, 0);
+// One shared bar scale across every card, so strips compare honestly.
+const maxStrip = Math.max(1, ...ranked.flatMap(p => p.strip));
+const share = (p: Portal) => totalHandoffs ? Math.round(p.handoffs / totalHandoffs * 100) : 0;
+
+// ── WBC branch table (WBC's stock is its own stores — branch value is theirs) ──
+type BranchRow = { name: string; stock: number; views: number; handoffs: number };
+const branches = new Map<string, BranchRow>();
+const branch = (seller: string): BranchRow => {
+  const k = seller.toLowerCase();
+  let b = branches.get(k);
+  if (!b) { b = { name: seller, stock: 0, views: 0, handoffs: 0 }; branches.set(k, b); }
+  return b;
+};
+const wbcStockRows = db.all<{ seller: string; n: number }>(sql`
+  SELECT seller_name seller, count(*) n FROM listings
+  WHERE source = 'wbc' AND status = 'active' GROUP BY lower(seller_name)
+`);
+const wbcViewSellers = db.all<{ seller: string; n: number }>(sql`
+  SELECT l.seller_name seller, count(*) n
+  FROM view_events v JOIN listings l ON l.slug = v.listing_slug
+  WHERE l.source = 'wbc' AND v.created_at >= ${startSec} GROUP BY lower(l.seller_name)
+`);
+for (const r of wbcStockRows) branch(r.seller).stock = r.n;
+for (const r of wbcViewSellers) branch(r.seller).views = r.n;
+for (const r of handoffRows) if (r.src === 'wbc' && r.ts >= startSec) branch(r.seller).handoffs++;
+const wbcTotal = [...branches.values()].reduce((s, b) => s + b.handoffs, 0);
+const branchRows = [...branches.values()]
+  .sort((a, b) => b.handoffs - a.handoffs || b.views - a.views || b.stock - a.stock);
+const branchShare = (b: BranchRow) => wbcTotal ? Math.round(b.handoffs / wbcTotal * 100) : 0;
+
+const fmtDay = new Intl.DateTimeFormat('en-ZA', { day: 'numeric', month: 'short' });
+const fmtMonth = new Intl.DateTimeFormat('en-ZA', { month: 'short', year: '2-digit' });
+const bucketLabel = (ms: number) =>
+  bucketMode === 'day' ? fmtDay.format(ms) : bucketMode === 'week' ? `w/o ${fmtDay.format(ms)}` : fmtMonth.format(ms);
+const deltaChip = (cur: number, prior: number) => {
+  if (!t.days) return null;
+  const d = cur - prior;
+  return d > 0 ? { cls: 'up', txt: `▲ +${d.toLocaleString()}` } : d < 0 ? { cls: 'down', txt: `▼ ${d.toLocaleString()}` } : { cls: 'flat', txt: '＝' };
+};
+---
+
+<AdminLayout title="Acquirers" activePage="acquirers">
+  <div class="ledger">
+    <div class="head-row">
+      <p class="eyebrow">Value delivered per portal — {t.days ? `last ${t.label}` : 'all time'}</p>
+      <nav class="tf">
+        {T_OPTS.map(o => (
+          <a href={`/admin/acquirers?t=${o.key}`} class={`tf-pill ${o.key === t.key ? 'active' : ''}`}>{o.label}</a>
+        ))}
+      </nav>
+    </div>
+
+    <div class="cards">
+      {ranked.map(p => { const hd = deltaChip(p.handoffs, p.handoffsPrior); return (
+        <div class="card">
+          <div class="card-head">
+            <span class="card-name">{p.name}</span>
+            <span class="card-share">{share(p)}% of buyers</span>
+          </div>
+          <div class="card-hero">
+            <span class="card-n">{p.handoffs.toLocaleString()}</span>
+            <div class="card-side">
+              <span class="card-l">buyers handed over</span>
+              {hd && <span class={`card-delta ${hd.cls}`}>{hd.txt} vs prior</span>}
+            </div>
+          </div>
+          <div class="card-strip">
+            {p.strip.map((n, i) => (
+              <span class="wbar" data-tip={`${n} · ${bucketLabel(bucketStarts[i])}`}>
+                <span class="wbar-fill" style={`height:${Math.max(3, Math.round(n / maxStrip * 100))}%`}></span>
+              </span>
+            ))}
+          </div>
+          <p class="card-meta">
+            <strong>{p.views.toLocaleString()}</strong> views · <strong>{p.stock.toLocaleString()}</strong> vehicles live
+          </p>
+        </div>
+      );})}
+      {ranked.length === 0 && <p class="empty">No portal activity in this window.</p>}
+    </div>
+
+    <h2 class="section-h">WeBuyCars branches <span class="section-sub">— the one portal whose stock is its own stores</span></h2>
+    <table class="branches">
+      <thead>
+        <tr>
+          <th><button data-key="name" data-dir="asc">Branch</button></th>
+          <th class="num"><button data-key="stock">Stock now</button></th>
+          <th class="num"><button data-key="views">Views</button></th>
+          <th class="num sorted"><button data-key="handoffs">Handoffs</button></th>
+          <th class="share-col"><button data-key="share">Share of WBC buyers</button></th>
+        </tr>
+      </thead>
+      <tbody id="branch-rows">
+        {branchRows.length === 0 && <tr><td colspan="5" class="empty">No WBC branch activity in this window.</td></tr>}
+        {branchRows.map(b => (
+          <tr data-name={b.name.toLowerCase()} data-stock={b.stock} data-views={b.views} data-handoffs={b.handoffs} data-share={branchShare(b)}>
+            <td class="b-name">{b.name}</td>
+            <td class="num">{b.stock || '—'}</td>
+            <td class="num">{b.views || '—'}</td>
+            <td class="num b-strong">{b.handoffs || '—'}</td>
+            <td class="share-col">
+              {b.handoffs > 0 && (
+                <span class="share-wrap">
+                  <span class="share-bar"><span class="share-fill" style={`width:${branchShare(b)}%`}></span></span>
+                  <span class="share-n">{branchShare(b)}%</span>
+                </span>
+              )}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+
+    <p class="foot-note">
+      A handoff = a click-through to the car on the portal, or a WhatsApp/call/email/reveal on that portal's stock.
+      Views and handoffs follow the selected timeframe; stock is what's live right now. Card strips share one scale
+      so portals compare honestly. Bots and admin sessions excluded — every number here is quotable in a partner pitch.
+    </p>
+  </div>
+</AdminLayout>
+
+<script>
+  const tbody = document.getElementById('branch-rows')!;
+  const rows = [...tbody.querySelectorAll<HTMLElement>('tr[data-name]')];
+  const buttons = document.querySelectorAll<HTMLButtonElement>('.branches th button');
+  buttons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const key = btn.dataset.key!;
+      const wasSorted = btn.parentElement!.classList.contains('sorted');
+      // First click sorts a column its natural way (text asc, numbers desc);
+      // clicking the sorted column again flips it.
+      let dir = btn.dataset.dir === 'asc' ? 1 : -1;
+      if (wasSorted) dir = btn.parentElement!.classList.contains('flipped') ? dir : -dir;
+      buttons.forEach(b => b.parentElement!.classList.remove('sorted', 'flipped'));
+      btn.parentElement!.classList.add('sorted');
+      if ((btn.dataset.dir === 'asc' ? 1 : -1) !== dir) btn.parentElement!.classList.add('flipped');
+      const sorted = [...rows].sort((a, b) => {
+        const av = a.dataset[key]!, bv = b.dataset[key]!;
+        const cmp = key === 'name' ? av.localeCompare(bv) : Number(av) - Number(bv);
+        return cmp * dir;
+      });
+      sorted.forEach(r => tbody.appendChild(r));
+    });
+  });
+</script>
+
+<style>
+  .ledger { max-width: 860px; }
+
+  .head-row { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin-bottom: 18px; }
+  .eyebrow {
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.12em; color: #9a6b00;
+  }
+  .tf { display: flex; gap: 4px; flex-wrap: wrap; }
+  .tf-pill {
+    font-size: 11.5px; font-weight: 600; color: #666; text-decoration: none;
+    padding: 4px 9px; border: 1px solid #e2e2e2; border-radius: 999px;
+  }
+  .tf-pill:hover { border-color: #bbb; color: #111; }
+  .tf-pill.active { background: #111; border-color: #111; color: white; }
+
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-bottom: 26px; }
+  .card { border: 1px solid #e5e5e5; border-radius: 10px; padding: 14px 16px; }
+  .card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+  .card-name { font-size: 14px; font-weight: 700; color: #111; }
+  .card-share { font-size: 11px; font-weight: 700; color: #9a6b00; white-space: nowrap; }
+  .card-hero { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+  .card-n { font-size: 40px; font-weight: 800; line-height: 0.95; letter-spacing: -0.02em; color: #111; }
+  .card-side { display: flex; flex-direction: column; gap: 2px; }
+  .card-l { font-size: 11.5px; font-weight: 600; color: #666; }
+  .card-delta { font-size: 11.5px; font-weight: 700; }
+  .card-delta.up { color: #15803D; }
+  .card-delta.down { color: #B91C1C; }
+  .card-delta.flat { color: #999; }
+  .card-strip { display: flex; align-items: flex-end; gap: 2px; height: 30px; margin-bottom: 10px; }
+  .card-meta { font-size: 12px; color: #777; }
+  .card-meta strong { color: #111; }
+
+  .wbar { flex: 1; display: flex; align-items: flex-end; height: 100%; position: relative; }
+  .wbar-fill { width: 100%; background: #F5A623; border-radius: 2px 2px 0 0; min-height: 3px; }
+  .wbar:hover .wbar-fill { background: #D4881A; }
+  .wbar::after {
+    content: attr(data-tip);
+    position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%);
+    background: #111; color: #fff; font-size: 11px; font-weight: 600;
+    padding: 3px 8px; border-radius: 5px; white-space: nowrap;
+    opacity: 0; pointer-events: none; transition: opacity 0.1s; z-index: 5;
+  }
+  .wbar:hover::after { opacity: 1; }
+
+  .section-h { font-size: 14px; font-weight: 700; margin: 0 0 10px; }
+  .section-sub { font-weight: 500; color: #999; font-size: 12px; }
+
+  .branches { width: 100%; border-collapse: collapse; border: 1px solid #e5e5e5; border-radius: 8px; overflow: hidden; }
+  .branches th { background: #fafafa; border-bottom: 1px solid #e5e5e5; padding: 0; text-align: left; }
+  .branches th.num { text-align: right; }
+  .branches th button {
+    width: 100%; background: none; border: none; cursor: pointer; text-align: inherit;
+    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+    color: #999; padding: 8px 12px;
+  }
+  .branches th button:hover { color: #111; }
+  .branches th.sorted button { color: #111; }
+  .branches th.sorted button::after { content: ' ↓'; }
+  .branches th.sorted.flipped button::after { content: ' ↑'; }
+  .branches td { padding: 7px 12px; border-bottom: 1px solid #f4f4f4; font-size: 12.5px; }
+  .branches tr:last-child td { border-bottom: none; }
+  .branches tbody tr:hover { background: #fffdf7; }
+  .b-name { font-weight: 600; color: #222; }
+  .share-col { width: 170px; }
+  th.share-col button { text-align: left; }
+  .share-wrap { display: flex; align-items: center; gap: 8px; }
+  .share-bar { flex: 1; height: 10px; background: #f3f3f3; border-radius: 3px; overflow: hidden; }
+  .share-fill { display: block; height: 100%; background: #F5A623; border-radius: 3px; min-width: 2px; }
+  .share-n { font-size: 11.5px; font-weight: 700; color: #333; font-variant-numeric: tabular-nums; width: 34px; text-align: right; }
+  .num { text-align: right; font-variant-numeric: tabular-nums; color: #555; }
+  .b-strong { font-weight: 700; color: #111; }
+  .empty { color: #888; text-align: center; padding: 16px; font-size: 12.5px; }
+
+  .foot-note { color: #aaa; font-size: 11.5px; margin-top: 12px; line-height: 1.55; }
+</style>
