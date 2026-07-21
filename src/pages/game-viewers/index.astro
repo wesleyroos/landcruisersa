@@ -18,6 +18,26 @@ let results = await db.select().from(listings)
   .orderBy(desc(listings.featured), desc(listings.created_at));
 results = results.filter(l => hasUsablePhoto(l.photos));
 
+// Base vehicle per listing — the filter buyers actually think in (a lodge
+// shopping at R500k wants the Mahindras; one at R1.3m wants LC79 conversions).
+// Derived from segment/model first, brand names in the title as fallback.
+function baseVehicle(l: { segment: string; model: string; title: string }): string {
+  if (l.segment === 'land-cruiser') return 'Land Cruiser';
+  if (l.model.startsWith('hilux')) return 'Hilux';
+  const brand = l.title.match(/mahindra|land\s?rover|defender|nissan|ford|isuzu|mitsubishi|jeep/i)?.[0];
+  if (brand) {
+    const b = brand.toLowerCase();
+    if (b.startsWith('land') || b === 'defender') return 'Land Rover';
+    return b.charAt(0).toUpperCase() + b.slice(1);
+  }
+  return 'Other';
+}
+// Pills are data-driven: only bases actually in stock get one, with a count.
+const baseCounts = new Map<string, number>();
+for (const l of results) baseCounts.set(baseVehicle(l), (baseCounts.get(baseVehicle(l)) ?? 0) + 1);
+const BASES = [...baseCounts.entries()].sort((a, b) => b[1] - a[1]);
+const provincesPresent = [...new Set(results.map(l => l.province).filter(Boolean))].sort();
+
 function formatPrice(n: number) { return 'R' + n.toLocaleString('en-ZA'); }
 function formatMileage(n: number) { return n.toLocaleString('en-ZA') + ' km'; }
 
@@ -133,10 +153,71 @@ const description = results.length
       </div>
     ) : (
       <>
-      <div class="flex items-center justify-end gap-1.5 mb-4">
-        <span class="text-xs text-[#9CA3AF] mr-1">Sort:</span>
-        <button class="sort-btn active" data-sort="newest" type="button">Newest</button>
-        <button class="sort-btn" data-sort="price" type="button">Price: low → high</button>
+      <!-- FILTER BAR — base-vehicle pills + dropdowns, mirrors the /listings/ house style -->
+      <div class="flex flex-wrap items-center gap-2 mb-3" id="gv-base-pills">
+        <button class="gv-pill active" data-base="" type="button">All ({results.length})</button>
+        {BASES.map(([base, count]) => (
+          <button class="gv-pill" data-base={base} type="button">{base} ({count})</button>
+        ))}
+      </div>
+      <div class="flex flex-wrap items-center gap-2.5 mb-6" id="gv-filters">
+        <div class="relative" id="gv-province">
+          <button type="button" id="gv-province-btn" aria-expanded="false"
+            class="border border-[#DDD9D3] rounded-xl px-4 py-2.5 text-sm bg-white focus:outline-none focus:border-[#F5A623] transition-colors cursor-pointer min-h-[44px] flex items-center gap-2 justify-between min-w-[150px]">
+            <span id="gv-province-label" class="truncate">All Provinces</span>
+            <svg width="10" height="6" viewBox="0 0 10 6" class="flex-shrink-0"><path d="M1 1l4 4 4-4" stroke="#9CA3AF" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <div id="gv-province-panel" class="absolute z-30 mt-1 w-56 max-h-72 overflow-auto bg-white border border-[#DDD9D3] rounded-xl shadow-lg py-1 hidden">
+            {provincesPresent.map(p => (
+              <label class="flex items-center gap-2.5 px-4 py-2 text-sm cursor-pointer hover:bg-[#F5F3EE]">
+                <input type="checkbox" value={p} class="gv-province-cb accent-[#F5A623] w-4 h-4" />
+                <span>{p}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+        <div class="relative" id="gv-price">
+          <button type="button" id="gv-price-btn" aria-expanded="false"
+            class="border border-[#DDD9D3] rounded-xl px-4 py-2.5 text-sm bg-white focus:outline-none focus:border-[#F5A623] transition-colors cursor-pointer min-h-[44px] flex items-center gap-2 justify-between min-w-[140px]">
+            <span id="gv-price-label" class="truncate">Any Price</span>
+            <svg width="10" height="6" viewBox="0 0 10 6" class="flex-shrink-0"><path d="M1 1l4 4 4-4" stroke="#9CA3AF" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <div id="gv-price-panel" class="absolute z-30 mt-1 w-72 bg-white border border-[#DDD9D3] rounded-xl shadow-lg py-1 hidden">
+            <button type="button" class="gv-price-preset w-full text-left px-4 py-2 text-sm hover:bg-[#F5F3EE]" data-min="" data-max="">Any Price</button>
+            <button type="button" class="gv-price-preset w-full text-left px-4 py-2 text-sm hover:bg-[#F5F3EE]" data-min="" data-max="500000">Under R500k</button>
+            <button type="button" class="gv-price-preset w-full text-left px-4 py-2 text-sm hover:bg-[#F5F3EE]" data-min="500000" data-max="1000000">R500k – R1m</button>
+            <button type="button" class="gv-price-preset w-full text-left px-4 py-2 text-sm hover:bg-[#F5F3EE]" data-min="1000000" data-max="1500000">R1m – R1.5m</button>
+            <button type="button" class="gv-price-preset w-full text-left px-4 py-2 text-sm hover:bg-[#F5F3EE]" data-min="1500000" data-max="">Over R1.5m</button>
+            <div class="border-t border-[#EEE] my-1"></div>
+            <div class="px-3 py-2 flex items-center gap-1.5">
+              <input type="number" inputmode="numeric" min="0" id="gv-price-min" placeholder="Min R" class="w-full min-w-0 border border-[#DDD9D3] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#F5A623]" />
+              <span class="text-[#9CA3AF]">–</span>
+              <input type="number" inputmode="numeric" min="0" id="gv-price-max" placeholder="Max R" class="w-full min-w-0 border border-[#DDD9D3] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#F5A623]" />
+              <button type="button" id="gv-price-apply" class="flex-shrink-0 px-3 py-1.5 rounded-lg text-sm font-bold bg-[#111111] text-white hover:bg-[#F5A623] hover:text-[#111111] transition-colors">Go</button>
+            </div>
+          </div>
+        </div>
+        <div class="relative" id="gv-year">
+          <button type="button" id="gv-year-btn" aria-expanded="false"
+            class="border border-[#DDD9D3] rounded-xl px-4 py-2.5 text-sm bg-white focus:outline-none focus:border-[#F5A623] transition-colors cursor-pointer min-h-[44px] flex items-center gap-2 justify-between min-w-[130px]">
+            <span id="gv-year-label" class="truncate">Any Year</span>
+            <svg width="10" height="6" viewBox="0 0 10 6" class="flex-shrink-0"><path d="M1 1l4 4 4-4" stroke="#9CA3AF" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <div id="gv-year-panel" class="absolute z-30 mt-1 w-52 bg-white border border-[#DDD9D3] rounded-xl shadow-lg py-1 hidden">
+            <button type="button" class="gv-year-preset w-full text-left px-4 py-2 text-sm hover:bg-[#F5F3EE]" data-min="" data-max="">Any Year</button>
+            <button type="button" class="gv-year-preset w-full text-left px-4 py-2 text-sm hover:bg-[#F5F3EE]" data-min="2020" data-max="">2020 &amp; newer</button>
+            <button type="button" class="gv-year-preset w-full text-left px-4 py-2 text-sm hover:bg-[#F5F3EE]" data-min="2010" data-max="2019">2010 – 2019</button>
+            <button type="button" class="gv-year-preset w-full text-left px-4 py-2 text-sm hover:bg-[#F5F3EE]" data-min="" data-max="2009">Pre-2010</button>
+          </div>
+        </div>
+        <select id="gv-sort" aria-label="Sort game viewers"
+          class="border border-[#DDD9D3] rounded-xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:border-[#F5A623] transition-colors cursor-pointer min-h-[44px]">
+          <option value="newest">Newest first</option>
+          <option value="price-asc">Price: low → high</option>
+          <option value="price-desc">Price: high → low</option>
+        </select>
+        <span id="gv-count" class="self-center text-sm text-[#6B7280] ml-auto"></span>
+        <button id="gv-clear" type="button" class="hidden self-center text-sm font-semibold text-[#6B7280] hover:text-[#111111] hover:underline">Clear filters ✕</button>
       </div>
       <div id="gv-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
         {results.map((l, i) => (
@@ -144,6 +225,9 @@ const description = results.length
             href={`/listings/${l.slug}/`}
             data-idx={i}
             data-price={l.listing_type === 'for_sale' && l.price > 0 ? l.price : ''}
+            data-base={baseVehicle(l)}
+            data-province={l.province}
+            data-year={l.year}
             class="group border rounded-xl overflow-hidden transition-all flex flex-col bg-white border-[#DDD9D3] hover:border-[#F5A623] hover:shadow-md"
           >
             <div class="card-img">
@@ -177,6 +261,11 @@ const description = results.length
             </div>
           </a>
         ))}
+      </div>
+      <div id="gv-empty" class="hidden text-center py-16">
+        <p class="text-[#111111] text-lg font-heading font-bold uppercase mb-1">No matches right now</p>
+        <p class="text-[#6B7280] text-sm mb-5 max-w-md mx-auto">No game viewers match those filters. Stock changes daily — or tell us what you're after below and we'll keep an eye out.</p>
+        <button id="gv-reset" class="text-[#6B7280] text-sm font-semibold hover:text-[#111111] hover:underline min-h-[44px] px-2">Clear filters</button>
       </div>
       </>
     )}
@@ -220,18 +309,161 @@ const description = results.length
 </Base>
 
 <script>
-  // Sort toggle — same pure-DOM reorder as the per-model pages.
+  // Filter + sort over the SSR'd cards via data-* attributes — no client
+  // re-render needed at this inventory size. If stock passes ~150, graduate to
+  // the /listings/ JSON + pagination pattern.
   const grid = document.getElementById('gv-grid');
-  const btns = Array.from(document.querySelectorAll<HTMLButtonElement>('.sort-btn'));
-  if (grid && btns.length) {
-    btns.forEach(btn => btn.addEventListener('click', () => {
-      btns.forEach(b => b.classList.toggle('active', b === btn));
-      const cards = Array.from(grid.children) as HTMLElement[];
-      const key = btn.dataset.sort === 'price'
+  if (grid) {
+    const cards = Array.from(grid.children) as HTMLElement[];
+    const emptyEl = document.getElementById('gv-empty')!;
+    const countEl = document.getElementById('gv-count')!;
+    const clearBtn = document.getElementById('gv-clear')!;
+
+    let base = '';
+    let provinces: string[] = [];
+    let priceMin = 0, priceMax = Infinity;
+    let yearMin = 0, yearMax = Infinity;
+
+    const provBtn = document.getElementById('gv-province-btn')!;
+    const provPanel = document.getElementById('gv-province-panel')!;
+    const provLabel = document.getElementById('gv-province-label')!;
+    const provBoxes = Array.from(document.querySelectorAll<HTMLInputElement>('.gv-province-cb'));
+    const priceBtn = document.getElementById('gv-price-btn')!;
+    const pricePanel = document.getElementById('gv-price-panel')!;
+    const priceLabel = document.getElementById('gv-price-label')!;
+    const priceMinIn = document.getElementById('gv-price-min') as HTMLInputElement;
+    const priceMaxIn = document.getElementById('gv-price-max') as HTMLInputElement;
+    const yearBtn = document.getElementById('gv-year-btn')!;
+    const yearPanel = document.getElementById('gv-year-panel')!;
+    const yearLabel = document.getElementById('gv-year-label')!;
+    const sortSel = document.getElementById('gv-sort') as HTMLSelectElement;
+
+    const kR = (n: number) =>
+      n >= 1_000_000 ? 'R' + (n / 1_000_000).toFixed(n % 1_000_000 === 0 ? 0 : 1) + 'm' : 'R' + Math.round(n / 1000) + 'k';
+
+    function matches(el: HTMLElement): boolean {
+      if (base && el.dataset.base !== base) return false;
+      if (provinces.length && !provinces.includes(el.dataset.province || '')) return false;
+      const priceActive = priceMin > 0 || isFinite(priceMax);
+      if (priceActive) {
+        // POA cards (no price) only show when no price filter is set.
+        const p = el.dataset.price ? Number(el.dataset.price) : NaN;
+        if (!isFinite(p) || p < priceMin || p > priceMax) return false;
+      }
+      const y = Number(el.dataset.year || 0);
+      if ((yearMin > 0 || isFinite(yearMax)) && (y < yearMin || y > yearMax)) return false;
+      return true;
+    }
+
+    function apply() {
+      let shown = 0;
+      const key = sortSel.value === 'price-asc'
         ? (el: HTMLElement) => (el.dataset.price ? Number(el.dataset.price) : Infinity)
-        : (el: HTMLElement) => Number(el.dataset.idx ?? 0);
-      cards.sort((a, b) => key(a) - key(b)).forEach(el => grid.appendChild(el));
+        : sortSel.value === 'price-desc'
+          ? (el: HTMLElement) => -(el.dataset.price ? Number(el.dataset.price) : 0)
+          : (el: HTMLElement) => Number(el.dataset.idx ?? 0);
+      cards.sort((a, b) => key(a) - key(b)).forEach(el => {
+        const ok = matches(el);
+        el.classList.toggle('hidden', !ok);
+        if (ok) shown++;
+        grid!.appendChild(el);
+      });
+      const filtered = Boolean(base || provinces.length || priceMin > 0 || isFinite(priceMax) || yearMin > 0 || isFinite(yearMax));
+      countEl.textContent = filtered ? `${shown} of ${cards.length}` : `${cards.length} game viewers`;
+      clearBtn.classList.toggle('hidden', !filtered);
+      emptyEl.classList.toggle('hidden', shown > 0);
+      grid!.classList.toggle('hidden', shown === 0);
+    }
+
+    // Base pills
+    const pills = Array.from(document.querySelectorAll<HTMLButtonElement>('.gv-pill'));
+    pills.forEach(p => p.addEventListener('click', () => {
+      pills.forEach(x => x.classList.toggle('active', x === p));
+      base = p.dataset.base || '';
+      apply();
     }));
+
+    // Dropdown open/close plumbing (shared behaviour)
+    const dropdowns: [HTMLElement, HTMLElement, string][] = [
+      [provBtn, provPanel, 'gv-province'], [priceBtn, pricePanel, 'gv-price'], [yearBtn, yearPanel, 'gv-year'],
+    ];
+    dropdowns.forEach(([btn, panel]) => btn.addEventListener('click', () => {
+      const open = panel.classList.toggle('hidden');
+      btn.setAttribute('aria-expanded', String(!open));
+    }));
+    document.addEventListener('click', e => {
+      dropdowns.forEach(([btn, panel, rootId]) => {
+        if (!document.getElementById(rootId)!.contains(e.target as Node)) {
+          panel.classList.add('hidden');
+          btn.setAttribute('aria-expanded', 'false');
+        }
+      });
+    });
+
+    // Province multi-select
+    provBoxes.forEach(b => b.addEventListener('change', () => {
+      provinces = provBoxes.filter(x => x.checked).map(x => x.value);
+      provLabel.textContent =
+        provinces.length === 0 ? 'All Provinces' : provinces.length === 1 ? provinces[0] : `${provinces.length} provinces`;
+      apply();
+    }));
+
+    // Price presets + custom range
+    function priceText(min: number, max: number): string {
+      if (min <= 0 && !isFinite(max)) return 'Any Price';
+      if (min <= 0) return 'Up to ' + kR(max);
+      if (!isFinite(max)) return kR(min) + '+';
+      return kR(min) + ' – ' + kR(max);
+    }
+    document.querySelectorAll<HTMLButtonElement>('.gv-price-preset').forEach(btn => btn.addEventListener('click', () => {
+      priceMin = Number(btn.dataset.min || 0);
+      priceMax = btn.dataset.max ? Number(btn.dataset.max) : Infinity;
+      priceMinIn.value = priceMin > 0 ? String(priceMin) : '';
+      priceMaxIn.value = isFinite(priceMax) ? String(priceMax) : '';
+      priceLabel.textContent = btn.textContent!.trim();
+      pricePanel.classList.add('hidden');
+      apply();
+    }));
+    function applyCustomPrice() {
+      let lo = Math.max(0, Number(priceMinIn.value) || 0);
+      let hi = priceMaxIn.value ? Number(priceMaxIn.value) : Infinity;
+      if (isFinite(hi) && lo > hi) { const t = lo; lo = hi; hi = t; }
+      priceMin = lo; priceMax = hi;
+      priceLabel.textContent = priceText(lo, hi);
+      pricePanel.classList.add('hidden');
+      apply();
+    }
+    document.getElementById('gv-price-apply')!.addEventListener('click', applyCustomPrice);
+    [priceMinIn, priceMaxIn].forEach(inp => inp.addEventListener('keydown', e => {
+      if ((e as KeyboardEvent).key === 'Enter') { e.preventDefault(); applyCustomPrice(); }
+    }));
+
+    // Year presets
+    document.querySelectorAll<HTMLButtonElement>('.gv-year-preset').forEach(btn => btn.addEventListener('click', () => {
+      yearMin = btn.dataset.min ? Number(btn.dataset.min) : 0;
+      yearMax = btn.dataset.max ? Number(btn.dataset.max) : Infinity;
+      yearLabel.textContent = btn.textContent!.trim();
+      yearPanel.classList.add('hidden');
+      apply();
+    }));
+
+    sortSel.addEventListener('change', apply);
+
+    function clearAll() {
+      base = ''; provinces = []; priceMin = 0; priceMax = Infinity; yearMin = 0; yearMax = Infinity;
+      pills.forEach(x => x.classList.toggle('active', !x.dataset.base));
+      provBoxes.forEach(x => { x.checked = false; });
+      provLabel.textContent = 'All Provinces';
+      priceMinIn.value = ''; priceMaxIn.value = '';
+      priceLabel.textContent = 'Any Price';
+      yearLabel.textContent = 'Any Year';
+      sortSel.value = 'newest';
+      apply();
+    }
+    clearBtn.addEventListener('click', clearAll);
+    document.getElementById('gv-reset')!.addEventListener('click', clearAll);
+
+    apply();
   }
 </script>
 
@@ -268,17 +500,25 @@ const description = results.length
     padding: 0.2rem 0.5rem;
     border-radius: 0.25rem;
   }
-  .sort-btn {
-    font-size: 0.75rem;
-    font-weight: 600;
+  .gv-pill {
+    display: inline-flex;
+    align-items: center;
+    background: white;
+    border: 1.5px solid #DDD9D3;
     color: #6B7280;
-    background: #fff;
-    border: 1px solid #DDD9D3;
-    border-radius: 9999px;
-    padding: 0.3rem 0.8rem;
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-family: var(--font-heading);
+    padding: 0.5rem 1rem;
+    border-radius: 999px;
     cursor: pointer;
-    transition: all 0.15s;
+    transition: border-color 0.15s, color 0.15s, background 0.15s;
+    min-height: 40px;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
   }
-  .sort-btn:hover { border-color: #F5A623; color: #111; }
-  .sort-btn.active { background: #111; color: #fff; border-color: #111; }
+  .gv-pill.active { background: #111111; border-color: #111111; color: white; }
+  .gv-pill:not(.active):hover { border-color: #F5A623; color: #F5A623; }
 </style>

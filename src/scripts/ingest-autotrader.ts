@@ -137,8 +137,14 @@ async function ingest() {
   // Off-market reconciliation: full-catalogue crawl → reap in-scope listings not
   // seen this run. Dry-run until RECONCILE_OFFMARKET=1; guarded by aborted/capHit/
   // segment-scope/circuit-breaker (see reconcile.ts).
+  // A GV-only run saw just the keyword sweep, which is the sole feeder of
+  // 'other-4x4' — sweeping the LC segments off that partial view would reap
+  // everything the run didn't crawl.
+  const scrapedSegments = process.env.SCRAPE_GV_ONLY === '1'
+    ? new Set(['other-4x4'])
+    : scrapedSegmentsFor(collectExtra);
   const removed = await reconcileOffMarket({
-    source: 'autotrader', refs, scrapedSegments: scrapedSegmentsFor(collectExtra),
+    source: 'autotrader', refs, scrapedSegments,
     siteUrl: SITE_URL, token: TOKEN, aborted, capHit: discoverStats.capHit,
   });
 

@@ -52,6 +52,9 @@ const GV_SEARCH_URLS = [
 // runtime (after applyExtraSegments), not frozen at module load.
 function searchUrls(): string[] {
   if (process.env.SCRAPE_SEGMENT === 'jimny') return JIMNY_SEARCH_URLS;
+  // Targeted game-viewer refresh (manual runs): just the keyword sweep — the
+  // ingest script narrows the reconcile scope to 'other-4x4' to match.
+  if (process.env.SCRAPE_GV_ONLY === '1') return GV_SEARCH_URLS;
   const urls = collectExtraSegments() ? [...LC_SEARCH_URLS, ...EXTRA_SEARCH_URLS] : LC_SEARCH_URLS;
   return [...urls, ...GV_SEARCH_URLS];
 }
