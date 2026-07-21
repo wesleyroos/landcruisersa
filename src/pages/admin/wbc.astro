@@ -123,6 +123,10 @@ for (const r of viewRows) if (r.ts >= startSec) branch(r.seller).views++;
 for (const r of handoffRows) if (r.ts >= startSec) branch(r.seller).handoffs++;
 const branchRows = [...branches.values()]
   .sort((a, b) => b.handoffs - a.handoffs || b.views - a.views || b.stock - a.stock);
+// Share of period handoffs — the quotable "X% of everything we send goes to
+// this branch". Deliberately NOT a weighted quality score: at ~3-16 handoffs
+// per branch, invented weights would rank noise with false authority.
+const share = (b: BranchRow) => handoffs ? Math.round(b.handoffs / handoffs * 100) : 0;
 
 const fmtR = (n: number | null) =>
   n == null || n === 0 ? '' : n >= 1_000_000 ? `R${(n / 1_000_000).toFixed(2).replace(/\.?0+$/, '')}m` : `R${Math.round(n / 1000)}k`;
@@ -189,16 +193,25 @@ const hDelta = deltaChip(handoffs, handoffsPrior);
           <th class="num"><button data-key="stock">Stock now</button></th>
           <th class="num"><button data-key="views">Views</button></th>
           <th class="num sorted"><button data-key="handoffs">Handoffs</button></th>
+          <th class="share-col"><button data-key="share">Share of buyers</button></th>
         </tr>
       </thead>
       <tbody id="branch-rows">
-        {branchRows.length === 0 && <tr><td colspan="4" class="empty">No WBC branch activity in this window.</td></tr>}
+        {branchRows.length === 0 && <tr><td colspan="5" class="empty">No WBC branch activity in this window.</td></tr>}
         {branchRows.map(b => (
-          <tr data-name={b.name.toLowerCase()} data-stock={b.stock} data-views={b.views} data-handoffs={b.handoffs}>
+          <tr data-name={b.name.toLowerCase()} data-stock={b.stock} data-views={b.views} data-handoffs={b.handoffs} data-share={share(b)}>
             <td class="b-name">{b.name}</td>
             <td class="num">{b.stock || '—'}</td>
             <td class="num">{b.views || '—'}</td>
             <td class="num b-strong">{b.handoffs || '—'}</td>
+            <td class="share-col">
+              {b.handoffs > 0 && (
+                <span class="share-wrap">
+                  <span class="share-bar"><span class="share-fill" style={`width:${share(b)}%`}></span></span>
+                  <span class="share-n">{share(b)}%</span>
+                </span>
+              )}
+            </td>
           </tr>
         ))}
       </tbody>
@@ -297,6 +310,12 @@ const hDelta = deltaChip(handoffs, handoffsPrior);
   .branches tr:last-child td { border-bottom: none; }
   .branches tbody tr:hover { background: #fffdf7; }
   .b-name { font-weight: 600; color: #222; }
+  .share-col { width: 150px; }
+  th.share-col button { text-align: left; }
+  .share-wrap { display: flex; align-items: center; gap: 8px; }
+  .share-bar { flex: 1; height: 10px; background: #f3f3f3; border-radius: 3px; overflow: hidden; }
+  .share-fill { display: block; height: 100%; background: #F5A623; border-radius: 3px; min-width: 2px; }
+  .share-n { font-size: 11.5px; font-weight: 700; color: #333; font-variant-numeric: tabular-nums; width: 34px; text-align: right; }
   .num { text-align: right; font-variant-numeric: tabular-nums; color: #555; }
   .b-strong { font-weight: 700; color: #111; }
   .empty { color: #888; text-align: center; padding: 16px; }
