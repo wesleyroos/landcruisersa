@@ -12,11 +12,14 @@ if (!cookie || cookie.value !== adminSecret) {
 }
 
 // ─── WBC value ledger ────────────────────────────────────────────────────────
-// One question: how much buyer attention and how many buyers does LCSA send
-// WeBuyCars — for free, today. Deliberately small: KPIs, a 12-week strip, and
-// the listings doing the work. This page IS the monthly sponsor report when
-// the D1 conversation reopens (deal-ledger.md), so every number here must be
-// defensible: views are bot-filtered and admin-excluded at the tracking layer.
+// Readable in three seconds: ONE number (buyers handed to WBC, 30d) with a
+// direction arrow, one sentence of context, one thin trend strip, and the
+// all-time receipt. Views are context, not the headline — a handoff is value
+// delivered, a view is attention. Handoff = click-through to the WBC listing
+// or WhatsApp/call/email/reveal on WBC stock (finance_calc excluded) — same
+// definition as /admin/dealers, so the two pages never disagree. Tracking is
+// bot-filtered and admin-excluded, so every number is quotable to WBC (this
+// is the sponsor receipt behind deal-ledger D1).
 
 const WEEKS = 12;
 const DAY = 86_400_000;
@@ -26,188 +29,129 @@ const weekStarts: number[] = [];
 for (let i = WEEKS - 1; i >= 0; i--) weekStarts.push(monday.getTime() - i * 7 * DAY);
 const windowStartSec = Math.floor(weekStarts[0] / 1000);
 const d30Sec = Math.floor((Date.now() - 30 * DAY) / 1000);
+const d60Sec = Math.floor((Date.now() - 60 * DAY) / 1000);
 const weekIdx = (tsSec: number) => Math.floor((tsSec * 1000 - weekStarts[0]) / (7 * DAY));
 
-// ── Stock on site now ──
 const stock = db.get<{ n: number; branches: number }>(sql`
   SELECT count(*) n, count(DISTINCT lower(seller_name)) branches
   FROM listings WHERE source = 'wbc' AND status = 'active'
 `);
 
-// ── Events, last 12 weeks (weekly strips + 30d KPIs) ──
-const viewRows = db.all<{ ts: number }>(sql`
-  SELECT v.created_at ts
-  FROM view_events v JOIN listings l ON l.slug = v.listing_slug
-  WHERE l.source = 'wbc' AND v.created_at >= ${windowStartSec}
-`);
-// Handoff = buyer value delivered: click-through to the WBC listing (source
-// 'wbc') or a direct contact action (whatsapp/call/email/reveal) on WBC stock.
-// finance_calc is engagement, not a handoff — same rule as /admin/dealers.
-const handoffRows = db.all<{ ts: number; src: string }>(sql`
-  SELECT c.created_at ts, c.source src
-  FROM click_events c JOIN listings l ON l.slug = c.listing_slug
-  WHERE l.source = 'wbc' AND c.source != 'finance_calc' AND c.created_at >= ${windowStartSec}
-`);
-
-// ── All-time totals (the "delivered free to date" receipt) ──
-const allTime = db.get<{ views: number; handoffs: number }>(sql`
+const views = db.get<{ d30: number; total: number }>(sql`
   SELECT
-    (SELECT count(*) FROM view_events v JOIN listings l ON l.slug = v.listing_slug
-      WHERE l.source = 'wbc') views,
-    (SELECT count(*) FROM click_events c JOIN listings l ON l.slug = c.listing_slug
-      WHERE l.source = 'wbc' AND c.source != 'finance_calc') handoffs
+    sum(CASE WHEN v.created_at >= ${d30Sec} THEN 1 ELSE 0 END) d30,
+    count(*) total
+  FROM view_events v JOIN listings l ON l.slug = v.listing_slug
+  WHERE l.source = 'wbc'
 `);
 
-const weeklyViews = new Array(WEEKS).fill(0);
-const weeklyHandoffs = new Array(WEEKS).fill(0);
-let views30 = 0, handoffs30 = 0, portal30 = 0, contact30 = 0;
-for (const r of viewRows) {
-  const i = weekIdx(r.ts);
-  if (i >= 0 && i < WEEKS) weeklyViews[i]++;
-  if (r.ts >= d30Sec) views30++;
-}
+// Handoff events, 12 weeks back (strip + 30d/prior-30d split) + all-time count.
+const handoffRows = db.all<{ ts: number }>(sql`
+  SELECT c.created_at ts
+  FROM click_events c JOIN listings l ON l.slug = c.listing_slug
+  WHERE l.source = 'wbc' AND c.source != 'finance_calc' AND c.created_at >= ${Math.min(windowStartSec, d60Sec)}
+`);
+const handoffsAllTime = db.get<{ n: number }>(sql`
+  SELECT count(*) n
+  FROM click_events c JOIN listings l ON l.slug = c.listing_slug
+  WHERE l.source = 'wbc' AND c.source != 'finance_calc'
+`);
+
+const weekly = new Array(WEEKS).fill(0);
+let h30 = 0, hPrior30 = 0;
 for (const r of handoffRows) {
   const i = weekIdx(r.ts);
-  if (i >= 0 && i < WEEKS) weeklyHandoffs[i]++;
-  if (r.ts >= d30Sec) {
-    handoffs30++;
-    if (r.src === 'wbc') portal30++; else contact30++;
-  }
+  if (i >= 0 && i < WEEKS) weekly[i]++;
+  if (r.ts >= d30Sec) h30++;
+  else if (r.ts >= d60Sec) hPrior30++;
 }
-const maxWeeklyViews = Math.max(1, ...weeklyViews);
-const maxWeeklyHandoffs = Math.max(1, ...weeklyHandoffs);
+const maxWeekly = Math.max(1, ...weekly);
+const delta = h30 - hPrior30;
 
-// ── The listings doing the work, last 30 days ──
-const topViews = db.all<{ id: number; slug: string; title: string; price: number; status: string; n: number }>(sql`
-  SELECT l.id id, l.slug slug, l.title title, l.price price, l.status status, count(*) n
-  FROM view_events v JOIN listings l ON l.slug = v.listing_slug
-  WHERE l.source = 'wbc' AND v.created_at >= ${d30Sec}
-  GROUP BY l.slug
-`);
-const topHandoffs = db.all<{ slug: string; n: number }>(sql`
-  SELECT l.slug slug, count(*) n
+// The one listing doing the most work right now (by handoffs, then views).
+const busiest = db.get<{ id: number; title: string; price: number; n: number }>(sql`
+  SELECT l.id id, l.title title, l.price price, count(*) n
   FROM click_events c JOIN listings l ON l.slug = c.listing_slug
   WHERE l.source = 'wbc' AND c.source != 'finance_calc' AND c.created_at >= ${d30Sec}
-  GROUP BY l.slug
+  GROUP BY l.slug ORDER BY n DESC LIMIT 1
 `);
-const handoffsBySlug = new Map(topHandoffs.map(r => [r.slug, r.n]));
-const topRows = topViews
-  .map(r => ({ ...r, handoffs: handoffsBySlug.get(r.slug) ?? 0 }))
-  .sort((a, b) => b.handoffs - a.handoffs || b.n - a.n)
-  .slice(0, 15);
 
 const fmtR = (n: number | null) =>
-  n == null || n === 0 ? '—' : n >= 1_000_000 ? `R${(n / 1_000_000).toFixed(2).replace(/\.?0+$/, '')}m` : `R${Math.round(n / 1000)}k`;
+  n == null || n === 0 ? '' : n >= 1_000_000 ? `R${(n / 1_000_000).toFixed(2).replace(/\.?0+$/, '')}m` : `R${Math.round(n / 1000)}k`;
 const weekLabel = (ms: number) => new Intl.DateTimeFormat('en-ZA', { day: 'numeric', month: 'short' }).format(new Date(ms));
 ---
 
 <AdminLayout title="WeBuyCars" activePage="wbc">
-  <div class="page-head">
-    <h1>WeBuyCars — value delivered</h1>
-    <p class="sub">
-      What LCSA sends WBC for free: buyer attention on their stock and buyers handed to their funnel.
-      These numbers are the receipt behind the sponsorship conversation (deal ledger D1) —
-      views are bot-filtered and admin sessions are excluded, so everything here is quotable.
+  <div class="ledger">
+    <p class="eyebrow">Sent to WeBuyCars, free — last 30 days</p>
+
+    <div class="hero">
+      <span class="hero-n">{h30}</span>
+      <div class="hero-side">
+        <span class="hero-l">buyers handed over</span>
+        <span class={`hero-delta ${delta > 0 ? 'up' : delta < 0 ? 'down' : 'flat'}`}>
+          {delta > 0 ? `▲ +${delta}` : delta < 0 ? `▼ ${delta}` : '＝'} vs prior 30 days
+        </span>
+      </div>
+    </div>
+
+    <p class="context">
+      Plus <strong>{(views?.d30 ?? 0).toLocaleString()}</strong> views on their stock —
+      <strong>{(stock?.n ?? 0).toLocaleString()}</strong> WBC vehicles live on LCSA
+      across <strong>{stock?.branches ?? 0}</strong> branches.
+      {busiest && (
+        <>Busiest: <a href={`/admin/listings/${busiest.id}`}>{busiest.title}</a>{fmtR(busiest.price) && ` (${fmtR(busiest.price)})`} — {busiest.n} handoffs.</>
+      )}
+    </p>
+
+    <div class="strip">
+      <div class="strip-bars">
+        {weekly.map((n, i) => (
+          <span class="wbar" data-tip={`${n} · w/o ${weekLabel(weekStarts[i])}`}>
+            <span class="wbar-fill" style={`height:${Math.max(3, Math.round(n / maxWeekly * 100))}%`}></span>
+          </span>
+        ))}
+      </div>
+      <span class="strip-now">{weekly[WEEKS - 1]} this week</span>
+    </div>
+
+    <p class="receipt">
+      All-time receipt: <strong>{(handoffsAllTime?.n ?? 0).toLocaleString()}</strong> buyers ·
+      <strong>{(views?.total ?? 0).toLocaleString()}</strong> views — delivered free. This is the sponsorship anchor.
+    </p>
+
+    <p class="foot-note">
+      A handoff = a click-through to the car on webuycars.co.za, or a WhatsApp/call/email/reveal on WBC stock.
+      Bots and admin sessions excluded — every number here is quotable to WBC.
     </p>
   </div>
-
-  <div class="kpis">
-    <div class="kpi">
-      <span class="kpi-n">{(stock?.n ?? 0).toLocaleString()}</span>
-      <span class="kpi-l">WBC vehicles live on LCSA</span>
-      <span class="kpi-note">across {stock?.branches ?? 0} branches</span>
-    </div>
-    <div class="kpi">
-      <span class="kpi-n">{views30.toLocaleString()}</span>
-      <span class="kpi-l">views on WBC stock, 30d</span>
-      <span class="kpi-note">{(allTime?.views ?? 0).toLocaleString()} all-time</span>
-    </div>
-    <div class="kpi">
-      <span class="kpi-n">{handoffs30.toLocaleString()}</span>
-      <span class="kpi-l">buyer handoffs to WBC, 30d</span>
-      <span class="kpi-note">{portal30} click-throughs · {contact30} direct contact</span>
-    </div>
-    <div class="kpi">
-      <span class="kpi-n">{(allTime?.handoffs ?? 0).toLocaleString()}</span>
-      <span class="kpi-l">handoffs all-time</span>
-      <span class="kpi-note">delivered free — the sponsorship anchor</span>
-    </div>
-  </div>
-
-  <div class="weekly">
-    <span class="weekly-label">Weekly views<br />on WBC stock</span>
-    <div class="weekly-bars">
-      {weeklyViews.map((n, i) => (
-        <span class="wbar" data-tip={`${n} · w/o ${weekLabel(weekStarts[i])}`}>
-          <span class="wbar-fill" style={`height:${Math.max(2, Math.round(n / maxWeeklyViews * 100))}%`}></span>
-        </span>
-      ))}
-    </div>
-    <span class="weekly-now">{weeklyViews[WEEKS - 1]} this week</span>
-  </div>
-
-  <div class="weekly">
-    <span class="weekly-label">Weekly handoffs<br />to WBC</span>
-    <div class="weekly-bars">
-      {weeklyHandoffs.map((n, i) => (
-        <span class="wbar" data-tip={`${n} · w/o ${weekLabel(weekStarts[i])}`}>
-          <span class="wbar-fill wbar-dark" style={`height:${Math.max(2, Math.round(n / maxWeeklyHandoffs * 100))}%`}></span>
-        </span>
-      ))}
-    </div>
-    <span class="weekly-now">{weeklyHandoffs[WEEKS - 1]} this week</span>
-  </div>
-
-  <h2 class="section-h">WBC listings doing the work — last 30 days</h2>
-  <div class="rank">
-    <div class="rank-head">
-      <span class="rh-name">Listing</span>
-      <span class="rh-col">Price</span>
-      <span class="rh-col">Status</span>
-      <span class="rh-col">Views</span>
-      <span class="rh-col">Handoffs</span>
-    </div>
-    {topRows.length === 0 && <p class="empty">No views on WBC stock in the last 30 days.</p>}
-    {topRows.map(r => (
-      <div class="rrow">
-        <span class="rr-name">
-          <a class="rr-title" href={`/admin/listings/${r.id}`} title={r.title}>{r.title}</a>
-        </span>
-        <span class="rr-col">{fmtR(r.price)}</span>
-        <span class={`rr-col st-${r.status}`}>{r.status}</span>
-        <span class="rr-col">{r.n}</span>
-        <span class="rr-col rr-strong">{r.handoffs || '—'}</span>
-      </div>
-    ))}
-  </div>
-
-  <p class="foot-note">
-    Handoff = a click-through to the listing on webuycars.co.za, or a WhatsApp/call/email/reveal on WBC stock
-    — a buyer delivered, not a page view. finance-calculator clicks are excluded.
-    Same definition as the dealer radar, filtered to WBC only.
-  </p>
 </AdminLayout>
 
 <style>
-  .page-head { margin-bottom: 18px; }
-  h1 { font-size: 22px; font-weight: 700; }
-  .sub { color: #666; font-size: 13px; margin-top: 4px; max-width: 720px; line-height: 1.55; }
+  .ledger { max-width: 640px; }
 
-  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-bottom: 14px; }
-  .kpi { border: 1px solid #e5e5e5; border-radius: 8px; padding: 12px 14px; display: flex; flex-direction: column; gap: 2px; }
-  .kpi-n { font-size: 21px; font-weight: 700; }
-  .kpi-l { font-size: 11.5px; color: #777; }
-  .kpi-note { font-size: 10.5px; color: #aaa; margin-top: 2px; }
-
-  .weekly {
-    display: flex; align-items: center; gap: 12px;
-    border: 1px solid #e5e5e5; border-radius: 8px; padding: 10px 14px; margin-bottom: 14px;
+  .eyebrow {
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.12em; color: #9a6b00; margin-bottom: 14px;
   }
-  .weekly-label { font-size: 11.5px; color: #777; white-space: nowrap; line-height: 1.35; }
-  .weekly-bars { flex: 1; display: flex; align-items: flex-end; gap: 3px; height: 34px; }
+
+  .hero { display: flex; align-items: center; gap: 18px; margin-bottom: 18px; }
+  .hero-n { font-size: 88px; font-weight: 800; line-height: 0.9; letter-spacing: -0.03em; color: #111; }
+  .hero-side { display: flex; flex-direction: column; gap: 4px; }
+  .hero-l { font-size: 15px; font-weight: 600; color: #444; }
+  .hero-delta { font-size: 13px; font-weight: 700; }
+  .hero-delta.up { color: #15803D; }
+  .hero-delta.down { color: #B91C1C; }
+  .hero-delta.flat { color: #999; }
+
+  .context { font-size: 14px; color: #555; line-height: 1.65; margin-bottom: 18px; }
+  .context strong { color: #111; font-weight: 700; }
+  .context a { color: #111; font-weight: 700; }
+
+  .strip { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
+  .strip-bars { flex: 1; display: flex; align-items: flex-end; gap: 4px; height: 44px; }
   .wbar { flex: 1; display: flex; align-items: flex-end; height: 100%; position: relative; }
-  .wbar-fill { width: 100%; background: #F5A623; border-radius: 2px 2px 0 0; min-height: 2px; }
-  .wbar-dark { background: #111; }
+  .wbar-fill { width: 100%; background: #F5A623; border-radius: 2px 2px 0 0; min-height: 3px; }
   .wbar:hover .wbar-fill { background: #D4881A; }
   .wbar::after {
     content: attr(data-tip);
@@ -217,26 +161,13 @@ const weekLabel = (ms: number) => new Intl.DateTimeFormat('en-ZA', { day: 'numer
     opacity: 0; pointer-events: none; transition: opacity 0.1s; z-index: 5;
   }
   .wbar:hover::after { opacity: 1; }
-  .weekly-now { font-size: 12px; font-weight: 700; color: #111; white-space: nowrap; }
+  .strip-now { font-size: 12px; font-weight: 700; color: #111; white-space: nowrap; }
 
-  .section-h { font-size: 14px; font-weight: 700; margin: 20px 0 10px; }
+  .receipt {
+    font-size: 13px; color: #555; line-height: 1.6;
+    border-top: 1px solid #eee; padding-top: 14px;
+  }
+  .receipt strong { color: #111; }
 
-  .rank { border: 1px solid #e5e5e5; border-radius: 8px; overflow-x: auto; background: white; }
-  .rank-head, .rrow { display: flex; align-items: center; min-width: 640px; }
-  .rank-head { border-bottom: 1px solid #e5e5e5; background: #fafafa; font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; color: #999; }
-  .rh-name, .rr-name { flex: 1; padding: 7px 10px; min-width: 0; }
-  .rh-col, .rr-col { flex: 0 0 84px; text-align: right; padding: 7px 10px; white-space: nowrap; }
-
-  .rrow { border-bottom: 1px solid #f4f4f4; font-size: 12.5px; }
-  .rrow:last-child { border-bottom: none; }
-  .rrow:hover { background: #fffdf7; }
-  .rr-title { font-weight: 600; color: #222; text-decoration: none; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .rr-title:hover { text-decoration: underline; }
-  .rr-col { font-variant-numeric: tabular-nums; color: #555; }
-  .rr-strong { font-weight: 700; color: #111; }
-  .st-active { color: #15803D; }
-  .st-sold, .st-removed { color: #999; }
-
-  .empty { padding: 14px; font-size: 12.5px; color: #888; }
-  .foot-note { color: #888; font-size: 12px; margin-top: 12px; max-width: 780px; line-height: 1.55; }
+  .foot-note { color: #aaa; font-size: 11.5px; margin-top: 10px; line-height: 1.55; }
 </style>
