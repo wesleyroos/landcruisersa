@@ -24,10 +24,12 @@ results = results.filter(l => hasUsablePhoto(l.photos));
 function baseVehicle(l: { segment: string; model: string; title: string }): string {
   if (l.segment === 'land-cruiser') return 'Land Cruiser';
   if (l.model.startsWith('hilux')) return 'Hilux';
-  const brand = l.title.match(/mahindra|land\s?rover|defender|nissan|ford|isuzu|mitsubishi|jeep/i)?.[0];
+  const brand = l.title.match(/mahindra|land\s?rover|defender|suzuki|jimny|nissan|ford|isuzu|mitsubishi|jeep|dfsk/i)?.[0];
   if (brand) {
     const b = brand.toLowerCase();
     if (b.startsWith('land') || b === 'defender') return 'Land Rover';
+    if (b === 'suzuki' || b === 'jimny') return 'Suzuki';
+    if (b === 'dfsk') return 'DFSK';
     return b.charAt(0).toUpperCase() + b.slice(1);
   }
   return 'Other';
