@@ -24,6 +24,8 @@ function formatPrice(n: number) { return 'R' + n.toLocaleString('en-ZA'); }
 // Market strip — same maths as the per-model pages. No mileage tile: classics
 // rarely advertise an odometer reading (and it doesn't set the price anyway);
 // the year spread is the number this buyer actually scans for.
+// POA units count as for-sale stock but stay out of the price stats.
+const forSaleCount = results.filter(l => l.listing_type === 'for_sale').length;
 const priced = results
   .filter(l => l.listing_type === 'for_sale' && l.price > 0)
   .map(l => l.price)
@@ -71,57 +73,36 @@ const description = results.length
 >
 
   <div class="bg-[#111111]">
-    <div class="max-w-7xl mx-auto px-4 py-8 sm:py-10">
-      <nav class="flex items-center gap-2 text-xs text-white/40 mb-4">
-        <a href="/" class="hover:text-[#F5A623] transition-colors">Home</a>
-        <span>›</span>
-        <a href="/listings/" class="hover:text-[#F5A623] transition-colors">Listings</a>
-        <span>›</span>
-        <span class="text-white/70">Classic Cruisers</span>
-      </nav>
-      <p class="text-[#F5A623] font-heading font-bold uppercase tracking-widest text-xs mb-2">FJ40 · FJ45 · FJ55 · FJ60/62</p>
-      <h1 class="font-heading font-bold uppercase text-white text-4xl md:text-5xl leading-none mb-2">{title}</h1>
-      <p class="text-white/50 text-sm">{results.length} active listing{results.length !== 1 ? 's' : ''} · restored, original and everything in between</p>
+    <div class="max-w-7xl mx-auto px-4 py-8 sm:py-10 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+      <div>
+        <nav class="flex items-center gap-2 text-xs text-white/40 mb-4">
+          <a href="/" class="hover:text-[#F5A623] transition-colors">Home</a>
+          <span>›</span>
+          <a href="/listings/" class="hover:text-[#F5A623] transition-colors">Listings</a>
+          <span>›</span>
+          <span class="text-white/70">Classic Cruisers</span>
+        </nav>
+        <p class="text-[#F5A623] font-heading font-bold uppercase tracking-widest text-xs mb-2">FJ40 · FJ45 · FJ55 · FJ60/62</p>
+        <h1 class="font-heading font-bold uppercase text-white text-4xl md:text-5xl leading-none mb-3">{title}</h1>
+        {priceCount >= 2 ? (
+          <div class="flex flex-wrap items-baseline gap-x-6 gap-y-1.5 text-sm">
+            <span class="text-white/80"><span class="font-heading font-bold text-white">{forSaleCount}</span> for sale</span>
+            <span class="text-white/80">Median <span class="font-heading font-bold text-white">{formatPrice(median)}</span></span>
+            <span class="text-white/80">Range <span class="font-heading font-bold text-white">{kR(minPrice)} – {kR(maxPrice)}</span></span>
+            <span class="text-white/50 hidden sm:inline">Years {yearSpan}</span>
+          </div>
+        ) : (
+          <p class="text-white/50 text-sm">{results.length} active listing{results.length !== 1 ? 's' : ''} · restored, original and everything in between</p>
+        )}
+      </div>
+      <a href="/listings/submit/" class="inline-flex items-center gap-2 bg-[#F5A623] text-[#111111] font-heading font-bold uppercase tracking-wide px-6 py-3.5 rounded-xl hover:bg-[#D4881A] transition-colors text-sm self-start sm:self-auto touch-manipulation whitespace-nowrap">
+        + List Your Classic
+      </a>
     </div>
   </div>
   <div class="h-1 bg-[#F5A623]"></div>
 
   <div class="max-w-7xl mx-auto px-4 py-8 sm:py-10">
-
-    {priceCount >= 2 && (
-      <div class="mb-4 bg-white border border-[#DDD9D3] rounded-xl px-5 py-4">
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-4">
-          <div>
-            <p class="text-[10px] font-bold uppercase tracking-widest text-[#9CA3AF] mb-0.5">Median asking</p>
-            <p class="font-heading font-bold text-xl text-[#111111]">{formatPrice(median)}</p>
-          </div>
-          <div>
-            <p class="text-[10px] font-bold uppercase tracking-widest text-[#9CA3AF] mb-0.5">Range</p>
-            <p class="font-heading font-bold text-xl text-[#111111]">{kR(minPrice)} – {kR(maxPrice)}</p>
-          </div>
-          <div>
-            <p class="text-[10px] font-bold uppercase tracking-widest text-[#9CA3AF] mb-0.5">Years</p>
-            <p class="font-heading font-bold text-xl text-[#111111]">{yearSpan}</p>
-          </div>
-          <div>
-            <p class="text-[10px] font-bold uppercase tracking-widest text-[#9CA3AF] mb-0.5">For sale</p>
-            <p class="font-heading font-bold text-xl text-[#111111]">{priceCount}</p>
-          </div>
-        </div>
-        <div class="flex flex-wrap items-center gap-x-5 gap-y-2 mt-4 pt-3.5 border-t border-[#F0EDE6] text-sm">
-          <a href="/listings/submit/" class="font-semibold text-[#111111] hover:text-[#D4881A] transition-colors">Selling a classic? List it here →</a>
-          <a href="/market/40-series/" class="font-semibold text-[#111111] hover:text-[#D4881A] transition-colors">40 Series market data →</a>
-        </div>
-      </div>
-    )}
-
-    <!-- One-line definition — the "answer capsule" LLMs cite; depth lives in the buyer's guide -->
-    <p class="mb-8 text-sm text-[#4A4A4A] leading-relaxed max-w-3xl">
-      The <strong>classic Land Cruisers</strong> are the chassis-code era: the FJ40/FJ45 (40 Series, 1960–1984),
-      the FJ55 wagon and the FJ60/FJ62 (60 Series, 1980–1990) — appreciating collectibles priced on originality
-      and provenance rather than year and mileage.
-      <a href="/useful-info/classic-land-cruiser-price-buyers-guide-south-africa/" class="font-semibold text-[#D4881A] hover:underline whitespace-nowrap">Prices &amp; buyer's guide →</a>
-    </p>
 
     {results.length === 0 ? (
       <div class="text-center py-24">
@@ -158,7 +139,7 @@ const description = results.length
                 fetchpriority={i < 3 ? 'high' : 'auto'}
                 decoding="async"
               />
-              <span class="card-badge">{l.province}</span>
+              {l.province && <span class="card-badge">{l.province}</span>}
               {dropBySlug.has(l.slug) && (
                 <span class="card-badge-drop">▼ R{dropBySlug.get(l.slug)!.toLocaleString('en-ZA')} drop</span>
               )}
@@ -182,6 +163,21 @@ const description = results.length
       </div>
       </>
     )}
+
+    <!-- Definition + guide links — the "answer capsule" LLMs cite (position on
+         the page doesn't affect citation/SEO; the top stays listings-first) -->
+    <div class="mt-12">
+      <h2 class="font-heading font-bold uppercase text-xl text-[#111111] mb-3">What counts as a classic Land Cruiser?</h2>
+      <p class="text-sm text-[#4A4A4A] leading-relaxed max-w-3xl">
+        The <strong>classic Land Cruisers</strong> are the chassis-code era: the FJ40/FJ45 (40 Series, 1960–1984),
+        the FJ55 wagon and the FJ60/FJ62 (60 Series, 1980–1990) — appreciating collectibles priced on originality
+        and provenance rather than year and mileage.
+      </p>
+      <div class="flex flex-wrap items-center gap-x-5 gap-y-2 mt-3 text-sm">
+        <a href="/useful-info/classic-land-cruiser-price-buyers-guide-south-africa/" class="font-semibold text-[#D4881A] hover:underline">Prices &amp; buyer's guide →</a>
+        <a href="/market/40-series/" class="font-semibold text-[#111111] hover:text-[#D4881A] transition-colors">40 Series market data →</a>
+      </div>
+    </div>
 
     <!-- Sell CTA -->
     <div class="mt-12 p-5 bg-[#F5F3EE] border border-[#DDD9D3] rounded-xl flex flex-col sm:flex-row items-start sm:items-center gap-4">
