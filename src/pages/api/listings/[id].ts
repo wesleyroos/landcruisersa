@@ -61,10 +61,15 @@ export const PATCH: APIRoute = async ({ params, request, cookies }) => {
   // flag), and keep segment in step since it derives from model. Only when the
   // value actually changes: re-saving the form untouched must not lock anything.
   if ('model' in updates) {
-    const current = db.select({ model: listings.model }).from(listings).where(eq(listings.id, id)).get();
+    const current = db.select({ model: listings.model, segment: listings.segment }).from(listings).where(eq(listings.id, id)).get();
     if (current && current.model !== updates.model) {
       updates.model_locked = true;
-      updates.segment = segmentForModel(String(updates.model));
+      // 'other' falls through segmentForModel to the LC segment — that must not
+      // pull a non-Toyota game viewer (segment 'other-4x4') into the public LC
+      // classifieds. An explicit LC model verdict still moves it as expected.
+      updates.segment = (current.segment === 'other-4x4' && updates.model === 'other')
+        ? 'other-4x4'
+        : segmentForModel(String(updates.model));
     }
   }
 

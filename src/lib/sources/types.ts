@@ -20,6 +20,9 @@ export interface NormalizedListing {
   description: string;
   photos: string[];
   seller_name: string;
+  // Adapter-declared segment override (e.g. 'other-4x4' for non-Toyota game
+  // viewers from the keyword crawl). When absent, ingest derives it from model.
+  segment?: string;
   fuel_type?: string;
   fuel_consumption?: number;
   power_kw?: number;

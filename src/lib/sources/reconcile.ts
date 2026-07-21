@@ -19,12 +19,14 @@
 const REAP_CAP_FRACTION = 0.25;
 
 // The segments a run actually crawled — must match the source's searchUrls() scope.
-// Jimny pass crawls only 'jimny'; LC pass crawls 'land-cruiser' (+ 'toyota-4x4' when
-// the Hilux/Fortuner toggle is on). Reaping outside this set would purge un-crawled rows.
+// Jimny pass crawls only 'jimny'; LC pass crawls 'land-cruiser' + 'other-4x4' (the
+// game-viewer keyword crawl is the sole feeder of other-4x4 and runs every LC pass)
+// + 'toyota-4x4' when the Hilux/Fortuner toggle is on. Reaping outside this set
+// would purge un-crawled rows.
 export function scrapedSegmentsFor(collectExtra: boolean): Set<string> {
   return process.env.SCRAPE_SEGMENT === 'jimny'
     ? new Set(['jimny'])
-    : new Set(['land-cruiser', ...(collectExtra ? ['toyota-4x4'] : [])]);
+    : new Set(['land-cruiser', 'other-4x4', ...(collectExtra ? ['toyota-4x4'] : [])]);
 }
 
 export async function reconcileOffMarket(opts: {

@@ -40,7 +40,13 @@ export const POST: APIRoute = async ({ request }) => {
     description, photos,
     seller_name,
     fuel_type, fuel_consumption, power_kw, seats, co2,
+    segment,
   } = body as Record<string, unknown>;
+
+  // Adapter-declared segment override — only known containment segments are
+  // accepted (non-Toyota game viewers must never enter the LC classifieds via
+  // the model='other' fallthrough). Anything else derives from model as before.
+  const segmentOverride = segment === 'other-4x4' ? 'other-4x4' : null;
 
   if (!source || !source_id || !source_url || !title || !model || !year) {
     return new Response(JSON.stringify({ error: 'Missing required fields' }), { status: 400 });
@@ -115,7 +121,7 @@ export const POST: APIRoute = async ({ request }) => {
       power_kw: power_kw ? Number(power_kw) : null,
       seats: seats ? Number(seats) : null,
       co2: co2 ? Number(co2) : null,
-      segment: segmentForModel(effectiveModel),
+      segment: segmentOverride ?? segmentForModel(effectiveModel),
       // Classify only unclassified rows — an admin's manual body_type verdict
       // ('standard' opt-out or confirmed 'game-viewer') survives re-ingest.
       body_type: existing[0].body_type
@@ -183,7 +189,7 @@ export const POST: APIRoute = async ({ request }) => {
     power_kw: power_kw ? Number(power_kw) : null,
     seats: seats ? Number(seats) : null,
     co2: co2 ? Number(co2) : null,
-    segment: segmentForModel(String(model)),
+    segment: segmentOverride ?? segmentForModel(String(model)),
     body_type: detectBodyType(String(title), String(description ?? '')),
     created_at: new Date(),
   });

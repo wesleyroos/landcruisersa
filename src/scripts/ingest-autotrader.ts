@@ -77,10 +77,12 @@ async function ingest() {
     }
 
     // SSR tile only exposes extra images for premium listings; supplement via proxy
-    // for the rest — but only for the public LC segment. Hilux/Fortuner are being
-    // bulk-collected for data right now (not shown publicly), so we skip the heavy
-    // per-listing proxy on them to spare prod; backfill galleries when they go live.
-    if (listing.photos.length < 2 && segmentForModel(listing.model) === 'land-cruiser') {
+    // for the rest — but only for publicly-shown segments: land-cruiser and
+    // other-4x4 (non-Toyota game viewers, public on /game-viewers/). Hilux/
+    // Fortuner are being bulk-collected for data right now (not shown publicly),
+    // so we skip the heavy per-listing proxy on them to spare prod.
+    const seg = listing.segment ?? segmentForModel(listing.model);
+    if (listing.photos.length < 2 && (seg === 'land-cruiser' || seg === 'other-4x4')) {
       try {
         const proxyRes = await fetch(`${SITE_URL}/api/proxy/images`, {
           method: 'POST',

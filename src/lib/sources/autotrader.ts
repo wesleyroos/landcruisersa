@@ -41,11 +41,19 @@ const EXTRA_SEARCH_URLS = [
 const JIMNY_SEARCH_URLS = [
   `${BASE}/cars-for-sale/suzuki/jimny`,
 ];
+// Brand-agnostic game-viewer sweep: AutoTrader's keyword search serves the same
+// SSR tiles across ALL makes (Mahindra Pik Up conversions etc.). Keyword search
+// matches descriptions too, so it over-fetches — detectBodyType() remains the
+// gatekeeper for what actually reaches /game-viewers/.
+const GV_SEARCH_URLS = [
+  `${BASE}/cars-for-sale?keyword=game+viewer`,
+];
 // Built per-run inside discover() so the Hilux/Fortuner toggle is read at
 // runtime (after applyExtraSegments), not frozen at module load.
 function searchUrls(): string[] {
   if (process.env.SCRAPE_SEGMENT === 'jimny') return JIMNY_SEARCH_URLS;
-  return collectExtraSegments() ? [...LC_SEARCH_URLS, ...EXTRA_SEARCH_URLS] : LC_SEARCH_URLS;
+  const urls = collectExtraSegments() ? [...LC_SEARCH_URLS, ...EXTRA_SEARCH_URLS] : LC_SEARCH_URLS;
+  return [...urls, ...GV_SEARCH_URLS];
 }
 
 const BROWSER_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
@@ -137,13 +145,20 @@ function tileToListing(tile: AtTile): NormalizedListing {
   const isUsed = /used/i.test(tile.newUsedDescription ?? '') || mileage > 0;
   const url = tile.canonicalUrl.startsWith('http') ? tile.canonicalUrl : `${BASE}${tile.canonicalUrl}`;
 
+  const model = normalizeModel(title, tile.registrationYear);
+  // Non-Toyota metal (Mahindra game viewers from the keyword crawl) must never
+  // enter the land-cruiser segment: normalizeModel falls through to 'other',
+  // which segmentForModel treats as LC. Suzuki is excluded because Jimny tiles
+  // are skipped by discover() — that metal belongs to the Jimny SA run.
+  const segment = tile.make && !/toyota|suzuki/i.test(tile.make) ? { segment: 'other-4x4' } : {};
   return {
+    ...segment,
     source: SOURCE,
     source_id: String(tile.listingId),
     source_url: url,
     title,
     year: tile.registrationYear ?? new Date().getFullYear(),
-    model: normalizeModel(title, tile.registrationYear),
+    model,
     price: parsePrice(tile.price ?? ''),
     mileage,
     province: normalizeProvince(cityToProvince(tile.dealerCityName ?? '')),
@@ -187,7 +202,8 @@ export const AutoTraderAdapter: SourceAdapter = {
 
     for (let mi = 0; mi < SEARCH_URLS.length; mi++) {
       const baseUrl = SEARCH_URLS[mi];
-      const slug = baseUrl.split('/').pop()!;
+      const isKeywordCrawl = baseUrl.includes('keyword=');
+      const slug = isKeywordCrawl ? 'game-viewer-keyword' : baseUrl.split('/').pop()!;
       let totalPages = 1;                 // refined from page 1's embedded count
       let totalCount = 0;
       const modelIds = new Set<string>(); // distinct listings this model's pages showed
@@ -197,7 +213,7 @@ export const AutoTraderAdapter: SourceAdapter = {
       for (let page = 1; page <= Math.min(totalPages, SAFETY_CAP); page++) {
         // AutoTrader paginates via ?pagenumber=N (NOT ?p=N — that param is ignored
         // and silently re-serves page 1, which once truncated us to ~6% of stock).
-        const pageUrl = page === 1 ? baseUrl : `${baseUrl}?pagenumber=${page}`;
+        const pageUrl = page === 1 ? baseUrl : `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}pagenumber=${page}`;
         // The residential proxy drops the odd page mid-crawl ("fetch failed") — and
         // sometimes mid-BODY after clean headers ("TypeError: terminated" at .text(),
         // which killed the whole 2026-07-03 run when the read sat outside this loop).
@@ -240,7 +256,9 @@ export const AutoTraderAdapter: SourceAdapter = {
           const tc = html.match(/"totalCount":(\d+)/);
           if (tp) totalPages = Number(tp[1]);
           if (tc) totalCount = Number(tc[1]);
-          if (totalCount) { srcTotal += totalCount; gotTotal = true; }
+          // The keyword crawl's total overlaps the model crawls (most hits are
+          // LCs already counted) — keep it out of the penetration denominator.
+          if (totalCount && !isKeywordCrawl) { srcTotal += totalCount; gotTotal = true; }
           if (totalPages > SAFETY_CAP) {
             aborted = true;
             console.warn(`[autotrader] ${slug} has ${totalPages} pages > ${SAFETY_CAP} safety cap — raise SAFETY_CAP`);
@@ -275,6 +293,11 @@ export const AutoTraderAdapter: SourceAdapter = {
             try {
               const tile = JSON.parse(s.slice(startIdx, endIdx + 1)) as AtTile;
               const listing = tileToListing(tile);
+              // Jimny tiles surface in the keyword crawl (kitted "game viewer"
+              // Jimnys) but that metal belongs to the Jimny SA run — never the
+              // LC ingest. Counted in modelIds above so the completeness check
+              // doesn't read the skip as a shortfall.
+              if (listing.model.startsWith('jimny')) continue;
               _cache.set(id, listing);
               const url = tile.canonicalUrl.startsWith('http') ? tile.canonicalUrl : `${BASE}${tile.canonicalUrl}`;
               refs.push({ source: SOURCE, source_id: id, source_url: url });
