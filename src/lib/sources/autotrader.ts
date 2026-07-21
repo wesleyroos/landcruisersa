@@ -154,11 +154,16 @@ function tileToListing(tile: AtTile): NormalizedListing {
   const url = tile.canonicalUrl.startsWith('http') ? tile.canonicalUrl : `${BASE}${tile.canonicalUrl}`;
 
   const model = normalizeModel(title, tile.registrationYear);
-  // Non-Toyota metal (Mahindra game viewers from the keyword crawl) must never
-  // enter the land-cruiser segment: normalizeModel falls through to 'other',
-  // which segmentForModel treats as LC. Suzuki is excluded because Jimny tiles
-  // are skipped by discover() — that metal belongs to the Jimny SA run.
-  const segment = tile.make && !/toyota|suzuki/i.test(tile.make) ? { segment: 'other-4x4' } : {};
+  // Non-Toyota metal (Mahindra/Suzuki game viewers from the keyword crawl) must
+  // never enter the land-cruiser segment: normalizeModel falls through to
+  // 'other', which segmentForModel treats as LC — and a Jimny would land in a
+  // 'jimny' segment no LC-run sweep covers. Jimny game-viewer conversions DO
+  // belong on /game-viewers/ (use-case vertical), which doesn't conflict with
+  // the Jimny SA classifieds. The Jimny SA pass (SCRAPE_SEGMENT=jimny) keeps
+  // its own segments — it posts to jimnysa, not here.
+  const segment =
+    tile.make && !/toyota/i.test(tile.make) && process.env.SCRAPE_SEGMENT !== 'jimny'
+      ? { segment: 'other-4x4' } : {};
   return {
     ...segment,
     source: SOURCE,
@@ -301,11 +306,6 @@ export const AutoTraderAdapter: SourceAdapter = {
             try {
               const tile = JSON.parse(s.slice(startIdx, endIdx + 1)) as AtTile;
               const listing = tileToListing(tile);
-              // Jimny tiles surface in the keyword crawl (kitted "game viewer"
-              // Jimnys) but that metal belongs to the Jimny SA run — never the
-              // LC ingest. Counted in modelIds above so the completeness check
-              // doesn't read the skip as a shortfall.
-              if (listing.model.startsWith('jimny')) continue;
               _cache.set(id, listing);
               const url = tile.canonicalUrl.startsWith('http') ? tile.canonicalUrl : `${BASE}${tile.canonicalUrl}`;
               refs.push({ source: SOURCE, source_id: id, source_url: url });

@@ -111,7 +111,9 @@ async function ingest() {
         body: JSON.stringify(listing),
       });
       if (!res.ok) {
-        console.error(`[autotrader] ingest failed for ${ref.source_id}: ${res.status}`);
+        // 400s here are AT's rotating sponsored tiles (partial data, no title) —
+        // correctly rejected; the title makes that visible in the log.
+        console.error(`[autotrader] ingest failed for ${ref.source_id}: ${res.status} (title: ${JSON.stringify(listing.title)})`);
         skipped++;
         consecNetFail = 0; // got a response — network is up; per-listing issue (e.g. 400)
         continue;
