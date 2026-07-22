@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --amber:#F5A623; --amber-d:#C9790F; --ink:#111111;
+    --paper:#FFFFFF; --soft:#F6F4EF; --line:#E4E0D9; --grey:#56565B; --grey-l:#92928f;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  @page{ size:A4; margin:0; }
+  html,body{font-family:'Inter',sans-serif;color:var(--ink);background:var(--paper);}
+  .page{position:relative;width:210mm;height:297mm;overflow:hidden;
+    padding:14mm 18mm 12mm;display:flex;flex-direction:column;}
+  .bar{position:absolute;top:0;left:0;height:7px;width:100%;
+       background:linear-gradient(90deg,var(--amber) 62%,var(--ink) 62%);}
+  h1,h2,.eyebrow,.k{font-family:'Barlow Condensed',sans-serif;}
+  .head{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid var(--ink);padding-bottom:9px;}
+  .eyebrow{font-weight:700;text-transform:uppercase;letter-spacing:.18em;font-size:9pt;color:var(--amber-d);margin-bottom:3px;}
+  h1{font-weight:800;text-transform:uppercase;font-size:24pt;line-height:.97;}
+  h1 .o{color:var(--amber);}
+  .head-r{text-align:right;font-size:7.5pt;color:var(--grey);line-height:1.5;}
+  .head-r b{font-weight:700;font-size:11pt;color:var(--ink);display:block;text-transform:uppercase;font-family:'Barlow Condensed',sans-serif;}
+  .parties{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:11px;}
+  .party{background:var(--soft);border:1px solid var(--line);border-radius:10px;padding:9px 12px;font-size:8.6pt;line-height:1.5;}
+  .party b{display:block;font-size:9.5pt;}
+  h2{font-weight:700;text-transform:uppercase;font-size:11pt;letter-spacing:.05em;margin:11px 0 5px;
+     display:flex;align-items:center;gap:7px;}
+  h2::before{content:"";width:4px;height:13px;background:var(--amber);border-radius:1px;}
+  table{width:100%;border-collapse:collapse;font-size:8.8pt;}
+  td{padding:5px 8px;border-bottom:1px solid var(--line);vertical-align:top;line-height:1.5;}
+  td.k{font-family:'Barlow Condensed',sans-serif;font-weight:700;text-transform:uppercase;letter-spacing:.04em;
+       width:34mm;color:var(--grey);font-size:8.6pt;white-space:nowrap;}
+  td b{font-weight:600;}
+  .note{font-size:7.6pt;color:var(--grey);line-height:1.55;margin-top:7px;}
+  .sigs{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:auto;padding-top:8px;}
+  .sig{border-top:2px solid var(--ink);padding-top:6px;font-size:8pt;color:var(--grey);line-height:1.7;}
+  .sig b{color:var(--ink);font-size:9pt;}
+  .sig .line{display:inline-block;border-bottom:1px solid var(--grey-l);min-width:42mm;height:11px;margin-left:4px;}
+  .foot{margin-top:9px;border-top:1px solid var(--line);padding-top:5px;font-size:7pt;color:var(--grey-l);
+        display:flex;justify-content:space-between;}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="bar"></div>
+  <div class="head">
+    <div>
+      <div class="eyebrow">Advertising Insertion Order · IO-2026-001</div>
+      <h1>Land Cruiser <span class="o">SA</span> × Titan Secure</h1>
+    </div>
+    <div class="head-r"><b>Land Cruiser SA</b>landcruisersa.co.za<br>wesley@landcruisersa.co.za · 072 484 9014</div>
+  </div>
+
+  <div class="parties">
+    <div class="party"><b>Publisher</b>Land Cruiser SA · Wesley Roos<br>landcruisersa.co.za<br>wesley@landcruisersa.co.za</div>
+    <div class="party"><b>Advertiser</b>Titan Secure (Pty) Ltd<br>Stephan Kemp / Victor Claassens<br>victor@titansecure.co.za</div>
+  </div>
+
+  <h2>Campaign</h2>
+  <table>
+    <tr><td class="k">Term</td><td><b>3-month trial</b> from the go-live date of ____________________. Thereafter month-to-month, either party may end it on 14 days' written notice.</td></tr>
+    <tr><td class="k">Placements</td><td>(1) <b>Titan banner on every vehicle listing page</b> on landcruisersa.co.za — leaderboard beneath the market-position card and/or rectangle beneath the asking-price card, responsive across desktop and mobile. (2) <b>Featured Partner listing</b> on the site's partners section. All placements click through to the Advertiser-nominated URL.</td></tr>
+    <tr><td class="k">Creative</td><td>Supplied by Advertiser: <b>728×90</b> leaderboard and <b>300×250</b> rectangle, PNG/JPG at 2× resolution (1456×180 / 600×500). Publisher may scale/crop for responsive display; no edits to brand elements.</td></tr>
+    <tr><td class="k">Reader offer</td><td>10% discount, code <b>LCSA10</b>, promoted alongside placements.</td></tr>
+  </table>
+
+  <h2>Fees</h2>
+  <table>
+    <tr><td class="k">Retainer</td><td><b>R2,500.00 per month (VAT incl.)</b> for the placements above. Invoiced monthly in advance from go-live; payable within 7 days.</td></tr>
+    <tr><td class="k">Commission</td><td><b>R750.00 (VAT incl.) per converted sale</b> attributable to the partnership — defined as any sale (online, telephonic or in-person) where code <b>LCSA10</b> is quoted or redeemed. Invoiced monthly in arrears.</td></tr>
+  </table>
+
+  <h2>Reporting &amp; review</h2>
+  <table>
+    <tr><td class="k">Publisher reports</td><td>Monthly: banner impressions and clicks to the Advertiser's site (first-party tracking already live).</td></tr>
+    <tr><td class="k">Advertiser reports</td><td>Monthly by the 5th: count of LCSA10 quotes/redemptions and converted sales for the prior month.</td></tr>
+    <tr><td class="k">Review</td><td>Joint review in week 12 against the shared numbers (clicks, redemptions, conversions) to agree the ongoing rate and term.</td></tr>
+  </table>
+
+  <h2>General</h2>
+  <table>
+    <tr><td class="k">Independence</td><td>Editorial content on landcruisersa.co.za remains independent; placements are clearly commercial. This arrangement is non-exclusive for both parties.</td></tr>
+    <tr><td class="k">Data</td><td>No personal customer data is exchanged; attribution runs on the discount code and aggregate counts only (POPIA-safe).</td></tr>
+  </table>
+
+  <div class="sigs">
+    <div class="sig"><b>For Land Cruiser SA</b><br>Name: Wesley Roos<br>Signature: <span class="line"></span><br>Date: <span class="line"></span></div>
+    <div class="sig"><b>For Titan Secure (Pty) Ltd</b><br>Name: <span class="line"></span><br>Signature: <span class="line"></span><br>Date: <span class="line"></span></div>
+  </div>
+
+  <div class="foot"><span>Land Cruiser SA × Titan Secure — Insertion Order IO-2026-001</span><span>Page 1 of 1</span></div>
+</div>
+</body>
+</html>
