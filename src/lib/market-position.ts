@@ -167,6 +167,12 @@ export interface MarketPosition {
   cohortSize: number;
   medianPrice: number;
   priceDiff: number;        // listing price − cohort median; negative = below market
+  // Cohort price spread for the listing-page gauge: track = min→max, shaded
+  // band = p25–p75 (where the middle half of the market is priced).
+  priceMin: number;
+  priceP25: number;
+  priceP75: number;
+  priceMax: number;
   avgMileage: number | null;
   mileageDiff: number | null;
   modelSupply: number;      // active same-model listings across all platforms
@@ -202,6 +208,10 @@ export function getMarketPosition(listing: {
     cohortSize: c.cohortSize,
     medianPrice: c.medianPrice,
     priceDiff: listing.price - c.medianPrice,
+    priceMin: c.minPrice,
+    priceP25: c.p25,
+    priceP75: c.p75,
+    priceMax: c.maxPrice,
     avgMileage,
     mileageDiff: avgMileage !== null ? listing.mileage - avgMileage : null,
     modelSupply: c.modelSupply,

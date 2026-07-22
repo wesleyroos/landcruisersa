@@ -150,6 +150,24 @@ const offMarketDate = listing.off_market_at
   : null;
 const atMarket = marketPos ? Math.abs(marketPos.priceDiff) < marketPos.medianPrice * 0.02 : false;
 
+// Price-position gauge: this listing's asking price plotted on the cohort's
+// min→max track. Server-computed percentages; clamped so an outlier subject
+// still sits visibly on the track edge. Skip when the cohort has no spread.
+const gauge = (() => {
+  if (!marketPos || marketPos.priceMax <= marketPos.priceMin) return null;
+  const span = marketPos.priceMax - marketPos.priceMin;
+  const pct = (v: number) => Math.min(98.5, Math.max(1.5, ((v - marketPos.priceMin) / span) * 100));
+  return {
+    band: [pct(marketPos.priceP25), pct(marketPos.priceP75)],
+    median: pct(marketPos.medianPrice),
+    car: pct(listing.price),
+  };
+})();
+// Compact rand for gauge captions: R 560k / R 1.28m
+function fmtRk(n: number) {
+  return n >= 1_000_000 ? `R ${(n / 1_000_000).toFixed(2).replace(/\.?0+$/, '')}m` : `R ${Math.round(n / 1000)}k`;
+}
+
 function formatPrice(n: number) {
   return 'R ' + n.toLocaleString('en-ZA');
 }
@@ -437,38 +455,70 @@ if (metaDescription.length > 160) {
         <!-- Market position -->
         {marketPos && (
           <div class="card mp-card">
-            <h2 class="card-heading">Market Position</h2>
-            <div class="mp-grid">
-              <div class="mp-tile">
-                <p class={`mp-big ${marketPos.priceDiff < 0 && !atMarket ? 'mp-good' : ''}`}>
-                  {atMarket
-                    ? 'At market price'
-                    : `R ${Math.abs(marketPos.priceDiff).toLocaleString('en-ZA')} ${marketPos.priceDiff < 0 ? 'below' : 'above'} market`}
-                </p>
-                <p class="mp-sub">vs median of {marketPos.cohortSize} similar {marketPos.cohortLabel} listings (R {marketPos.medianPrice.toLocaleString('en-ZA')})</p>
+            <div class="mp-head">
+              <h2 class="card-heading">Market Position</h2>
+              <span class="mp-src">{marketPos.cohortSize} comparable listings · all SA platforms</span>
+            </div>
+            <div class="mp-rows">
+              <div class="mp-row">
+                <span class="mp-label">Price</span>
+                <div class="mp-val">
+                  <p class={`mp-big ${marketPos.priceDiff < 0 && !atMarket ? 'mp-good' : ''}`}>
+                    {atMarket
+                      ? 'At market price'
+                      : `R ${Math.abs(marketPos.priceDiff).toLocaleString('en-ZA')} ${marketPos.priceDiff < 0 ? 'below' : 'above'} market`}
+                  </p>
+                  {gauge && (
+                    <div class="mp-gauge" aria-hidden="true">
+                      <div class="mp-track">
+                        <div class="mp-band" style={`left:${gauge.band[0]}%;width:${gauge.band[1] - gauge.band[0]}%`}></div>
+                        <div class="mp-median" style={`left:${gauge.median}%`}></div>
+                        <div class="mp-car" style={`left:${gauge.car}%`}></div>
+                      </div>
+                      <div class="mp-scale">
+                        <span>{fmtRk(marketPos.priceMin)}</span>
+                        <span class="mp-scale-mid">median {fmtRk(marketPos.medianPrice)}</span>
+                        <span>{fmtRk(marketPos.priceMax)}</span>
+                      </div>
+                    </div>
+                  )}
+                  <p class="mp-sub">vs the median of {marketPos.cohortSize} similar {marketPos.cohortLabel} listings — R {marketPos.medianPrice.toLocaleString('en-ZA')}</p>
+                </div>
               </div>
               {marketPos.mileageDiff !== null && (
-                <div class="mp-tile">
-                  <p class={`mp-big ${marketPos.mileageDiff < 0 ? 'mp-good' : ''}`}>
-                    {Math.abs(marketPos.mileageDiff).toLocaleString('en-ZA')} km {marketPos.mileageDiff < 0 ? 'below' : 'above'} average
-                  </p>
-                  <p class="mp-sub">similar vehicles average {marketPos.avgMileage!.toLocaleString('en-ZA')} km</p>
+                <div class="mp-row">
+                  <span class="mp-label">Mileage</span>
+                  <div class="mp-val">
+                    <p class={`mp-big ${marketPos.mileageDiff < 0 ? 'mp-good' : ''}`}>
+                      {Math.abs(marketPos.mileageDiff).toLocaleString('en-ZA')} km {marketPos.mileageDiff < 0 ? 'below' : 'above'} average
+                    </p>
+                    <p class="mp-sub">similar vehicles average {marketPos.avgMileage!.toLocaleString('en-ZA')} km</p>
+                  </div>
                 </div>
               )}
-              <div class="mp-tile">
-                <p class="mp-big">1 of {marketPos.modelSupply} for sale</p>
-                <p class="mp-sub"><a href={`/market/${listing.model}/`}>{listing.model.replace(/-/g, ' ').toUpperCase()} live market data →</a></p>
+              <div class="mp-row">
+                <span class="mp-label">Supply</span>
+                <div class="mp-val">
+                  <p class="mp-big">1 of {marketPos.modelSupply} for sale</p>
+                  <p class="mp-sub"><a href={`/market/${listing.model}/`}>{listing.model.replace(/-/g, ' ').toUpperCase()} live market data →</a></p>
+                </div>
               </div>
               {dom && (
-                <div class="mp-tile">
-                  <p class="mp-big">{domLabel} on market</p>
-                  <p class="mp-sub">{domMedian ? `${mLabel} listings take a median of ${domMedian} days to leave the market` : 'tracked from when we first saw this listing'}</p>
+                <div class="mp-row">
+                  <span class="mp-label">Listed</span>
+                  <div class="mp-val">
+                    <p class="mp-big">{domLabel}</p>
+                    <p class="mp-sub">{domMedian ? `${mLabel} listings take a median of ${domMedian} days to leave the market` : 'tracked from when we first saw this listing'}</p>
+                  </div>
                 </div>
               )}
               {demandPct !== null && (
-                <div class="mp-tile">
-                  <p class={`mp-big ${demandPct <= 10 ? 'mp-good' : ''}`}>Top {demandPct}% by buyer interest</p>
-                  <p class="mp-sub">among all listings viewed on Land Cruiser SA in the last 30 days</p>
+                <div class="mp-row">
+                  <span class="mp-label">Demand</span>
+                  <div class="mp-val">
+                    <p class={`mp-big ${demandPct <= 10 ? 'mp-good' : ''}`}>Top {demandPct}% by buyer interest</p>
+                    <p class="mp-sub">among all listings viewed on Land Cruiser SA in the last 30 days</p>
+                  </div>
                 </div>
               )}
             </div>
@@ -1475,20 +1525,33 @@ if (metaDescription.length > 160) {
   .reveal-contact:hover .reveal-cta { text-decoration: underline; }
 
   /* MARKET POSITION */
-  .mp-grid { display: grid; grid-template-columns: 1fr; gap: 0.875rem; margin-bottom: 0.5rem; }
-  /* Flex keeps the row balanced whether 3, 4 or 5 tiles render (mileage and
-     demand tiles are conditional): tiles share one row where they fit, and a
-     wrapped tile stretches to fill its row — never a dangling tile beside a
-     grid hole. */
-  @media (min-width: 640px) {
-    .mp-grid { display: flex; flex-wrap: wrap; }
-    .mp-tile { flex: 1 1 130px; min-width: 0; }
-  }
-  .mp-tile { background: #FAF9F6; border: 1px solid #EAE7E0; border-radius: 0.625rem; padding: 0.875rem 1rem; }
-  .mp-big { font-family: var(--font-heading); font-weight: 700; font-size: 1rem; color: #111; line-height: 1.2; }
-  .mp-good { color: #166534; }
-  .mp-sub { font-size: 0.7rem; color: #9CA3AF; margin-top: 0.3rem; line-height: 1.45; }
+  /* Spec-table rows on a cool, hairline-ruled surface — the "instrument" on the
+     site's warm page. One fact per row: nothing squashes regardless of how many
+     of the conditional rows (mileage, demand) render. */
+  .mp-head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+  .mp-src { font-size: 0.66rem; font-weight: 600; color: #9AA0AB; text-transform: uppercase; letter-spacing: 0.08em; white-space: nowrap; }
+  .mp-rows { margin-bottom: 0.25rem; }
+  .mp-row { display: grid; grid-template-columns: 92px 1fr; gap: 1rem; align-items: baseline; padding: 0.8rem 0; border-bottom: 1px solid #ECEEF1; }
+  .mp-row:last-child { border-bottom: none; padding-bottom: 0.4rem; }
+  .mp-label { font-size: 0.66rem; font-weight: 700; color: #878E99; text-transform: uppercase; letter-spacing: 0.12em; line-height: 1.9; }
+  .mp-val { min-width: 0; }
+  .mp-big { font-family: var(--font-heading); font-weight: 700; font-size: 1.35rem; color: #14161A; line-height: 1.15; font-variant-numeric: tabular-nums; }
+  .mp-good { color: #157A45; }
+  .mp-sub { font-size: 0.72rem; color: #9AA0AB; margin-top: 0.25rem; line-height: 1.45; }
   .mp-sub a { color: #D4881A; text-decoration: none; font-weight: 700; }
+  @media (max-width: 500px) {
+    .mp-row { grid-template-columns: 1fr; gap: 0.1rem; padding: 0.7rem 0; }
+    .mp-label { line-height: 1.4; }
+  }
+  /* Price-position gauge: cohort min→max track, shaded p25–p75 band (the middle
+     half of the market), dark median tick, amber dot = this vehicle. */
+  .mp-gauge { margin: 0.65rem 0 0.15rem; max-width: 30rem; }
+  .mp-track { position: relative; height: 6px; border-radius: 3px; background: #EDEFF2; }
+  .mp-band { position: absolute; top: 0; height: 100%; background: #D8DDE4; border-radius: 3px; }
+  .mp-median { position: absolute; top: -3px; width: 2px; height: 12px; background: #4A505C; transform: translateX(-50%); border-radius: 1px; }
+  .mp-car { position: absolute; top: 50%; width: 14px; height: 14px; background: #F5A623; border: 2.5px solid #fff; border-radius: 50%; transform: translate(-50%, -50%); box-shadow: 0 1px 4px rgba(0,0,0,0.25); }
+  .mp-scale { display: flex; justify-content: space-between; margin-top: 0.4rem; font-size: 0.64rem; font-weight: 600; color: #9AA0AB; letter-spacing: 0.02em; }
+  .mp-scale-mid { color: #4A505C; }
   .mp-sub a:hover { text-decoration: underline; }
   .mp-history { margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid #F0EDE8; }
   .mp-history-head { font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #9CA3AF; margin-bottom: 0.4rem; }
