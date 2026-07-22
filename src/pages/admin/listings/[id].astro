@@ -4,6 +4,8 @@ export const prerender = false;
 import AdminLayout from '@/layouts/AdminLayout.astro';
 import AdminIgPost from '@/components/AdminIgPost.astro';
 import { getCredentials } from '@/lib/instagram';
+import { getMarketPosition } from '@/lib/market-position';
+import { getRecentPriceChanges } from '@/lib/price-changes';
 import { db } from '@/db/index';
 import { listings, dealerOffers, listingDocs } from '@/db/schema';
 import { eq, desc } from 'drizzle-orm';
@@ -112,6 +114,38 @@ const waSpec = [
   listing.province ? `Province: ${listing.province}` : null,
   cleanDesc ? `\n${cleanDesc}` : null,
 ].filter(line => line !== null).join('\n');
+
+// WhatsApp Channel post — broadcast marketing copy (vs the spec sheet above,
+// which is for 1-to-1 buyer chats). Hooks lead with the data only we can
+// claim: price-vs-market-median and recent drops. The link is utm-tagged so
+// channel clicks show up as a source in Plausible + visit_events.
+const waChannelLink = `https://landcruisersa.co.za/listings/${listing.slug}/?utm_source=wa-channel`;
+const waChPos = listing.status === 'active' && listing.price > 0 ? getMarketPosition(listing) : null;
+const waChDrop = (() => {
+  const c = getRecentPriceChanges().get(listing.slug) ?? 0;
+  return c < 0 ? Math.abs(c) : 0;
+})();
+const waChAtMarket = waChPos ? Math.abs(waChPos.priceDiff) < waChPos.medianPrice * 0.02 : false;
+const waChHooks = [
+  waChDrop ? `💸 Price just dropped R${waChDrop.toLocaleString('en-ZA')}` : null,
+  waChPos && !waChAtMarket && waChPos.priceDiff < 0
+    ? `📉 R${Math.abs(waChPos.priceDiff).toLocaleString('en-ZA')} below the median of ${waChPos.cohortSize} similar ${waChPos.cohortLabel} listings`
+    : null,
+  waChPos && waChPos.mileageDiff !== null && waChPos.mileageDiff < 0
+    ? `🛣️ ${Math.abs(waChPos.mileageDiff).toLocaleString('en-ZA')} km below average mileage for its age`
+    : null,
+].filter((l): l is string => l !== null);
+const waChDesc = cleanDesc ? `${cleanDesc.slice(0, 220).trim()}${cleanDesc.length > 220 ? '…' : ''}` : '';
+const waChannelPost = [
+  `*${listing.year} Toyota ${modelLabel} — ${priceStr}*`,
+  '',
+  `📍 ${listing.province || 'South Africa'} · 🛣️ ${mileageStr}${transStr ? ` · ⚙️ ${transStr}` : ''}`,
+  ...(waChHooks.length ? ['', ...waChHooks] : []),
+  waChDesc ? `\n${waChDesc}` : null,
+  '',
+  'Full details, photos & live market data:',
+  waChannelLink,
+].filter(l => l !== null).join('\n');
 ---
 
 <AdminLayout title={listing.title} activePage="listings">
@@ -495,6 +529,20 @@ const waSpec = [
           </button>
         )}
       </div>
+
+      <!-- WhatsApp Channel post -->
+      {listing.status === 'active' && (
+        <div class="card ig-card">
+          <div class="ig-card-header">
+            <span>📣 WhatsApp Channel post</span>
+            <button id="wa-ch-copy-btn" class="ig-copy-btn" type="button">Copy post</button>
+          </div>
+          <pre id="wa-ch-text" class="ig-caption-body">{waChannelPost}</pre>
+          <p style="font-size:0.78rem;color:#6B7280;margin:0.5rem 0 0;">
+            Paste into the LCSA Channel · attach the hero photo (⬇ download above) · link is tagged <code>wa-channel</code> so clicks show under Sources in analytics
+          </p>
+        </div>
+      )}
 
       <!-- IG Caption -->
       <div class="card ig-card">
@@ -1125,6 +1173,18 @@ const waSpec = [
       waCopyBtn.textContent = ok ? 'Copied!' : 'Press Ctrl+C';
       waCopyBtn.classList.toggle('copied', ok);
       setTimeout(() => { waCopyBtn.textContent = 'Copy spec'; waCopyBtn.classList.remove('copied'); }, 2000);
+    });
+  }
+
+  // WhatsApp Channel post copy
+  const waChBtn = document.getElementById('wa-ch-copy-btn');
+  if (waChBtn) {
+    const waChEl = document.getElementById('wa-ch-text');
+    waChBtn.addEventListener('click', async () => {
+      const ok = await copyToClipboard(waChEl?.textContent ?? '');
+      waChBtn.textContent = ok ? 'Copied!' : 'Press Ctrl+C';
+      waChBtn.classList.toggle('copied', ok);
+      setTimeout(() => { waChBtn.textContent = 'Copy post'; waChBtn.classList.remove('copied'); }, 2000);
     });
   }
 
