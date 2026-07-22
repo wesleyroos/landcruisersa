@@ -1277,11 +1277,19 @@ function formatMileage(n: number) {
     if (sp.get('alert') === '1') {
       window.setTimeout(() => saveSearchBtn?.click(), 300);
     }
-  } else if (!restoreFilterState()) {
-    // No URL filters and nothing saved this session — clean default view.
-    updateModelLabel();
-    updateProvinceLabel();
-    updateMileageLabel();
-    applyFilters();
+  } else {
+    // Restore the filter snapshot ONLY when returning to this page (back/forward
+    // from a listing, or a reload) — its whole purpose. A fresh navigation must
+    // show the clean server view: restoring a stale sort/page here silently
+    // re-sorted featured listings out of the first row on every visit.
+    const navType = (performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined)?.type;
+    const returning = navType === 'back_forward' || navType === 'reload';
+    if (!(returning && restoreFilterState())) {
+      try { sessionStorage.removeItem(FILTER_KEY); } catch {}
+      updateModelLabel();
+      updateProvinceLabel();
+      updateMileageLabel();
+      applyFilters();
+    }
   }
 </script>
