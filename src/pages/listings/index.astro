@@ -269,6 +269,13 @@ function formatMileage(n: number) {
       </div>
     </div>
 
+    <!-- RELAXED-SEARCH NOTICE — shown when an exact search found nothing and we
+         fell back to the closest matches (which filters were loosened). -->
+    <div id="relaxed-note" class="hidden mb-6 flex items-start gap-2.5 bg-[#FFF8E7] border border-[#F5A623] rounded-xl px-4 py-3 text-sm text-[#5C4A1A]">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="flex-shrink-0 mt-0.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+      <span id="relaxed-note-text"></span>
+    </div>
+
     <!-- GRID — first page server-rendered; client re-renders from JSON below -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5" id="listings-grid">
       {ssrCards.map((l, i) => (
@@ -864,7 +871,11 @@ function formatMileage(n: number) {
       : null;
   }
 
-  function matchesFilters(l: Listing): boolean {
+  // `skip` relaxes named refinement filters — used by the zero-result recovery
+  // in applyFilters so a search never dead-ends when one over-strict filter
+  // (an engine size titles rarely include, an implausibly-low typo'd price)
+  // wipes out otherwise-good matches. Model / province / year / type never relax.
+  function matchesFilters(l: Listing, skip?: Set<string>): boolean {
     const showingSold = activeType === 'sold';
     const isSold = l.status === 'sold';
     if (showingSold !== isSold) return false;
@@ -873,15 +884,15 @@ function formatMileage(n: number) {
 
     // Titles vary: "Single Cab" / "Double Cab" spelled out, or "S/C" / "D/C"
     // (incl. "P/U S/C"). Match both forms.
-    const cabOk = !selectedCab || (
+    const cabOk = !selectedCab || skip?.has('cab') || (
       selectedCab === 'single'
         ? /single[\s-]?cab|\bs\/c\b/i.test(l.title)
         : /double[\s-]?cab|crew[\s-]?cab|\bd\/c\b/i.test(l.title)
     );
 
-    const priceOk = isShowOff || showingSold || (l.price >= priceMin && l.price <= priceMax);
+    const priceOk = isShowOff || showingSold || skip?.has('price') || (l.price >= priceMin && l.price <= priceMax);
 
-    const mileageOk = isShowOff || selectedMileages.length === 0 ||
+    const mileageOk = isShowOff || skip?.has('mileage') || selectedMileages.length === 0 ||
       selectedMileages.some(([mn, mx]) => l.mileage >= mn && l.mileage <= mx);
 
     const modelMatch = selectedModels.length === 0 || selectedModels.some(sel =>
@@ -898,8 +909,8 @@ function formatMileage(n: number) {
 
     const yearOk = (yearMin <= 0 && !isFinite(yearMax)) || (l.year >= yearMin && l.year <= yearMax);
 
-    const transOk = !selectedTrans || l.transmission === selectedTrans;
-    const engineOk = !engineRe || engineRe.test(l.title);
+    const transOk = !selectedTrans || skip?.has('trans') || l.transmission === selectedTrans;
+    const engineOk = !engineRe || skip?.has('engine') || engineRe.test(l.title);
 
     return modelMatch &&
       (selectedProvinces.length === 0 || selectedProvinces.includes(l.province)) &&
@@ -989,10 +1000,56 @@ function formatMileage(n: number) {
     });
   }
 
+  // Zero-result recovery: rather than dead-end a search (which loses a real
+  // buyer — a 79 single-cab hunter typo'd "R750 00" → R75k and saw nothing,
+  // though we had 65 matches), drop over-strict refinement filters one at a
+  // time, most-likely-spurious first, and show the closest matches with a note.
+  // Model / province / year / body-type are the intent and never relax.
+  function relaxToClosest(): { items: Listing[]; relaxed: string[] } {
+    const tiers: { key: string; label: string; on: boolean }[] = [
+      // An implausibly-low price ceiling on a Land Cruiser is almost always a
+      // dropped-digit typo ("750 00"); relax it first so real stock shows.
+      { key: 'price',   label: 'price cap',        on: isFinite(priceMax) && priceMax > 0 && priceMax < 100_000 },
+      // Engine size is rarely in the title reliably, so it over-filters hard.
+      { key: 'engine',  label: `engine (${selectedEngine})`, on: !!engineRe },
+      { key: 'cab',     label: `${selectedCab} cab`,         on: !!selectedCab },
+      { key: 'trans',   label: selectedTrans,                on: !!selectedTrans },
+      { key: 'mileage', label: 'mileage cap',                on: selectedMileages.length > 0 },
+      // Last resort: any remaining (plausible) price ceiling.
+      { key: 'price',   label: 'price cap',        on: isFinite(priceMax) && priceMax >= 100_000 },
+    ];
+    const skip = new Set<string>();
+    const relaxed: string[] = [];
+    for (const t of tiers) {
+      if (!t.on) continue;
+      skip.add(t.key);
+      if (!relaxed.includes(t.label)) relaxed.push(t.label);
+      const items = DATA.filter(l => matchesFilters(l, skip));
+      if (items.length) return { items, relaxed };
+    }
+    return { items: [], relaxed };
+  }
+
   function applyFilters(resetPage = true) {
     if (resetPage) currentPage = 1;
 
-    const matched = sortMatched(DATA.filter(matchesFilters));
+    let matched = sortMatched(DATA.filter(l => matchesFilters(l)));
+    const relaxedNote = document.getElementById('relaxed-note');
+    // Only recover when there's a real search to rescue (not the default view).
+    if (matched.length === 0 && anySaveableFilter()) {
+      const { items, relaxed } = relaxToClosest();
+      if (items.length) {
+        matched = sortMatched(items);
+        const txt = document.getElementById('relaxed-note-text');
+        if (txt) txt.innerHTML = `No exact match, so here are the <strong>closest ${items.length}</strong> — we loosened the <strong>${relaxed.join('</strong> and <strong>')}</strong>. Not quite it? <button id="relaxed-alert" class="underline font-semibold">Get an alert</button> when an exact match is listed.`;
+        relaxedNote?.classList.remove('hidden');
+      } else {
+        relaxedNote?.classList.add('hidden');
+      }
+    } else {
+      relaxedNote?.classList.add('hidden');
+    }
+
     const totalPages = Math.ceil(matched.length / PAGE_SIZE);
     if (currentPage > totalPages) currentPage = Math.max(1, totalPages);
     const start = (currentPage - 1) * PAGE_SIZE;
@@ -1117,7 +1174,7 @@ function formatMileage(n: number) {
     (document.getElementById('price-filter') as HTMLElement).style.display = '';
     (document.getElementById('ms-mileage') as HTMLElement).style.display = '';
     applyFilters();
-    return DATA.filter(matchesFilters).length;
+    return DATA.filter(l => matchesFilters(l)).length;
   }
   (window as any).__lcsaApplyFilters = applyParsed;
 
@@ -1222,6 +1279,12 @@ function formatMileage(n: number) {
   });
   // Empty-state "alert me when one is listed" — same flow as Save this search.
   document.getElementById('empty-alert-btn')?.addEventListener('click', () => {
+    if (!LOGGED_IN) { signinRedirect(); return; }
+    openSsModal();
+  });
+  // "Get an alert" inside the relaxed-results note (injected dynamically) — same flow.
+  document.getElementById('relaxed-note')?.addEventListener('click', (e) => {
+    if (!(e.target as HTMLElement)?.closest('#relaxed-alert')) return;
     if (!LOGGED_IN) { signinRedirect(); return; }
     openSsModal();
   });
