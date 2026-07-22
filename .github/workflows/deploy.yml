@@ -17,8 +17,14 @@ jobs:
 
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
+      # Build the image HERE in the GitHub runner (US, effectively unlimited
+      # capacity) and push the finished image to Fly's registry, rather than
+      # asking Fly's remote builder — which lives in our jnb region and went
+      # down in the 2026-07-22 outage, blocking every deploy. `--local-only`
+      # uses the runner's own Docker daemon (ubuntu-latest ships it); the
+      # release step still updates the existing jnb machine in place.
       - name: Deploy
-        run: flyctl deploy --remote-only
+        run: flyctl deploy --local-only
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
