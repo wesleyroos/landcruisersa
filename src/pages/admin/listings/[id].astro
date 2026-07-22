@@ -6,7 +6,7 @@ import AdminIgPost from '@/components/AdminIgPost.astro';
 import { getCredentials } from '@/lib/instagram';
 import { getMarketPosition } from '@/lib/market-position';
 import { getRecentPriceChanges } from '@/lib/price-changes';
-import { getDemand } from '@/lib/listing-stats';
+import { getDemand, getDaysOnMarket, getModelMedianDom } from '@/lib/listing-stats';
 import { db } from '@/db/index';
 import { listings, dealerOffers, listingDocs } from '@/db/schema';
 import { eq, desc } from 'drizzle-orm';
@@ -153,44 +153,96 @@ const waChannelPost = [
   'Full details, photos & live market data:',
   waChannelLink,
 ].filter(l => l !== null).join('\n');
+
+// ── Admin decision data (header strip) ── computed for ANY status, so market
+// position is visible BEFORE approving a pending listing. getMarketPosition
+// compares this vehicle against the live cohort regardless of its own status.
+const isForSale = listing.listing_type === 'for_sale';
+const mktPos = isForSale && listing.price > 0 ? getMarketPosition(listing) : null;
+const mktAtMarket = mktPos ? Math.abs(mktPos.priceDiff) < mktPos.medianPrice * 0.02 : false;
+const mktDemand = getDemand(listing.slug);
+const dom = getDaysOnMarket(listing);
+const domMedian = getModelMedianDom(listing.model);
+const priceDrop = (() => { const c = getRecentPriceChanges().get(listing.slug) ?? 0; return c < 0 ? Math.abs(c) : 0; })();
+const kmStr = listing.mileage > 0 ? `${listing.mileage.toLocaleString('en-ZA')} km` : '—';
+const rand0 = (n: number) => 'R' + n.toLocaleString('en-ZA');
 ---
 
 <AdminLayout title={listing.title} activePage="listings">
 
-  <div class="edit-header">
+  <div class="ds-topbar">
     <a href="/admin" class="back-link">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
       All Listings
     </a>
-    <div class="header-badges">
-      <span class={`status-badge status-${listing.status}`}>{listing.status}</span>
-      <span class={`type-badge type-${listing.listing_type}`}>{listing.listing_type === 'for_sale' ? 'For Sale' : '★ Show Off'}</span>
-    </div>
-    <div class="header-actions">
+    <div class="ds-topbar-links">
       {listing.source_url && (
-        <a href={listing.source_url} target="_blank" rel="noopener" class="view-link">
-          View on {portalLabel}
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-        </a>
+        <a href={listing.source_url} target="_blank" rel="noopener" class="view-link">View on {portalLabel} ↗</a>
       )}
       {listing.status === 'active' && listing.slug && (
-        <a href={`/listings/${listing.slug}/`} target="_blank" class="view-link">
-          View on site
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-        </a>
+        <a href={`/listings/${listing.slug}/`} target="_blank" class="view-link">View on site ↗</a>
       )}
     </div>
   </div>
 
-  <div class="edit-grid">
+  <form id="edit-form">
 
-    <!-- LEFT: Form -->
-    <div class="edit-form-col">
+    <!-- ── DECISION STRIP: everything needed to approve, at a glance ── -->
+    <div class="decision-strip">
+      <div class="ds-cover">
+        {thumb
+          ? <img src={thumb} alt="Cover" loading="lazy" />
+          : <div class="ds-cover-empty">No photo</div>}
+        <span class="ds-photocount">{photos.length} 📷</span>
+      </div>
 
-      <div id="save-banner" class="save-banner hidden">Changes saved.</div>
-      <div id="error-banner" class="error-banner hidden">Something went wrong — try again.</div>
+      <div class="ds-panel ds-market">
+        <p class="ds-lbl">Market position</p>
+        {mktPos ? (
+          <>
+            <p class={`ds-big ${mktPos.priceDiff < 0 && !mktAtMarket ? 'good' : ''}`}>
+              {mktAtMarket ? 'At market price' : `${rand0(Math.abs(mktPos.priceDiff))} ${mktPos.priceDiff < 0 ? 'below' : 'above'} market`}
+            </p>
+            <p class="ds-sub">vs {mktPos.cohortSize} similar {mktPos.cohortLabel} · median {rand0(mktPos.medianPrice)}</p>
+            <div class="ds-chips">
+              <span class="ds-chip">{dom.days}{dom.floor ? '+' : ''}d listed{domMedian ? ` · median ${domMedian}d` : ''}</span>
+              {mktPos.mileageDiff !== null && (
+                <span class={`ds-chip ${mktPos.mileageDiff < 0 ? 'good' : ''}`}>{Math.abs(mktPos.mileageDiff).toLocaleString('en-ZA')}km {mktPos.mileageDiff < 0 ? 'below' : 'above'} avg</span>
+              )}
+              {mktDemand.topPct !== null && mktDemand.topPct <= 10 && <span class="ds-chip good">🔥 top {mktDemand.topPct}% viewed</span>}
+              {priceDrop > 0 && <span class="ds-chip drop">▼ {rand0(priceDrop)} drop</span>}
+              <span class="ds-chip">1 of {mktPos.modelSupply} live</span>
+            </div>
+          </>
+        ) : (
+          <p class="ds-sub">{isForSale ? 'No priced comps yet' : 'Show-off listing — no market position'}</p>
+        )}
+      </div>
 
-      <form id="edit-form">
+      <div class="ds-panel ds-specs">
+        <p class="ds-lbl">Key specs</p>
+        <p class="ds-price">{listing.price > 0 ? rand0(listing.price) : 'POA'}</p>
+        <p class="ds-sub">{listing.year} {modelLabel}</p>
+        <p class="ds-sub">{kmStr} · {listing.transmission === 'manual' ? 'Manual' : 'Auto'}{listing.fuel_type ? ` · ${listing.fuel_type}` : ''}</p>
+        <p class="ds-sub">{listing.province || '—'}</p>
+      </div>
+
+      <div class="ds-decide">
+        <span class={`type-badge type-${listing.listing_type}`}>{listing.listing_type === 'for_sale' ? 'For Sale' : '★ Show Off'}</span>
+        <label class="ds-decide-lbl">Status</label>
+        <select name="status" class="ds-status">
+          <option value="pending"  selected={listing.status === 'pending'}>⏳ Pending</option>
+          <option value="active"   selected={listing.status === 'active'}>✅ Active (live)</option>
+          <option value="sold"     selected={listing.status === 'sold'}>💰 Sold</option>
+        </select>
+        <button type="submit" class="btn-save ds-save" id="save-btn">Save Changes</button>
+      </div>
+    </div>
+
+    <div id="save-banner" class="save-banner hidden">Changes saved.</div>
+    <div id="error-banner" class="error-banner hidden">Something went wrong — try again.</div>
+
+    <div class="form-cards">
 
         <!-- Source -->
         <div class="card">
@@ -204,18 +256,10 @@ const waChannelPost = [
           </div>
         </div>
 
-        <!-- Status & Type -->
+        <!-- Type & flags (status lives in the decision strip above) -->
         <div class="card">
-          <h2 class="card-heading">Status & Type</h2>
+          <h2 class="card-heading">Type &amp; Flags</h2>
           <div class="field-row">
-            <div class="field">
-              <label>Status</label>
-              <select name="status">
-                <option value="pending"  selected={listing.status === 'pending'}>Pending</option>
-                <option value="active"   selected={listing.status === 'active'}>Active</option>
-                <option value="sold"     selected={listing.status === 'sold'}>Sold</option>
-              </select>
-            </div>
             <div class="field">
               <label>Listing Type</label>
               <select name="listing_type" id="f-listing-type">
@@ -362,12 +406,10 @@ const waChannelPost = [
           </div>
         </div>
 
-        <div class="form-actions">
-          <button type="submit" class="btn-save" id="save-btn">Save Changes</button>
-          <a href={`/listings/${listing.slug}/`} target="_blank" class="btn-view-live">View Live →</a>
-        </div>
+    </div><!-- /.form-cards -->
+  </form>
 
-      </form>
+  <div class="tool-cards">
 
       {isOwn && (
         <>
@@ -495,20 +537,24 @@ const waChannelPost = [
           </div>
         </>
       )}
-    </div>
+    </div><!-- /isOwn fragment sits directly in tool-cards -->
 
-    <!-- RIGHT: Photos -->
-    <div class="edit-photos-col">
-      <div class="card">
+      <!-- Photos -->
+      <div class="card photos-card">
         <h2 class="card-heading">Photos</h2>
         <p class="no-photos" id="no-photos-msg" style={photos.length > 0 ? 'display:none' : ''}>No photos uploaded.</p>
-        <p class="photo-hint" id="photo-hint" style={photos.length > 1 ? '' : 'display:none'}>Drag to reorder. First photo is the cover.</p>
+        <p class="photo-hint" id="photo-hint" style={photos.length > 1 ? '' : 'display:none'}>Tap ★ to make cover, ◀ ▶ to reorder. #1 is the cover. (Drag also works on desktop.)</p>
         <div class="photo-grid" id="photo-grid">
           {photos.map((src, i) => (
             <div class="photo-wrap" draggable="true" data-src={src}>
               <span class="photo-num">{i + 1}</span>
               <img src={src} alt={`Photo ${i + 1}`} loading="lazy" />
-              <button class="photo-delete" type="button" title="Remove photo">✕</button>
+              <div class="photo-ctrls">
+                <button class="pc-btn pc-cover" type="button" title="Make cover photo">★</button>
+                <button class="pc-btn pc-back" type="button" title="Move earlier">◀</button>
+                <button class="pc-btn pc-fwd" type="button" title="Move later">▶</button>
+                <button class="pc-btn pc-del photo-delete" type="button" title="Remove photo">✕</button>
+              </div>
             </div>
           ))}
         </div>
@@ -603,9 +649,7 @@ const waChannelPost = [
         )}
       </div>
 
-    </div>
-
-  </div>
+  </div><!-- /.tool-cards -->
 
   <!-- PHOTO LIGHTBOX -->
   <div id="admin-lb" class="alb" aria-hidden="true">
@@ -857,6 +901,75 @@ const waChannelPost = [
   .source-link { font-size: 0.8rem; color: #D4881A; text-decoration: none; word-break: break-all; }
   .source-link:hover { text-decoration: underline; }
   .source-none { font-size: 0.8rem; color: #9CA3AF; }
+
+  /* ── Redesign 2026-07-22: decision strip + compact, mobile-first layout ── */
+  .ds-topbar { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.9rem; }
+  .ds-topbar-links { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+  .ds-topbar .view-link { font-size: 0.78rem; font-weight: 600; color: #6B7280; text-decoration: none; white-space: nowrap; }
+  .ds-topbar .view-link:hover { color: #111; }
+
+  .decision-strip {
+    display: grid; grid-template-columns: 132px minmax(0,1.4fr) minmax(0,1fr) 210px;
+    gap: 0.9rem; align-items: start;
+    background: #fff; border: 1px solid #DDD9D3; border-radius: 0.875rem;
+    padding: 0.9rem; margin-bottom: 1rem;
+  }
+  .ds-cover { position: relative; align-self: start; width: 100%; border-radius: 0.6rem; overflow: hidden; background: #F5F3EE; aspect-ratio: 4/3; }
+  .ds-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .ds-cover-empty { display: flex; align-items: center; justify-content: center; height: 100%; font-size: 0.75rem; color: #9CA3AF; }
+  .ds-photocount { position: absolute; bottom: 0.35rem; right: 0.35rem; background: rgba(0,0,0,0.65); color: #fff; font-size: 0.65rem; font-weight: 700; padding: 0.1rem 0.4rem; border-radius: 9999px; }
+  .ds-panel { min-width: 0; display: flex; flex-direction: column; }
+  .ds-lbl { font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #9CA3AF; margin: 0 0 0.35rem; }
+  .ds-big { font-family: var(--font-heading, inherit); font-weight: 800; font-size: 1.05rem; line-height: 1.15; color: #111; margin: 0; }
+  .ds-big.good, .ds-chip.good { color: #16803C; }
+  .ds-price { font-family: var(--font-heading, inherit); font-weight: 800; font-size: 1.25rem; line-height: 1.1; color: #111; margin: 0 0 0.15rem; }
+  .ds-sub { font-size: 0.78rem; color: #6B7280; margin: 0.1rem 0 0; line-height: 1.35; }
+  .ds-chips { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.5rem; }
+  .ds-chip { font-size: 0.68rem; font-weight: 600; background: #F5F3EE; color: #4A4A4A; border: 1px solid #EAE8E3; padding: 0.15rem 0.5rem; border-radius: 9999px; white-space: nowrap; }
+  .ds-chip.drop { color: #16803C; background: #F0FDF4; border-color: #BBF7D0; }
+  .ds-decide { display: flex; flex-direction: column; gap: 0.45rem; justify-content: flex-start; }
+  .ds-decide .type-badge { align-self: flex-start; }
+  .ds-decide-lbl { font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #9CA3AF; margin: 0.25rem 0 0; }
+  .ds-status { font-size: 0.95rem; font-weight: 600; padding: 0.6rem 0.7rem; }
+  .ds-save { width: 100%; justify-content: center; text-align: center; }
+
+  /* Compact card grids — 2-up on wide screens, stacked on mobile */
+  .form-cards, .tool-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 0.9rem; align-items: start; }
+  .form-cards .card, .tool-cards .card { margin-bottom: 0; }
+  /* Wide/tall cards span both columns */
+  .form-cards .card:nth-child(3), /* Vehicle Details */
+  .form-cards .card:nth-child(4), /* Description */
+  .photos-card, .offers-card, .docs-card { grid-column: 1 / -1; }
+
+  /* Touch-friendly photo controls (drag still works on desktop) */
+  .photo-ctrls { position: absolute; left: 0; right: 0; bottom: 0; display: flex; gap: 0.25rem; padding: 0.3rem; justify-content: center;
+    background: linear-gradient(to top, rgba(0,0,0,0.6), transparent); }
+  .pc-btn { width: 2rem; height: 2rem; border: none; border-radius: 0.4rem; background: rgba(255,255,255,0.92); color: #111;
+    font-size: 0.9rem; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+  .pc-btn:active { transform: scale(0.92); }
+  .pc-cover { color: #C9790F; }
+  /* Delete now lives in the always-visible controls bar — neutralise the old
+     hover-only absolute positioning so it renders as a bar button on touch. */
+  .photo-ctrls .photo-delete { position: static; top: auto; right: auto; opacity: 1;
+    width: 2rem; height: 2rem; border-radius: 0.4rem; font-size: 0.85rem;
+    background: rgba(220,38,38,0.92); color: #fff; }
+
+  @media (max-width: 820px) {
+    .decision-strip { grid-template-columns: 96px 1fr; grid-auto-rows: auto; }
+    .ds-cover { grid-row: span 2; aspect-ratio: 3/4; }
+    .ds-decide { grid-column: 1 / -1; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 0.5rem; border-top: 1px solid #EAE8E3; padding-top: 0.6rem; }
+    .ds-decide .type-badge { order: 3; }
+    .ds-decide-lbl { display: none; }
+    .ds-status { flex: 1 1 8rem; }
+    .ds-save { width: auto; flex: 1 1 8rem; }
+    .form-cards, .tool-cards { grid-template-columns: 1fr; }
+    .form-cards .card:nth-child(n), .photos-card, .offers-card, .docs-card { grid-column: auto; }
+    .field-row { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 520px) {
+    .decision-strip { grid-template-columns: 1fr; padding: 0.75rem; }
+    .ds-cover { grid-row: auto; aspect-ratio: 16/9; }
+  }
 </style>
 
 <script define:vars={{ listingId: listing.id }}>
@@ -1064,27 +1177,44 @@ const waChannelPost = [
     if (e.key === 'ArrowRight') albOpen(albIndex + 1);
   });
 
-  // Delete a photo, or open the lightbox when clicking the photo itself
+  // Photo controls (touch-friendly reorder + cover + delete), or open the
+  // lightbox when clicking the photo itself. All handled here so there are no
+  // listener-ordering surprises. Move/cover reuse the same debounced save as drag.
   grid.addEventListener('click', async (e) => {
-    const btn = e.target.closest('.photo-delete');
-    if (!btn) {
-      const wrap = e.target.closest('.photo-wrap');
-      if (wrap) {
-        const all = [...grid.querySelectorAll('.photo-wrap')];
-        albOpen(all.indexOf(wrap));
-      }
+    const wrap = e.target.closest('.photo-wrap');
+    if (!wrap) return;
+
+    // ★ make cover — move to the front
+    if (e.target.closest('.pc-cover')) {
+      grid.insertBefore(wrap, grid.firstElementChild);
+      refreshPhotoMeta(); queueOrderSave(); return;
+    }
+    // ◀ move earlier
+    if (e.target.closest('.pc-back')) {
+      const prev = wrap.previousElementSibling;
+      if (prev) { grid.insertBefore(wrap, prev); refreshPhotoMeta(); queueOrderSave(); }
       return;
     }
-    const wrap = btn.closest('.photo-wrap');
-    wrap.remove();
-    refreshPhotoMeta();
-    // Immediately persist the deletion
-    const photos = [...grid.querySelectorAll('.photo-wrap')].map(el => el.dataset.src);
-    await fetch(`/api/listings/${listingId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ photos }),
-    });
+    // ▶ move later
+    if (e.target.closest('.pc-fwd')) {
+      const next = wrap.nextElementSibling;
+      if (next) { grid.insertBefore(next, wrap); refreshPhotoMeta(); queueOrderSave(); }
+      return;
+    }
+    // ✕ delete
+    if (e.target.closest('.photo-delete')) {
+      wrap.remove();
+      refreshPhotoMeta();
+      const photos = [...grid.querySelectorAll('.photo-wrap')].map(el => el.dataset.src);
+      await fetch(`/api/listings/${listingId}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ photos }),
+      });
+      return;
+    }
+    // otherwise: open the lightbox
+    const all = [...grid.querySelectorAll('.photo-wrap')];
+    albOpen(all.indexOf(wrap));
   });
 
   // Upload
