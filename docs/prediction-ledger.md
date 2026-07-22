@@ -650,3 +650,70 @@ date, compare to baseline, mark HIT / MISS / PARTIAL, and write the lesson.
   don't over-read a ±20% wobble; peak-season effects (winter safari season ends ~Sep).
 - **Result:** _pending 2026-09-01_
 - **Lesson:** _tbd_
+
+## P20 — Market-position card overhaul (buyer-trust surface)
+
+- **Opened:** 2026-07-22
+- **Review on:** 2026-08-21 (30d)
+- **Surface:** listing pages — the market-position card rebuilt in four steps
+  (commits 4b5ae40, fb77154, ae0b198, 8fa6211): days-on-market vs model-median +
+  demand-percentile rows added; beige tiles → compact spec-table rows (cool
+  hairlines, condensed numerals); demand shown as percentile only, never raw
+  views; off-market listings get the honest "sold treatment" (final DOM banner,
+  live-stock + valuation CTAs, no contact CTAs).
+- **Thesis:** the card is the page's proof that LCSA is a *data* product, not
+  another classifieds skin. A buyer who trusts the numbers is more likely to act
+  (portal handoff, valuation) and to come back. Redesign should at minimum not
+  hurt the funnel, and the honesty features (DOM, sold treatment) compound the
+  citation/trust strategy even if clicks don't move.
+- **Honest measurement caveat, stated up front:** there is NO A/B here — one
+  variant shipped to everyone, graded against a prior-period baseline with a
+  changing traffic mix. This can detect *regression* and *large* lifts, not
+  small causal effects. Building A/B infra at ~2k visitors/30d would be noise
+  (business-brain drift-guard applies). "Did people respond positively" =
+  funnel didn't degrade + directional lift + Wesley's qualitative read.
+- **Baseline (30d to 2026-07-22, prod DB):**
+  - Portal handoffs (`click_events`): **322** · listing views (`view_events`): **3,966**
+    → **81 handoffs / 1,000 listing views** (the number that matters)
+  - Valuation requests: **102/30d**
+- **Predictions (review 2026-08-21):**
+  1. *(PRIMARY, no-regression)* handoff rate ≥ **75 / 1,000 listing views**
+     (grading: click_events ÷ view_events × 1000, 30d window).
+  2. Valuation requests ≥ **100/30d** (card sits directly above the valuation CTA).
+  3. *(directional)* dwell on listing pages doesn't drop (Plausible avg time,
+     eyeball only — no threshold).
+- **Caveat:** handoff rate is also moved by stock mix (a hot 79 batch lifts it
+  regardless of UI). If the rate moves ±10%, call it flat.
+- **Result:** _pending 2026-08-21_
+- **Lesson:** _tbd_
+
+## P21 — WhatsApp Channel (owned-audience spoke)
+
+- **Opened:** 2026-07-22
+- **Review on:** 2026-08-21 (30d; pro-rate popup metrics from popup go-live date)
+- **Surface:** WhatsApp Channel `0029Vb8GFwx9sBI3yG0LmP45` + per-listing admin
+  post composer (utm `wa-channel`, live) + site join-popup (built 2026-07-22,
+  **pending Wesley's design approval — not yet live**; 30d frequency cap,
+  join-clicks logged to `outbound_clicks` as `popup:<path>` → whatsapp.com).
+- **Thesis:** SA is WhatsApp-first and a Channel is an owned, algorithm-free
+  daily touchpoint — the retention/return-traffic loop the site lacks (IG
+  reaches new people; the Channel keeps the caught ones). Distribution is
+  manual-paste by design: no official Channels API exists and third-party
+  wrappers risk the number.
+- **Baseline (2026-07-22):** followers **0** · `utm_source=wa-channel` sessions
+  **0** · whatsapp.com rows in `outbound_clicks` **0** (clean slate).
+- **Predictions (review 2026-08-21):**
+  1. *(PRIMARY)* **≥ 75 followers** — requires Wesley posting ~daily via the
+     composer + channel link pushed on IG/FB + popup live within ~1 week.
+     (Grading: follower count in WhatsApp channel admin, manual read.)
+  2. Popup join-clicks ≥ **40** (`outbound_clicks` path LIKE 'popup:%') — grades
+     the popup itself against ~2k visitors/30d ≈ 2% tap rate.
+  3. Channel drives ≥ **100 site sessions** tagged `wa-channel` in the first 30d
+     of consistent daily posting (Plausible source + visit_events).
+  4. *(stretch)* first tracked conversion (valuation / finance / handoff) in a
+     `wa-channel` session via the client_id join in /admin/analytics.
+- **Caveat:** follower count is a manual metric (no API) — log it in the weekly
+  checkup. Prediction 1 fails cheaply if posting cadence doesn't hold; that
+  itself is the lesson (audience spokes die of inconsistency, not reach).
+- **Result:** _pending 2026-08-21_
+- **Lesson:** _tbd_
