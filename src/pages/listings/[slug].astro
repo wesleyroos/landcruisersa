@@ -120,7 +120,7 @@ function waUrl(phone: string, title: string): string {
 
 import { getRecentPriceChanges } from '@/lib/price-changes';
 import { getMarketPosition } from '@/lib/market-position';
-import { getDaysOnMarket, getModelMedianDom } from '@/lib/listing-stats';
+import { getDaysOnMarket, getModelMedianDom, getDemand } from '@/lib/listing-stats';
 import AdBanner from '@/components/AdBanner.astro';
 const priceDropAmount = (() => {
   const c = getRecentPriceChanges().get(listing.slug) ?? 0;
@@ -134,6 +134,15 @@ const marketPos = (!isShowOff && listing.status === 'active') ? getMarketPositio
 // source) + model median for context; demand = 30d views percentile.
 const dom = !isShowOff ? getDaysOnMarket(listing) : null;
 const domMedian = !isShowOff ? getModelMedianDom(listing.model) : null;
+// Demand tile: percentile only, never the raw view count — "top 5% by buyer
+// interest" is social proof; "23 views" is a magnifying glass on site scale.
+// Only strong signals show (top 20%), so the tile is absent, not embarrassing,
+// on slow listings.
+const demandPct = (() => {
+  if (isShowOff || listing.status !== 'active') return null;
+  const d = getDemand(listing.slug);
+  return d.topPct !== null && d.topPct <= 20 ? d.topPct : null;
+})();
 const domLabel = dom ? `${dom.days}${dom.floor ? '+' : ''} day${dom.days === 1 && !dom.floor ? '' : 's'}` : '';
 const offMarketDate = listing.off_market_at
   ? (listing.off_market_at instanceof Date ? listing.off_market_at : new Date((listing.off_market_at as unknown as number) * 1000))
@@ -454,6 +463,12 @@ if (metaDescription.length > 160) {
                 <div class="mp-tile">
                   <p class="mp-big">{domLabel} on market</p>
                   <p class="mp-sub">{domMedian ? `${mLabel} listings take a median of ${domMedian} days to leave the market` : 'tracked from when we first saw this listing'}</p>
+                </div>
+              )}
+              {demandPct !== null && (
+                <div class="mp-tile">
+                  <p class={`mp-big ${demandPct <= 10 ? 'mp-good' : ''}`}>Top {demandPct}% by buyer interest</p>
+                  <p class="mp-sub">among all listings viewed on Land Cruiser SA in the last 30 days</p>
                 </div>
               )}
             </div>
@@ -1461,9 +1476,14 @@ if (metaDescription.length > 160) {
 
   /* MARKET POSITION */
   .mp-grid { display: grid; grid-template-columns: 1fr; gap: 0.875rem; margin-bottom: 0.5rem; }
-  /* auto-fit keeps the row balanced whether 3 or 4 tiles render (mileage tile
-     is conditional) — no dangling last tile on its own row. */
-  @media (min-width: 640px) { .mp-grid { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); } }
+  /* Flex keeps the row balanced whether 3, 4 or 5 tiles render (mileage and
+     demand tiles are conditional): tiles share one row where they fit, and a
+     wrapped tile stretches to fill its row — never a dangling tile beside a
+     grid hole. */
+  @media (min-width: 640px) {
+    .mp-grid { display: flex; flex-wrap: wrap; }
+    .mp-tile { flex: 1 1 130px; min-width: 0; }
+  }
   .mp-tile { background: #FAF9F6; border: 1px solid #EAE7E0; border-radius: 0.625rem; padding: 0.875rem 1rem; }
   .mp-big { font-family: var(--font-heading); font-weight: 700; font-size: 1rem; color: #111; line-height: 1.2; }
   .mp-good { color: #166534; }
