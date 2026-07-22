@@ -87,11 +87,20 @@ async function poll() {
 
   if (liveListings.length === 0) { console.log(`${LABEL} [poll] nothing to poll`); return; }
 
+  // Drop sources this poll can't check (autotrader/carsza — reconciled at ingest,
+  // no adapter here) BEFORE the CAP. They're never-polled so their null
+  // last_polled_at sorts first, and skipped rows never get a last_polled_at
+  // stamp — so left in, thousands of them (4,516 AT + 2,139 carsza on 2026-07-22)
+  // permanently fill the 800 slots and the pollable sources (wbc/wbb/vcsa) never
+  // get reached. That starvation is why ~1,600 WBC listings sat never-polled and
+  // dead WBC cars were never reaped.
+  const pollable = liveListings.filter(l => ADAPTERS[l.source]);
+
   // Oldest-polled first (never-polled = null sorts first) so coverage rotates
   // across runs and the per-run CAP doesn't starve the same tail every time.
-  liveListings.sort((a, b) => (a.last_polled_at ?? 0) - (b.last_polled_at ?? 0));
-  const toCheck = liveListings.slice(0, CAP);
-  console.log(`${LABEL} [poll] ${liveListings.length} active; checking ${toCheck.length} oldest-polled this run`);
+  pollable.sort((a, b) => (a.last_polled_at ?? 0) - (b.last_polled_at ?? 0));
+  const toCheck = pollable.slice(0, CAP);
+  console.log(`${LABEL} [poll] ${liveListings.length} active, ${pollable.length} pollable; checking ${toCheck.length} oldest-polled this run`);
 
   let pending: Update[] = [];
   let totalUpdated = 0, removedCount = 0, errorCount = 0, skipped = 0;
