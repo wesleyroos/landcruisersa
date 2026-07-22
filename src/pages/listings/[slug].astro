@@ -25,7 +25,10 @@ if (parsePhotos(listing.photos).length === 0) {
   return Astro.redirect('/listings/');
 }
 
-const isSold = listing.status === 'sold';
+// Off-market = sold OR removed (delisted at source). Both get the "no longer
+// available" treatment: banner, no contact CTAs, SoldOut schema — a removed
+// listing must never read as buyable (it was silently doing exactly that).
+const isSold = listing.status === 'sold' || listing.status === 'removed';
 const isExternal = Boolean(listing.source_url);
 const isShowOff = listing.listing_type === 'show_off';
 
@@ -117,6 +120,7 @@ function waUrl(phone: string, title: string): string {
 
 import { getRecentPriceChanges } from '@/lib/price-changes';
 import { getMarketPosition } from '@/lib/market-position';
+import { getDaysOnMarket, getModelMedianDom, getDemand } from '@/lib/listing-stats';
 import AdBanner from '@/components/AdBanner.astro';
 const priceDropAmount = (() => {
   const c = getRecentPriceChanges().get(listing.slug) ?? 0;
@@ -125,6 +129,17 @@ const priceDropAmount = (() => {
 
 // Cross-platform market position (null when the cohort is too thin)
 const marketPos = (!isShowOff && listing.status === 'active') ? getMarketPosition(listing) : null;
+
+// Days on market (honest: "N+" when the car predates our tracking of its
+// source) + model median for context; demand = 30d views percentile.
+const dom = !isShowOff ? getDaysOnMarket(listing) : null;
+const domMedian = !isShowOff ? getModelMedianDom(listing.model) : null;
+const demand = (!isShowOff && listing.status === 'active') ? getDemand(listing.slug) : null;
+const domLabel = dom ? `${dom.days}${dom.floor ? '+' : ''} day${dom.days === 1 && !dom.floor ? '' : 's'}` : '';
+const offMarketDate = listing.off_market_at
+  ? (listing.off_market_at instanceof Date ? listing.off_market_at : new Date((listing.off_market_at as unknown as number) * 1000))
+      .toLocaleDateString('en-ZA', { day: 'numeric', month: 'long', year: 'numeric' })
+  : null;
 const atMarket = marketPos ? Math.abs(marketPos.priceDiff) < marketPos.medianPrice * 0.02 : false;
 
 function formatPrice(n: number) {
@@ -247,9 +262,15 @@ if (metaDescription.length > 160) {
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
         <div>
           <strong>This vehicle is no longer available.</strong>
-          <span>The listing has been removed from the source — it may have sold or been withdrawn. Browse similar vehicles below.</span>
+          <span>
+            {offMarketDate ? `It left the market on ${offMarketDate}` : 'It has left the market'}{dom ? ` after ${domLabel} listed` : ''}{listing.price > 0 ? `, last asking ${formatPrice(listing.price)}` : ''}.
+            It may have sold or been withdrawn.
+          </span>
         </div>
-        <a href="/listings/" class="sold-browse">Browse listings →</a>
+        <div class="sold-ctas">
+          <a href={`/listings/model/${listing.model}/`} class="sold-browse">{mLabel} for sale now →</a>
+          <a href={valuationHref} class="sold-browse sold-browse-alt">What's yours worth?</a>
+        </div>
       </div>
     </div>
   )}
@@ -430,6 +451,18 @@ if (metaDescription.length > 160) {
                 <p class="mp-big">1 of {marketPos.modelSupply} for sale</p>
                 <p class="mp-sub"><a href={`/market/${listing.model}/`}>{listing.model.replace(/-/g, ' ').toUpperCase()} live market data →</a></p>
               </div>
+              {dom && (
+                <div class="mp-tile">
+                  <p class="mp-big">{domLabel} on market</p>
+                  <p class="mp-sub">{domMedian ? `${mLabel} listings take a median of ${domMedian} days to leave the market` : 'tracked from when we first saw this listing'}</p>
+                </div>
+              )}
+              {demand && demand.views >= 10 && (
+                <div class="mp-tile">
+                  <p class={`mp-big ${demand.topPct && demand.topPct <= 10 ? 'mp-good' : ''}`}>{demand.views.toLocaleString('en-ZA')} views in 30 days</p>
+                  <p class="mp-sub">{demand.topPct ? `top ${demand.topPct}% of all listings by buyer interest` : 'on Land Cruiser SA'}</p>
+                </div>
+              )}
             </div>
             {marketPos.history.length > 0 && (
               <div class="mp-history">
@@ -1472,6 +1505,8 @@ if (metaDescription.length > 160) {
     flex-wrap: wrap;
     margin-bottom: 1.5rem;
   }
+  .sold-ctas { display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: center; margin-left: auto; }
+  .sold-browse-alt { background: transparent !important; color: #92400E !important; border: 1.5px solid #F5A623; }
   .sold-banner svg { color: #F5A623; flex-shrink: 0; margin-top: 1px; }
   .sold-banner div { flex: 1; min-width: 0; }
   .sold-banner strong { display: block; font-size: 0.875rem; color: #111111; margin-bottom: 0.2rem; }
