@@ -4,6 +4,7 @@ import Nav from '@/components/Nav.astro';
 import Footer from '@/components/Footer.astro';
 import ChatWidget from '@/components/ChatWidget.astro';
 import SigninModal from '@/components/SigninModal.astro';
+import WaChannelPopup from '@/components/WaChannelPopup.astro';
 import { SITE } from '@/data/site';
 
 interface Props {
@@ -213,5 +214,6 @@ const ogImage = new URL(image, SITE.url).href;
     <Footer />
     <ChatWidget />
     <SigninModal />
+    <WaChannelPopup />
   </body>
 </html>

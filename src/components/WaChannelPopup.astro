@@ -1,0 +1,155 @@
+---
+// WhatsApp Channel invite — centered modal over a dimmed page, 15s after load.
+// Frequency: dismiss (×, "Not now", backdrop, Esc) → again in 30 days;
+// clicking Join → never shown again (localStorage sentinel).
+// Join clicks are logged via /api/track-outbound with path "popup:<page>" so
+// the channel experiment (prediction-ledger P21) is measurable.
+const CHANNEL_URL = 'https://whatsapp.com/channel/0029Vb8GFwx9sBI3yG0LmP45';
+// Hero: the sand 2022 79 D/C build (snorkel, light bar, bull bar) at golden hour.
+const HERO_IMG = 'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev/uploads/listings/1781518921197-669292c0.jpg';
+---
+
+<div id="wa-ch-overlay" class="wa-ov" hidden>
+  <div class="wa-pop" role="dialog" aria-modal="true" aria-label="Join the Land Cruiser SA WhatsApp Channel">
+    <button type="button" class="wa-pop-x" id="wa-pop-x" aria-label="Close">&times;</button>
+    <div class="wa-pop-hero">
+      <img src={HERO_IMG} alt="" loading="lazy" />
+      <div class="wa-pop-hero-text">
+        <p class="wa-pop-eyebrow">Land Cruiser SA · WhatsApp Channel</p>
+        <p class="wa-pop-head">Daily Cruiser drops.<br />Worth opening.</p>
+      </div>
+    </div>
+    <div class="wa-pop-body">
+      <p class="wa-pop-feats">
+        <span>Hero builds</span><i></i><span>Price drops</span><i></i><span>Sharp-priced finds</span>
+      </p>
+      <p class="wa-pop-text">The best of the SA Cruiser market, hand-picked from every platform — posted daily, straight to WhatsApp.</p>
+      <a class="wa-pop-join" id="wa-pop-join" href={CHANNEL_URL} target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" width="19" height="19" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm5.4 14.1c-.2.6-1.2 1.2-1.7 1.2-.4.1-1 .1-1.6-.1-.4-.1-.9-.3-1.5-.6-2.6-1.1-4.3-3.8-4.4-4-.1-.2-1-1.4-1-2.6 0-1.2.6-1.8.9-2 .2-.3.5-.3.7-.3h.5c.2 0 .4-.1.6.4l.9 2.1c.1.2.1.4 0 .6l-.4.6-.5.5c-.1.2-.3.3-.1.6.2.3.8 1.3 1.7 2.1 1.2 1 2.1 1.4 2.4 1.5.3.1.5.1.7-.1l1-1.2c.2-.3.4-.2.7-.1l2 1c.3.1.5.2.6.3.1.2.1.7-.1 1.2Z"/></svg>
+        Join the channel
+      </a>
+      <button type="button" class="wa-pop-later" id="wa-pop-later">Not now</button>
+    </div>
+  </div>
+</div>
+
+<style>
+  .wa-ov {
+    position: fixed; inset: 0; z-index: 80;
+    display: flex; align-items: center; justify-content: center;
+    padding: 1.25rem;
+    background: rgba(12, 13, 15, 0.62);
+    backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
+    opacity: 0; transition: opacity 0.4s ease;
+  }
+  .wa-ov.wa-in { opacity: 1; }
+  .wa-pop {
+    position: relative;
+    width: min(400px, 100%);
+    background: #fff; border-radius: 1rem; overflow: hidden;
+    box-shadow: 0 24px 80px rgba(0,0,0,0.45);
+    transform: translateY(16px) scale(0.97);
+    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .wa-ov.wa-in .wa-pop { transform: translateY(0) scale(1); }
+  @media (prefers-reduced-motion: reduce) {
+    .wa-ov, .wa-pop { transition: none; }
+  }
+  .wa-pop-x {
+    position: absolute; top: 0.45rem; right: 0.6rem; z-index: 3;
+    background: none; border: none; cursor: pointer;
+    color: rgba(255,255,255,0.8); font-size: 1.7rem; line-height: 1; padding: 0.25rem;
+  }
+  .wa-pop-x:hover { color: #fff; }
+  .wa-pop-hero { position: relative; height: 215px; background: #111; }
+  .wa-pop-hero img {
+    width: 100%; height: 100%; object-fit: cover; object-position: center 68%;
+    filter: grayscale(0.3) brightness(0.92);
+  }
+  .wa-pop-hero::after {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(180deg, rgba(15,15,17,0.25) 0%, rgba(15,15,17,0.05) 35%, rgba(15,15,17,0.94) 100%);
+  }
+  .wa-pop-hero-text { position: absolute; left: 1.4rem; right: 1.4rem; bottom: 1rem; z-index: 1; }
+  .wa-pop-eyebrow {
+    font-size: 0.62rem; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase;
+    color: #F5A623; margin: 0 0 0.3rem;
+  }
+  .wa-pop-head {
+    font-family: var(--font-heading); font-weight: 700; text-transform: uppercase;
+    font-size: 1.8rem; line-height: 0.98; color: #fff; letter-spacing: 0.01em; margin: 0;
+  }
+  .wa-pop-body { padding: 1rem 1.4rem 1.15rem; }
+  .wa-pop-feats {
+    display: flex; align-items: center; justify-content: center; gap: 0.55rem;
+    margin: 0 0 0.6rem;
+    font-family: var(--font-heading); font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.06em; font-size: 0.78rem; color: #14161A;
+  }
+  .wa-pop-feats i { width: 3px; height: 3px; border-radius: 50%; background: #F5A623; }
+  .wa-pop-text { font-size: 0.8rem; line-height: 1.55; color: #6B7280; text-align: center; margin: 0 0 0.95rem; }
+  .wa-pop-join {
+    display: flex; align-items: center; justify-content: center; gap: 0.55rem;
+    background: #25D366; color: #fff; text-decoration: none;
+    font-family: var(--font-heading); font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.05em; font-size: 1.02rem;
+    padding: 0.75rem 1rem; border-radius: 0.6rem;
+    transition: background 0.15s ease;
+  }
+  .wa-pop-join:hover { background: #1FBE5B; }
+  .wa-pop-later {
+    display: block; width: 100%; margin-top: 0.4rem; padding: 0.45rem;
+    background: none; border: none; cursor: pointer;
+    font-size: 0.74rem; color: #9CA3AF;
+  }
+  .wa-pop-later:hover { color: #6B7280; }
+</style>
+
+<script is:inline>
+  (function () {
+    var KEY = 'lcsa_wa_ch_at';
+    var DAY = 86400000;
+    var ov = document.getElementById('wa-ch-overlay');
+    if (!ov) return;
+    try {
+      var raw = localStorage.getItem(KEY);
+      if (raw === 'joined') return;                       // joined — never again
+      if (raw && Date.now() - Number(raw) < 30 * DAY) return; // dismissed < 30d ago
+    } catch (e) { return; }
+
+    function hide() {
+      ov.classList.remove('wa-in');
+      document.documentElement.style.overflow = '';
+      setTimeout(function () { ov.hidden = true; }, 400);
+    }
+    function dismiss() {
+      try { localStorage.setItem(KEY, String(Date.now())); } catch (e) {}
+      hide();
+    }
+
+    setTimeout(function () {
+      ov.hidden = false;
+      document.documentElement.style.overflow = 'hidden';
+      requestAnimationFrame(function () { ov.classList.add('wa-in'); });
+    }, 15000);
+
+    document.getElementById('wa-pop-x').addEventListener('click', dismiss);
+    document.getElementById('wa-pop-later').addEventListener('click', dismiss);
+    ov.addEventListener('click', function (e) { if (e.target === ov) dismiss(); });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && !ov.hidden) dismiss();
+    });
+    document.getElementById('wa-pop-join').addEventListener('click', function () {
+      try { localStorage.setItem(KEY, 'joined'); } catch (e) {}
+      try {
+        fetch('/api/track-outbound', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ path: 'popup:' + location.pathname, url: this.href }),
+          keepalive: true,
+        });
+      } catch (e) {}
+      hide();
+    });
+  })();
+</script>

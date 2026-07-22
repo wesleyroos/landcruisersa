@@ -692,8 +692,8 @@ date, compare to baseline, mark HIT / MISS / PARTIAL, and write the lesson.
 - **Opened:** 2026-07-22
 - **Review on:** 2026-08-21 (30d; pro-rate popup metrics from popup go-live date)
 - **Surface:** WhatsApp Channel `0029Vb8GFwx9sBI3yG0LmP45` + per-listing admin
-  post composer (utm `wa-channel`, live) + site join-popup (built 2026-07-22,
-  **pending Wesley's design approval — not yet live**; 30d frequency cap,
+  post composer (utm `wa-channel`, live) + site join-popup (**live 2026-07-22**:
+  centered modal, 15s delay; dismiss → 30d cap, join → never again;
   join-clicks logged to `outbound_clicks` as `popup:<path>` → whatsapp.com).
 - **Thesis:** SA is WhatsApp-first and a Channel is an owned, algorithm-free
   daily touchpoint — the retention/return-traffic loop the site lacks (IG
