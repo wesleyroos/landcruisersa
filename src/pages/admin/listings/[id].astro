@@ -6,6 +6,7 @@ import AdminIgPost from '@/components/AdminIgPost.astro';
 import { getCredentials } from '@/lib/instagram';
 import { getMarketPosition } from '@/lib/market-position';
 import { getRecentPriceChanges } from '@/lib/price-changes';
+import { getDemand } from '@/lib/listing-stats';
 import { db } from '@/db/index';
 import { listings, dealerOffers, listingDocs } from '@/db/schema';
 import { eq, desc } from 'drizzle-orm';
@@ -126,7 +127,13 @@ const waChDrop = (() => {
   return c < 0 ? Math.abs(c) : 0;
 })();
 const waChAtMarket = waChPos ? Math.abs(waChPos.priceDiff) < waChPos.medianPrice * 0.02 : false;
+// Demand hook: percentile only, never the raw view count — "top 5% most-viewed"
+// sells scarcity; "23 views" magnifies how small the site still is.
+const waChDemand = listing.status === 'active' ? getDemand(listing.slug) : { views: 0, topPct: null };
 const waChHooks = [
+  waChDemand.topPct !== null && waChDemand.topPct <= 10
+    ? `🔥 Top ${waChDemand.topPct}% most-viewed on Land Cruiser SA this month`
+    : null,
   waChDrop ? `💸 Price just dropped R${waChDrop.toLocaleString('en-ZA')}` : null,
   waChPos && !waChAtMarket && waChPos.priceDiff < 0
     ? `📉 R${Math.abs(waChPos.priceDiff).toLocaleString('en-ZA')} below the median of ${waChPos.cohortSize} similar ${waChPos.cohortLabel} listings`
