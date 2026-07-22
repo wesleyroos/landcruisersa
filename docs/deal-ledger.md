@@ -207,6 +207,26 @@ so threads either progress or get consciously dropped — never drift.
 - **Done:** both theft guides reworked to feature Titan (Ghost fully removed) + Titan imagery added; Titan UTM links tracking outbound clicks. Content-first complete.
 - **Value hypothesis:** sponsored placement (~R3.5k/mo) and/or a trackable referral (Titan has a "Become a Partner" page). Gate (per [[project-monetization-philosophy]]): trackable affiliate or own-inventory advertising only — never chase-to-invoice.
 - **Next / kill-or-advance:** reply accepting the meeting (in-person, propose slots) + request assets → **meeting next week**. Aim for a base sponsored placement (~R3.5k/mo) + a trackable referral. ADVANCE = terms agreed / first paid placement or referral link live.
+- **⭐⭐ STATUS (2026-07-22): TITAN COUNTERED — first-rand terms on the table.**
+  Reply from Stephan Kemp (CEO): **3-month trial · R2,500/mo (VAT incl) banner
+  retainer · 10% discount code "LANDCRUISERSA" · R750 (VAT incl) commission per
+  converted sale through the partnership · joint review at 3 months.**
+  - **Assessment:** ACCEPT THE STRUCTURE. R2,500 is 62.5% of our R4k ask, but
+    (1) it's the first signed rand — unlocks the scoreboard, the "partners pay
+    us" line for D1/D7, and the trial is exactly the measure-then-review shape
+    we proposed; (2) they ADDED a commission leg on their own initiative —
+    trackable via their checkout code = philosophy-clean self-serve
+    attribution; (3) our leverage compounds at review (site 6× benchmark and
+    growing — the data does the re-negotiation).
+  - **Reply strategy (not a price counter):** accept R2,500 + R750; lock the
+    DEFINITIONS instead: (a) commission = every sale where the code is
+    redeemed, incl. telephonic sales that mention it; (b) monthly redemption
+    count shared alongside our click/impression report; (c) pre-agree the
+    review yardstick now (traffic + clicks + redemptions → rate resets toward
+    the R4k anchor if the data lands); (d) banner live within 48h of assets;
+    first invoice on go-live.
+  - **Scoreboard note:** first rand counts when the first invoice is PAID —
+    stage moves to Pilot on Wesley's acceptance reply.
 - **⭐ STATUS (2026-07-16): PROPOSAL SENT — ball in Titan's court.** Email went
   to Victor + Stephan Kemp (CEO) with the fixed-fee-first structure below.
   Wesley's sent version added flexibility: banner below the asking-price card
