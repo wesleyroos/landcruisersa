@@ -274,23 +274,9 @@ export const WbcAdapter: SourceAdapter = {
     if (cached) return cached;
 
     // Fallback for callers outside a discover() run (rate-limited: ~50/window)
-    let res: Response | null = null;
-    for (let attempt = 0; attempt < 2; attempt++) {
-      const token = await getPowToken();
-      try {
-        res = await politeFetch(
-          `${GATEWAY}/website-elastic-backend/api/get-car/${ref.source_id.toUpperCase()}`,
-          { headers: { 'x-proof-of-work-token': token, 'Accept': 'application/json' } }
-        );
-      } catch (err) {
-        console.error(`[wbc] get-car ${ref.source_id} network error:`, String(err));
-        return null;
-      }
-      if (res.status !== 401 && res.status !== 403) break;
-      _powToken = null; // token rejected — force a fresh challenge and retry once
-    }
+    const res = await getCar(ref.source_id);
     if (!res?.ok) {
-      console.error(`[wbc] get-car ${ref.source_id} failed: ${res?.status}`);
+      if (res && res.status !== 404) console.error(`[wbc] get-car ${ref.source_id} failed: ${res.status}`);
       return null;
     }
     const body = await res.json() as { result?: boolean; data?: WbcVehicle };
@@ -301,12 +287,47 @@ export const WbcAdapter: SourceAdapter = {
   },
 
   async isStillLive(ref: DiscoveredRef): Promise<LivenessResult> {
-    const res = await fetch(`${BASE}/buy-a-car/${ref.source_id}`, {
-      method: 'HEAD',
-      headers: { 'User-Agent': 'Mozilla/5.0' },
-    });
+    // NOT a HEAD on /buy-a-car/{id}: WBC is a single-page app that serves HTTP
+    // 200 for a sold/removed car and shows "vehicle cannot be found" client-side,
+    // so a HEAD always read 'live' and no WBC listing was ever reaped (2026-07-22:
+    // ~49% of active LC listings were dead but shown live). The data API is the
+    // real signal — get-car 404s (or returns result:false) once a car is gone.
+    let res: Response | null;
+    try {
+      res = await getCar(ref.source_id);
+    } catch {
+      return 'unknown'; // network wobble must never read as 'removed'
+    }
+    if (!res) return 'unknown';
     if (res.status === 404) return 'removed';
-    if (res.ok) return 'live';
-    return 'unknown';
+    if (!res.ok) return 'unknown'; // 429/5xx/auth — don't delist on a transient error
+    try {
+      const body = await res.json() as { result?: boolean; data?: WbcVehicle };
+      return (body.result && body.data) ? 'live' : 'removed';
+    } catch {
+      return 'unknown';
+    }
   },
 };
+
+// Shared get-car fetch (token + one refresh-retry on auth rejection). Returns the
+// raw Response so callers decide how to read it: fetchListing parses the body,
+// isStillLive only needs the status. Returns null on a network error.
+async function getCar(sourceId: string): Promise<Response | null> {
+  let res: Response | null = null;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const token = await getPowToken();
+    try {
+      res = await politeFetch(
+        `${GATEWAY}/website-elastic-backend/api/get-car/${sourceId.toUpperCase()}`,
+        { headers: { 'x-proof-of-work-token': token, 'Accept': 'application/json' } }
+      );
+    } catch (err) {
+      console.error(`[wbc] get-car ${sourceId} network error:`, String(err));
+      return null;
+    }
+    if (res.status !== 401 && res.status !== 403) break;
+    _powToken = null; // token rejected — force a fresh challenge and retry once
+  }
+  return res;
+}
