@@ -1,0 +1,88 @@
+---
+// Sponsored banner slot (Titan Secure, IO-2026-001). Config lives in the
+// site_config row 'ad_titan' as JSON:
+//   { "enabled": true, "click_url": "...", "leaderboard": "<img url>",
+//     "rectangle": "<img url>", "alt": "Titan Secure — 10% off with LCSA10" }
+// Renders NOTHING until that row exists and enabled=true — the slot ships
+// ahead of the signed IO without any visible change. Standard listings only
+// (the eligibility check lives in the listing page, per the IO's scope).
+import { db } from '@/db/index';
+import { siteConfig } from '@/db/schema';
+import { eq } from 'drizzle-orm';
+
+interface Props { variant: 'leaderboard' | 'rectangle'; slug: string; title: string }
+const { variant, slug, title } = Astro.props;
+
+let cfg: { enabled?: boolean; click_url?: string; leaderboard?: string; rectangle?: string; alt?: string } | null = null;
+try {
+  const row = db.select().from(siteConfig).where(eq(siteConfig.key, 'ad_titan')).get();
+  cfg = row ? JSON.parse(row.value) : null;
+} catch { cfg = null; }
+
+const img = cfg?.enabled && cfg.click_url ? (variant === 'leaderboard' ? cfg.leaderboard : cfg.rectangle) : null;
+---
+{img && (
+  <div class={`ad-slot ad-${variant}`}>
+    <a href={cfg!.click_url} target="_blank" rel="noopener sponsored"
+       data-track-ad data-ad-variant={variant} data-ad-slug={slug} data-ad-title={title}>
+      <img src={img} alt={cfg!.alt ?? 'Titan Secure'} loading="lazy"
+           width={variant === 'leaderboard' ? 728 : 300}
+           height={variant === 'leaderboard' ? 90 : 250} />
+    </a>
+    <p class="ad-label">Sponsored</p>
+
+    <script is:inline>
+      // Viewable impressions + clicks per slot variant → /api/track-ad.
+      // An impression fires once per slot when ≥50% visible for 1s — real
+      // "was seen" data, not pageviews. Guarded so two slots register once.
+      if (!window.__lcsaAdTrack) {
+        window.__lcsaAdTrack = 1;
+        var beacon = function (kind, el) {
+          try {
+            navigator.sendBeacon('/api/track-ad', JSON.stringify({
+              kind: kind,
+              variant: el.dataset.adVariant,
+              listing_slug: el.dataset.adSlug,
+              client_id: window.__lcsaCid || null,
+            }));
+          } catch (err) {}
+        };
+        document.addEventListener('click', function (e) {
+          var a = e.target && e.target.closest ? e.target.closest('[data-track-ad]') : null;
+          if (a) beacon('click', a);
+        });
+        var seen = {};
+        var timers = {};
+        var io = new IntersectionObserver(function (entries) {
+          entries.forEach(function (en) {
+            var el = en.target, v = el.dataset.adVariant;
+            if (seen[v]) { io.unobserve(el); return; }
+            if (en.intersectionRatio >= 0.5) {
+              timers[v] = setTimeout(function () {
+                seen[v] = 1; io.unobserve(el); beacon('impression', el);
+              }, 1000);
+            } else if (timers[v]) { clearTimeout(timers[v]); timers[v] = null; }
+          });
+        }, { threshold: 0.5 });
+        var arm = function () {
+          document.querySelectorAll('[data-track-ad]').forEach(function (el) { io.observe(el); });
+        };
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', arm);
+        else arm();
+      }
+    </script>
+  </div>
+)}
+
+<style>
+  .ad-slot { text-align: center; }
+  .ad-slot img { max-width: 100%; height: auto; border-radius: 0.5rem; }
+  .ad-label {
+    font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.08em;
+    color: #9CA3AF; margin-top: 0.25rem;
+  }
+  .ad-leaderboard { display: none; margin: 1rem 0; }
+  @media (min-width: 900px) { .ad-leaderboard { display: block; } }
+  .ad-rectangle { margin-top: 1rem; }
+  @media (min-width: 900px) { .ad-rectangle img { width: 300px; } }
+</style>

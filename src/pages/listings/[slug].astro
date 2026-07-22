@@ -29,6 +29,14 @@ const isSold = listing.status === 'sold';
 const isExternal = Boolean(listing.source_url);
 const isShowOff = listing.listing_type === 'show_off';
 
+// Sponsored slots (Titan IO-2026-001): STANDARD listings only — speciality
+// sections (game viewers, classics) are contractually excluded and stay
+// sellable as their own sponsorships.
+const showAds = !isShowOff
+  && listing.body_type !== 'game-viewer'
+  && !['40-series', '55-series', '60-series'].includes(listing.model)
+  && listing.segment === 'land-cruiser';
+
 const mLabel = listing.model.replace(/-/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()).replace(/Fj/, 'FJ');
 // /valuation/<model>/ redirects to the hub for non-valuation slugs (70-series/other), so this is safe.
 const valuationHref = `/valuation/${listing.model}/`;
@@ -109,6 +117,7 @@ function waUrl(phone: string, title: string): string {
 
 import { getRecentPriceChanges } from '@/lib/price-changes';
 import { getMarketPosition } from '@/lib/market-position';
+import AdBanner from '@/components/AdBanner.astro';
 const priceDropAmount = (() => {
   const c = getRecentPriceChanges().get(listing.slug) ?? 0;
   return c < 0 ? Math.abs(c) : 0;
@@ -438,6 +447,8 @@ if (metaDescription.length > 160) {
           </div>
         )}
 
+        {showAds && <AdBanner variant="leaderboard" slug={listing.slug} title={listing.title} />}
+
         <!-- About -->
         <div class="card">
           <h2 class="card-heading">{isShowOff ? 'Build Story' : 'About this vehicle'}</h2>
@@ -685,6 +696,7 @@ if (metaDescription.length > 160) {
             </>
           )}
         </div>
+        {showAds && <AdBanner variant="rectangle" slug={listing.slug} title={listing.title} />}
       </aside>
     </div>
   </div>

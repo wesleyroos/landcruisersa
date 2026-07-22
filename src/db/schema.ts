@@ -101,6 +101,21 @@ export const contacts = sqliteTable('contacts', {
   created_at: integer('created_at', { mode: 'timestamp' }).notNull(),
 });
 
+// Sponsored-placement measurement (Titan IO-2026-001 + future advertisers).
+// One row per VIEWABLE impression (≥50% visible for 1s) or click, per slot
+// variant — the foundation for optimising placement → clicks → (advertiser-
+// reported) code redemptions → sales. client_id joins an ad click to later
+// on-site actions.
+export const adEvents = sqliteTable('ad_events', {
+  id:           integer('id').primaryKey({ autoIncrement: true }),
+  advertiser:   text('advertiser').notNull().default('titan'),
+  kind:         text('kind').notNull(),                 // 'impression' | 'click'
+  variant:      text('variant').notNull(),              // 'leaderboard' | 'rectangle'
+  listing_slug: text('listing_slug'),
+  client_id:    text('client_id'),
+  created_at:   integer('created_at', { mode: 'timestamp' }).notNull(),
+});
+
 export const viewEvents = sqliteTable('view_events', {
   id:            integer('id').primaryKey({ autoIncrement: true }),
   listing_slug:  text('listing_slug').notNull(),

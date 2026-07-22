@@ -152,6 +152,20 @@ db.exec(`
   )
 `);
 
+// Sponsored-placement events (viewable impressions + clicks per slot variant)
+db.exec(`
+  CREATE TABLE IF NOT EXISTS ad_events (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    advertiser   TEXT    NOT NULL DEFAULT 'titan',
+    kind         TEXT    NOT NULL,
+    variant      TEXT    NOT NULL,
+    listing_slug TEXT,
+    client_id    TEXT,
+    created_at   INTEGER NOT NULL
+  )
+`);
+db.exec(`CREATE INDEX IF NOT EXISTS ad_events_created ON ad_events (created_at)`);
+
 db.exec(`
   CREATE TABLE IF NOT EXISTS click_events (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,

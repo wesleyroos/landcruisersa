@@ -1,0 +1,190 @@
+---
+export const prerender = false;
+
+import AdminLayout from '@/layouts/AdminLayout.astro';
+import { db } from '@/db/index';
+import { adEvents, siteConfig, clickEvents } from '@/db/schema';
+import { sql, eq, and, inArray } from 'drizzle-orm';
+
+const cookie = Astro.cookies.get('lcsa_admin');
+const adminSecret = import.meta.env.ADMIN_SECRET ?? process.env.ADMIN_SECRET ?? '';
+if (!cookie || cookie.value !== adminSecret) {
+  return Astro.redirect('/admin/login');
+}
+
+// ── Placement config state ──
+let cfg: { enabled?: boolean; click_url?: string } | null = null;
+try {
+  const row = db.select().from(siteConfig).where(eq(siteConfig.key, 'ad_titan')).get();
+  cfg = row ? JSON.parse(row.value) : null;
+} catch { cfg = null; }
+const live = Boolean(cfg?.enabled);
+
+// ── The funnel we can measure first-party: impressions → clicks → post-click
+// on-site actions. Redemptions + sales arrive monthly from the advertiser. ──
+const T7 = sql`created_at >= strftime('%s','now') - 7*86400`;
+const T30 = sql`created_at >= strftime('%s','now') - 30*86400`;
+
+const agg = (win: typeof T7) => db.select({
+  kind: adEvents.kind,
+  variant: adEvents.variant,
+  n: sql<number>`cast(count(*) as int)`,
+}).from(adEvents).where(win).groupBy(adEvents.kind, adEvents.variant).all();
+
+const rows30 = agg(T30);
+const rows7 = agg(T7);
+const sum = (rows: typeof rows30, kind: string, variant?: string) =>
+  rows.filter(r => r.kind === kind && (!variant || r.variant === variant)).reduce((s, r) => s + r.n, 0);
+const ctr = (imp: number, clk: number) => imp > 0 ? `${(100 * clk / imp).toFixed(1)}%` : '—';
+
+const imp30 = sum(rows30, 'impression'), clk30 = sum(rows30, 'click');
+const imp7 = sum(rows7, 'impression'), clk7 = sum(rows7, 'click');
+
+// Daily series, last 14 days
+const daily = db.select({
+  d: sql<string>`date(created_at, 'unixepoch')`,
+  imp: sql<number>`cast(sum(kind = 'impression') as int)`,
+  clk: sql<number>`cast(sum(kind = 'click') as int)`,
+}).from(adEvents)
+  .where(sql`created_at >= strftime('%s','now') - 14*86400`)
+  .groupBy(sql`date(created_at, 'unixepoch')`)
+  .orderBy(sql`date(created_at, 'unixepoch') desc`).all();
+
+// Top listings by ad clicks (30d)
+const topListings = db.select({
+  slug: adEvents.listing_slug,
+  clk: sql<number>`cast(sum(kind = 'click') as int)`,
+  imp: sql<number>`cast(sum(kind = 'impression') as int)`,
+}).from(adEvents).where(T30)
+  .groupBy(adEvents.listing_slug)
+  .having(sql`sum(kind = 'click') > 0`)
+  .orderBy(sql`sum(kind = 'click') desc`).limit(15).all();
+
+// Post-click signal: ad-clickers who ALSO took another valuable action on site
+// within the window (same client_id in click_events) — early proxy for intent
+// quality until the advertiser's redemption counts arrive.
+const clickerCids = db.select({ cid: adEvents.client_id })
+  .from(adEvents)
+  .where(sql`kind = 'click' AND client_id IS NOT NULL AND client_id != '' AND ${T30}`)
+  .groupBy(adEvents.client_id).all().map(r => r.cid!);
+let engagedClickers = 0;
+if (clickerCids.length) {
+  engagedClickers = (db.select({ n: sql<number>`cast(count(distinct client_id) as int)` })
+    .from(clickEvents)
+    .where(and(inArray(clickEvents.client_id, clickerCids), sql`created_at >= strftime('%s','now') - 30*86400`)).get())?.n ?? 0;
+}
+
+const fmt = (n: number) => n.toLocaleString('en-ZA');
+---
+
+<AdminLayout title="Advertisers" activePage="advertisers">
+  <div class="ib">
+    <div class="banner-state" class:list={[live ? 'on' : 'off']}>
+      <b>Titan Secure</b> · placement is currently <b>{live ? 'LIVE' : 'OFF'}</b>
+      {live && cfg?.click_url && <span class="muted"> → {cfg.click_url}</span>}
+      {!live && <span class="muted"> — slots are built and invisible; flips on when the signed IO + banners arrive (site_config key <code>ad_titan</code>).</span>}
+    </div>
+
+    <div class="stats">
+      <div class="stat"><span class="num">{fmt(imp30)}</span><span class="lbl">Impressions · 30d</span></div>
+      <div class="stat"><span class="num">{fmt(clk30)}</span><span class="lbl">Clicks · 30d</span></div>
+      <div class="stat"><span class="num">{ctr(imp30, clk30)}</span><span class="lbl">CTR · 30d</span></div>
+      <div class="stat"><span class="num">{fmt(imp7)} / {fmt(clk7)}</span><span class="lbl">Impr / clicks · 7d</span></div>
+    </div>
+
+    <section class="card">
+      <h2>By slot <span class="count">30d</span></h2>
+      <p class="sub">Impressions are viewable (≥50% on screen for 1s), not pageviews. This table is what tells us which placement earns its keep — and what to optimise or renegotiate.</p>
+      <table>
+        <thead><tr><th>Slot</th><th>Where</th><th>Impressions</th><th>Clicks</th><th>CTR</th></tr></thead>
+        <tbody>
+          <tr>
+            <td class="b">Leaderboard 728×90</td><td class="muted">below market-position card (desktop)</td>
+            <td>{fmt(sum(rows30, 'impression', 'leaderboard'))}</td>
+            <td class="b">{fmt(sum(rows30, 'click', 'leaderboard'))}</td>
+            <td>{ctr(sum(rows30, 'impression', 'leaderboard'), sum(rows30, 'click', 'leaderboard'))}</td>
+          </tr>
+          <tr>
+            <td class="b">Rectangle 300×250</td><td class="muted">below asking-price card</td>
+            <td>{fmt(sum(rows30, 'impression', 'rectangle'))}</td>
+            <td class="b">{fmt(sum(rows30, 'click', 'rectangle'))}</td>
+            <td>{ctr(sum(rows30, 'impression', 'rectangle'), sum(rows30, 'click', 'rectangle'))}</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="card">
+      <h2>The funnel</h2>
+      <p class="sub">What we measure first-party vs what Titan reports monthly (LCSA10 redemptions, by the 5th). The join key for "did our clicks buy" is the code count vs our click count each month.</p>
+      <table>
+        <thead><tr><th>Stage</th><th>Source</th><th>30d</th></tr></thead>
+        <tbody>
+          <tr><td class="b">Viewable impressions</td><td class="muted">first-party (ad_events)</td><td>{fmt(imp30)}</td></tr>
+          <tr><td class="b">Clicks to Titan</td><td class="muted">first-party (ad_events)</td><td class="b">{fmt(clk30)}</td></tr>
+          <tr><td class="b">Clickers who also engaged on-site</td><td class="muted">first-party (client_id join)</td><td>{fmt(engagedClickers)} of {fmt(clickerCids.length)}</td></tr>
+          <tr><td class="b">LCSA10 redemptions</td><td class="muted">Titan monthly report — enter in the ledger</td><td class="muted">—</td></tr>
+          <tr><td class="b">Converted sales (R750 each)</td><td class="muted">Titan monthly report</td><td class="muted">—</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="card">
+      <h2>Daily <span class="count">14d</span></h2>
+      {daily.length === 0 ? <p class="empty">No events yet — placement is {live ? 'live; data will appear as pages are viewed' : 'off'}.</p> : (
+        <table>
+          <thead><tr><th>Day</th><th>Impressions</th><th>Clicks</th><th>CTR</th></tr></thead>
+          <tbody>
+            {daily.map(d => (
+              <tr><td class="nowrap muted">{d.d}</td><td>{fmt(d.imp)}</td><td class="b">{fmt(d.clk)}</td><td>{ctr(d.imp, d.clk)}</td></tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </section>
+
+    <section class="card">
+      <h2>Top listings by ad clicks <span class="count">30d</span></h2>
+      <p class="sub">Which inventory context makes people click a security ad — the optimisation signal for where the banner earns most.</p>
+      {topListings.length === 0 ? <p class="empty">No clicks yet.</p> : (
+        <table>
+          <thead><tr><th>Listing</th><th>Impr</th><th>Clicks</th><th>CTR</th></tr></thead>
+          <tbody>
+            {topListings.map(t => (
+              <tr>
+                <td><a href={`/listings/${t.slug}/`} target="_blank">{t.slug}</a></td>
+                <td>{fmt(t.imp)}</td><td class="b">{fmt(t.clk)}</td><td>{ctr(t.imp, t.clk)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </section>
+  </div>
+</AdminLayout>
+
+<style>
+  .ib { display: flex; flex-direction: column; gap: 1.5rem; max-width: 1100px; }
+  .banner-state { border-radius: 0.75rem; padding: 0.9rem 1.25rem; font-size: 0.875rem; border: 1px solid #E5E7EB; background: #fff; }
+  .banner-state.on { border-color: #16803C; background: #F0FDF4; }
+  .banner-state.off { border-color: #E5E7EB; }
+  .banner-state code { background: #F3F4F6; padding: 0.1rem 0.35rem; border-radius: 0.25rem; font-size: 0.78rem; }
+  .stats { display: flex; gap: 1rem; flex-wrap: wrap; }
+  .stat { background: #fff; border: 1px solid #E5E7EB; border-radius: 0.75rem; padding: 1rem 1.5rem; display: flex; flex-direction: column; min-width: 140px; }
+  .stat .num { font-size: 1.75rem; font-weight: 800; color: #111; line-height: 1; }
+  .stat .lbl { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: #9CA3AF; margin-top: 0.35rem; }
+  .card { background: #fff; border: 1px solid #E5E7EB; border-radius: 0.75rem; padding: 1.25rem 1.5rem; }
+  h2 { font-size: 1rem; font-weight: 700; color: #111; display: flex; align-items: center; gap: 0.5rem; }
+  .count { background: #F5A623; color: #111; font-size: 0.7rem; font-weight: 700; padding: 0.1rem 0.5rem; border-radius: 999px; }
+  .sub { font-size: 0.8rem; color: #6B7280; margin: 0.3rem 0 1rem; }
+  .empty { font-size: 0.875rem; color: #9CA3AF; padding: 0.5rem 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.8125rem; }
+  th { text-align: left; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #9CA3AF; padding: 0.5rem 0.6rem; border-bottom: 1px solid #E5E7EB; }
+  td { padding: 0.55rem 0.6rem; border-bottom: 1px solid #F3F4F6; color: #374151; }
+  tr:last-child td { border-bottom: none; }
+  .b { font-weight: 700; color: #111; }
+  .muted { color: #9CA3AF; }
+  .nowrap { white-space: nowrap; }
+  td a { color: #D4881A; text-decoration: none; }
+  td a:hover { text-decoration: underline; }
+</style>
