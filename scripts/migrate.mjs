@@ -68,6 +68,30 @@ addCol('body_type',      "body_type      TEXT");
 addCol('ig_skipped_at',  "ig_skipped_at  INTEGER");
 addCol('model_locked',   "model_locked   INTEGER NOT NULL DEFAULT 0");
 
+// 70-family mislabel repair: dealers title the 70-series bakkie/wagon as just
+// "70", landing them in the tiny generic '70-series' bucket instead of the real
+// cohort (a 2007 "70 Pick Up Single Cab" showed "1 of 21 for sale" when it's a
+// 79 with 800+ comps). The 79 IS the 70-series pickup; the 76 is the wagon.
+// Mirrors normalizeModel()'s 70-family disambiguation (keep in step). Unlocked
+// rows only (admin model verdicts survive); a bare "70 4.5" with no body signal
+// stays 70-series. Idempotent — reclassified rows leave the '70-series' filter.
+db.exec(`
+  UPDATE listings SET model = '79-series'
+  WHERE model = '70-series' AND model_locked = 0 AND (
+    LOWER(title) LIKE '%pick up%' OR LOWER(title) LIKE '%pickup%' OR LOWER(title) LIKE '%pick-up%'
+    OR LOWER(title) LIKE '%single cab%' OR LOWER(title) LIKE '%single-cab%'
+    OR LOWER(title) LIKE '%double cab%' OR LOWER(title) LIKE '%double-cab%'
+    OR LOWER(title) LIKE '% s/c%' OR LOWER(title) LIKE '% d/c%' OR LOWER(title) LIKE '% p/u%'
+    OR LOWER(title) LIKE '%bakkie%'
+  )
+`);
+db.exec(`
+  UPDATE listings SET model = '76-series'
+  WHERE model = '70-series' AND model_locked = 0 AND (
+    LOWER(title) LIKE '%station wagon%' OR LOWER(title) LIKE '%station-wagon%' OR LOWER(title) LIKE '% wagon%'
+  )
+`);
+
 // Backfill body_type = 'game-viewer' from title/description keywords. Mirrors
 // detectBodyType() in src/lib/sources/normalize.ts (SQLite LIKE approximation —
 // keep the two lexicons in step). Only touches NULL rows, so an admin's manual

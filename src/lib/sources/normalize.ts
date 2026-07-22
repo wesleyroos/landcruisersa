@@ -21,6 +21,13 @@ const MODEL_MAP: [RegExp, string][] = [
   [/79[\s-]?series|lc79|land.?cruiser.?79/i,         '79-series'],
   [/76[\s-]?series|lc76|land.?cruiser.?76/i,         '76-series'],
   [/78[\s-]?series|lc78|land.?cruiser.?78|troopcarrier|troop.?carrier/i, '78-series'],
+  // A 70-family listing dealers label only "70" (no 76/78/79) is disambiguated
+  // by BODY: the 79 IS the 70-series bakkie, the 76 is the wagon. Dealers write
+  // "Land Cruiser 70 … Pick Up / Single Cab" (→79) or "… Station Wagon" (→76).
+  // Placed before the generic 70-series catch-all so these don't fall into the
+  // tiny mislabel bucket; a bare "70 4.5" with no body stays 70-series.
+  [/(70[\s-]?series|lc70|land.?cruiser.?70)[\s\S]*(pick.?up|single.?cab|double.?cab|\bs\/c\b|\bd\/c\b|\bp\/u\b|bakkie)/i, '79-series'],
+  [/(70[\s-]?series|lc70|land.?cruiser.?70)[\s\S]*(station.?wagon|\bwagon\b)/i, '76-series'],
   [/70[\s-]?series|lc70|land.?cruiser.?70/i,         '70-series'],
   [/300[\s-]?series|lc300|land.?cruiser.?300/i,      '300-series'],
   [/200[\s-]?series|lc200|land.?cruiser.?200/i,      '200-series'],
