@@ -189,7 +189,7 @@ const rand0 = (n: number) => 'R' + n.toLocaleString('en-ZA');
 
     <!-- ── DECISION STRIP: everything needed to approve, at a glance ── -->
     <div class="decision-strip">
-      <div class="ds-cover">
+      <div class="ds-cover" id="ds-cover" role={thumb ? 'button' : undefined} tabindex={thumb ? 0 : undefined} aria-label={thumb ? 'View photos' : undefined} title={thumb ? 'View all photos' : undefined}>
         {thumb
           ? <img src={thumb} alt="Cover" loading="lazy" />
           : <div class="ds-cover-empty">No photo</div>}
@@ -894,6 +894,9 @@ const rand0 = (n: number) => 'R' + n.toLocaleString('en-ZA');
     padding: 0.9rem; margin-bottom: 1rem;
   }
   .ds-cover { position: relative; align-self: start; width: 100%; border-radius: 0.6rem; overflow: hidden; background: #F5F3EE; aspect-ratio: 4/3; }
+  .ds-cover[role="button"] { cursor: zoom-in; }
+  .ds-cover[role="button"]:hover img { opacity: 0.88; }
+  .ds-cover[role="button"]:focus-visible { outline: 2px solid #F5A623; outline-offset: 2px; }
   .ds-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .ds-cover-empty { display: flex; align-items: center; justify-content: center; height: 100%; font-size: 0.75rem; color: #9CA3AF; }
   .ds-photocount { position: absolute; bottom: 0.35rem; right: 0.35rem; background: rgba(0,0,0,0.65); color: #fff; font-size: 0.65rem; font-weight: 700; padding: 0.1rem 0.4rem; border-radius: 9999px; }
@@ -1178,6 +1181,14 @@ const rand0 = (n: number) => 'R' + n.toLocaleString('en-ZA');
     if (e.key === 'Escape') albClose();
     if (e.key === 'ArrowLeft') albOpen(albIndex - 1);
     if (e.key === 'ArrowRight') albOpen(albIndex + 1);
+  });
+
+  // The decision-strip cover is the same photo #1 — clicking it opens the
+  // lightbox at the start, exactly like clicking the first thumbnail below.
+  const dsCover = document.getElementById('ds-cover');
+  dsCover?.addEventListener('click', () => albOpen(0));
+  dsCover?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); albOpen(0); }
   });
 
   // Photo controls (touch-friendly reorder + cover + delete), or open the

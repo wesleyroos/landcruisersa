@@ -322,7 +322,7 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
 
   <!-- IG SUGGESTION SHORTLIST — skim the whole ranked list and post from here -->
   {igMore.length > 0 && (
-    <details class="sug-panel">
+    <details class="sug-panel" open>
       <summary class="sug-summary">📣 More IG suggestions <span class="sug-count">{igMore.length}</span>{igMoreNonPrado > 0 && <span class="sug-count sug-count-np">{igMoreNonPrado} non-Prado</span>}</summary>
       <div class="sug-list">
         {igMore.map((s, i) => (
