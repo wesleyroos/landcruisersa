@@ -2,7 +2,7 @@ export const prerender = false;
 
 import type { APIRoute } from 'astro';
 import { db } from '@/db/index';
-import { listings } from '@/db/schema';
+import { listings, priceEvents } from '@/db/schema';
 import { offMarketPatch } from '@/lib/listing-status';
 import { sendSellerLiveEmail } from '@/lib/seller-live-email';
 import { requireAdmin, unauthorized } from '@/lib/admin-auth';
@@ -56,13 +56,20 @@ export const PATCH: APIRoute = async ({ params, request, cookies }) => {
   // Keep off_market_at in step with any status change (stamp on sold, clear on reactivate).
   Object.assign(updates, offMarketPatch(updates.status as string | undefined));
 
+  // Fetch the pre-update row once for the model-lock and price-event logic below
+  // (both need the current values before the write).
+  const needsCurrent = 'model' in updates || 'price' in updates;
+  const current = needsCurrent
+    ? db.select({ model: listings.model, segment: listings.segment, price: listings.price, slug: listings.slug })
+        .from(listings).where(eq(listings.id, id)).get()
+    : null;
+
   // An admin setting the model is a human verdict on an ambiguous title — lock
   // it so the next crawl's classifier can't overwrite it (/api/ingest checks the
   // flag), and keep segment in step since it derives from model. Only when the
   // value actually changes: re-saving the form untouched must not lock anything.
-  if ('model' in updates) {
-    const current = db.select({ model: listings.model, segment: listings.segment }).from(listings).where(eq(listings.id, id)).get();
-    if (current && current.model !== updates.model) {
+  if ('model' in updates && current) {
+    if (current.model !== updates.model) {
       updates.model_locked = true;
       // 'other' falls through segmentForModel to the LC segment — that must not
       // pull a non-Toyota game viewer (segment 'other-4x4') into the public LC
@@ -73,7 +80,30 @@ export const PATCH: APIRoute = async ({ params, request, cookies }) => {
     }
   }
 
+  // Record a price change so the price-drop chip and price-trend data reflect
+  // admin edits, not just scraper re-ingests. Own/private-seller listings are
+  // ONLY ever edited here (never re-crawled), so without this their price cuts
+  // were invisible — no drop chip, no trend signal. Mirrors the priceEvents
+  // insert in /api/ingest. Coerce to a clean integer since the form may submit
+  // price as a string; skip show-off/POA (0) on either side.
+  let priceEvent: typeof priceEvents.$inferInsert | null = null;
+  if ('price' in updates && current) {
+    const newPrice = Number(updates.price) || 0;
+    updates.price = newPrice;
+    if (newPrice > 0 && current.price > 0 && newPrice !== current.price) {
+      priceEvent = {
+        listing_id: id,
+        slug: current.slug,
+        model: String(updates.model ?? current.model),
+        old_price: current.price,
+        new_price: newPrice,
+        recorded_at: new Date(),
+      };
+    }
+  }
+
   await db.update(listings).set(updates).where(eq(listings.id, id));
+  if (priceEvent) await db.insert(priceEvents).values(priceEvent);
 
   // Email a private seller the first time their submission goes live. Own
   // listings only (aggregated ones have a source_url and no real seller inbox),
