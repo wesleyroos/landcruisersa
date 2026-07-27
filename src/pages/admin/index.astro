@@ -7,7 +7,7 @@ import { getCredentials } from '@/lib/instagram';
 import { getIgSuggestions } from '@/lib/post-suggestions';
 import { modelFamily, modelLabel } from '@/lib/sources/normalize';
 import { db } from '@/db/index';
-import { listings, clickEvents, priceEvents } from '@/db/schema';
+import { listings, clickEvents, priceEvents, favorites, users } from '@/db/schema';
 import { desc, eq, and, or, gte, lte, sql, like, isNotNull, inArray } from 'drizzle-orm';
 import type { Listing } from '@/db/schema';
 import type { SQL } from 'drizzle-orm';
@@ -28,16 +28,48 @@ const fType     = Astro.url.searchParams.get('type')     ?? '';
 const fPosted   = Astro.url.searchParams.get('posted')   === '1';
 const fDrops    = Astro.url.searchParams.get('drops')    === '1';
 const fDealer   = Astro.url.searchParams.get('dealer')   === '1';
+const fFavs     = Astro.url.searchParams.get('favs')     === '1';
 const fQ        = (Astro.url.searchParams.get('q') ?? '').trim();
-const hasFilter = !!(fSource || fModel || fYear || fPrice || fMileage || fProvince || fType || fPosted || fDrops || fDealer || fQ);
+const hasFilter = !!(fSource || fModel || fYear || fPrice || fMileage || fProvince || fType || fPosted || fDrops || fDealer || fFavs || fQ);
+
+// A pasted public listing URL (or bare slug) jumps straight to the listing's
+// admin page — the "I saved it on the site last night, now let me post it" flow.
+let qEff = fQ;
+if (fQ) {
+  let path = fQ;
+  try { if (fQ.includes('://')) path = new URL(fQ).pathname; } catch { /* not a URL */ }
+  const m = path.match(/listings\/([a-z0-9-]+)/i);
+  const cand = (m ? m[1] : path).replace(/^\/+|\/+$/g, '').trim().toLowerCase();
+  if (cand) {
+    const exact = db.select({ id: listings.id }).from(listings).where(eq(listings.slug, cand)).get();
+    if (exact) return Astro.redirect(`/admin/listings/${exact.id}`);
+    if (m) qEff = cand;   // URL pasted but slug changed/gone — fall back to searching the slug text
+  }
+}
 
 function buildFilterUrl(overrides: Record<string, string>) {
   const params = new URLSearchParams();
-  const base = { source: fSource, model: fModel, year: fYear, price: fPrice, mileage: fMileage, province: fProvince, type: fType, posted: fPosted ? '1' : '', drops: fDrops ? '1' : '', dealer: fDealer ? '1' : '', q: fQ, ...overrides };
+  const base = { source: fSource, model: fModel, year: fYear, price: fPrice, mileage: fMileage, province: fProvince, type: fType, posted: fPosted ? '1' : '', drops: fDrops ? '1' : '', dealer: fDealer ? '1' : '', favs: fFavs ? '1' : '', q: fQ, ...overrides };
   for (const [k, v] of Object.entries(base)) if (v) params.set(k, v);
   const s = params.toString();
   return `/admin${s ? '?' + s : ''}`;
 }
+
+// Button labels for the typed price/mileage ranges ("R2m+", "Under 100k km"…)
+const fmtR  = (n: number) => n >= 1e6 ? `R${(n / 1e6).toFixed(n % 1e6 ? 1 : 0)}m` : n >= 1000 ? `R${Math.round(n / 1000)}k` : `R${n}`;
+const fmtKm = (n: number) => `${n >= 1000 ? `${Math.round(n / 1000)}k` : n} km`;
+function rangeLabel(v: string, fmt: (n: number) => string, anyLabel: string) {
+  if (!v) return anyLabel;
+  const [a, b] = v.split('-');
+  const min = Number(a) || 0, max = Number(b) || 0;
+  const openMax = !max || max >= 9999999;
+  if (min && !openMax) return `${fmt(min)} – ${fmt(max)}`;
+  if (min) return `${fmt(min)}+`;
+  if (!openMax) return `Under ${fmt(max)}`;
+  return anyLabel;
+}
+const [fPriceMin, fPriceMax]     = fPrice.split('-').map(s => Number(s) || 0);
+const [fMileageMin, fMileageMax] = fMileage.split('-').map(s => Number(s) || 0);
 
 // Fast status counts (unfiltered — for stats row)
 const statusCounts = db.select({ status: listings.status, n: sql<number>`count(*)` })
@@ -93,21 +125,37 @@ if (fYear) {
   activeConds.push(gte(listings.year, yMin));
   if (yMax < 9999) activeConds.push(lte(listings.year, yMax));
 }
+// Price/mileage are "min-max" strings where either side may be blank (typed
+// min/max inputs) — a 9999999 max from the old presets also means open-ended.
 if (fPrice) {
-  const [pMin, pMax] = fPrice.split('-').map(Number);
-  activeConds.push(gte(listings.price, pMin));
-  if (pMax < 9999999) activeConds.push(lte(listings.price, pMax));
+  const [a, b] = fPrice.split('-');
+  const pMin = Number(a) || 0;
+  const pMax = Number(b) || 0;
+  if (pMin > 0) activeConds.push(gte(listings.price, pMin));
+  if (pMax > 0 && pMax < 9999999) activeConds.push(lte(listings.price, pMax));
 }
 if (fMileage) {
-  const [mMin, mMax] = fMileage.split('-').map(Number);
-  activeConds.push(gte(listings.mileage, mMin));
-  if (mMax < 9999999) activeConds.push(lte(listings.mileage, mMax));
+  const [a, b] = fMileage.split('-');
+  const mMin = Number(a) || 0;
+  const mMax = Number(b) || 0;
+  if (mMin > 0) activeConds.push(gte(listings.mileage, mMin));
+  if (mMax > 0 && mMax < 9999999) activeConds.push(lte(listings.mileage, mMax));
 }
 if (fPosted) activeConds.push(isNotNull(listings.ig_posted_at));
 if (fDrops) activeConds.push(droppedSlugs.length ? inArray(listings.slug, droppedSlugs) : sql`0 = 1`);
 if (fDealer) activeConds.push(eq(listings.dealer_offer_optin, true));
-if (fQ) {
-  const pat = `%${fQ}%`;
+
+// My favourites — listings saved via the public site's ♥ on Wesley's own
+// account(s) (internal-domain emails). Recency map doubles as the sort key.
+const favRows = db.select({ slug: favorites.listing_slug, at: favorites.created_at })
+  .from(favorites)
+  .innerJoin(users, eq(favorites.user_id, users.id))
+  .where(or(like(users.email, '%@grodigital.co.za'), like(users.email, '%@landcruisersa.co.za')))
+  .all();
+const favSavedAt = new Map(favRows.map(r => [r.slug, r.at?.getTime() ?? 0]));
+if (fFavs) activeConds.push(favRows.length ? inArray(listings.slug, favRows.map(r => r.slug)) : sql`0 = 1`);
+if (qEff) {
+  const pat = `%${qEff}%`;
   activeConds.push(or(
     like(listings.title, pat),
     like(listings.slug, pat),
@@ -132,6 +180,8 @@ const active = db.select().from(listings)
   .where(activeWhere)
   .orderBy(fPosted ? desc(listings.ig_posted_at) : desc(listings.created_at))
   .limit(PAGE_SIZE).offset((safePage - 1) * PAGE_SIZE).all();
+// Favourites view: most recently saved first (what he queued up last night is on top)
+if (fFavs) active.sort((a, b) => (favSavedAt.get(b.slug) ?? 0) - (favSavedAt.get(a.slug) ?? 0));
 
 // Sold: most recent first, so they don't vanish after being marked sold and we
 // can eyeball asking-vs-sold. Capped — the full history lives in insights.
@@ -165,6 +215,12 @@ const dealerOptinCount = (db.select({ n: sql<number>`count(*)` }).from(listings)
 // Private-seller (own submissions, not scraped) count for the filter toggle
 const privateCount = (db.select({ n: sql<number>`count(*)` }).from(listings)
   .where(and(eq(listings.status, 'active'), eq(listings.source, 'own'))).get())?.n ?? 0;
+
+// Favourites count for the filter toggle (active listings only, matching the filter)
+const favCount = favRows.length
+  ? (db.select({ n: sql<number>`count(*)` }).from(listings)
+      .where(and(eq(listings.status, 'active'), inArray(listings.slug, favRows.map(r => r.slug)))).get())?.n ?? 0
+  : 0;
 
 // IG media stats — only fetched in the Posted view so normal page loads stay fast.
 // Step 1: fetch media list, match to listings by timestamp (±2 min window)
@@ -322,7 +378,7 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
 
   <!-- IG SUGGESTION SHORTLIST — skim the whole ranked list and post from here -->
   {igMore.length > 0 && (
-    <details class="sug-panel" open>
+    <details class="sug-panel">
       <summary class="sug-summary">📣 More IG suggestions <span class="sug-count">{igMore.length}</span>{igMoreNonPrado > 0 && <span class="sug-count sug-count-np">{igMoreNonPrado} non-Prado</span>}</summary>
       <div class="sug-list">
         {igMore.map((s, i) => (
@@ -359,7 +415,7 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
         type="search"
         id="af-search"
         class={`af-input${fQ ? ' active' : ''}`}
-        placeholder="Search title, seller…"
+        placeholder="Search title, seller — or paste a listing URL"
         value={fQ}
         autocomplete="off"
       />
@@ -404,20 +460,42 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
         <option value="2000-2009" selected={fYear==='2000-2009'}>2000s</option>
         <option value="0-1999"    selected={fYear==='0-1999'}>Pre-2000</option>
       </select>
-      <select class={`af-sel${fPrice    ? ' active' : ''}`} data-filter="price">
-        <option value="">Any Price</option>
-        <option value="0-300000"       selected={fPrice==='0-300000'}>Under R300k</option>
-        <option value="300000-600000"  selected={fPrice==='300000-600000'}>R300k – R600k</option>
-        <option value="600000-900000"  selected={fPrice==='600000-900000'}>R600k – R900k</option>
-        <option value="900000-9999999" selected={fPrice==='900000-9999999'}>Over R900k</option>
-      </select>
-      <select class={`af-sel${fMileage  ? ' active' : ''}`} data-filter="mileage">
-        <option value="">Any Mileage</option>
-        <option value="0-50000"        selected={fMileage==='0-50000'}>Under 50k km</option>
-        <option value="0-100000"       selected={fMileage==='0-100000'}>Under 100k km</option>
-        <option value="100000-200000"  selected={fMileage==='100000-200000'}>100k – 200k km</option>
-        <option value="200000-9999999" selected={fMileage==='200000-9999999'}>Over 200k km</option>
-      </select>
+      <div class="ms-wrap rng-wrap" data-param="price">
+        <button type="button" class={`af-sel${fPrice ? ' active' : ''}`} aria-expanded="false">
+          {rangeLabel(fPrice, fmtR, 'Any Price')}
+        </button>
+        <div class="ms-panel rng-panel" hidden>
+          {([['', 'Any Price'], ['0-300000', 'Under R300k'], ['300000-600000', 'R300k – R600k'],
+             ['600000-900000', 'R600k – R900k'], ['900000-1500000', 'R900k – R1.5m'], ['1500000-', 'Over R1.5m']] as const)
+            .map(([v, l]) => (
+            <button type="button" class={`rng-preset${fPrice === v ? ' on' : ''}`} data-value={v}>{l}</button>
+          ))}
+          <div class="rng-custom">
+            <input type="number" class="rng-min" inputmode="numeric" min="0" placeholder="Min R" value={fPriceMin || ''} />
+            <span>–</span>
+            <input type="number" class="rng-max" inputmode="numeric" min="0" placeholder="Max R" value={fPriceMax && fPriceMax < 9999999 ? fPriceMax : ''} />
+            <button type="button" class="rng-apply">Go</button>
+          </div>
+        </div>
+      </div>
+      <div class="ms-wrap rng-wrap" data-param="mileage">
+        <button type="button" class={`af-sel${fMileage ? ' active' : ''}`} aria-expanded="false">
+          {rangeLabel(fMileage, fmtKm, 'Any Mileage')}
+        </button>
+        <div class="ms-panel rng-panel" hidden>
+          {([['', 'Any Mileage'], ['0-50000', 'Under 50k km'], ['0-100000', 'Under 100k km'],
+             ['100000-200000', '100k – 200k km'], ['200000-', 'Over 200k km']] as const)
+            .map(([v, l]) => (
+            <button type="button" class={`rng-preset${fMileage === v ? ' on' : ''}`} data-value={v}>{l}</button>
+          ))}
+          <div class="rng-custom">
+            <input type="number" class="rng-min" inputmode="numeric" min="0" placeholder="Min km" value={fMileageMin || ''} />
+            <span>–</span>
+            <input type="number" class="rng-max" inputmode="numeric" min="0" placeholder="Max km" value={fMileageMax && fMileageMax < 9999999 ? fMileageMax : ''} />
+            <button type="button" class="rng-apply">Go</button>
+          </div>
+        </div>
+      </div>
       <select class={`af-sel${fProvince ? ' active' : ''}`} data-filter="province">
         <option value="">All Provinces</option>
         <option value="Gauteng"       selected={fProvince==='Gauteng'}>Gauteng</option>
@@ -437,6 +515,9 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
       </select>
     </div>
     <div class="filter-meta">
+      <a href={buildFilterUrl({ favs: fFavs ? '' : '1', page: '' })} class={`af-posted-toggle af-favs-toggle${fFavs ? ' active' : ''}`}>
+        ★ My favourites ({favCount})
+      </a>
       <a href={buildFilterUrl({ source: fSource === 'own' ? '' : 'own', page: '' })} class={`af-posted-toggle${fSource === 'own' ? ' active' : ''}`}>
         👤 Private sellers ({privateCount})
       </a>
@@ -714,6 +795,29 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
   .ms-opt:hover { background: #F9FAFB; }
   .ms-opt input { accent-color: #F5A623; width: 15px; height: 15px; cursor: pointer; }
   .ms-group { font-size: 0.58rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #9CA3AF; padding: 0.5rem 0.6rem 0.2rem; border-top: 1px solid #F3F4F6; margin-top: 0.2rem; }
+  .rng-wrap .af-sel { cursor: pointer; }
+  .rng-preset {
+    display: block; width: 100%; text-align: left; padding: 0.45rem 0.6rem;
+    font-size: 0.75rem; color: #374151; background: none; border: none; cursor: pointer;
+    border-radius: 0.375rem; white-space: nowrap;
+  }
+  .rng-preset:hover { background: #F9FAFB; }
+  .rng-preset.on { background: #FFFBF0; color: #78350F; font-weight: 600; }
+  .rng-custom {
+    display: flex; align-items: center; gap: 0.35rem; padding: 0.5rem 0.6rem 0.35rem;
+    border-top: 1px solid #F3F4F6; margin-top: 0.2rem;
+  }
+  .rng-custom span { color: #9CA3AF; font-size: 0.75rem; }
+  .rng-custom input {
+    width: 5.2rem; min-width: 0; padding: 0.35rem 0.45rem; font-size: 0.75rem;
+    border: 1.5px solid #E5E7EB; border-radius: 0.375rem;
+  }
+  .rng-custom input:focus { outline: none; border-color: #F5A623; }
+  .rng-apply {
+    padding: 0.35rem 0.7rem; font-size: 0.72rem; font-weight: 700; cursor: pointer;
+    background: #F5A623; color: white; border: none; border-radius: 0.375rem;
+  }
+  .rng-apply:hover { background: #E09612; }
   .af-input.active { border-color: #F5A623; background-color: #FFFBF0; color: #78350F; }
   .af-input::placeholder { color: #9CA3AF; font-weight: 500; }
   .af-sel:hover:not(.active) { border-color: #D1D5DB; }
@@ -952,6 +1056,36 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
     msPanel.addEventListener('click', (e) => e.stopPropagation());
     document.addEventListener('click', () => { if (!msPanel.hidden) close(); });
   }
+
+  // ── Price/mileage range dropdowns — presets navigate, custom min/max on Go ─
+  document.querySelectorAll<HTMLElement>('.rng-wrap').forEach(wrap => {
+    const btn = wrap.querySelector<HTMLButtonElement>('.af-sel')!;
+    const panel = wrap.querySelector<HTMLElement>('.rng-panel')!;
+    const param = wrap.dataset.param!;
+    const nav = (value: string) => {
+      const params = new URLSearchParams(window.location.search);
+      params.delete('page');
+      if (value) params.set(param, value); else params.delete(param);
+      window.location.href = '/admin' + (params.toString() ? '?' + params.toString() : '');
+    };
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      panel.hidden = !panel.hidden;
+      btn.setAttribute('aria-expanded', String(!panel.hidden));
+    });
+    panel.addEventListener('click', (e) => e.stopPropagation());
+    document.addEventListener('click', () => { panel.hidden = true; btn.setAttribute('aria-expanded', 'false'); });
+    panel.querySelectorAll<HTMLButtonElement>('.rng-preset').forEach(p =>
+      p.addEventListener('click', () => nav(p.dataset.value ?? '')));
+    const minI = panel.querySelector<HTMLInputElement>('.rng-min')!;
+    const maxI = panel.querySelector<HTMLInputElement>('.rng-max')!;
+    const apply = () => {
+      const min = minI.value.trim(), max = maxI.value.trim();
+      nav(min || max ? `${min || 0}-${max}` : '');
+    };
+    panel.querySelector('.rng-apply')?.addEventListener('click', apply);
+    [minI, maxI].forEach(i => i.addEventListener('keydown', (e) => { if (e.key === 'Enter') apply(); }));
+  });
 
   // ── Search — navigate on Enter, or on clearing the field ────────────────
   const searchInput = document.getElementById('af-search') as HTMLInputElement | null;
