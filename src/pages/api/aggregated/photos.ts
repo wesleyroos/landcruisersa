@@ -34,16 +34,31 @@ export const POST: APIRoute = async ({ request }) => {
     return new Response(JSON.stringify({ error: 'source, source_id, and photos[] required' }), { status: 400 });
   }
 
-  const result = await db
-    .update(listings)
-    .set({ photos: JSON.stringify(photos) })
-    .where(and(eq(listings.source, source), eq(listings.source_id, source_id)));
+  // Never shrink a gallery: the caller (AT backfill) fetches the detail page,
+  // which is normally richer than the ~7 search-tile images — but a delisted or
+  // genuinely sparse page can return fewer. Keep whichever set is larger.
+  const current = await db.select({ photos: listings.photos })
+    .from(listings)
+    .where(and(eq(listings.source, source), eq(listings.source_id, source_id)))
+    .get();
 
-  if (result.rowsAffected === 0) {
+  if (!current) {
     return new Response(JSON.stringify({ ok: false, error: 'not found' }), { status: 404 });
   }
 
-  return new Response(JSON.stringify({ ok: true, count: photos.length }), {
+  let existingCount = 0;
+  try { const p = JSON.parse(current.photos); if (Array.isArray(p)) existingCount = p.length; } catch { /* keep 0 */ }
+  const kept = photos.length >= existingCount ? photos : JSON.parse(current.photos);
+
+  // Stamp the backfill marker regardless of whether the set grew — the point is
+  // "we've fetched the full gallery for this listing", so a sparse-but-live page
+  // is marked done and won't be re-crawled every run (needs-images gates on this).
+  await db
+    .update(listings)
+    .set({ photos: JSON.stringify(kept), photos_backfilled_at: new Date() })
+    .where(and(eq(listings.source, source), eq(listings.source_id, source_id)));
+
+  return new Response(JSON.stringify({ ok: true, count: kept.length }), {
     status: 200,
     headers: { 'Content-Type': 'application/json' },
   });

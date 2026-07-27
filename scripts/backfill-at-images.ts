@@ -1,8 +1,9 @@
 /**
  * Backfill AutoTrader listing images.
  *
- * Finds active AT listings stored in the DB with fewer than MIN_PHOTOS photos,
- * fetches the full image set from AutoTrader, and updates the DB.
+ * Finds active AT listings whose full gallery hasn't been fetched yet
+ * (photos_backfilled_at IS NULL — the search tile only yields ~7 images),
+ * fetches the full image set from the detail page, and updates the DB.
  *
  * Designed to run anywhere — local Mac, VPS, wherever. Just needs:
  *   SITE_URL      Base URL of the Fly app  (default: https://landcruisersa.fly.dev)
@@ -20,7 +21,6 @@ const SITE_URL   = process.env.SITE_URL   ?? 'https://landcruisersa.fly.dev';
 const TOKEN      = process.env.INGEST_TOKEN ?? '';
 const BATCH_SIZE = parseInt(process.env.BATCH_SIZE ?? '30', 10);
 const DELAY_MS   = parseInt(process.env.DELAY_MS   ?? '2000', 10); // ms between AT fetches
-const MIN_PHOTOS = 2;
 // Segments to backfill galleries for. Hilux/Fortuner detail pages ARE publicly
 // viewable (not just /market aggregates), so they need galleries too — default
 // covers both. The cost is more block-sensitive per-listing fetches, kept
@@ -99,7 +99,7 @@ async function run() {
   console.log(`[at-images] starting — batch=${BATCH_SIZE}, delay=${DELAY_MS}ms`);
 
   const data = await apiGet(
-    `/api/aggregated/needs-images?source=autotrader&min_photos=${MIN_PHOTOS}&limit=${BATCH_SIZE}&segments=${encodeURIComponent(SEGMENTS)}`
+    `/api/aggregated/needs-images?source=autotrader&limit=${BATCH_SIZE}&segments=${encodeURIComponent(SEGMENTS)}`
   ) as { results: Array<{ source_id: string; source_url: string; photo_count: number }> };
 
   const pending = data.results;
@@ -132,10 +132,13 @@ async function run() {
       continue;
     }
 
-    if (imgs.length < MIN_PHOTOS) {
-      // 404 (delisted) or a genuinely sparse listing — just skip. A real soft
-      // block is caught as a challenge page in fetchAtImages (throws rateLimited).
-      process.stdout.write(`only ${imgs.length} found — skipping\n`);
+    if (imgs.length === 0) {
+      // 404 (delisted) or markup change — leave photos_backfilled_at NULL so a
+      // live listing retries next run rather than being marked done with nothing.
+      // A real soft block is caught as a challenge page in fetchAtImages (throws
+      // rateLimited). A sparse-but-nonempty page still POSTs below: the endpoint
+      // keeps the larger existing set and stamps the marker, so it won't re-crawl.
+      process.stdout.write(`0 found — skipping (delisted or blocked)\n`);
       empty++;
       await delay(DELAY_MS);
       continue;

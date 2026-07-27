@@ -42,6 +42,7 @@ export const listings = sqliteTable('listings', {
   segment:      text('segment').notNull().default('land-cruiser'), // 'land-cruiser' | 'toyota-4x4' | 'other-4x4' — only LC is in the public classifieds; other-4x4 (non-Toyota game viewers) shows solely on /game-viewers/ + its own detail page
   body_type:    text('body_type'),                                 // 'game-viewer' | 'standard' (admin opt-out) | null = unclassified
   model_locked: integer('model_locked', { mode: 'boolean' }).notNull().default(false), // admin corrected the model — re-ingest must not overwrite it
+  photos_backfilled_at: integer('photos_backfilled_at', { mode: 'timestamp' }), // AT full-gallery fetched (null = still only the ~7 search-tile images)
   created_at:   integer('created_at', { mode: 'timestamp' }).notNull(),
 }, t => ({
   sourceIdIdx: uniqueIndex('listings_source_source_id').on(t.source, t.source_id),

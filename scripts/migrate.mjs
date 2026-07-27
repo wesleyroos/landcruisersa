@@ -67,6 +67,20 @@ addCol('ig_media_id',    "ig_media_id    TEXT");
 addCol('body_type',      "body_type      TEXT");
 addCol('ig_skipped_at',  "ig_skipped_at  INTEGER");
 addCol('model_locked',   "model_locked   INTEGER NOT NULL DEFAULT 0");
+addCol('photos_backfilled_at', "photos_backfilled_at INTEGER");
+
+// One-time rollout for the AT gallery backfill marker: the search tile yields at
+// most ~7 images, so any AutoTrader listing already holding 8+ was fetched from
+// its detail page — mark those done so the backfill (now gated on this being
+// NULL) doesn't re-crawl thousands of already-complete galleries. Listings stuck
+// at the tile's ≤7 stay NULL and get picked up. Idempotent + self-terminating:
+// after this, a listing only ever exceeds 7 via the backfill, which stamps the
+// marker itself, so no new NULL-and-≥8 rows appear.
+db.exec(`
+  UPDATE listings SET photos_backfilled_at = strftime('%s','now')
+  WHERE source = 'autotrader' AND photos_backfilled_at IS NULL
+    AND json_array_length(photos) >= 8
+`);
 
 // 70-family mislabel repair: dealers title the 70-series bakkie/wagon as just
 // "70", landing them in the tiny generic '70-series' bucket instead of the real
@@ -747,7 +761,7 @@ const REQUIRED_COLS = [
   'source_url', 'source', 'source_id', 'last_polled_at', 'review_flag',
   'created_at', 'ig_posted_at', 'featured', 'segment', 'off_market_at',
   'seller_notified_at', 'dealer_offer_optin', 'sold_price', 'ig_media_id',
-  'body_type', 'ig_skipped_at', 'model_locked',
+  'body_type', 'ig_skipped_at', 'model_locked', 'photos_backfilled_at',
 ];
 const finalCols = new Set(
   db.prepare("SELECT name FROM pragma_table_info('listings')").all().map(r => r.name)

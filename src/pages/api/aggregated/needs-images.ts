@@ -3,7 +3,7 @@ export const prerender = false;
 import type { APIRoute } from 'astro';
 import { db } from '@/db/index';
 import { listings } from '@/db/schema';
-import { eq, and, ne, sql, inArray, desc } from 'drizzle-orm';
+import { eq, and, ne, sql, inArray, desc, isNull } from 'drizzle-orm';
 
 function checkToken(request: Request): boolean {
   const auth = request.headers.get('authorization') ?? '';
@@ -12,16 +12,18 @@ function checkToken(request: Request): boolean {
   return auth === `Bearer ${token}`;
 }
 
-// Returns active aggregated listings from a given source that have fewer than
-// min_photos photos stored. Used by the image backfill script.
-// GET /api/aggregated/needs-images?source=autotrader&min_photos=2&limit=50&offset=0
+// Returns active aggregated listings from a given source whose full gallery has
+// not been fetched yet (photos_backfilled_at IS NULL). Used by the image
+// backfill script. Photo count is NOT the gate: AutoTrader's search tile always
+// delivers ~7 images, so a count threshold treated every listing as "done" and
+// froze thousands at the tile's 7 (the real detail page carries 20+).
+// GET /api/aggregated/needs-images?source=autotrader&limit=50&offset=0
 export const GET: APIRoute = async ({ request, url }) => {
   if (!checkToken(request)) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
   }
 
   const source = url.searchParams.get('source') ?? 'autotrader';
-  const minPhotos = Math.max(1, parseInt(url.searchParams.get('min_photos') ?? '2', 10));
   const limit = Math.min(200, parseInt(url.searchParams.get('limit') ?? '50', 10));
   const offset = Math.max(0, parseInt(url.searchParams.get('offset') ?? '0', 10));
   // Optional segment scope, e.g. ?segments=land-cruiser — lets the backfill skip
@@ -35,7 +37,7 @@ export const GET: APIRoute = async ({ request, url }) => {
     eq(listings.status, 'active'),
     eq(listings.source, source),
     ne(listings.source, 'own'),
-    sql`json_array_length(${listings.photos}) < ${minPhotos}`,
+    isNull(listings.photos_backfilled_at),
   ];
   if (segments.length) conds.push(inArray(listings.segment, segments));
 
