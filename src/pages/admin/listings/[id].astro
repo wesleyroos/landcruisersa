@@ -622,7 +622,9 @@ const rand0 = (n: number) => 'R' + n.toLocaleString('en-ZA');
             </div>
 
             <button type="button" class="btn-save-doc" id="btn-save-doc">Save identity</button>
+            <button type="button" class="btn-scan-disc" id="btn-scan-disc">✨ Scan disc with AI</button>
             <span class="offer-status" id="doc-status"></span>
+            <p class="scan-extras hidden" id="scan-extras"></p>
           </div>
         </>
       )}
@@ -1519,6 +1521,62 @@ const rand0 = (n: number) => 'R' + n.toLocaleString('en-ZA');
       saveDocBtn.disabled = false;
     });
   }
+
+  // ── AI-scan the disc photo → fill identity fields for confirmation ─────────
+  const scanBtn = document.getElementById('btn-scan-disc');
+  if (scanBtn) {
+    const docStatus = document.getElementById('doc-status');
+    const extrasEl = document.getElementById('scan-extras');
+    scanBtn.addEventListener('click', async () => {
+      scanBtn.disabled = true;
+      docStatus.textContent = 'Reading disc… (takes ~10s)';
+      docStatus.className = 'offer-status';
+      extrasEl.classList.add('hidden');
+
+      const fd = new FormData();
+      fd.append('listing_id', String(listingId));
+      const fileInput = document.getElementById('dc-image');
+      if (fileInput.files && fileInput.files[0]) fd.append('disc_image', fileInput.files[0]);
+
+      try {
+        const res = await fetch('/api/admin/scan-disc', { method: 'POST', body: fd });
+        const j = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          docStatus.textContent = j.error || 'Scan failed — try again';
+          docStatus.className = 'offer-status err';
+          scanBtn.disabled = false;
+          return;
+        }
+        const f = j.fields || {};
+        const setIf = (id, val) => { if (val) document.getElementById(id).value = val; };
+        setIf('dc-vin', f.vin);
+        setIf('dc-engine', f.engine_no);
+        setIf('dc-licence', f.licence_no);
+        setIf('dc-register', f.register_no);
+        setIf('dc-expiry', f.disc_expiry);
+
+        const extras = [
+          f.make && `Make: ${f.make}`,
+          f.description && `Type: ${f.description}`,
+          f.disc_no && `Disc no: ${f.disc_no}`,
+          f.date_of_test && `Tested: ${f.date_of_test}`,
+          f.gvm_kg && `GVM: ${f.gvm_kg} kg`,
+          f.tare_kg && `Tare: ${f.tare_kg} kg`,
+          f.persons_seated && `Seats: ${f.persons_seated}`,
+        ].filter(Boolean).join(' · ');
+        if (extras) {
+          extrasEl.textContent = `Also on the disc — ${extras}`;
+          extrasEl.classList.remove('hidden');
+        }
+        docStatus.textContent = 'Filled in — check the fields, then Save identity.';
+        docStatus.className = 'offer-status ok';
+      } catch {
+        docStatus.textContent = 'Network error';
+        docStatus.className = 'offer-status err';
+      }
+      scanBtn.disabled = false;
+    });
+  }
 </script>
 
 <style>
@@ -1569,6 +1627,15 @@ const rand0 = (n: number) => 'R' + n.toLocaleString('en-ZA');
   .btn-add-offer:disabled, .btn-save-doc:disabled { opacity: 0.5; cursor: not-allowed; }
   .offer-status { margin-left: 0.75rem; font-size: 0.78rem; font-weight: 600; color: #6B7280; }
   .offer-status.err { color: #DC2626; }
+  .offer-status.ok { color: #15803D; }
+  .btn-scan-disc {
+    background: white; color: #92400E; border: 1px solid #F5A623; border-radius: 0.5rem;
+    font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+    padding: 0.6rem 1.25rem; cursor: pointer; margin-left: 0.5rem; transition: background 0.15s;
+  }
+  .btn-scan-disc:hover { background: #FEF3E2; }
+  .btn-scan-disc:disabled { opacity: 0.5; cursor: not-allowed; }
+  .scan-extras { font-size: 0.75rem; color: #6B7280; margin: 0.6rem 0 0; line-height: 1.5; }
 
   .disc-image-row { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
   #disc-thumb {
