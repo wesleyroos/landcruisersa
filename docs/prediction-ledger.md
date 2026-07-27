@@ -227,8 +227,40 @@ date, compare to baseline, mark HIT / MISS / PARTIAL, and write the lesson.
   5. *(secondary)* **≥ 60% of signups opt in** to alerts. `SELECT sum(consent_at IS NOT NULL) AS opted_in, count(*) FROM users WHERE email NOT LIKE '%@grodigital.co.za' AND email NOT LIKE '%@landcruisersa.co.za';`
 - **Pre-registered failure hypothesis (so a miss isn't rationalised away):** if saves ≈ 0 after 4 weeks despite >600 visitors, the prime suspect is the **account-gate** — you must sign up to save, which compounds two low-probability gates (intent-to-save × willingness-to-sign-up). Pre-committed next experiment if so: **guest-save** (capture email on save, defer the full profile). Real accounts were a deliberate product choice; this is the data-triggered fallback, not a default.
 - **Most-watched (manage the feature on these, raw counts, vs the clean 2026-06-17 conversion baseline):** net-new verified emails/wk · saves/wk · alert click-backs/wk · downstream finance_calc / valuation / enquiry events attributable to alert click-backs.
-- **Result:** _pending 2026-07-27_
-- **Lesson:** _tbd_
+- **Result (2026-07-27 — automated review; prod DB + Plausible unavailable in CI environment):** ⚠️ All 5 metrics require manual input — run on prod to complete grading (should take ~2 min):
+
+  **P7-1 (PRIMARY — verified users; bar ≥ 5):**
+  ```
+  sqlite3 <prod_db> "SELECT count(*) FROM users WHERE verified_at IS NOT NULL AND email NOT LIKE '%@grodigital.co.za' AND email NOT LIKE '%@landcruisersa.co.za';"
+  ```
+  → Grade HIT if ≥5, MISS if <5.
+
+  **P7-2 (saves loop alive; bar ≥ 8 combined):**
+  ```
+  sqlite3 <prod_db> "SELECT (SELECT count(*) FROM favorites) + (SELECT count(*) FROM saved_searches);"
+  ```
+  → Grade HIT if ≥8, MISS if <8. **⚠️ If result ≈ 0 with >600 visitors in the window: pre-registered failure hypothesis active — account-gate is the prime suspect (intent-to-save × willingness-to-sign-up = two compounding low-probability gates). Pre-committed next experiment: guest-save (capture email on save, defer full profile).**
+
+  **P7-3 (magic-link verification rate — gated at ≥10 signups):**
+  ```
+  sqlite3 <prod_db> "SELECT sum(verified_at IS NOT NULL) AS verified, count(*) AS signups FROM users WHERE email NOT LIKE '%@grodigital.co.za' AND email NOT LIKE '%@landcruisersa.co.za';"
+  ```
+  → If signups ≥10: grade ≥40% verified = HIT, <30% = deliverability red flag (check SPF/DKIM/DMARC, Gmail Promotions/spam). If signups <10: report raw fraction (e.g. '2 of 4') and write **'insufficient signal — defaulting to prior'**, NOT a HIT/MISS verdict.
+
+  **P7-4 (alert click-backs — gated on ≥10 alerts fired):**
+  ```
+  sqlite3<prod_db> "SELECT count(*) FROM visit_events WHERE utm_source='alert';"
+  sqlite3 <prod_db> "SELECT (SELECT count(*) FROM favorites WHERE last_notified_at IS NOT NULL) + (SELECT count(*) FROM saved_searches WHERE last_notified_at IS NOT NULL);"
+  ```
+  Plausible: ⚠️ NEEDS MANUAL INPUT — filter utm_source=alert, 28d window. Report alerts-fired count alongside click-backs. If alerts fired <10: write **'no signal yet'** — NOT a miss (few saved cars may have changed price/status yet at 4 weeks). ~0 click-backs with ~0 alerts fired is expected early; that's volume, not failure.
+
+  **P7-5 (opt-in rate — secondary; bar ≥60%):**
+  ```
+  sqlite3 <prod_db> "SELECT sum(consent_at IS NOT NULL) AS opted_in, count(*) FROM users WHERE email NOT LIKE '%@grodigital.co.za' AND email NOT LIKE '%@landcruisersa.co.za';"
+  ```
+  → Grade ≥60% opted-in = HIT.
+
+- **Lesson:** This 4-week read grades whether a cold-start magic-link accounts feature can build a verified email asset at meaningful velocity (~300 visitors/wk niche site). The raw counts (P7-1, P7-2) are the management signal — not rates. If both hit: the engagement loop is alive, grow it and re-arm a 12-week review on re-engagement (P7-4). If P7-2 (saves) ≈ 0 despite ≥600 visitors: the account-gate is strangling intent — the pre-committed pivot to guest-save should run immediately as the next experiment; do not optimise the current funnel. If P7-3 verification rate <30% at any sample size: fix deliverability before growing signups. At 4 weeks, 'insufficient signal' on rates is the disciplined answer, not a rationalised miss — re-arm a 12-week review once volume accumulates.
 
 ---
 
