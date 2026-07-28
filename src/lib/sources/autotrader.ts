@@ -94,7 +94,7 @@ interface SummaryIcon {
 
 interface AtTile {
   listingId: number;
-  canonicalUrl: string;
+  listingUrl: string;   // was `canonicalUrl` until AutoTrader renamed it ~2026-07-27
   imageUrl?: string;
   standOutImageUrls?: string[];
   registrationYear?: number;
@@ -141,6 +141,14 @@ function parseFuel(icons: SummaryIcon[]): string | undefined {
   return undefined;
 }
 
+// tile.listingUrl now carries tracking query params (?vf=…&db=…&s360=…); strip
+// them so source_url stays clean and stable — varying params would otherwise
+// mark every listing "updated" on each crawl and churn source_url pointlessly.
+function tileUrl(raw: string): string {
+  const path = (raw ?? '').split('?')[0];
+  return path.startsWith('http') ? path : `${BASE}${path}`;
+}
+
 function tileToListing(tile: AtTile): NormalizedListing {
   const title = [tile.registrationYear, tile.make, tile.model, tile.variant].filter(Boolean).join(' ');
   const photos: string[] = [];
@@ -151,7 +159,7 @@ function tileToListing(tile: AtTile): NormalizedListing {
   const icons = tile.summaryIcons ?? [];
   const mileage = parseMileageText(icons);
   const isUsed = /used/i.test(tile.newUsedDescription ?? '') || mileage > 0;
-  const url = tile.canonicalUrl.startsWith('http') ? tile.canonicalUrl : `${BASE}${tile.canonicalUrl}`;
+  const url = tileUrl(tile.listingUrl);
 
   const model = normalizeModel(title, tile.registrationYear);
   // Non-Toyota metal (Mahindra/Suzuki game viewers from the keyword crawl) must
@@ -284,9 +292,9 @@ export const AutoTraderAdapter: SourceAdapter = {
         let scriptMatch: RegExpExecArray | null;
         while ((scriptMatch = scriptRe.exec(html)) !== null) {
           const s = scriptMatch[1];
-          if (!s.includes('canonicalUrl') || !s.includes('listingId')) continue;
+          if (!s.includes('listingUrl') || !s.includes('listingId')) continue;
 
-          const tileMatches = s.matchAll(/"listingId":(\d+),"canonicalUrl":"([^"]+)"/g);
+          const tileMatches = s.matchAll(/"listingId":(\d+),"listingUrl":"([^"]+)"/g);
           for (const m of tileMatches) {
             const id = m[1];
             modelIds.add(id);           // per-model completeness, counted before global dedup
@@ -307,8 +315,7 @@ export const AutoTraderAdapter: SourceAdapter = {
               const tile = JSON.parse(s.slice(startIdx, endIdx + 1)) as AtTile;
               const listing = tileToListing(tile);
               _cache.set(id, listing);
-              const url = tile.canonicalUrl.startsWith('http') ? tile.canonicalUrl : `${BASE}${tile.canonicalUrl}`;
-              refs.push({ source: SOURCE, source_id: id, source_url: url });
+              refs.push({ source: SOURCE, source_id: id, source_url: tileUrl(tile.listingUrl) });
               foundOnPage++;
             } catch { /* malformed tile — skip */ }
           }
