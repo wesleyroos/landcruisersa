@@ -43,6 +43,7 @@ export const listings = sqliteTable('listings', {
   body_type:    text('body_type'),                                 // 'game-viewer' | 'standard' (admin opt-out) | null = unclassified
   model_locked: integer('model_locked', { mode: 'boolean' }).notNull().default(false), // admin corrected the model — re-ingest must not overwrite it
   photos_backfilled_at: integer('photos_backfilled_at', { mode: 'timestamp' }), // AT full-gallery fetched (null = still only the ~7 search-tile images)
+  edit_token:   text('edit_token'),                                // capability token for the no-account "manage your listing" link (own submissions only; null for scraped rows)
   created_at:   integer('created_at', { mode: 'timestamp' }).notNull(),
 }, t => ({
   sourceIdIdx: uniqueIndex('listings_source_source_id').on(t.source, t.source_id),

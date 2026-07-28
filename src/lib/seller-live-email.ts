@@ -22,6 +22,7 @@ export async function sendSellerLiveEmail(listing: Listing): Promise<boolean> {
   if (!to || !to.includes('@')) return false;
 
   const url = `${SITE}/listings/${listing.slug}/`;
+  const manageUrl = listing.edit_token ? `${SITE}/listings/manage/${listing.edit_token}` : null;
   const firstName = (listing.seller_name ?? '').trim().split(/\s+/)[0] || 'there';
   const photo = firstPhoto(listing.photos);
 
@@ -45,12 +46,15 @@ export async function sendSellerLiveEmail(listing: Listing): Promise<boolean> {
           <p style="margin:0 0 6px;font-size:17px;font-weight:700;">${listing.title}</p>
           <p style="margin:0 0 14px;font-size:13px;color:#6B7280;">${specBits}</p>
           <a href="${url}" style="display:inline-block;background:#F5A623;color:#111;font-size:13px;font-weight:700;text-decoration:none;padding:10px 20px;border-radius:8px;">View your listing →</a>
+          ${manageUrl ? `<a href="${manageUrl}" style="display:inline-block;margin-left:8px;border:1.5px solid #111;color:#111;font-size:13px;font-weight:700;text-decoration:none;padding:9px 18px;border-radius:8px;">Edit / manage →</a>` : ''}
         </div>
       </div>
 
-      <p style="font-size:14px;line-height:1.6;">Please take a moment to check the photos and details are correct. <strong>Spot anything you'd like changed?</strong> Just reply to this email or contact us at <a href="mailto:${SUPPORT_EMAIL}" style="color:#D4881A;">${SUPPORT_EMAIL}</a> and we'll update it for you.</p>
+      ${manageUrl
+        ? `<p style="font-size:14px;line-height:1.6;">Need to change the price, swap photos, update the details, or mark it sold? <a href="${manageUrl}" style="color:#D4881A;font-weight:700;">Manage your listing here</a> — no login needed. Keep this email; the link is private to you.</p>`
+        : `<p style="font-size:14px;line-height:1.6;">Please take a moment to check the photos and details are correct. <strong>Spot anything you'd like changed?</strong> Just reply to this email or contact us at <a href="mailto:${SUPPORT_EMAIL}" style="color:#D4881A;">${SUPPORT_EMAIL}</a> and we'll update it for you.</p>
 
-      <p style="font-size:14px;line-height:1.6;">When the vehicle sells, let us know and we'll mark it sold.</p>
+      <p style="font-size:14px;line-height:1.6;">When the vehicle sells, let us know and we'll mark it sold.</p>`}
 
       <p style="font-size:14px;margin-top:24px;">Thanks,<br/>The Land Cruiser SA team</p>
       <p style="font-size:11px;color:#9CA3AF;margin-top:20px;">You're receiving this because your vehicle was submitted to landcruisersa.co.za. Questions? Email ${SUPPORT_EMAIL}.</p>

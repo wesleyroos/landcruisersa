@@ -1,0 +1,283 @@
+---
+export const prerender = false;
+
+import Base from '@/layouts/Base.astro';
+import { db } from '@/db/index';
+import { listings } from '@/db/schema';
+import { eq } from 'drizzle-orm';
+import { parsePhotos } from '@/lib/photos';
+
+const { token } = Astro.params;
+const listing = token
+  ? db.select().from(listings).where(eq(listings.edit_token, token)).get()
+  : undefined;
+
+// Scraped rows are never seller-managed; treat as invalid link.
+const valid = listing && !listing.source_url;
+const photos = valid ? parsePhotos(listing!.photos) : [];
+const PROVINCES = ['Gauteng', 'Western Cape', 'KwaZulu-Natal', 'Eastern Cape', 'Limpopo', 'Mpumalanga', 'North West', 'Free State', 'Northern Cape'];
+const removed = valid && listing!.status === 'removed';
+const sold = valid && listing!.status === 'sold';
+---
+
+<Base
+  title="Manage your listing — Land Cruiser SA"
+  description="Update your Land Cruiser listing."
+  noindex={true}
+>
+  <div class="mng-wrap">
+    {!valid ? (
+      <div class="mng-card mng-empty">
+        <h1>Link not valid</h1>
+        <p>This manage link isn’t valid — it may have expired or the listing was removed. If you need to change your listing, reply to your confirmation email or contact <a href="mailto:info@landcruisersa.co.za">info@landcruisersa.co.za</a>.</p>
+        <a class="mng-btn-ghost" href="/listings/">Browse listings</a>
+      </div>
+    ) : (
+      <>
+        <div class="mng-head">
+          <p class="mng-kicker">Manage your listing</p>
+          <h1>{listing!.title}</h1>
+          <p class="mng-sub">{listing!.year} · {listing!.model.replace(/-/g, ' ').toUpperCase()} · no login needed — this link is private to you.</p>
+          <div class="mng-status-row">
+            <a class="mng-viewlink" href={`/listings/${listing!.slug}/`} target="_blank">View public listing ↗</a>
+            {sold && <span class="mng-badge mng-badge-sold">Marked sold</span>}
+            {removed && <span class="mng-badge mng-badge-removed">Removed</span>}
+          </div>
+        </div>
+
+        <form id="mng-form" class="mng-card" data-token={token}>
+          <!-- Photos -->
+          <section class="mng-section">
+            <h2>Photos</h2>
+            <p class="mng-hint">First photo is the cover image. Up to 10. Tap ✕ to remove.</p>
+            <div id="mng-photo-grid" class="mng-photo-grid">
+              {photos.map((url) => (
+                <div class="mng-thumb" data-url={url}>
+                  <img src={url} alt="" loading="lazy" />
+                  <button type="button" class="mng-thumb-x" aria-label="Remove photo">✕</button>
+                </div>
+              ))}
+            </div>
+            <button type="button" id="mng-add-photos" class="mng-btn-ghost">+ Add photos</button>
+            <input type="file" id="mng-photo-input" accept="image/*" multiple hidden />
+          </section>
+
+          <!-- Price / mileage -->
+          <section class="mng-section mng-grid2">
+            <div>
+              <label for="mng-price">Asking price (R)</label>
+              <input id="mng-price" type="number" inputmode="numeric" min="0" value={listing!.price || ''} />
+            </div>
+            <div>
+              <label for="mng-mileage">Mileage (km)</label>
+              <input id="mng-mileage" type="number" inputmode="numeric" min="0" value={listing!.mileage || ''} />
+            </div>
+          </section>
+
+          <!-- Province / colour / transmission -->
+          <section class="mng-section mng-grid2">
+            <div>
+              <label for="mng-province">Province</label>
+              <select id="mng-province">
+                {PROVINCES.map((p) => <option value={p} selected={p === listing!.province}>{p}</option>)}
+              </select>
+            </div>
+            <div>
+              <label for="mng-colour">Colour</label>
+              <input id="mng-colour" type="text" maxlength="40" value={listing!.colour} />
+            </div>
+            <div>
+              <label for="mng-transmission">Transmission</label>
+              <select id="mng-transmission">
+                <option value="manual" selected={listing!.transmission === 'manual'}>Manual</option>
+                <option value="automatic" selected={listing!.transmission === 'automatic'}>Automatic</option>
+              </select>
+            </div>
+          </section>
+
+          <!-- Description -->
+          <section class="mng-section">
+            <label for="mng-description">Description</label>
+            <textarea id="mng-description" rows="6" maxlength="5000">{listing!.description}</textarea>
+          </section>
+
+          <div class="mng-actions">
+            <button type="submit" id="mng-save" class="mng-btn-primary">Save changes</button>
+            <p id="mng-msg" class="mng-msg" hidden></p>
+          </div>
+        </form>
+
+        <div class="mng-card mng-danger">
+          <div>
+            <h2>Sold it, or want it taken down?</h2>
+            <p class="mng-hint">Marking it sold keeps the page live but shows it as sold. Removing it takes it off the site.</p>
+          </div>
+          <div class="mng-danger-btns">
+            <button type="button" id="mng-sold" class="mng-btn-ghost">Mark as sold</button>
+            <button type="button" id="mng-remove" class="mng-btn-danger">Remove listing</button>
+          </div>
+        </div>
+      </>
+    )}
+  </div>
+</Base>
+
+<style>
+  .mng-wrap { max-width: 720px; margin: 0 auto; padding: 2rem 1rem 4rem; }
+  .mng-head { margin-bottom: 1.5rem; }
+  .mng-kicker { color: #F5A623; font-family: var(--font-heading); font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.72rem; margin-bottom: 0.4rem; }
+  .mng-head h1 { font-family: var(--font-heading); font-weight: 700; text-transform: uppercase; font-size: 1.7rem; line-height: 1.1; color: #111; }
+  .mng-sub { color: #6B7280; font-size: 0.9rem; margin-top: 0.4rem; }
+  .mng-status-row { display: flex; align-items: center; gap: 0.75rem; margin-top: 0.6rem; }
+  .mng-viewlink { font-size: 0.85rem; font-weight: 600; color: #D4881A; text-decoration: none; }
+  .mng-viewlink:hover { text-decoration: underline; }
+  .mng-badge { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.2rem 0.55rem; border-radius: 0.3rem; color: #fff; }
+  .mng-badge-sold { background: #dc2626; }
+  .mng-badge-removed { background: #6B7280; }
+
+  .mng-card { background: #fff; border: 1px solid #DDD9D3; border-radius: 1rem; padding: 1.5rem; margin-bottom: 1.25rem; }
+  .mng-section { margin-bottom: 1.5rem; }
+  .mng-section:last-of-type { margin-bottom: 0; }
+  .mng-section h2, .mng-danger h2 { font-family: var(--font-heading); font-weight: 700; text-transform: uppercase; font-size: 1rem; color: #111; margin-bottom: 0.3rem; }
+  .mng-hint { color: #9CA3AF; font-size: 0.8rem; margin-bottom: 0.75rem; }
+  .mng-grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; }
+
+  .mng-card label { display: block; font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; color: #4A4A4A; margin-bottom: 0.4rem; }
+  .mng-card input, .mng-card select, .mng-card textarea {
+    width: 100%; border: 1.5px solid #DDD9D3; border-radius: 0.6rem; padding: 0.6rem 0.75rem;
+    font-size: 0.95rem; font-family: inherit; background: #fff; color: #111;
+  }
+  .mng-card input:focus, .mng-card select:focus, .mng-card textarea:focus { outline: none; border-color: #F5A623; }
+  .mng-card textarea { resize: vertical; }
+
+  .mng-photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 0.6rem; margin-bottom: 0.75rem; }
+  .mng-thumb { position: relative; aspect-ratio: 1; border-radius: 0.5rem; overflow: hidden; background: #F5F3EE; }
+  .mng-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .mng-thumb-x { position: absolute; top: 4px; right: 4px; width: 22px; height: 22px; border: none; border-radius: 999px; background: rgba(0,0,0,0.6); color: #fff; font-size: 0.7rem; cursor: pointer; line-height: 1; }
+
+  .mng-actions { display: flex; align-items: center; gap: 1rem; margin-top: 1.5rem; }
+  .mng-btn-primary { background: #F5A623; color: #111; font-family: var(--font-heading); font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; font-size: 0.85rem; border: none; padding: 0.75rem 1.6rem; border-radius: 0.6rem; cursor: pointer; }
+  .mng-btn-primary:hover { background: #D4881A; }
+  .mng-btn-primary:disabled { opacity: 0.6; cursor: default; }
+  .mng-btn-ghost { display: inline-block; background: #fff; border: 1.5px solid #DDD9D3; color: #111; font-weight: 600; font-size: 0.85rem; padding: 0.55rem 1.1rem; border-radius: 0.6rem; cursor: pointer; text-decoration: none; }
+  .mng-btn-ghost:hover { border-color: #F5A623; color: #D4881A; }
+  .mng-btn-danger { background: #fff; border: 1.5px solid #dc2626; color: #dc2626; font-weight: 700; font-size: 0.85rem; padding: 0.55rem 1.1rem; border-radius: 0.6rem; cursor: pointer; }
+  .mng-btn-danger:hover { background: #dc2626; color: #fff; }
+  .mng-msg { font-size: 0.9rem; font-weight: 600; margin: 0; }
+  .mng-msg.ok { color: #16803C; }
+  .mng-msg.err { color: #dc2626; }
+
+  .mng-danger { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+  .mng-danger-btns { display: flex; gap: 0.6rem; }
+  .mng-empty { text-align: center; }
+  .mng-empty h1 { font-family: var(--font-heading); text-transform: uppercase; font-size: 1.5rem; margin-bottom: 0.75rem; }
+  .mng-empty p { color: #6B7280; font-size: 0.95rem; margin-bottom: 1.25rem; line-height: 1.6; }
+</style>
+
+<script>
+  const form = document.getElementById('mng-form') as HTMLFormElement | null;
+  if (form) {
+    const token = form.dataset.token!;
+    const grid = document.getElementById('mng-photo-grid')!;
+    const addBtn = document.getElementById('mng-add-photos') as HTMLButtonElement;
+    const fileInput = document.getElementById('mng-photo-input') as HTMLInputElement;
+    const saveBtn = document.getElementById('mng-save') as HTMLButtonElement;
+    const msg = document.getElementById('mng-msg') as HTMLElement;
+
+    function showMsg(text: string, ok: boolean) {
+      msg.textContent = text;
+      msg.className = 'mng-msg ' + (ok ? 'ok' : 'err');
+      msg.hidden = false;
+    }
+
+    // Remove-photo (event-delegated so it covers newly added thumbs)
+    grid.addEventListener('click', (e) => {
+      const x = (e.target as HTMLElement).closest('.mng-thumb-x');
+      if (x) x.closest('.mng-thumb')?.remove();
+    });
+
+    function currentPhotos(): string[] {
+      return Array.from(grid.querySelectorAll<HTMLElement>('.mng-thumb')).map(t => t.dataset.url!).filter(Boolean);
+    }
+    function addThumb(url: string) {
+      const div = document.createElement('div');
+      div.className = 'mng-thumb';
+      div.dataset.url = url;
+      div.innerHTML = `<img src="${url}" alt="" /><button type="button" class="mng-thumb-x" aria-label="Remove photo">✕</button>`;
+      grid.appendChild(div);
+    }
+
+    addBtn.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', async () => {
+      const files = Array.from(fileInput.files ?? []);
+      const room = 10 - currentPhotos().length;
+      const toUpload = files.slice(0, Math.max(0, room));
+      if (!toUpload.length) { fileInput.value = ''; return; }
+      addBtn.disabled = true;
+      const orig = addBtn.textContent;
+      addBtn.textContent = `Uploading ${toUpload.length}…`;
+      for (const file of toUpload) {
+        const fd = new FormData();
+        fd.append('file', file);
+        try {
+          const res = await fetch('/api/uploads/', { method: 'POST', body: fd });
+          if (res.ok) { const { url } = await res.json(); addThumb(url); }
+        } catch {}
+      }
+      addBtn.disabled = false;
+      addBtn.textContent = orig;
+      fileInput.value = '';
+    });
+
+    async function send(payload: Record<string, unknown>, done: (ok: boolean, data: any) => void) {
+      try {
+        const res = await fetch('/api/listings/manage', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token, ...payload }),
+        });
+        const data = await res.json().catch(() => ({}));
+        done(res.ok, data);
+      } catch {
+        done(false, {});
+      }
+    }
+
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const photos = currentPhotos();
+      if (photos.length === 0) { showMsg('Keep at least one photo.', false); return; }
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Saving…';
+      send({
+        action: 'update',
+        price: (document.getElementById('mng-price') as HTMLInputElement).value || 0,
+        mileage: (document.getElementById('mng-mileage') as HTMLInputElement).value || 0,
+        province: (document.getElementById('mng-province') as HTMLSelectElement).value,
+        colour: (document.getElementById('mng-colour') as HTMLInputElement).value,
+        transmission: (document.getElementById('mng-transmission') as HTMLSelectElement).value,
+        description: (document.getElementById('mng-description') as HTMLTextAreaElement).value,
+        photos,
+      }, (ok, data) => {
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Save changes';
+        showMsg(ok ? 'Saved. Your changes are live (photo edits are checked by our team).' : (data.error || 'Could not save — try again.'), ok);
+      });
+    });
+
+    document.getElementById('mng-sold')?.addEventListener('click', () => {
+      if (!confirm('Mark this vehicle as sold? The page stays up but shows as sold.')) return;
+      send({ action: 'sold' }, (ok, data) => {
+        showMsg(ok ? 'Marked as sold. Thanks for letting us know!' : (data.error || 'Could not update.'), ok);
+        if (ok) setTimeout(() => location.reload(), 1200);
+      });
+    });
+    document.getElementById('mng-remove')?.addEventListener('click', () => {
+      if (!confirm('Remove this listing from the site? This cannot be undone from here.')) return;
+      send({ action: 'remove' }, (ok, data) => {
+        showMsg(ok ? 'Listing removed. Thanks!' : (data.error || 'Could not update.'), ok);
+        if (ok) setTimeout(() => location.reload(), 1200);
+      });
+    });
+  }
+</script>

@@ -5,6 +5,7 @@ import { db } from '@/db/index';
 import { listings } from '@/db/schema';
 import { rateLimited, clientIp } from '@/lib/rate-limit';
 import { detectBodyType } from '@/lib/sources/normalize';
+import { randomToken } from '@/lib/token';
 
 function slugify(str: string) {
   return str
@@ -50,6 +51,9 @@ export const POST: APIRoute = async ({ request }) => {
 
   const base = slugify(`${year}-${title}`);
   const slug = `${base}-${Date.now().toString(36)}`;
+  // Capability token for the no-account "manage your listing" link, emailed to
+  // the seller when the listing goes live (see lib/seller-live-email).
+  const editToken = randomToken();
 
   await db.insert(listings).values({
     slug,
@@ -76,6 +80,7 @@ export const POST: APIRoute = async ({ request }) => {
       ? 'game-viewer'
       : detectBodyType(String(title), String(description ?? '')),
     status: 'pending',
+    edit_token: editToken,
     created_at: new Date(),
   });
 
