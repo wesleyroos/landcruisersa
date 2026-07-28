@@ -43,6 +43,17 @@ const showAds = !isShowOff
 const mLabel = listing.model.replace(/-/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()).replace(/Fj/, 'FJ');
 // /valuation/<model>/ redirects to the hub for non-valuation slugs (70-series/other), so this is safe.
 const valuationHref = `/valuation/${listing.model}/`;
+// The "Value my X" CTA only makes sense for models the valuation tool supports.
+// Mirrors VALUATION_MODEL_SLUGS in lib/sources/normalize.ts — kept local to avoid
+// the documented modelLabel init-order crash from importing that module here.
+// Non-valuable models (other/70-series/classics) get no CTA: "Value my Other"
+// was nonsensical, and there's no valuation product for non-Toyota metal.
+const VALUABLE_MODELS = new Set([
+  '76-series', '78-series', '79-series', '80-series', '100-series', '200-series', '300-series',
+  'prado-90', 'prado-120', 'prado-150', 'prado-250', 'fj-cruiser', 'land-cruiser-fj',
+  'fortuner-d4d', 'fortuner-gd6', 'hilux-d4d', 'hilux-gd6',
+]);
+const canValue = VALUABLE_MODELS.has(listing.model);
 
 const SOURCE_LABEL: Record<string, string> = {
   autotrader: 'AutoTrader',
@@ -514,14 +525,16 @@ if (metaDescription.length > 160) {
           <p class="description-text">{listing.description}</p>
         </div>
 
-        <!-- Value-my-Cruiser CTA -->
-        <div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;background:#111">
-          <div>
-            <h2 class="card-heading" style="color:#fff">Own a {mLabel}?</h2>
-            <p style="color:rgba(255,255,255,0.7);font-size:0.9rem;margin-top:0.3rem">Free instant estimate of what yours is worth — from live market prices.</p>
+        <!-- Value-my-Cruiser CTA — only for models the valuation tool supports -->
+        {canValue && (
+          <div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;background:#111">
+            <div>
+              <h2 class="card-heading" style="color:#fff">Own a {mLabel}?</h2>
+              <p style="color:rgba(255,255,255,0.7);font-size:0.9rem;margin-top:0.3rem">Free instant estimate of what yours is worth — from live market prices.</p>
+            </div>
+            <a href={valuationHref} style="background:#F5A623;color:#111;font-family:var(--font-heading);font-weight:700;text-transform:uppercase;letter-spacing:0.03em;font-size:0.85rem;padding:0.7rem 1.2rem;border-radius:0.5rem;text-decoration:none;white-space:nowrap">Value my {mLabel} →</a>
           </div>
-          <a href={valuationHref} style="background:#F5A623;color:#111;font-family:var(--font-heading);font-weight:700;text-transform:uppercase;letter-spacing:0.03em;font-size:0.85rem;padding:0.7rem 1.2rem;border-radius:0.5rem;text-decoration:none;white-space:nowrap">Value my {mLabel} →</a>
-        </div>
+        )}
 
         <!-- Mods (show_off only) -->
         {isShowOff && listing.mods && (
