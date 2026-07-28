@@ -773,6 +773,22 @@ if (metaDescription.length > 160) {
     </div>
   </div>
 
+  <!-- MANAGE (own/private-seller listings only) — request a fresh private edit
+       link by email. The token is never printed publicly (it's the password). -->
+  {!isExternal && (
+    <div class="manage-strip">
+      <div class="manage-inner" data-slug={listing.slug}>
+        <span class="manage-q">Is this your listing?</span>
+        <button type="button" id="manage-toggle" class="manage-link">Manage or edit it →</button>
+        <form id="manage-form" class="manage-form" hidden>
+          <input type="email" id="manage-email" placeholder="Email you listed with" autocomplete="email" required />
+          <button type="submit" id="manage-send">Email me my link</button>
+        </form>
+        <p id="manage-msg" class="manage-msg" hidden></p>
+      </div>
+    </div>
+  )}
+
   <!-- SIMILAR LISTINGS -->
   {similarFiltered.length > 0 && (
     <div class="similar-section">
@@ -1651,6 +1667,23 @@ if (metaDescription.length > 160) {
   .lb-arrow:hover { background: rgba(255,255,255,0.2); }
   .lb-prev { left: 1.25rem; }
   .lb-next { right: 1.25rem; }
+
+  /* "Is this your listing?" manage strip (own listings only) */
+  .manage-strip { border-top: 1px solid #E5E1DA; background: #FAF8F4; }
+  .manage-inner { max-width: 72rem; margin: 0 auto; padding: 1.5rem 1rem; display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem 0.85rem; }
+  .manage-q { font-size: 0.9rem; color: #6B7280; }
+  .manage-link { background: none; border: none; padding: 0; cursor: pointer; font-family: inherit; font-size: 0.9rem; font-weight: 700; color: #D4881A; }
+  .manage-link:hover { text-decoration: underline; }
+  .manage-form { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
+  .manage-form[hidden] { display: none; }
+  .manage-form input { border: 1.5px solid #DDD9D3; border-radius: 0.5rem; padding: 0.5rem 0.7rem; font-size: 0.9rem; min-width: 220px; }
+  .manage-form input:focus { outline: none; border-color: #F5A623; }
+  .manage-form button { background: #111; color: #fff; border: none; border-radius: 0.5rem; padding: 0.55rem 1rem; font-size: 0.85rem; font-weight: 700; cursor: pointer; }
+  .manage-form button:hover { background: #F5A623; color: #111; }
+  .manage-form button:disabled { opacity: 0.6; cursor: default; }
+  .manage-msg { font-size: 0.9rem; font-weight: 600; margin: 0; width: 100%; }
+  .manage-msg.ok { color: #16803C; }
+  .manage-msg.err { color: #dc2626; }
 </style>
 
 <script define:vars={{ photos }}>
@@ -1823,3 +1856,53 @@ if (metaDescription.length > 160) {
   });
 </script>
 
+
+<script>
+  // "Is this your listing?" — reveal an email field, request a fresh private
+  // manage link. Reply is always generic (server never confirms the match).
+  (() => {
+    const inner = document.querySelector<HTMLElement>('.manage-inner');
+    if (!inner) return;
+    const slug = inner.dataset.slug!;
+    const toggle = document.getElementById('manage-toggle') as HTMLButtonElement;
+    const form = document.getElementById('manage-form') as HTMLFormElement;
+    const email = document.getElementById('manage-email') as HTMLInputElement;
+    const send = document.getElementById('manage-send') as HTMLButtonElement;
+    const msg = document.getElementById('manage-msg') as HTMLElement;
+
+    toggle.addEventListener('click', () => {
+      form.hidden = false;
+      toggle.hidden = true;
+      email.focus();
+    });
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!email.value.includes('@')) return;
+      send.disabled = true;
+      const orig = send.textContent;
+      send.textContent = 'Sending…';
+      try {
+        const res = await fetch('/api/listings/request-manage-link', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ slug, email: email.value.trim() }),
+        });
+        const data = await res.json().catch(() => ({}));
+        msg.textContent = data.message || (res.ok
+          ? "If that email matches this listing, we've sent your private manage link."
+          : 'Something went wrong — please try again.');
+        msg.className = 'manage-msg ' + (res.ok ? 'ok' : 'err');
+        msg.hidden = false;
+        if (res.ok) form.hidden = true;
+      } catch {
+        msg.textContent = 'Something went wrong — please try again.';
+        msg.className = 'manage-msg err';
+        msg.hidden = false;
+      } finally {
+        send.disabled = false;
+        send.textContent = orig;
+      }
+    });
+  })();
+</script>

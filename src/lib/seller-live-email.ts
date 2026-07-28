@@ -14,6 +14,41 @@ function firstPhoto(photos: string): string | null {
   return src.startsWith('http') ? src : `${SITE}${src}`;
 }
 
+// On-demand "here's your private manage link" email, sent when a seller uses
+// the "Is this your listing?" flow on the listing page (they lost the original).
+// Only ever sent to the listing's own seller_email — the caller verifies the
+// requester typed a matching address before calling this.
+export async function sendManageLinkEmail(listing: Listing): Promise<boolean> {
+  const RESEND_KEY = import.meta.env.RESEND_API_KEY ?? process.env.RESEND_API_KEY ?? '';
+  if (!RESEND_KEY) return false;
+  const to = (listing.seller_email ?? '').trim();
+  if (!to || !to.includes('@') || !listing.edit_token) return false;
+
+  const manageUrl = `${SITE}/listings/manage/${listing.edit_token}`;
+  const firstName = (listing.seller_name ?? '').trim().split(/\s+/)[0] || 'there';
+  const html = `
+    <div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:560px;margin:0 auto;color:#111;">
+      <p style="font-size:15px;">Hi ${firstName},</p>
+      <p style="font-size:15px;line-height:1.6;">Here's your private link to manage your <strong>${listing.title}</strong> on Land Cruiser SA — update the price, swap photos, edit the details, or mark it sold. No login needed.</p>
+      <p style="margin:22px 0;"><a href="${manageUrl}" style="display:inline-block;background:#F5A623;color:#111;font-size:14px;font-weight:700;text-decoration:none;padding:12px 24px;border-radius:8px;">Manage your listing →</a></p>
+      <p style="font-size:13px;line-height:1.6;color:#6B7280;">Keep this link private — anyone who has it can edit your listing. Didn't request this? You can safely ignore this email.</p>
+      <p style="font-size:14px;margin-top:24px;">Thanks,<br/>The Land Cruiser SA team</p>
+    </div>`;
+
+  const res = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${RESEND_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      from: 'Land Cruiser SA <noreply@landcruisersa.co.za>',
+      to,
+      reply_to: SUPPORT_EMAIL,
+      subject: `Manage your ${listing.year} ${listing.model.replace(/-/g, ' ')} listing`,
+      html,
+    }),
+  }).catch(() => null);
+  return Boolean(res?.ok);
+}
+
 export async function sendSellerLiveEmail(listing: Listing): Promise<boolean> {
   const RESEND_KEY = import.meta.env.RESEND_API_KEY ?? process.env.RESEND_API_KEY ?? '';
   if (!RESEND_KEY) return false;
