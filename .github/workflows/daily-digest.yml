@@ -19,3 +19,10 @@ jobs:
           curl -sf -X POST "${{ secrets.SITE_URL }}/api/cron/post-suggestion" \
             -H "Authorization: Bearer ${{ secrets.INGEST_TOKEN }}" \
             -o /dev/null -w "HTTP %{http_code}\n"
+
+      - name: Snapshot Search Console history (backup)
+        if: always()
+        run: |
+          curl -sf -X POST "${{ secrets.SITE_URL }}/api/cron/gsc-snapshot" \
+            -H "Authorization: Bearer ${{ secrets.INGEST_TOKEN }}" \
+            -w "HTTP %{http_code}\n"

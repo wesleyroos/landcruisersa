@@ -1,5 +1,6 @@
 import { sendPostSuggestionEmail } from './post-suggestion-email';
 import { syncIgInsightsDaily } from './ig-insights';
+import { snapshotGscDaily } from './gsc-snapshot';
 
 // Server-side morning trigger. The site runs 24/7 on Fly, so we don't depend on
 // GitHub's (chronically delayed) scheduled Actions for the daily IG email.
@@ -21,6 +22,12 @@ export function ensurePostSuggestionScheduler(): void {
       // Insights sync first so the morning email sees fresh outcome data. Own
       // once-a-day guard; a sync failure must not block the email.
       try { await syncIgInsightsDaily(); } catch (e) { console.error('[ig-insights] daily sync failed', e); }
+      // Persist GSC rank/click history for rank-over-time. Idempotent upsert of a
+      // trailing finalised window, so re-running in the 07:xx window is harmless.
+      try {
+        const g = await snapshotGscDaily();
+        if (g.ok) console.log(`[gsc-snapshot] wrote ${g.rows} rows across ${g.days.length} day(s)`);
+      } catch (e) { console.error('[gsc-snapshot] daily snapshot failed', e); }
       const res = await sendPostSuggestionEmail();
       if (res.emailed) console.log(`[ig-suggestion] sent morning email (${res.suggestions.length} picks)`);
     } catch (e) {

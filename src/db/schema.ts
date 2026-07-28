@@ -118,6 +118,27 @@ export const adEvents = sqliteTable('ad_events', {
   created_at:   integer('created_at', { mode: 'timestamp' }).notNull(),
 });
 
+// Daily Google Search Console snapshot — one row per (date, query). GSC itself
+// only keeps ~16 months and getGscSummary() only ever looks at a trailing 28-day
+// window, so without this table rank-over-time history is lost. This is the
+// data behind "here's your position on X over the last 3 months" for retainers.
+// date is 'YYYY-MM-DD' (the GSC calendar day, not when we captured it). clicks/
+// impressions are integers; ctr/position are stored ×10 as integers (one dp) to
+// keep them exact — divide by 10 to display.
+export const gscSnapshots = sqliteTable('gsc_snapshots', {
+  id:          integer('id').primaryKey({ autoIncrement: true }),
+  date:        text('date').notNull(),                  // 'YYYY-MM-DD' (GSC day)
+  query:       text('query').notNull(),
+  clicks:      integer('clicks').notNull().default(0),
+  impressions: integer('impressions').notNull().default(0),
+  ctr_x10:     integer('ctr_x10').notNull().default(0),      // CTR % ×10
+  position_x10: integer('position_x10').notNull().default(0), // avg position ×10
+  captured_at: integer('captured_at', { mode: 'timestamp' }).notNull(),
+}, t => ({
+  dateQueryIdx: uniqueIndex('gsc_snapshots_date_query').on(t.date, t.query),
+}));
+export type GscSnapshot = typeof gscSnapshots.$inferSelect;
+
 export const viewEvents = sqliteTable('view_events', {
   id:            integer('id').primaryKey({ autoIncrement: true }),
   listing_slug:  text('listing_slug').notNull(),

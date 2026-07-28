@@ -5,10 +5,10 @@ import AdminLayout from '@/layouts/AdminLayout.astro';
 import { getTrafficSummary } from '@/lib/traffic-summary';
 import { getGscSummary } from '@/lib/gsc-summary';
 import { db } from '@/db/index';
-import { partnerClicks, rentalClicks, outboundClicks } from '@/db/schema';
+import { partnerClicks, rentalClicks, outboundClicks, gscSnapshots } from '@/db/schema';
 import { PARTNERS } from '@/data/partners';
 import { RENTAL_OPERATORS } from '@/data/rental-operators';
-import { sql, gte } from 'drizzle-orm';
+import { sql, gte, asc } from 'drizzle-orm';
 
 const cookie = Astro.cookies.get('lcsa_admin');
 const adminSecret = import.meta.env.ADMIN_SECRET ?? process.env.ADMIN_SECRET ?? '';
@@ -100,6 +100,75 @@ try { t = await getTrafficSummary(); } catch { t = null; }
 // one failing never blocks the other.
 let g: Awaited<ReturnType<typeof getGscSummary>> | null = null;
 try { g = await getGscSummary(); } catch { g = null; }
+
+// ── Rank trend over time — from our own gsc_snapshots history ──────────────────
+// getGscSummary() only sees a live 28-day window; this is the persisted history
+// that lets us draw position-over-time. Empty until the daily snapshot has run a
+// few times. We surface the top queries (by clicks in the window) with a position
+// sparkline + the change from the first captured day to the latest.
+type TrendQuery = {
+  query: string;
+  points: { date: string; pos: number; clicks: number; impr: number }[];
+  clicks: number;
+  impr: number;
+  firstPos: number;
+  lastPos: number;
+  spark: string;   // SVG polyline points
+  days: number;
+};
+let gscTrend: { queries: TrendQuery[]; firstDate: string; lastDate: string; dayCount: number } | null = null;
+try {
+  const cutoff = new Date(Date.now() - 90 * 86_400_000).toISOString().slice(0, 10);
+  const rows = db.select({
+    date: gscSnapshots.date,
+    query: gscSnapshots.query,
+    clicks: gscSnapshots.clicks,
+    impressions: gscSnapshots.impressions,
+    position_x10: gscSnapshots.position_x10,
+  }).from(gscSnapshots)
+    .where(gte(gscSnapshots.date, cutoff))
+    .orderBy(asc(gscSnapshots.date))
+    .all();
+  if (rows.length) {
+    const allDays = [...new Set(rows.map(r => r.date))].sort();
+    const byQuery = new Map<string, typeof rows>();
+    for (const r of rows) {
+      if (!byQuery.has(r.query)) byQuery.set(r.query, []);
+      byQuery.get(r.query)!.push(r);
+    }
+    const built: TrendQuery[] = [];
+    for (const [query, qr] of byQuery) {
+      if (qr.length < 2) continue;   // need at least two points to show a trend
+      const points = qr.map(r => ({ date: r.date, pos: r.position_x10 / 10, clicks: r.clicks, impr: r.impressions }));
+      const positions = points.map(p => p.pos);
+      const min = Math.min(...positions), max = Math.max(...positions);
+      const span = max - min || 1;
+      // Sparkline: lower position (better) sits HIGHER on the chart → invert y.
+      const W = 120, H = 28;
+      const spark = points.map((p, i) => {
+        const x = points.length === 1 ? 0 : (i / (points.length - 1)) * W;
+        const y = ((p.pos - min) / span) * H;   // min(best) → y=0 (top)
+        return `${x.toFixed(1)},${y.toFixed(1)}`;
+      }).join(' ');
+      built.push({
+        query, points,
+        clicks: qr.reduce((a, r) => a + r.clicks, 0),
+        impr: qr.reduce((a, r) => a + r.impressions, 0),
+        firstPos: points[0].pos,
+        lastPos: points[points.length - 1].pos,
+        spark,
+        days: qr.length,
+      });
+    }
+    built.sort((a, b) => b.clicks - a.clicks || b.impr - a.impr);
+    gscTrend = {
+      queries: built.slice(0, 15),
+      firstDate: allDays[0],
+      lastDate: allDays[allDays.length - 1],
+      dayCount: allDays.length,
+    };
+  }
+} catch { gscTrend = null; }
 
 const fmt = (n: number) => n.toLocaleString('en-ZA');
 const fmtDate = (d: Date | null) => d ? new Date(d).toLocaleString('en-ZA', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—';
@@ -374,6 +443,43 @@ function trend(last: number, prior: number) {
           )}
           <div style="font-size:12px;color:#9A3412;margin-top:12px;opacity:.85;">We already rank top-5 for these searches — every click lands on content with nothing to buy. That's the range Curve Gear fills.</div>
         </div>
+      </>
+    )}
+  </section>
+
+  {/* ── Rank trend over time — persisted GSC history ───────────────────────── */}
+  <section style="margin-bottom:28px;">
+    <h2 style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#6B7280;margin:0 0 4px;">📉 Rank trend over time · position history</h2>
+    <div style="font-size:12px;color:#9CA3AF;margin-bottom:12px;">Average Google position per query, built from our own daily snapshots (Google only keeps a rolling window). Lower is better — a line that climbs = a ranking that's improving.</div>
+
+    {(!gscTrend || gscTrend.queries.length === 0) ? (
+      <div style="background:#F9FAFB;border:1px dashed #D1D5DB;border-radius:8px;padding:14px 16px;font-size:13px;color:#6B7280;">
+        {gscTrend
+          ? <>History is collecting — snapshots so far: <strong>{gscTrend.dayCount} day{gscTrend.dayCount !== 1 ? 's' : ''}</strong>. Trend lines appear once a query has at least two days of data.</>
+          : <>No rank history yet. The daily snapshot starts filling this table tonight — trend lines appear here within a couple of days.</>}
+      </div>
+    ) : (
+      <>
+        <div style="font-size:12px;color:#6B7280;margin-bottom:10px;">Top {gscTrend.queries.length} queries by clicks · {gscTrend.firstDate} → {gscTrend.lastDate} ({gscTrend.dayCount} day{gscTrend.dayCount !== 1 ? 's' : ''} captured)</div>
+        <div style="background:#fff;border:1px solid #E5E7EB;border-radius:12px;overflow:hidden;">
+          {gscTrend.queries.map((q, i) => {
+            const delta = Math.round((q.firstPos - q.lastPos) * 10) / 10;   // + = improved (position fell)
+            const improved = delta > 0.05, worsened = delta < -0.05;
+            const col = improved ? '#059669' : worsened ? '#DC2626' : '#9CA3AF';
+            const arrow = improved ? '▲' : worsened ? '▼' : '→';
+            return (
+              <div style={`display:grid;grid-template-columns:1fr 130px 92px 96px;align-items:center;gap:12px;padding:9px 14px;${i > 0 ? 'border-top:1px solid #F3F4F6;' : ''}`}>
+                <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;color:#374151;">{q.query}</span>
+                <svg width="120" height="28" viewBox="0 0 120 28" preserveAspectRatio="none" style="overflow:visible;">
+                  <polyline points={q.spark} fill="none" stroke={col} stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" />
+                </svg>
+                <span style="font-size:12px;color:#6B7280;text-align:right;white-space:nowrap;">#{q.firstPos.toFixed(1)} → <strong style="color:#111;">#{q.lastPos.toFixed(1)}</strong></span>
+                <span style={`font-size:12px;font-weight:700;color:${col};text-align:right;white-space:nowrap;`}>{arrow} {Math.abs(delta).toFixed(1)}</span>
+              </div>
+            );
+          })}
+        </div>
+        <div style="font-size:11px;color:#9CA3AF;margin-top:8px;">Change is first captured day vs latest. ▲ green = moved up the results (better); ▼ red = slipped.</div>
       </>
     )}
   </section>

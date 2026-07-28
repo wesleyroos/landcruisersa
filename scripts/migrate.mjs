@@ -205,6 +205,23 @@ db.exec(`
 `);
 db.exec(`CREATE INDEX IF NOT EXISTS ad_events_created ON ad_events (created_at)`);
 
+// Daily GSC rank/click history — one row per (date, query). Persisted so we can
+// draw position-over-time; getGscSummary() only sees a trailing 28d window.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS gsc_snapshots (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    date         TEXT    NOT NULL,
+    query        TEXT    NOT NULL,
+    clicks       INTEGER NOT NULL DEFAULT 0,
+    impressions  INTEGER NOT NULL DEFAULT 0,
+    ctr_x10      INTEGER NOT NULL DEFAULT 0,
+    position_x10 INTEGER NOT NULL DEFAULT 0,
+    captured_at  INTEGER NOT NULL
+  )
+`);
+db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS gsc_snapshots_date_query ON gsc_snapshots (date, query)`);
+db.exec(`CREATE INDEX IF NOT EXISTS gsc_snapshots_query ON gsc_snapshots (query, date)`);
+
 db.exec(`
   CREATE TABLE IF NOT EXISTS click_events (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
