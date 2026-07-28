@@ -109,15 +109,17 @@ export async function snapshotGscDaily(windowDays = 5): Promise<SnapshotResult> 
 
   const capturedAt = new Date();
   const days = new Set<string>();
-
   let written = 0;
-  const tx = db.transaction((records: any[]) => {
-    for (const r of records) {
+
+  // Drizzle's transaction callback receives a transaction handle (txn) — unlike
+  // native better-sqlite3, it does NOT forward arguments, so iterate the closure.
+  db.transaction((txn) => {
+    for (const r of rows) {
       const date = r.keys?.[0];
       const query = r.keys?.[1];
       if (!date || query == null) continue;
       days.add(date);
-      db.insert(gscSnapshots)
+      txn.insert(gscSnapshots)
         .values({
           date,
           query,
@@ -141,7 +143,6 @@ export async function snapshotGscDaily(windowDays = 5): Promise<SnapshotResult> 
       written++;
     }
   });
-  tx(rows);
 
   return { ok: true, rows: written, days: [...days].sort() };
 }
