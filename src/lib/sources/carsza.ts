@@ -124,39 +124,62 @@ async function apiGet(page: Page, qs: string): Promise<{ meta?: { total: number 
   }, qs);
 }
 
+// Headed real Chrome — headless (old and new) gets served the CF challenge.
+// The window is parked offscreen so scheduled runs don't interrupt the user.
+// (In the cloud this runs under xvfb — a virtual display — so "headed" works.)
+//
+// RETRIED with a fresh proxy IP per attempt: the single unretried page.goto used
+// to zero the whole daily run whenever one Cloudflare navigation ran slow
+// (~10% of cloud runs — 2 of the last 20, both `page.goto` 120s timeouts, while
+// the site itself clears in ~4s and the API is healthy). A stuck nav is almost
+// always a slow/hard-CF residential exit IP, so each retry takes a NEW sticky
+// session (sessid.<base>-<n>) → a different exit IP, making the attempts roughly
+// independent (P(all fail) ≈ 0.1³). 3×120s worst case fits the 75-min job budget.
 async function launchSession(): Promise<{ browser: Browser; page: Page }> {
-  // Headed real Chrome — headless (old and new) gets served the CF challenge.
-  // The window is parked offscreen so scheduled runs don't interrupt the user.
-  // (In the cloud this runs under xvfb — a virtual display — so "headed" works.)
-  const launchOptions: LaunchOptions = {
-    channel: 'chrome',
-    headless: false,
-    args: ['--window-position=-32000,-32000'],
-  };
-  // In the cloud, route through the residential proxy with a sticky session so
-  // Cloudflare sees a residential ZA IP, not the datacenter runner. No-op on the
-  // Mac (PROXY_* unset → direct, the Mac's own residential IP).
-  const proxy = playwrightProxy(process.env.SCRAPE_SEGMENT === 'jimny' ? 'jimny-carsza' : 'carsza');
-  if (proxy) launchOptions.proxy = proxy;
-  const browser = await chromium.launch(launchOptions);
-  const page = await browser.newPage();
-  await page.goto('https://www.cars.co.za/usedcars/Toyota/Land-Cruiser-79/', {
-    waitUntil: 'domcontentloaded',
-    // 12s on the Mac, but the cloud runner's path to the proxy is much slower —
-    // give it room (the GH run timed out at 60s).
-    timeout: 120_000,
-  });
-  // Give the CF managed challenge time to clear and set cookies
-  for (let i = 0; i < 20; i++) {
-    const title = await page.title();
-    if (!/just a moment/i.test(title)) break;
-    await page.waitForTimeout(1000);
+  const ATTEMPTS = 3;
+  const sessBase = process.env.SCRAPE_SEGMENT === 'jimny' ? 'jimny-carsza' : 'carsza';
+  let lastErr: unknown;
+
+  for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
+    const launchOptions: LaunchOptions = {
+      channel: 'chrome',
+      headless: false,
+      args: ['--window-position=-32000,-32000'],
+    };
+    // Fresh sticky session per attempt → a different residential ZA exit IP. The
+    // sticky session then holds THAT IP's CF clearance for the rest of the run
+    // (every API page goes through this browser). No-op on the Mac (PROXY_* unset
+    // → direct, the Mac's own residential IP; retries reuse it, still harmless).
+    const proxy = playwrightProxy(`${sessBase}-${attempt}`);
+    if (proxy) launchOptions.proxy = proxy;
+
+    let browser: Browser | null = null;
+    try {
+      browser = await chromium.launch(launchOptions);
+      const page = await browser.newPage();
+      await page.goto('https://www.cars.co.za/usedcars/Toyota/Land-Cruiser-79/', {
+        waitUntil: 'domcontentloaded',
+        // ~4s on a healthy path, but the cloud runner's route to the proxy is
+        // much slower — give it room (a prior run timed out at 60s).
+        timeout: 120_000,
+      });
+      // Give the CF managed challenge time to clear and set cookies
+      for (let i = 0; i < 20; i++) {
+        if (!/just a moment/i.test(await page.title())) break;
+        await page.waitForTimeout(1000);
+      }
+      if (/just a moment/i.test(await page.title())) {
+        throw new Error('Cloudflare challenge did not clear');
+      }
+      return { browser, page };  // success
+    } catch (err) {
+      lastErr = err;
+      if (browser) await browser.close().catch(() => {});
+      console.warn(`[carsza] session launch attempt ${attempt}/${ATTEMPTS} failed: ${String(err).slice(0, 90)}`);
+      if (attempt < ATTEMPTS) await new Promise(r => setTimeout(r, 4000));
+    }
   }
-  if (/just a moment/i.test(await page.title())) {
-    await browser.close();
-    throw new Error('Cloudflare challenge did not clear — try again or run headed interactively');
-  }
-  return { browser, page };
+  throw new Error(`Cloudflare/navigation failed after ${ATTEMPTS} attempts: ${String(lastErr).slice(0, 120)}`);
 }
 
 export const CarsZaAdapter: SourceAdapter = {
