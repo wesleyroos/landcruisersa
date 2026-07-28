@@ -262,7 +262,10 @@ const description = results.length
                 fetchpriority={i < 3 ? 'high' : 'auto'}
                 decoding="async"
               />
-              {l.province && <span class="card-badge">{l.province}</span>}
+              <div class="card-badges">
+                {l.featured && <span class="card-badge card-badge-featured">★ Featured</span>}
+                {l.province && <span class="card-badge">{l.province}</span>}
+              </div>
               {dropBySlug.has(l.slug) && (
                 <span class="card-badge-drop">▼ R{dropBySlug.get(l.slug)!.toLocaleString('en-ZA')} drop</span>
               )}
@@ -509,10 +512,16 @@ const description = results.length
     overflow: hidden;
     background: #F5F3EE;
   }
-  .card-badge {
+  .card-badges {
     position: absolute;
     top: 0.75rem;
     left: 0.75rem;
+    display: flex;
+    gap: 0.35rem;
+    flex-wrap: wrap;
+    max-width: calc(100% - 1.5rem);
+  }
+  .card-badge {
     background: #111111;
     color: white;
     font-size: 0.6rem;
@@ -521,6 +530,11 @@ const description = results.length
     letter-spacing: 0.05em;
     padding: 0.2rem 0.5rem;
     border-radius: 0.25rem;
+  }
+  .card-badge-featured {
+    background: #F5A623;
+    color: #111111;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.25);
   }
   .card-badge-drop {
     position: absolute;
