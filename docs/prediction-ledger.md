@@ -227,8 +227,8 @@ date, compare to baseline, mark HIT / MISS / PARTIAL, and write the lesson.
   5. *(secondary)* **≥ 60% of signups opt in** to alerts. `SELECT sum(consent_at IS NOT NULL) AS opted_in, count(*) FROM users WHERE email NOT LIKE '%@grodigital.co.za' AND email NOT LIKE '%@landcruisersa.co.za';`
 - **Pre-registered failure hypothesis (so a miss isn't rationalised away):** if saves ≈ 0 after 4 weeks despite >600 visitors, the prime suspect is the **account-gate** — you must sign up to save, which compounds two low-probability gates (intent-to-save × willingness-to-sign-up). Pre-committed next experiment if so: **guest-save** (capture email on save, defer the full profile). Real accounts were a deliberate product choice; this is the data-triggered fallback, not a default.
 - **Most-watched (manage the feature on these, raw counts, vs the clean 2026-06-17 conversion baseline):** net-new verified emails/wk · saves/wk · alert click-backs/wk · downstream finance_calc / valuation / enquiry events attributable to alert click-backs.
-- **Result:** _pending 2026-07-27_
-- **Lesson:** _tbd_
+- **Result (2026-07-30, graded 3d late): PARTIAL.** List-building leg **HIT** — 17 external signups (bar ≥5), 10 verified = 59% (bar ≥40%, gate ≥10 met), 65 saves = 58 favourites + 7 saved searches (bar ≥8), 14 alerts fired (≥10 gate met). Opt-in 9/17 = 53% (just under the 60% secondary bar). **Re-engagement leg MISS** — **0 alert click-backs** (`visit_events utm_source='alert'`) despite 14 alerts firing (bar was ≥1). So the feature works as an owned-list + save engine, but the alert emails — the actual point (manufacture return visits) — pulled nobody back yet.
+- **Lesson:** the account-gate did NOT kill the saves loop (65 saves, hypothesis refuted — good). The failure moved downstream to the alert→return-visit step. Prime suspects per pre-registration: deliverability (Gmail Promotions/spam — check SPF/DKIM/DMARC + inbox placement) or alerts not compelling enough. **Next:** verify deliverability before re-arming; re-review alert click-backs ~2026-08-27 once more alerts have fired.
 
 ---
 
@@ -251,8 +251,13 @@ date, compare to baseline, mark HIT / MISS / PARTIAL, and write the lesson.
 - **Prediction (review 2026-07-28):** capture rate rises from ~3% → **≥ 8%**.
 - **Caveat:** certificate still asks for name+phone+email+consent (real friction);
   prominence helps but the value-exchange framing is what closes it.
-- **Result:** _pending 2026-07-28_
-- **Lesson:** _tbd_
+- **Result (2026-07-30, graded 2d late): MISS (narrow).** 6 certificates ÷ 95
+  valuations (30d) = **6.3%**, below the **≥8%** bar — but up from the 3% baseline,
+  so promotion roughly **doubled** capture. Directionally right, short of target.
+- **Lesson:** prominence moved the needle but the name+phone+email ask is still the
+  ceiling. Next lever to test = reduce the ask (email-only to send the PDF, defer
+  phone), or a softer "email me the certificate" vs the full gated form. Re-arm
+  after a friction-reduction change; don't re-grade the same surface.
 
 ---
 
@@ -282,8 +287,11 @@ date, compare to baseline, mark HIT / MISS / PARTIAL, and write the lesson.
   listing pages are low-volume, long-tail, so call a flat/down CTR a MISS).
 - **Caveat:** listing pages get little organic search vs the guides, so the GSC
   signal may be thin; the Ahrefs cleanup is the high-confidence half.
-- **Result:** _pending 2026-07-30_
-- **Lesson:** _tbd_
+- **Result (2026-07-30): PENDING — needs a fresh Ahrefs export.** Can't grade the
+  Ahrefs warning-count half without the re-crawl CSV (Claude can't crawl Ahrefs).
+  Wesley to drop the 30-Jul export in chat → grade the ≥90% warning drop then. GSC
+  listing-CTR half is thin by design (low organic volume on listing pages).
+- **Lesson:** _tbd — awaiting Ahrefs export_
 
 ## P10 — Citation → conversion measurement (AI-referred visitors)
 
