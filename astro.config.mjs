@@ -26,6 +26,18 @@ export default defineConfig({
     '/product-category/clothing': '/',
     '/product-category/clothing/caps': '/',
     '/product/outdoor-fixed-blade-limited-edition': '/',
+    '/product-category/4x4-accessories': '/',
+    '/product-category/4x4-accessories/': '/',
+    '/refund_returns': '/',
+    // Legacy WP article URLs still taking live 404 traffic (Ahrefs Web Analytics
+    // 31-Jul) — two are just old slugs for articles that still exist → recover them.
+    '/useful-info/off-road-recovery-techniques-sand-mud-and-winching-guide': '/useful-info/off-road-recovery-techniques/',
+    '/useful-info/off-road-recovery-techniques-sand-mud-and-winching-guide/': '/useful-info/off-road-recovery-techniques/',
+    '/useful-info/landcruisersa-co-za-plug-a-4x4-tyre': '/useful-info/how-to-plug-a-4x4-tyre/',
+    '/useful-info/landcruisersa-co-za-plug-a-4x4-tyre/': '/useful-info/how-to-plug-a-4x4-tyre/',
+    '/uncategorised/5-easy-meals-to-make-while-overlanding': '/useful-info/5-easy-meals-while-overlanding/',
+    '/uncategorised/5-easy-meals-to-make-while-overlanding/': '/useful-info/5-easy-meals-while-overlanding/',
+    '/terms-and-conditions': '/terms/',
   },
   security: {
     checkOrigin: false,
