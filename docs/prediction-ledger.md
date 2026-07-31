@@ -287,11 +287,26 @@ date, compare to baseline, mark HIT / MISS / PARTIAL, and write the lesson.
   listing pages are low-volume, long-tail, so call a flat/down CTR a MISS).
 - **Caveat:** listing pages get little organic search vs the guides, so the GSC
   signal may be thin; the Ahrefs cleanup is the high-confidence half.
-- **Result (2026-07-30): PENDING — needs a fresh Ahrefs export.** Can't grade the
-  Ahrefs warning-count half without the re-crawl CSV (Claude can't crawl Ahrefs).
-  Wesley to drop the 30-Jul export in chat → grade the ≥90% warning drop then. GSC
-  listing-CTR half is thin by design (low organic volume on listing pages).
-- **Lesson:** _tbd — awaiting Ahrefs export_
+- **Result (2026-07-31, graded off the 30-Jul Ahrefs re-crawl): HIT (Ahrefs half,
+  decisively).** Every targeted warning down ≥95%: **title too long 214 → 9
+  (−96%)**, **meta too short 538 → 18 (−97%)**, **meta missing 88 → 2 (−98%)**,
+  placeholder images (~168) no longer flagged, and the footer-dead-route "links to
+  broken page" issue that had spanned **2,604 pages is gone**. Health Score 100,
+  only 5 errors sitewide. The GSC listing-CTR gauge (gauge 2) was thin by design
+  and not separately isolated — the current /listings/ page reads 4.8% CTR (172
+  clicks / 3,587 impr, 28d), healthy but not before/after-attributable. Calling the
+  bet a HIT on the high-confidence gauge as pre-registered.
+- **⚠️ New regressions the same crawl surfaced (NOT P9 scope — new work):**
+  **"Missing alt text" exploded to 5,002 (+4,948)** — almost certainly July's new
+  photo grids/galleries (listing photo strips, /game-viewers/, /classics/, market
+  card) rendering `<img>` without alt. It's warnings-not-errors so Health Score
+  held, but it's a real image-SEO + accessibility gap and an easy fix (derive alt
+  from listing title/model). Also **slow pages 41 → 101 (+60)** and **schema.org
+  validation errors now 69** (we lean on schema for AI citations — worth a look).
+- **Lesson:** template-level SEO fixes are high-leverage and *stick* — one change
+  cleared warnings across thousands of pages. But template-level *additions* cut
+  both ways: the same leverage that fixed titles let a missing-alt-text regression
+  hit 5,000 pages at once. Add alt text at the component level when adding images.
 
 ## P10 — Citation → conversion measurement (AI-referred visitors)
 
