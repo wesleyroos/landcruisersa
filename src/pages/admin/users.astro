@@ -60,6 +60,10 @@ const sellers = db.select({
 
 <AdminLayout title="Users" activePage="users">
   <div class="ib">
+    <div class="topbar">
+      <button id="export-btn" class="export-btn" type="button">⬇ Export CSV</button>
+    </div>
+
     <div class="stats">
       <div class="stat"><span class="num">{total}</span><span class="lbl">Signups</span></div>
       <div class="stat"><span class="num">{verified}</span><span class="lbl">Verified</span></div>
@@ -140,6 +144,45 @@ const sellers = db.select({
       )}
     </section>
   </div>
+
+  <div id="export-modal" class="modal-backdrop" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="export-title">
+      <h3 id="export-title">Export to CSV</h3>
+      <p class="modal-sub">
+        Pick which lists to include. The file is formatted for a <b>Meta Custom
+        Audience</b> — email, phone (E.164), first &amp; last name, country — with
+        consent columns (<code>verified</code>, <code>alert_optin</code>) so you can
+        filter to opted-in people before uploading.
+      </p>
+      <div class="opts">
+        <label class="opt"><input type="checkbox" class="exp-list" value="users" checked /> <span>Users <b>{total}</b></span></label>
+        <label class="opt"><input type="checkbox" class="exp-list" value="sellers" checked /> <span>Private sellers <b>{sellers.length}</b></span></label>
+        <label class="opt"><input type="checkbox" class="exp-list" value="contacts" checked /> <span>Legacy contacts <b>{contactTotal}</b></span></label>
+      </div>
+      <div class="modal-actions">
+        <button id="export-cancel" class="btn-ghost" type="button">Cancel</button>
+        <button id="export-go" class="btn-fill" type="button">Download CSV</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const btn = document.getElementById('export-btn');
+    const modal = document.getElementById('export-modal');
+    const cancel = document.getElementById('export-cancel');
+    const go = document.getElementById('export-go');
+    const close = () => { if (modal) (modal as HTMLElement).hidden = true; };
+    btn?.addEventListener('click', () => { if (modal) (modal as HTMLElement).hidden = false; });
+    cancel?.addEventListener('click', close);
+    modal?.addEventListener('click', (e) => { if (e.target === modal) close(); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
+    go?.addEventListener('click', () => {
+      const lists = Array.from(document.querySelectorAll<HTMLInputElement>('.exp-list:checked')).map(c => c.value);
+      if (lists.length === 0) { alert('Pick at least one list to export.'); return; }
+      window.location.href = '/api/admin/export-users?lists=' + encodeURIComponent(lists.join(','));
+      close();
+    });
+  </script>
 </AdminLayout>
 
 <style>
@@ -164,4 +207,37 @@ const sellers = db.select({
   .nowrap { white-space: nowrap; }
   td a { color: #D4881A; text-decoration: none; }
   td a:hover { text-decoration: underline; }
+
+  .topbar { display: flex; justify-content: flex-end; }
+  .export-btn {
+    background: #111; color: #fff; border: none; border-radius: 0.6rem;
+    padding: 0.55rem 1.1rem; font-size: 0.8rem; font-weight: 700; cursor: pointer;
+  }
+  .export-btn:hover { background: #000; }
+
+  .modal-backdrop {
+    position: fixed; inset: 0; background: rgba(17,24,39,0.55);
+    display: flex; align-items: center; justify-content: center; padding: 1rem; z-index: 100;
+  }
+  .modal-backdrop[hidden] { display: none; }
+  .modal {
+    background: #fff; border-radius: 0.9rem; padding: 1.5rem; max-width: 26rem; width: 100%;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.25);
+  }
+  .modal h3 { font-size: 1.05rem; font-weight: 800; color: #111; margin: 0 0 0.5rem; }
+  .modal-sub { font-size: 0.8rem; color: #6B7280; margin: 0 0 1rem; line-height: 1.45; }
+  .modal-sub code { background: #F3F4F6; padding: 0.05rem 0.3rem; border-radius: 0.25rem; font-size: 0.72rem; }
+  .opts { display: flex; flex-direction: column; gap: 0.15rem; margin-bottom: 1.25rem; }
+  .opt {
+    display: flex; align-items: center; gap: 0.6rem; padding: 0.6rem 0.7rem;
+    border: 1px solid #E5E7EB; border-radius: 0.6rem; cursor: pointer; font-size: 0.875rem; color: #374151;
+  }
+  .opt:hover { background: #F9FAFB; }
+  .opt input { accent-color: #F5A623; width: 17px; height: 17px; cursor: pointer; }
+  .opt b { color: #111; }
+  .modal-actions { display: flex; justify-content: flex-end; gap: 0.6rem; }
+  .btn-ghost { background: none; border: 1px solid #E5E7EB; border-radius: 0.6rem; padding: 0.55rem 1rem; font-size: 0.8rem; font-weight: 600; color: #374151; cursor: pointer; }
+  .btn-ghost:hover { background: #F9FAFB; }
+  .btn-fill { background: #F5A623; border: none; border-radius: 0.6rem; padding: 0.55rem 1.2rem; font-size: 0.8rem; font-weight: 700; color: #111; cursor: pointer; }
+  .btn-fill:hover { background: #E09612; }
 </style>
