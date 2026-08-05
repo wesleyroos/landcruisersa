@@ -9,6 +9,9 @@ export const listings = sqliteTable('listings', {
   year:         integer('year').notNull(),
   price:        integer('price').notNull(),     // 0 for show_off listings
   sold_price:   integer('sold_price'),          // actual transacted price, recorded when marked sold (own listings)
+  sold_channel: text('sold_channel'),           // 'private' | 'dealer_trade_in' | 'dealer_sale' | 'unknown' — how it transacted
+  sold_to:      text('sold_to'),                // buyer / dealer name, e.g. "Halfway Lexus Pretoria"
+  sold_date:    text('sold_date'),              // YYYY-MM-DD if known; off_market_at remains the automatic stamp
   mileage:      integer('mileage').notNull(),   // 0 for show_off listings
   province:     text('province').notNull(),
   new_or_used:  text('new_or_used').notNull().default('Used'), // 'New' | 'Used'

@@ -69,6 +69,9 @@ addCol('ig_skipped_at',  "ig_skipped_at  INTEGER");
 addCol('model_locked',   "model_locked   INTEGER NOT NULL DEFAULT 0");
 addCol('photos_backfilled_at', "photos_backfilled_at INTEGER");
 addCol('edit_token',     "edit_token     TEXT");
+addCol('sold_channel',   "sold_channel   TEXT");
+addCol('sold_to',        "sold_to        TEXT");
+addCol('sold_date',      "sold_date      TEXT");
 
 // One-time rollout for the AT gallery backfill marker: the search tile yields at
 // most ~7 images, so any AutoTrader listing already holding 8+ was fetched from
@@ -780,6 +783,7 @@ const REQUIRED_COLS = [
   'created_at', 'ig_posted_at', 'featured', 'segment', 'off_market_at',
   'seller_notified_at', 'dealer_offer_optin', 'sold_price', 'ig_media_id',
   'body_type', 'ig_skipped_at', 'model_locked', 'photos_backfilled_at', 'edit_token',
+  'sold_channel', 'sold_to', 'sold_date',
 ];
 const finalCols = new Set(
   db.prepare("SELECT name FROM pragma_table_info('listings')").all().map(r => r.name)

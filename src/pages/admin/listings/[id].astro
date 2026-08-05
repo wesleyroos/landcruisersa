@@ -357,9 +357,33 @@ const rand0 = (n: number) => 'R' + n.toLocaleString('en-ZA');
               </select>
             </div>
           </div>
-          <div class="field" id="sold-price-field" style={listing.status === 'sold' ? '' : 'display:none'}>
-            <label>Sold price (R) <span class="label-hint">actual amount it sold for — feeds valuation &amp; price-trend data</span></label>
-            <input type="number" name="sold_price" value={listing.sold_price ?? ''} min="0" placeholder={`Asking was R${listing.price.toLocaleString('en-ZA')}`} />
+          <div id="sold-price-field" class="sold-outcome" style={listing.status === 'sold' ? '' : 'display:none'}>
+            <div class="field-row">
+              <div class="field">
+                <label>Sold price (R) <span class="label-hint">actual transacted amount — the rare real sold comp</span></label>
+                <input type="number" name="sold_price" value={listing.sold_price ?? ''} min="0" placeholder={`Asking was R${listing.price.toLocaleString('en-ZA')}`} />
+              </div>
+              <div class="field">
+                <label>Sold date <span class="label-hint">if known</span></label>
+                <input type="date" name="sold_date" value={listing.sold_date ?? ''} />
+              </div>
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label>How it sold</label>
+                <select name="sold_channel">
+                  <option value=""                selected={!listing.sold_channel}>— Not recorded —</option>
+                  <option value="private"         selected={listing.sold_channel === 'private'}>Private sale (person to person)</option>
+                  <option value="dealer_trade_in" selected={listing.sold_channel === 'dealer_trade_in'}>Traded in at a dealer</option>
+                  <option value="dealer_sale"     selected={listing.sold_channel === 'dealer_sale'}>Sold to a dealer for cash (incl. WBC)</option>
+                  <option value="unknown"         selected={listing.sold_channel === 'unknown'}>Seller wouldn't say / unknown</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>Buyer / dealer <span class="label-hint">e.g. Halfway Lexus Pretoria</span></label>
+                <input type="text" name="sold_to" value={listing.sold_to ?? ''} placeholder="who bought it" />
+              </div>
+            </div>
           </div>
           <div class="field">
             <label>Featured</label>

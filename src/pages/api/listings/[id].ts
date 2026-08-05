@@ -13,6 +13,7 @@ const UPDATABLE_FIELDS = [
   'status', 'listing_type', 'featured', 'dealer_offer_optin', 'title', 'model', 'year', 'price', 'sold_price', 'mileage',
   'province', 'new_or_used', 'transmission', 'fuel_type', 'colour', 'description',
   'mods', 'seller_name', 'seller_email', 'seller_phone', 'body_type',
+  'sold_channel', 'sold_to', 'sold_date',
 ];
 
 export const PATCH: APIRoute = async ({ params, request, cookies }) => {
@@ -51,6 +52,22 @@ export const PATCH: APIRoute = async ({ params, request, cookies }) => {
 
   if (updates.status && !['pending', 'active', 'sold'].includes(updates.status as string)) {
     return new Response(JSON.stringify({ error: 'Invalid status' }), { status: 400 });
+  }
+
+  // Sold-outcome fields: '' clears back to NULL; channel is a fixed vocabulary
+  // so the sold-comp data stays queryable.
+  if ('sold_channel' in updates) {
+    updates.sold_channel = updates.sold_channel || null;
+    if (updates.sold_channel && !['private', 'dealer_trade_in', 'dealer_sale', 'unknown'].includes(updates.sold_channel as string)) {
+      return new Response(JSON.stringify({ error: 'Invalid sold_channel' }), { status: 400 });
+    }
+  }
+  if ('sold_to' in updates) updates.sold_to = updates.sold_to || null;
+  if ('sold_date' in updates) {
+    updates.sold_date = updates.sold_date || null;
+    if (updates.sold_date && !/^\d{4}-\d{2}-\d{2}$/.test(updates.sold_date as string)) {
+      return new Response(JSON.stringify({ error: 'sold_date must be YYYY-MM-DD' }), { status: 400 });
+    }
   }
 
   // Keep off_market_at in step with any status change (stamp on sold, clear on reactivate).

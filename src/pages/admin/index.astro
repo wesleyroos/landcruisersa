@@ -581,7 +581,7 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
                   )}
                   {l.status === 'sold' && (
                     l.sold_price
-                      ? <span class="chg-chip chg-sold">✓ Sold R{l.sold_price.toLocaleString('en-ZA')}{l.price > 0 && l.sold_price !== l.price ? ` (${l.sold_price < l.price ? '▼' : '▲'} R${Math.abs(l.price - l.sold_price).toLocaleString('en-ZA')})` : ''}</span>
+                      ? <span class="chg-chip chg-sold">✓ Sold R{l.sold_price.toLocaleString('en-ZA')}{l.price > 0 && l.sold_price !== l.price ? ` (${l.sold_price < l.price ? '▼' : '▲'} R${Math.abs(l.price - l.sold_price).toLocaleString('en-ZA')})` : ''}{l.sold_channel === 'dealer_trade_in' ? ' · trade-in' : l.sold_channel === 'dealer_sale' ? ' · to dealer' : l.sold_channel === 'private' ? ' · private' : ''}{l.sold_to ? ` · ${l.sold_to}` : ''}</span>
                       : <span class="chg-chip chg-sold-missing">Sold — add price</span>
                   )}
                   {priceChange.has(l.slug) && (priceChange.get(l.slug)! < 0
