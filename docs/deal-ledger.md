@@ -278,6 +278,19 @@ so threads either progress or get consciously dropped — never drift.
     = signed terms / first invoice or referral link live by **2026-07-25**.
 - **STATUS (2026-07-12): meeting = WEDNESDAY 2026-07-15 at Titan's Centurion office (Berkley Office Park, Highveld Techno Park), time TBC from their side. CEO Stephan Kemp will likely join — he happens to be up from Cape Town that week (NOT flying up for this; don't over-read it).** Still meaningful: they're choosing to put the CEO in the room while he's around, so a decision CAN happen Wednesday — prep for the close, expect it might be an intro. Full email thread: Victor complimented both articles, comfortable with messaging, sending official brand assets; they floated "referral partnership, sponsored content, or other collaborative initiatives" (their words — they may want MORE than the base placement; don't under-ask). Prep pack built: `docs/titan-pitch/titan-partnership-onepager.pdf` (bring printed copies). ⚠️ Pitch honesty: theft guides ~47 visitors/30d, Titan outbound = 0 (links live only since ~08-Jul; Ghost got 4 unpaid clicks) — lead with the AUDIENCE (19.4k IG followers, 190k IG views/28d, site doubling monthly, Cruisers = top hijack-target list) not guide traffic. Note the mSure/Brad thread in the room: Titan is insurer-recognised (MyToyota) and Brad made the intro — an insurer/dealer-channel angle may surface; park it for a follow-up rather than diluting the placement+referral close.
 
+- **⭐ STATUS (2026-08-05): ADVANCING — first paying partner, imminent go-live.**
+  Terms accepted 22-Jul (3-mo trial · R2,500/mo placement · R750/converted sale ·
+  code LCSA10) and the 3-page insertion order sent. After a quiet spell + a nudge,
+  Stephan replied 03/05-Aug: forwarded to their marketing team, "definitely still
+  want to proceed," expects **live by end of this week (~08-Aug)**. Wesley's reply
+  (drafted 05-Aug) hands them the 3 go-live assets: two banners (728×90 + 300×250,
+  double-res), the click-through URL, and the signed IO — offered to start the
+  3-month clock at go-live (1-Aug start has passed). **Blocking go-live:** those
+  assets from Titan's marketing team. When they land → upload to R2 + insert the
+  `ad_titan` site_config on PROD per the runbook in [[project-titan-placement]];
+  ad_events currently 0 (config-gated OFF). First rand on the scoreboard at first
+  invoice.
+
 ---
 
-*Review cadence: alongside the 2026-07-20 prediction-ledger review. Update stage + scoreboard whenever a deal moves.*
+*Review cadence: alongside the prediction-ledger review. Update stage + scoreboard whenever a deal moves.*

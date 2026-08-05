@@ -481,8 +481,23 @@ date, compare to baseline, mark HIT / MISS / PARTIAL, and write the lesson.
   (suggested #1 vs actually-posted) to characterise his taste vs the scorer, then
   tune MOD_LEXICON/FAMILY_PRIOR — the scorer converges on the taste that
   demonstrably works, not vice versa.
-- **Result:** _pending 2026-08-03_
-- **Lesson:** _tbd_
+- **Result (2026-08-05, graded 2d late): SPLIT — thesis HIT, engine MISS.**
+  Prediction 1 (PRIMARY, acceptance ≥50%): **17% — 5 of 30 suggested days matched
+  the post. MISS**, and it's DROPPING (28% → 24% → 17%). Prediction 2 (hero ≥10
+  follows/post): **27.1 (1,031 follows / 38 hero posts). HIT — 2.7× the bar.**
+  Prediction 3 (insights sync ≥25/30 days clean): HIT (per-post follows/reach all
+  populating). Followers 19,104 → 20,433 (+1,329/30d). So the underlying bet —
+  hero/kitted-build posts drive follows — is emphatically confirmed; the bet that
+  Wesley would *accept the engine's picks* failed, because he reliably picks his
+  own (via the site favourites → admin ★ workflow) and they win.
+- **Lesson:** the acceptance KPI measured the wrong thing — it assumed the human
+  should converge on the scorer. Reality is the reverse: Wesley's hand-picks
+  outperform, so the scorer should learn from what he *actually posts*, not grade
+  him against its guesses. Next: mine his favourites/posted set as the training
+  signal (which builds he picks that the scorer ranked low) and retune
+  MOD_LEXICON/FAMILY_PRIOR toward that — or retire the acceptance metric and keep
+  the engine purely as a shortlist. Either way, stop treating 17% acceptance as a
+  failure of the human. Re-review the retuned scorer ~2026-09-05.
 
 ---
 
