@@ -17,16 +17,20 @@ jobs:
 
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
-      # Use Fly's remote builder. History: we switched to `--local-only` during
-      # the 2026-07-22 jnb remote-builder outage. But from 2026-08-06 the runner's
-      # local Docker build began failing every run (job "cancelled", no logs, no
-      # release created) while `fly deploy --remote-only` built the identical
-      # commit fine from a laptop — i.e. the breakage is the runner's local build,
-      # not our code. The remote builder has recovered, so we use it here. If jnb
-      # builders go down again, temporarily flip back to `--local-only` (or deploy
-      # from a dev machine with `fly deploy --remote-only`).
+      # Build the image HERE in the GitHub runner and push the finished image to
+      # Fly's registry, rather than asking Fly's remote builder — which lives in
+      # our jnb region and went down in the 2026-07-22 outage, blocking every
+      # deploy. `--local-only` uses the runner's own Docker daemon; the release
+      # step still updates the existing jnb machine in place.
+      #
+      # NOTE (2026-08-06): deploys appeared to "fail" all day — but that was a
+      # GitHub Actions MAJOR OUTAGE: jobs sat queued, never got a runner, then were
+      # cancelled with no logs (identical whether local- or remote-only). Not a
+      # build problem. Workaround while Actions is down: `fly deploy --remote-only`
+      # from a dev machine (that's how prod stayed current). Resumes on its own
+      # once Actions recovers.
       - name: Deploy
-        run: flyctl deploy --remote-only
+        run: flyctl deploy --local-only
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
