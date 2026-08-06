@@ -102,11 +102,18 @@ try { activeListings = (db.select({ n: sql<number>`cast(count(*) as int)` }).fro
 
 // ── Formatting ──
 const fmt = (n: number) => n.toLocaleString('en-ZA');
-const kfmt = (n: number) => n >= 1000 ? (n / 1000).toFixed(n >= 10000 ? 0 : 1) + 'k' : String(n);
+const kfmt = (n: number) => n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1000 ? (n / 1000).toFixed(n >= 10000 ? 0 : 1) + 'k' : String(n);
 const mins = (s: number) => `${Math.floor(s / 60)}m ${Math.round(s % 60)}s`;
 const today = new Date().toLocaleDateString('en-ZA', { day: 'numeric', month: 'long', year: 'numeric' });
 const growthX = visitors30 && 434 ? Math.round(visitors30 / 434) : 0; // vs 22-Jun benchmark
 const wkMax = Math.max(1, ...weekly.map(w => w.v));
+// Facebook — no API, so these are the latest Meta export figures. Update when a
+// fresh export arrives. Source: Meta Business Suite, Jul 8 – Aug 4 2026 (36 posts).
+const FB = { followers: 7800, reach: 969905, views: 1645326, eng: 22793 };
+const socialFollowers = igFollowers + FB.followers;
+const socialReach = igReach30 + FB.reach;
+const socialViews = igViews30 + FB.views;
+const fbEngRate = FB.reach ? Math.round((FB.eng / FB.reach) * 1000) / 10 : 0;
 const CHAN_LABEL: Record<string, string> = { 'Direct / None': 'Direct', 'fb-caption': 'Facebook', 'ig-story': 'Instagram', ig: 'Instagram', 'wa-channel': 'WhatsApp' };
 // Merge raw sources that share a display label (ig + ig-story + Instagram → one row).
 const chanMerged = (() => {
@@ -140,7 +147,7 @@ const igEngRate = igReach30 ? Math.round((igEng30 / igReach30) * 1000) / 10 : 0;
     <header class="hdr">
       <div class="hdr-top">
         <div class="brand">
-          <span class="brand-name">LAND CRUISER<span class="brand-sa">SA</span></span>
+          <img class="brand-logo" src="/images/logo-dark.png" alt="Land Cruiser SA" />
           <span class="brand-tag">Media Kit · Advertising</span>
         </div>
         <div class="hdr-meta">
@@ -159,8 +166,8 @@ const igEngRate = igReach30 ? Math.round((igEng30 / igReach30) * 1000) / 10 : 0;
     <section class="hero-stats">
       <div class="stat"><span class="stat-n">{fmt(visitors30)}</span><span class="stat-l">Website visitors / month</span></div>
       <div class="stat"><span class="stat-n">{fmt(pageviews30)}</span><span class="stat-l">Pages viewed / month</span></div>
-      <div class="stat accent"><span class="stat-n">{fmt(igFollowers)}</span><span class="stat-l">Instagram followers</span></div>
-      <div class="stat"><span class="stat-n">{kfmt(igReach30)}</span><span class="stat-l">Instagram reach / month</span></div>
+      <div class="stat accent"><span class="stat-n">{fmt(socialFollowers)}</span><span class="stat-l">Social followers (IG + FB)</span></div>
+      <div class="stat"><span class="stat-n">{kfmt(socialReach)}</span><span class="stat-l">Social reach / month</span></div>
       <div class="stat"><span class="stat-n">{fmt(gscClicks)}</span><span class="stat-l">Google search clicks / mo</span></div>
       <div class="stat"><span class="stat-n">{fmt(activeListings)}</span><span class="stat-l">Live vehicle listings</span></div>
     </section>
@@ -201,32 +208,38 @@ const igEngRate = igReach30 ? Math.round((igEng30 / igReach30) * 1000) / 10 : 0;
       <div>
         <h3>Top searches we're found for</h3>
         <div class="rows">
-          {topQueries.slice(0, 6).map(q => (
+          {topQueries.slice(0, 8).map(q => (
             <div class="row"><span>{q.key}</span><b>{q.clicks}</b></div>
           ))}
           {topQueries.length === 0 && <div class="row muted">—</div>}
-        </div>
-        <h3>Most-visited pages</h3>
-        <div class="rows">
-          {topPages.slice(0, 6).map(p => (
-            <div class="row"><span>{p.page}</span><b>{fmt(p.visitors)}</b></div>
-          ))}
         </div>
       </div>
     </section>
 
     <!-- SOCIAL -->
     <section class="block">
-      <h2>Instagram &amp; social</h2>
-      <div class="ig-grid">
-        <div class="ig-stat"><span class="ig-n">{fmt(igFollowers)}</span><span class="ig-l">followers</span></div>
-        <div class="ig-stat"><span class="ig-n">{igGrowth30 > 0 ? '+' : ''}{fmt(igGrowth30)}</span><span class="ig-l">new / month</span></div>
-        <div class="ig-stat"><span class="ig-n">{kfmt(igReach30)}</span><span class="ig-l">reach / month</span></div>
-        <div class="ig-stat"><span class="ig-n">{kfmt(igViews30)}</span><span class="ig-l">views / month</span></div>
-        <div class="ig-stat"><span class="ig-n">{fmt(igEng30)}</span><span class="ig-l">engagements / mo</span></div>
-        <div class="ig-stat"><span class="ig-n">{igEngRate}%</span><span class="ig-l">engagement rate</span></div>
+      <h2>Social reach <span class="pill">{kfmt(socialReach)} / month across IG + Facebook</span></h2>
+      <div class="social">
+        <div class="sp">
+          <div class="sp-head"><span class="sp-name">Instagram</span><span class="sp-fol">{fmt(igFollowers)} followers</span></div>
+          <div class="sp-stats">
+            <div><b>{kfmt(igReach30)}</b><span>reach / mo</span></div>
+            <div><b>{kfmt(igViews30)}</b><span>views / mo</span></div>
+            <div><b>{fmt(igEng30)}</b><span>engagements</span></div>
+            <div><b>{igEngRate}%</b><span>eng. rate</span></div>
+          </div>
+        </div>
+        <div class="sp">
+          <div class="sp-head"><span class="sp-name">Facebook</span><span class="sp-fol">{fmt(FB.followers)} followers</span></div>
+          <div class="sp-stats">
+            <div><b>{kfmt(FB.reach)}</b><span>reach / mo</span></div>
+            <div><b>{kfmt(FB.views)}</b><span>views / mo</span></div>
+            <div><b>{fmt(FB.eng)}</b><span>engagements</span></div>
+            <div><b>{fbEngRate}%</b><span>eng. rate</span></div>
+          </div>
+        </div>
       </div>
-      <p class="block-sub">Cross-posted to Facebook + a growing WhatsApp Channel. Real builds, real reach — the followers are Cruiser people, not bought.</p>
+      <p class="block-sub">Real Cruiser builds, cross-posted across Instagram and Facebook (+ a growing WhatsApp Channel). The audience is Cruiser people — not bought followers.</p>
     </section>
 
     <!-- PLACEMENTS -->
@@ -287,10 +300,9 @@ const igEngRate = igReach30 ? Math.round((igEng30 / igReach30) * 1000) / 10 : 0;
 
   .hdr { border-bottom: 3px solid var(--ink); padding-bottom: 1rem; margin-bottom: 1.4rem; }
   .hdr-top { display: flex; justify-content: space-between; align-items: flex-end; }
-  .brand-name { font-family: var(--disp); font-weight: 800; font-size: 2rem; letter-spacing: 0.02em; color: var(--ink); line-height: 1; }
-  .brand-sa { color: var(--amber); }
+  .brand-logo { height: 46px; width: auto; display: block; }
   .brand-tag { display: block; font-family: var(--disp); font-weight: 600; font-size: 0.95rem; letter-spacing: 0.16em;
-    text-transform: uppercase; color: var(--mut); margin-top: 0.25rem; }
+    text-transform: uppercase; color: var(--mut); margin-top: 0.45rem; }
   .hdr-meta { text-align: right; font-size: 0.8rem; color: var(--mut); }
   .prepared { margin-bottom: 0.2rem; } .prepared b { color: var(--ink); }
   .positioning { margin-top: 1rem; font-size: 0.92rem; color: var(--ink2); max-width: 60ch; }
@@ -328,10 +340,16 @@ const igEngRate = igReach30 ? Math.round((igEng30 / igReach30) * 1000) / 10 : 0;
   .row span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .row b { color: var(--ink); font-variant-numeric: tabular-nums; } .row.muted { color: var(--mut); }
 
-  .ig-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 0.6rem; margin-top: 0.8rem; }
-  .ig-stat { text-align: center; background: var(--soft); border: 1px solid var(--line); border-radius: 9px; padding: 0.7rem 0.3rem; }
-  .ig-n { display: block; font-family: var(--disp); font-weight: 800; font-size: 1.35rem; color: var(--ink); line-height: 1; }
-  .ig-l { display: block; font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.03em; color: var(--mut); margin-top: 0.3rem; }
+  .social { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; margin-top: 0.8rem; }
+  .sp { background: var(--soft); border: 1px solid var(--line); border-radius: 10px; padding: 0.9rem 1rem; }
+  .sp-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 0.7rem;
+    border-bottom: 1px solid var(--line); padding-bottom: 0.5rem; }
+  .sp-name { font-family: var(--disp); font-weight: 800; font-size: 1.15rem; text-transform: uppercase; letter-spacing: 0.03em; color: var(--ink); }
+  .sp-fol { font-size: 0.8rem; font-weight: 700; color: var(--amber-d); }
+  .sp-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.4rem; }
+  .sp-stats div { text-align: center; }
+  .sp-stats b { display: block; font-family: var(--disp); font-weight: 800; font-size: 1.2rem; color: var(--ink); line-height: 1; }
+  .sp-stats span { display: block; font-size: 0.58rem; text-transform: uppercase; letter-spacing: 0.02em; color: var(--mut); margin-top: 0.25rem; }
 
   .placements { background: var(--ink); border-radius: 12px; padding: 1.3rem 1.4rem; color: #fff; }
   .placements h2 { color: #fff; }
