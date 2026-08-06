@@ -79,6 +79,16 @@ const fmt = (n: number) => n.toLocaleString('en-ZA');
 
 <AdminLayout title="Advertisers" activePage="advertisers">
   <div class="ib">
+    <div class="mediakit-bar">
+      <div>
+        <b>📄 Media kit</b> — a live, branded stats sheet to send potential advertisers.
+        <span class="muted">Opens with current platform numbers; add <code>?for=Company</code> to personalise, then Save as PDF.</span>
+      </div>
+      <div class="mk-actions">
+        <a href="/admin/media-kit" target="_blank" class="mk-btn">Open media kit →</a>
+      </div>
+    </div>
+
     <div class="banner-state" class:list={[live ? 'on' : 'off']}>
       <b>Titan Secure</b> · placement is currently <b>{live ? 'LIVE' : 'OFF'}</b>
       {live && cfg?.click_url && <span class="muted"> → {cfg.click_url}</span>}
@@ -165,6 +175,11 @@ const fmt = (n: number) => n.toLocaleString('en-ZA');
 
 <style>
   .ib { display: flex; flex-direction: column; gap: 1.5rem; max-width: 1100px; }
+  .mediakit-bar { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap;
+    border-radius: 0.75rem; padding: 0.9rem 1.25rem; font-size: 0.875rem; border: 1px solid #F5A623; background: #FFFBF0; color: #78350F; }
+  .mediakit-bar code { background: #FDECC8; padding: 0.05rem 0.35rem; border-radius: 4px; font-size: 0.78rem; }
+  .mk-btn { background: #F5A623; color: #111; font-weight: 700; text-decoration: none; padding: 0.5rem 1.1rem; border-radius: 8px; white-space: nowrap; }
+  .mk-btn:hover { background: #E09612; }
   .banner-state { border-radius: 0.75rem; padding: 0.9rem 1.25rem; font-size: 0.875rem; border: 1px solid #E5E7EB; background: #fff; }
   .banner-state.on { border-color: #16803C; background: #F0FDF4; }
   .banner-state.off { border-color: #E5E7EB; }

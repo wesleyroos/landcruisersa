@@ -1,0 +1,357 @@
+---
+export const prerender = false;
+
+import { db } from '@/db/index';
+import { listings } from '@/db/schema';
+import { sql } from 'drizzle-orm';
+import { getGscSummary } from '@/lib/gsc-summary';
+
+// Admin-gated advertiser media kit. Pulls current numbers on load and renders a
+// print-optimised A4 sheet (browser "Save as PDF"). Every data block is wrapped
+// so one failing source never blanks the sheet. ?for=Wild+Dog personalises it.
+const cookie = Astro.cookies.get('lcsa_admin');
+const adminSecret = import.meta.env.ADMIN_SECRET ?? process.env.ADMIN_SECRET ?? '';
+if (!cookie || cookie.value !== adminSecret) return Astro.redirect('/admin/login');
+
+const preparedFor = (Astro.url.searchParams.get('for') ?? '').trim().slice(0, 60);
+
+const PK = import.meta.env.PLAUSIBLE_API_KEY ?? process.env.PLAUSIBLE_API_KEY;
+async function plau(endpoint: string, params: Record<string, string>) {
+  if (!PK) return null;
+  const qs = new URLSearchParams({ site_id: 'landcruisersa.co.za', ...params });
+  try {
+    const r = await fetch(`https://plausible.io/api/v1/stats/${endpoint}?${qs}`, {
+      headers: { Authorization: `Bearer ${PK}` },
+    });
+    return r.ok ? await r.json() : null;
+  } catch { return null; }
+}
+
+// ── Traffic (Plausible) ──
+let visitors30 = 0, pageviews30 = 0, avgSec = 0;
+let channels: { source: string; visitors: number }[] = [];
+let topPages: { page: string; visitors: number }[] = [];
+let weekly: { label: string; v: number }[] = [];
+try {
+  const agg = await plau('aggregate', { period: '30d', metrics: 'visitors,pageviews,visit_duration' });
+  visitors30 = agg?.results?.visitors?.value ?? 0;
+  pageviews30 = agg?.results?.pageviews?.value ?? 0;
+  avgSec = agg?.results?.visit_duration?.value ?? 0;
+
+  const ch = await plau('breakdown', { period: '30d', property: 'visit:source', metrics: 'visitors', limit: '20' });
+  channels = (ch?.results ?? []).map((r: any) => ({ source: r.source, visitors: r.visitors }));
+
+  const pg = await plau('breakdown', { period: '30d', property: 'event:page', metrics: 'visitors', limit: '8' });
+  topPages = (pg?.results ?? []).map((r: any) => ({ page: r.page, visitors: r.visitors }));
+
+  const ts = await plau('timeseries', { period: '30d', interval: 'week', metrics: 'visitors' });
+  weekly = (ts?.results ?? []).map((r: any) => ({ label: (r.date ?? '').slice(5), v: r.visitors ?? 0 }));
+  if (weekly.length < 2) {
+    // Fallback: daily over 56d bucketed into ISO weeks.
+    const end = new Date();
+    const start = new Date(Date.now() - 56 * 86400000);
+    const ymd = (d: Date) => d.toISOString().slice(0, 10);
+    const d = await plau('timeseries', { period: 'custom', date: `${ymd(start)},${ymd(end)}`, interval: 'date', metrics: 'visitors' });
+    const buckets = new Map<string, number>();
+    for (const r of (d?.results ?? [])) {
+      const dt = new Date(r.date + 'T00:00:00Z');
+      const monday = new Date(dt); monday.setUTCDate(dt.getUTCDate() - ((dt.getUTCDay() + 6) % 7));
+      const k = ymd(monday);
+      buckets.set(k, (buckets.get(k) ?? 0) + (r.visitors ?? 0));
+    }
+    weekly = [...buckets.entries()].sort().map(([k, v]) => ({ label: k.slice(5), v }));
+  }
+} catch { /* leave defaults */ }
+
+// ── Search Console ──
+let gscClicks = 0, gscImpr = 0, gscCtr = 0;
+let topQueries: { key: string; clicks: number }[] = [];
+try {
+  const g = await getGscSummary();
+  if (g && 'totals' in g && g.totals) {
+    gscClicks = g.totals.clicks ?? 0;
+    gscImpr = g.totals.impressions ?? 0;
+    gscCtr = g.avgCtr ?? 0;
+    topQueries = (g.topQueries ?? []).slice(0, 8).map(q => ({ key: q.key, clicks: q.clicks }));
+  }
+} catch { /* leave defaults */ }
+
+// ── Instagram (our snapshots) ──
+let igFollowers = 0, igGrowth30 = 0, igReach30 = 0, igViews30 = 0, igFollows30 = 0, igEng30 = 0, igPosts30 = 0;
+try {
+  const latest = db.get<{ f: number }>(sql.raw(`SELECT followers_count f FROM ig_account_snapshots ORDER BY fetched_at DESC LIMIT 1`));
+  igFollowers = latest?.f ?? 0;
+  const ago = db.get<{ f: number }>(sql.raw(`SELECT followers_count f FROM ig_account_snapshots WHERE fetched_at <= strftime('%s','now') - 30*86400 ORDER BY fetched_at DESC LIMIT 1`));
+  if (ago?.f) igGrowth30 = igFollowers - ago.f;
+  const m = db.get<{ reach: number; views: number; follows: number; eng: number; posts: number }>(sql.raw(`
+    SELECT COALESCE(SUM(m.reach),0) reach, COALESCE(SUM(m.views),0) views,
+           COALESCE(SUM(m.follows),0) follows,
+           COALESCE(SUM(COALESCE(m.likes,0)+COALESCE(m.comments,0)+COALESCE(m.saves,0)+COALESCE(m.shares,0)),0) eng,
+           COUNT(*) posts
+    FROM ig_posts p
+    JOIN ig_post_metrics m ON m.media_id = p.media_id
+      AND m.fetched_at = (SELECT MAX(fetched_at) FROM ig_post_metrics m2 WHERE m2.media_id = p.media_id)
+    WHERE p.media_id IS NOT NULL AND p.posted_at >= strftime('%s','now') - 30*86400`));
+  igReach30 = m?.reach ?? 0; igViews30 = m?.views ?? 0; igFollows30 = m?.follows ?? 0;
+  igEng30 = m?.eng ?? 0; igPosts30 = m?.posts ?? 0;
+} catch { /* leave defaults */ }
+
+// ── Inventory ──
+let activeListings = 0;
+try { activeListings = (db.select({ n: sql<number>`cast(count(*) as int)` }).from(listings).where(sql`status='active'`).get())?.n ?? 0; } catch {}
+
+// ── Formatting ──
+const fmt = (n: number) => n.toLocaleString('en-ZA');
+const kfmt = (n: number) => n >= 1000 ? (n / 1000).toFixed(n >= 10000 ? 0 : 1) + 'k' : String(n);
+const mins = (s: number) => `${Math.floor(s / 60)}m ${Math.round(s % 60)}s`;
+const today = new Date().toLocaleDateString('en-ZA', { day: 'numeric', month: 'long', year: 'numeric' });
+const growthX = visitors30 && 434 ? Math.round(visitors30 / 434) : 0; // vs 22-Jun benchmark
+const wkMax = Math.max(1, ...weekly.map(w => w.v));
+const CHAN_LABEL: Record<string, string> = { 'Direct / None': 'Direct', 'fb-caption': 'Facebook', 'ig-story': 'Instagram', ig: 'Instagram', 'wa-channel': 'WhatsApp' };
+// Merge raw sources that share a display label (ig + ig-story + Instagram → one row).
+const chanMerged = (() => {
+  const m = new Map<string, number>();
+  for (const c of channels) { const l = CHAN_LABEL[c.source] ?? c.source; m.set(l, (m.get(l) ?? 0) + c.visitors); }
+  return [...m.entries()].map(([source, visitors]) => ({ source, visitors })).sort((a, b) => b.visitors - a.visitors);
+})();
+const igEngRate = igReach30 ? Math.round((igEng30 / igReach30) * 1000) / 10 : 0;
+---
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>LCSA Media Kit</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <div class="toolbar no-print">
+    <a href="/admin/advertisers" class="tb-link">← Advertisers</a>
+    <div class="tb-right">
+      <span class="tb-hint">Personalise: add <code>?for=Company Name</code> to the URL</span>
+      <button onclick="window.print()" class="tb-btn">⬇ Save as PDF</button>
+    </div>
+  </div>
+
+  <div class="sheet">
+    <!-- HEADER -->
+    <header class="hdr">
+      <div class="hdr-top">
+        <div class="brand">
+          <span class="brand-name">LAND CRUISER<span class="brand-sa">SA</span></span>
+          <span class="brand-tag">Media Kit · Advertising</span>
+        </div>
+        <div class="hdr-meta">
+          {preparedFor && <div class="prepared">Prepared for <b>{preparedFor}</b></div>}
+          <div class="date">{today}</div>
+        </div>
+      </div>
+      <p class="positioning">
+        South Africa's home for the Land Cruiser — a fast-growing marketplace and
+        community reaching a high-value, hard-to-target audience: 4×4 and overland
+        owners, buyers of R300k–R2m vehicles, and a large, engaged social following.
+      </p>
+    </header>
+
+    <!-- HERO STATS -->
+    <section class="hero-stats">
+      <div class="stat"><span class="stat-n">{fmt(visitors30)}</span><span class="stat-l">Website visitors / month</span></div>
+      <div class="stat"><span class="stat-n">{fmt(pageviews30)}</span><span class="stat-l">Pages viewed / month</span></div>
+      <div class="stat accent"><span class="stat-n">{fmt(igFollowers)}</span><span class="stat-l">Instagram followers</span></div>
+      <div class="stat"><span class="stat-n">{kfmt(igReach30)}</span><span class="stat-l">Instagram reach / month</span></div>
+      <div class="stat"><span class="stat-n">{fmt(gscClicks)}</span><span class="stat-l">Google search clicks / mo</span></div>
+      <div class="stat"><span class="stat-n">{fmt(activeListings)}</span><span class="stat-l">Live vehicle listings</span></div>
+    </section>
+
+    <!-- GROWTH -->
+    {weekly.length >= 2 && (
+      <section class="block">
+        <h2>Growth {growthX > 1 && <span class="pill">{growthX}× since June</span>}</h2>
+        <p class="block-sub">Weekly website visitors — the trend that matters to an advertiser.</p>
+        <div class="chart">
+          {weekly.map(w => (
+            <div class="bar-col">
+              <div class="bar" style={`height:${Math.round((w.v / wkMax) * 100)}%`}><span class="bar-v">{w.v}</span></div>
+              <span class="bar-x">{w.label}</span>
+            </div>
+          ))}
+        </div>
+      </section>
+    )}
+
+    <!-- AUDIENCE -->
+    <section class="block two-col">
+      <div>
+        <h2>The audience</h2>
+        <ul class="aud">
+          <li>Land Cruiser owners &amp; buyers — considered R300k–R2m purchases</li>
+          <li>4×4, overland, safari &amp; game-viewer market (B2C and B2B)</li>
+          <li>Avg. {mins(avgSec)} on site — an engaged, intent-led reader</li>
+          <li>Security-conscious owners of high theft-target vehicles</li>
+        </ul>
+        <h3>Where they come from</h3>
+        <div class="rows">
+          {chanMerged.slice(0, 6).map(c => (
+            <div class="row"><span>{c.source}</span><b>{fmt(c.visitors)}</b></div>
+          ))}
+        </div>
+      </div>
+      <div>
+        <h3>Top searches we're found for</h3>
+        <div class="rows">
+          {topQueries.slice(0, 6).map(q => (
+            <div class="row"><span>{q.key}</span><b>{q.clicks}</b></div>
+          ))}
+          {topQueries.length === 0 && <div class="row muted">—</div>}
+        </div>
+        <h3>Most-visited pages</h3>
+        <div class="rows">
+          {topPages.slice(0, 6).map(p => (
+            <div class="row"><span>{p.page}</span><b>{fmt(p.visitors)}</b></div>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <!-- SOCIAL -->
+    <section class="block">
+      <h2>Instagram &amp; social</h2>
+      <div class="ig-grid">
+        <div class="ig-stat"><span class="ig-n">{fmt(igFollowers)}</span><span class="ig-l">followers</span></div>
+        <div class="ig-stat"><span class="ig-n">{igGrowth30 > 0 ? '+' : ''}{fmt(igGrowth30)}</span><span class="ig-l">new / month</span></div>
+        <div class="ig-stat"><span class="ig-n">{kfmt(igReach30)}</span><span class="ig-l">reach / month</span></div>
+        <div class="ig-stat"><span class="ig-n">{kfmt(igViews30)}</span><span class="ig-l">views / month</span></div>
+        <div class="ig-stat"><span class="ig-n">{fmt(igEng30)}</span><span class="ig-l">engagements / mo</span></div>
+        <div class="ig-stat"><span class="ig-n">{igEngRate}%</span><span class="ig-l">engagement rate</span></div>
+      </div>
+      <p class="block-sub">Cross-posted to Facebook + a growing WhatsApp Channel. Real builds, real reach — the followers are Cruiser people, not bought.</p>
+    </section>
+
+    <!-- PLACEMENTS -->
+    <section class="block placements">
+      <h2>Advertising with us</h2>
+      <div class="place-grid">
+        <div class="place">
+          <span class="place-h">Listing banners</span>
+          <p>Your banner on every vehicle listing — beside the price and market data, seen by high-intent buyers.</p>
+        </div>
+        <div class="place">
+          <span class="place-h">Official partner</span>
+          <p>A dedicated partner listing + placement in relevant guides (e.g. security, tyres, overland gear).</p>
+        </div>
+        <div class="place">
+          <span class="place-h">Sponsored content</span>
+          <p>A featured article or build feature to our audience, on-site and across social.</p>
+        </div>
+      </div>
+      <div class="pricing">
+        <span class="pricing-h">Packages from <b>R2,500 / month</b></span>
+        <span class="pricing-sub">Tailored to your goals — flat placement, performance-based, or a mix. We track every click we send you, so every review works off real numbers.</span>
+      </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer class="ftr">
+      <div>
+        <b>Wesley Roos</b> · Land Cruiser SA<br />
+        072 484 9014 · wesley@landcruisersa.co.za · www.landcruisersa.co.za
+      </div>
+      <div class="ftr-note">Figures are live platform data as at {today}. Google &amp; Instagram metrics are 30-day.</div>
+    </footer>
+  </div>
+</body>
+</html>
+
+<style is:global>
+  :root {
+    --ink: #17201A; --ink2: #2B322C; --amber: #F5A623; --amber-d: #C9821A;
+    --paper: #fff; --line: #E7E4DD; --mut: #6C7263; --soft: #F7F6F2;
+    --disp: 'Barlow Condensed', sans-serif; --body: 'Inter', system-ui, sans-serif;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #EDEBE5; font-family: var(--body); color: var(--ink); line-height: 1.5; }
+
+  .toolbar { position: sticky; top: 0; display: flex; justify-content: space-between; align-items: center;
+    background: var(--ink); color: #fff; padding: 0.7rem 1.2rem; }
+  .tb-link { color: #C7CBBF; text-decoration: none; font-size: 0.85rem; font-weight: 600; }
+  .tb-right { display: flex; align-items: center; gap: 1rem; }
+  .tb-hint { font-size: 0.72rem; color: #9AA093; }
+  .tb-hint code { background: rgba(255,255,255,0.12); padding: 0.1rem 0.35rem; border-radius: 4px; }
+  .tb-btn { background: var(--amber); color: var(--ink); border: none; font-weight: 700; font-size: 0.85rem;
+    padding: 0.5rem 1.1rem; border-radius: 7px; cursor: pointer; }
+
+  .sheet { width: 210mm; min-height: 297mm; margin: 1.5rem auto; background: var(--paper);
+    padding: 16mm 15mm; box-shadow: 0 10px 40px rgba(0,0,0,0.15); }
+
+  .hdr { border-bottom: 3px solid var(--ink); padding-bottom: 1rem; margin-bottom: 1.4rem; }
+  .hdr-top { display: flex; justify-content: space-between; align-items: flex-end; }
+  .brand-name { font-family: var(--disp); font-weight: 800; font-size: 2rem; letter-spacing: 0.02em; color: var(--ink); line-height: 1; }
+  .brand-sa { color: var(--amber); }
+  .brand-tag { display: block; font-family: var(--disp); font-weight: 600; font-size: 0.95rem; letter-spacing: 0.16em;
+    text-transform: uppercase; color: var(--mut); margin-top: 0.25rem; }
+  .hdr-meta { text-align: right; font-size: 0.8rem; color: var(--mut); }
+  .prepared { margin-bottom: 0.2rem; } .prepared b { color: var(--ink); }
+  .positioning { margin-top: 1rem; font-size: 0.92rem; color: var(--ink2); max-width: 60ch; }
+
+  .hero-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.7rem; margin-bottom: 1.6rem; }
+  .stat { background: var(--soft); border: 1px solid var(--line); border-radius: 10px; padding: 0.9rem 1rem; }
+  .stat.accent { background: var(--ink); border-color: var(--ink); }
+  .stat.accent .stat-n { color: var(--amber); } .stat.accent .stat-l { color: #C7CBBF; }
+  .stat-n { display: block; font-family: var(--disp); font-weight: 800; font-size: 2.1rem; line-height: 1; color: var(--ink); }
+  .stat-l { display: block; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--mut); margin-top: 0.35rem; }
+
+  .block { margin-bottom: 1.5rem; }
+  .block h2 { font-family: var(--disp); font-weight: 800; font-size: 1.35rem; text-transform: uppercase; letter-spacing: 0.02em;
+    color: var(--ink); display: flex; align-items: center; gap: 0.6rem; }
+  .block h3 { font-family: var(--disp); font-weight: 700; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.05em;
+    color: var(--mut); margin: 1rem 0 0.5rem; }
+  .block-sub { font-size: 0.82rem; color: var(--mut); margin-top: 0.15rem; }
+  .pill { font-family: var(--body); font-size: 0.7rem; font-weight: 700; background: var(--amber); color: var(--ink);
+    padding: 0.15rem 0.55rem; border-radius: 999px; text-transform: none; letter-spacing: 0; }
+
+  .chart { display: flex; align-items: flex-end; gap: 0.5rem; height: 130px; margin-top: 0.9rem;
+    border-bottom: 1px solid var(--line); padding-bottom: 0.2rem; }
+  .bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; }
+  .bar { width: 70%; background: linear-gradient(var(--amber), var(--amber-d)); border-radius: 4px 4px 0 0; position: relative; min-height: 3px; }
+  .bar-v { position: absolute; top: -1.1rem; left: 50%; transform: translateX(-50%); font-size: 0.62rem; font-weight: 700; color: var(--ink2); }
+  .bar-x { font-size: 0.6rem; color: var(--mut); margin-top: 0.3rem; white-space: nowrap; }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1.6rem; }
+  .aud { list-style: none; display: flex; flex-direction: column; gap: 0.4rem; }
+  .aud li { font-size: 0.85rem; color: var(--ink2); padding-left: 1rem; position: relative; }
+  .aud li::before { content: '›'; position: absolute; left: 0; color: var(--amber); font-weight: 800; }
+  .rows { display: flex; flex-direction: column; }
+  .row { display: flex; justify-content: space-between; gap: 1rem; font-size: 0.82rem; color: var(--ink2);
+    padding: 0.32rem 0; border-bottom: 1px solid var(--line); }
+  .row span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .row b { color: var(--ink); font-variant-numeric: tabular-nums; } .row.muted { color: var(--mut); }
+
+  .ig-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 0.6rem; margin-top: 0.8rem; }
+  .ig-stat { text-align: center; background: var(--soft); border: 1px solid var(--line); border-radius: 9px; padding: 0.7rem 0.3rem; }
+  .ig-n { display: block; font-family: var(--disp); font-weight: 800; font-size: 1.35rem; color: var(--ink); line-height: 1; }
+  .ig-l { display: block; font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.03em; color: var(--mut); margin-top: 0.3rem; }
+
+  .placements { background: var(--ink); border-radius: 12px; padding: 1.3rem 1.4rem; color: #fff; }
+  .placements h2 { color: #fff; }
+  .place-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin: 1rem 0; }
+  .place-h { display: block; font-family: var(--disp); font-weight: 700; font-size: 1rem; color: var(--amber); text-transform: uppercase; letter-spacing: 0.03em; margin-bottom: 0.3rem; }
+  .place p { font-size: 0.8rem; color: #D3D6CD; }
+  .pricing { border-top: 1px solid rgba(255,255,255,0.15); padding-top: 0.9rem; }
+  .pricing-h { font-family: var(--disp); font-weight: 700; font-size: 1.15rem; color: #fff; } .pricing-h b { color: var(--amber); }
+  .pricing-sub { display: block; font-size: 0.78rem; color: #B7BBB0; margin-top: 0.3rem; max-width: 68ch; }
+
+  .ftr { margin-top: 1.6rem; padding-top: 1rem; border-top: 3px solid var(--ink); display: flex;
+    justify-content: space-between; align-items: flex-end; font-size: 0.78rem; color: var(--ink2); }
+  .ftr-note { font-size: 0.68rem; color: var(--mut); text-align: right; max-width: 30ch; }
+
+  @page { size: A4; margin: 0; }
+  @media print {
+    body { background: #fff; }
+    .no-print { display: none !important; }
+    .sheet { margin: 0; box-shadow: none; width: auto; min-height: auto; padding: 12mm 12mm; }
+    .placements { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .stat.accent, .bar, .pill { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>
