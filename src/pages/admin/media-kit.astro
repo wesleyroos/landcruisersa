@@ -63,16 +63,44 @@ try {
   }
 } catch { /* leave defaults */ }
 
+// ── Where the audience is (Plausible geo) ──
+const ZA_PROVINCE: Record<string, string> = {
+  'ZA-GP': 'Gauteng', 'ZA-WC': 'Western Cape', 'ZA-KZN': 'KwaZulu-Natal',
+  'ZA-EC': 'Eastern Cape', 'ZA-FS': 'Free State', 'ZA-LP': 'Limpopo',
+  'ZA-MP': 'Mpumalanga', 'ZA-NW': 'North West', 'ZA-NC': 'Northern Cape',
+};
+const COUNTRY_NAME: Record<string, string> = {
+  ZM: 'Zambia', GB: 'United Kingdom', ZW: 'Zimbabwe', KE: 'Kenya', BW: 'Botswana',
+  US: 'United States', AU: 'Australia', MZ: 'Mozambique', NA: 'Namibia', NG: 'Nigeria',
+};
+const regionName = (code: string) => ZA_PROVINCE[code] ?? COUNTRY_NAME[code.split('-')[0]] ?? code.split('-')[0];
+let regions: { name: string; pct: number }[] = [];
+let saShare = 0;
+try {
+  const rg = await plau('breakdown', { period: '30d', property: 'visit:region', metrics: 'visitors', limit: '12' });
+  const rows = (rg?.results ?? []).filter((r: any) => r.region);
+  regions = rows.slice(0, 8).map((r: any) => ({
+    name: regionName(r.region),
+    pct: visitors30 ? Math.round((r.visitors / visitors30) * 100) : 0,
+  })).filter((r: { pct: number }) => r.pct >= 1);
+  const ct = await plau('breakdown', { period: '30d', property: 'visit:country', metrics: 'visitors', limit: '30' });
+  const za = (ct?.results ?? []).find((r: any) => r.country === 'ZA');
+  if (za && visitors30) saShare = Math.round((za.visitors / visitors30) * 100);
+} catch { /* leave defaults */ }
+
 // ── Search Console ──
 let gscClicks = 0, gscImpr = 0, gscCtr = 0;
-let topQueries: { key: string; clicks: number }[] = [];
+let topQueries: { key: string; pct: number }[] = [];
 try {
   const g = await getGscSummary();
   if (g && 'totals' in g && g.totals) {
     gscClicks = g.totals.clicks ?? 0;
     gscImpr = g.totals.impressions ?? 0;
     gscCtr = g.avgCtr ?? 0;
-    topQueries = (g.topQueries ?? []).slice(0, 8).map(q => ({ key: q.key, clicks: q.clicks }));
+    // Show each query's SHARE of the top-search traffic (%), not raw click counts.
+    const allQ = g.topQueries ?? [];
+    const qTotal = allQ.reduce((s, q) => s + q.clicks, 0) || 1;
+    topQueries = allQ.slice(0, 8).map(q => ({ key: q.key, pct: Math.round((q.clicks / qTotal) * 100) }));
   }
 } catch { /* leave defaults */ }
 
@@ -119,7 +147,10 @@ const CHAN_LABEL: Record<string, string> = { 'Direct / None': 'Direct', 'fb-capt
 const chanMerged = (() => {
   const m = new Map<string, number>();
   for (const c of channels) { const l = CHAN_LABEL[c.source] ?? c.source; m.set(l, (m.get(l) ?? 0) + c.visitors); }
-  return [...m.entries()].map(([source, visitors]) => ({ source, visitors })).sort((a, b) => b.visitors - a.visitors);
+  const denom = visitors30 || [...m.values()].reduce((s, v) => s + v, 0) || 1;
+  return [...m.entries()]
+    .map(([source, visitors]) => ({ source, pct: Math.round((visitors / denom) * 100) }))
+    .sort((a, b) => b.pct - a.pct);
 })();
 const igEngRate = igReach30 ? Math.round((igEng30 / igReach30) * 1000) / 10 : 0;
 ---
@@ -138,7 +169,7 @@ const igEngRate = igReach30 ? Math.round((igEng30 / igReach30) * 1000) / 10 : 0;
     <a href="/admin/advertisers" class="tb-link">← Advertisers</a>
     <div class="tb-right">
       <span class="tb-hint">Personalise: add <code>?for=Company Name</code> to the URL</span>
-      <button onclick="window.print()" class="tb-btn">⬇ Save as PDF</button>
+      <a href={`/api/admin/media-kit-pdf${preparedFor ? `?for=${encodeURIComponent(preparedFor)}` : ''}`} class="tb-btn" id="dl-pdf">⬇ Download PDF</a>
     </div>
   </div>
 
@@ -201,7 +232,7 @@ const igEngRate = igReach30 ? Math.round((igEng30 / igReach30) * 1000) / 10 : 0;
         <h3>Where they come from</h3>
         <div class="rows">
           {chanMerged.slice(0, 6).map(c => (
-            <div class="row"><span>{c.source}</span><b>{fmt(c.visitors)}</b></div>
+            <div class="row"><span>{c.source}</span><b>{c.pct}%</b></div>
           ))}
         </div>
       </div>
@@ -209,12 +240,25 @@ const igEngRate = igReach30 ? Math.round((igEng30 / igReach30) * 1000) / 10 : 0;
         <h3>Top searches we're found for</h3>
         <div class="rows">
           {topQueries.slice(0, 8).map(q => (
-            <div class="row"><span>{q.key}</span><b>{q.clicks}</b></div>
+            <div class="row"><span>{q.key}</span><b>{q.pct}%</b></div>
           ))}
           {topQueries.length === 0 && <div class="row muted">—</div>}
         </div>
       </div>
     </section>
+
+    <!-- WHERE THE AUDIENCE IS -->
+    {regions.length > 0 && (
+      <section class="block">
+        <h2>Where our audience is {saShare > 0 && <span class="pill">{saShare}% South Africa</span>}</h2>
+        <p class="block-sub">A concentrated local audience — strongest in SA's wealthiest, most vehicle-heavy provinces.</p>
+        <div class="regions">
+          {regions.map(r => (
+            <div class="rg"><span>{r.name}</span><b>{r.pct}%</b></div>
+          ))}
+        </div>
+      </section>
+    )}
 
     <!-- SOCIAL -->
     <section class="block">
@@ -339,6 +383,12 @@ const igEngRate = igReach30 ? Math.round((igEng30 / igReach30) * 1000) / 10 : 0;
     padding: 0.32rem 0; border-bottom: 1px solid var(--line); }
   .row span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .row b { color: var(--ink); font-variant-numeric: tabular-nums; } .row.muted { color: var(--mut); }
+
+  .regions { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.4rem 1rem; margin-top: 0.8rem; }
+  .rg { display: flex; justify-content: space-between; gap: 0.6rem; font-size: 0.82rem; color: var(--ink2);
+    padding: 0.32rem 0; border-bottom: 1px solid var(--line); }
+  .rg b { color: var(--ink); font-variant-numeric: tabular-nums; }
+  @media (max-width: 640px) { .regions { grid-template-columns: repeat(2, 1fr); } }
 
   .social { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; margin-top: 0.8rem; }
   .sp { background: var(--soft); border: 1px solid var(--line); border-radius: 10px; padding: 0.9rem 1rem; }
