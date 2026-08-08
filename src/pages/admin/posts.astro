@@ -7,107 +7,211 @@ import AdminArticleIgPost from '@/components/AdminArticleIgPost.astro';
 import { getCollection } from 'astro:content';
 import { getCredentials } from '@/lib/instagram';
 import { getPostedArticles } from '@/lib/article-config';
+import { getAllOverrides, effectiveState } from '@/lib/post-state';
 
 // Auth is enforced by middleware (guards all /admin pages).
 const creds = await getCredentials();
 const igConnected = !!creds;
-
 const postedArticles = igConnected ? getPostedArticles() : {};
-const igArticles = igConnected
-  ? (await getCollection('posts', p => !p.data.draft))
-      .sort((a, b) => b.data.publishedAt.valueOf() - a.data.publishedAt.valueOf())
-      .map(p => ({
-        slug:     p.slug,
-        title:    p.data.title,
-        category: p.data.category,
-        image:    p.data.featuredImage,
-        url:      `/useful-info/${p.slug}/`,
-        postedAt: postedArticles[p.slug]?.postedAt ?? null,
-      }))
-  : [];
+const overrides = getAllOverrides();
 
-const fmtDate = (sec: number) =>
-  new Intl.DateTimeFormat('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(sec * 1000));
+const posts = (await getCollection('posts'))
+  .map((p) => ({
+    slug:        p.slug,
+    title:       p.data.title,
+    category:    p.data.category,
+    image:       p.data.featuredImage,
+    url:         `/useful-info/${p.slug}/`,
+    publishedAt: p.data.publishedAt,
+    state:       effectiveState(p, overrides.get(p.slug) ?? null),
+    postedAt:    postedArticles[p.slug]?.postedAt ?? null,
+  }))
+  .sort((a, b) => b.publishedAt.valueOf() - a.publishedAt.valueOf());
+
+const counts = {
+  total:     posts.length,
+  published: posts.filter((p) => p.state === 'published').length,
+  unlisted:  posts.filter((p) => p.state === 'unlisted').length,
+  draft:     posts.filter((p) => p.state === 'draft').length,
+};
+
+const fmtDate = (d: Date) =>
+  new Intl.DateTimeFormat('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' }).format(d);
+const fmtSec = (sec: number) =>
+  new Intl.DateTimeFormat('en-ZA', { day: 'numeric', month: 'short' }).format(new Date(sec * 1000));
+
+const STATES = [
+  { key: 'published', label: 'Live' },
+  { key: 'unlisted',  label: 'Unlisted' },
+  { key: 'draft',     label: 'Draft' },
+] as const;
 ---
 
 <AdminLayout title="Posts" activePage="posts">
-  <p class="page-intro">
-    Post a published guide's featured image to the Instagram feed — adds visual variety
-    beyond near-identical vehicle photos. Single image, posted manually.
-  </p>
+  <div class="posts-head">
+    <div>
+      <h1>Content</h1>
+      <p class="sub">Every guide on the site. Set each one <b>Live</b>, <b>Unlisted</b> (reachable by link but hidden from the site &amp; search) or <b>Draft</b> (hidden completely) — changes apply instantly. Post a live guide's featured image to Instagram to add visual variety beyond vehicle photos.</p>
+    </div>
+    <div class="tallies">
+      <span class="tally"><b>{counts.published}</b> live</span>
+      <span class="tally"><b>{counts.unlisted}</b> unlisted</span>
+      <span class="tally"><b>{counts.draft}</b> draft</span>
+    </div>
+  </div>
 
   {!igConnected && (
-    <div class="notice">Instagram isn't connected. Connect it in <a href="/admin/settings">Settings</a> before posting guides.</div>
+    <div class="notice">Instagram isn't connected — visibility controls work, but you'll need to connect IG in <a href="/admin/settings">Settings</a> to post guides.</div>
   )}
 
-  {igConnected && igArticles.length === 0 && (
-    <div class="notice">No published guides to post yet.</div>
-  )}
-
-  {igConnected && igArticles.length > 0 && (
-    <div class="guide-list">
-      {igArticles.map((a) => (
-        <div class="guide-row" data-ig-article-slot={a.slug}>
-          <a href={a.url} class="guide-thumb-link" target="_blank" rel="noopener">
-            <img class="guide-thumb" src={a.image} alt={a.title} loading="lazy" />
-          </a>
-          <div class="guide-info">
-            <p class="guide-cat">{a.category}</p>
-            <a href={a.url} class="guide-title" target="_blank" rel="noopener">{a.title}</a>
-            {a.postedAt && <p class="ig-posted-note">✓ Posted to IG {fmtDate(a.postedAt)}</p>}
-          </div>
-          <button class={`btn ${a.postedAt ? 'btn-repost' : 'btn-post'}`} data-action="post-article" data-slug={a.slug}>
-            {a.postedAt ? 'Repost' : 'Post to IG'}
-          </button>
-        </div>
-      ))}
-    </div>
-  )}
+  <div class="table-wrap">
+    <table class="posts-table">
+      <thead>
+        <tr>
+          <th class="th-guide">Guide</th>
+          <th class="th-date">Published</th>
+          <th class="th-status">Visibility</th>
+          <th class="th-ig">Instagram</th>
+        </tr>
+      </thead>
+      <tbody>
+        {posts.map((p) => (
+          <tr data-slug={p.slug} data-state={p.state} class={p.state === 'published' ? 'is-live' : ''}>
+            <td class="col-guide">
+              <a href={p.url} class="thumb-link" target="_blank" rel="noopener">
+                <img class="thumb" src={p.image} alt="" loading="lazy" />
+              </a>
+              <div class="guide-meta">
+                <span class="cat">{p.category}</span>
+                <a href={p.url} class="title" target="_blank" rel="noopener">{p.title}</a>
+              </div>
+            </td>
+            <td class="col-date">{fmtDate(p.publishedAt)}</td>
+            <td class="col-status">
+              <div class="seg" data-slug={p.slug}>
+                {STATES.map((s) => (
+                  <button type="button" data-state={s.key} class={`seg-btn state-${s.key}${p.state === s.key ? ' active' : ''}`}>{s.label}</button>
+                ))}
+              </div>
+            </td>
+            <td class="col-ig">
+              {igConnected ? (
+                <>
+                  <div class="ig-live">
+                    {p.postedAt && <span class="ig-posted">✓ Posted {fmtSec(p.postedAt)}</span>}
+                    <button class={`btn ${p.postedAt ? 'btn-repost' : 'btn-post'}`} data-action="post-article" data-slug={p.slug}>
+                      {p.postedAt ? 'Repost' : 'Post to IG'}
+                    </button>
+                  </div>
+                  <span class="ig-locked">Set Live to post</span>
+                </>
+              ) : (
+                <span class="muted">—</span>
+              )}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
 
   <!-- AdminIgPost renders the global .igp-* modal/toast styles the article kit reuses -->
   <AdminIgPost />
   <AdminArticleIgPost />
+
+  <script>
+    // Visibility control — POST the new state; optimistic with revert on failure.
+    document.querySelectorAll<HTMLElement>('.seg').forEach((seg) => {
+      seg.querySelectorAll<HTMLButtonElement>('.seg-btn').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          if (btn.classList.contains('active') || seg.classList.contains('saving')) return;
+          const slug = seg.dataset.slug!;
+          const state = btn.dataset.state!;
+          const prev = seg.querySelector<HTMLButtonElement>('.active');
+          const row = seg.closest<HTMLElement>('tr');
+
+          seg.querySelectorAll('.seg-btn').forEach((b) => b.classList.remove('active'));
+          btn.classList.add('active');
+          seg.classList.add('saving');
+          try {
+            const res = await fetch('/api/admin/post-state', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ slug, state }),
+            });
+            if (!res.ok) throw new Error(String(res.status));
+            if (row) {
+              row.dataset.state = state;
+              row.classList.toggle('is-live', state === 'published');
+            }
+          } catch {
+            seg.querySelectorAll('.seg-btn').forEach((b) => b.classList.remove('active'));
+            prev?.classList.add('active');
+            alert('Could not update visibility — please try again.');
+          } finally {
+            seg.classList.remove('saving');
+          }
+        });
+      });
+    });
+  </script>
 </AdminLayout>
 
 <style is:global>
-  .page-intro { font-size: 0.85rem; color: #6B7280; margin-bottom: 1.25rem; max-width: 64ch; line-height: 1.6; }
-  .notice {
-    font-size: 0.85rem; color: #92400E; background: #FEF3C7;
-    border: 1px solid #FCD34D; border-radius: 0.5rem; padding: 0.75rem 1rem;
-  }
+  .posts-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
+  .posts-head h1 { font-size: 1.35rem; font-weight: 800; color: #111; }
+  .posts-head .sub { font-size: 0.8rem; color: #6B7280; margin-top: 0.35rem; max-width: 68ch; line-height: 1.6; }
+  .tallies { display: flex; gap: 0.4rem; flex-shrink: 0; }
+  .tally { font-size: 0.72rem; color: #6B7280; background: #F3F4F6; border: 1px solid #E5E7EB; border-radius: 999px; padding: 0.25rem 0.7rem; white-space: nowrap; }
+  .tally b { color: #111; }
+
+  .notice { font-size: 0.85rem; color: #92400E; background: #FEF3C7; border: 1px solid #FCD34D; border-radius: 0.5rem; padding: 0.7rem 1rem; margin-bottom: 1rem; }
   .notice a { color: #92400E; font-weight: 700; }
 
-  .guide-list { display: flex; flex-direction: column; gap: 0.5rem; }
-  .guide-row {
-    display: flex; align-items: center; gap: 0.875rem;
-    background: #fff; border: 1px solid #E5E7EB; border-radius: 0.75rem;
-    padding: 0.625rem 0.875rem;
-  }
-  .guide-thumb-link { flex-shrink: 0; line-height: 0; }
-  .guide-thumb { width: 72px; height: 54px; object-fit: cover; border-radius: 0.5rem; display: block; background: #F3F4F6; }
-  .guide-info { flex: 1; min-width: 0; }
-  .guide-cat { font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #F5A623; margin-bottom: 0.15rem; }
-  .guide-title {
-    font-size: 0.85rem; font-weight: 600; color: #111; text-decoration: none; display: block;
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  }
-  .guide-title:hover { color: #F5A623; }
-  .ig-posted-note { font-size: 0.7rem; color: #16A34A; font-weight: 600; margin-top: 0.25rem; }
+  .table-wrap { background: #fff; border: 1px solid #E5E7EB; border-radius: 0.75rem; overflow: hidden; }
+  .posts-table { width: 100%; border-collapse: collapse; }
+  .posts-table thead th { text-align: left; font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #9CA3AF; padding: 0.7rem 1rem; border-bottom: 1px solid #E5E7EB; background: #FAFAF9; }
+  .th-date { width: 8rem; } .th-status { width: 15rem; } .th-ig { width: 12rem; }
+  .posts-table td { padding: 0.7rem 1rem; border-bottom: 1px solid #F3F4F6; vertical-align: middle; }
+  .posts-table tr:last-child td { border-bottom: none; }
+  .posts-table tr:hover td { background: #FCFCFB; }
 
-  .btn {
-    font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
-    padding: 0.5rem 0.875rem; border-radius: 0.5rem; cursor: pointer;
-    border: 1.5px solid transparent; white-space: nowrap; flex-shrink: 0; transition: all 0.15s;
-  }
+  .col-guide { display: flex; align-items: center; gap: 0.75rem; }
+  .thumb-link { flex-shrink: 0; line-height: 0; }
+  .thumb { width: 64px; height: 44px; object-fit: cover; border-radius: 0.4rem; background: #F3F4F6; display: block; }
+  .guide-meta { min-width: 0; }
+  .cat { display: block; font-size: 0.58rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #F5A623; margin-bottom: 0.1rem; }
+  .title { font-size: 0.85rem; font-weight: 600; color: #111; text-decoration: none; display: block; }
+  .title:hover { color: #F5A623; }
+  .col-date { font-size: 0.78rem; color: #6B7280; white-space: nowrap; }
+
+  /* segmented visibility control */
+  .seg { display: inline-flex; border: 1px solid #E5E7EB; border-radius: 0.5rem; overflow: hidden; background: #fff; }
+  .seg.saving { opacity: 0.6; pointer-events: none; }
+  .seg-btn { font-size: 0.72rem; font-weight: 600; color: #6B7280; background: #fff; border: none; padding: 0.4rem 0.7rem; cursor: pointer; border-right: 1px solid #E5E7EB; transition: background 0.12s, color 0.12s; }
+  .seg-btn:last-child { border-right: none; }
+  .seg-btn:hover:not(.active) { background: #F9FAFB; color: #111; }
+  .seg-btn.active.state-published { background: #16A34A; color: #fff; }
+  .seg-btn.active.state-unlisted { background: #D97706; color: #fff; }
+  .seg-btn.active.state-draft { background: #6B7280; color: #fff; }
+
+  .col-ig { white-space: nowrap; }
+  .ig-live { display: inline-flex; align-items: center; gap: 0.5rem; }
+  .ig-posted { font-size: 0.68rem; color: #16A34A; font-weight: 600; }
+  .ig-locked { display: none; font-size: 0.72rem; color: #9CA3AF; font-style: italic; }
+  tr:not(.is-live) .ig-live { display: none; }
+  tr.is-live .ig-locked { display: none; }
+  .muted { color: #9CA3AF; }
+
+  .btn { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; padding: 0.4rem 0.75rem; border-radius: 0.45rem; cursor: pointer; border: 1.5px solid transparent; white-space: nowrap; transition: all 0.15s; }
   .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-  .btn-post { background: #F5A623; color: #111111; }
+  .btn-post { background: #F5A623; color: #111; }
   .btn-post:hover:not(:disabled) { background: #D4881A; }
   .btn-repost { background: #fff; color: #6B7280; border-color: #E5E7EB; }
-  .btn-repost:hover:not(:disabled) { color: #111111; border-color: #111111; }
+  .btn-repost:hover:not(:disabled) { color: #111; border-color: #111; }
 
-  @media (max-width: 768px) {
-    .guide-row { flex-wrap: wrap; }
-    .guide-info { flex-basis: calc(100% - 88px); }
-    .btn { width: 100%; margin-top: 0.25rem; }
+  @media (max-width: 820px) {
+    .table-wrap { overflow-x: auto; }
+    .posts-table { min-width: 720px; }
   }
 </style>

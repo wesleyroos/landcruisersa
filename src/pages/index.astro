@@ -3,6 +3,7 @@ export const prerender = false;
 
 import Base from '@/layouts/Base.astro';
 import { getCollection } from 'astro:content';
+import { getAllOverrides, effectiveState } from '@/lib/post-state';
 import { SITE } from '@/data/site';
 import { PARTNERS } from '@/data/partners';
 import { db } from '@/db/index';
@@ -14,7 +15,9 @@ import { getCurrentUser } from '@/lib/auth-user';
 import { firstThumb, hasUsablePhoto } from '@/lib/photos';
 import VehicleSearch from '@/components/VehicleSearch.astro';
 
-const allPosts = await getCollection('posts', p => !p.data.draft && !p.data.unlisted);
+const postOverrides = getAllOverrides();
+const allPosts = (await getCollection('posts'))
+  .filter(p => effectiveState(p, postOverrides.get(p.slug) ?? null) === 'published');
 const posts = allPosts
   .sort((a, b) => b.data.publishedAt.valueOf() - a.data.publishedAt.valueOf())
   .slice(0, 6);

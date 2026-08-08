@@ -3,6 +3,22 @@ import mdx from '@astrojs/mdx';
 import sitemap from '@astrojs/sitemap';
 import node from '@astrojs/node';
 import tailwindcss from '@tailwindcss/vite';
+import fs from 'node:fs';
+import path from 'node:path';
+
+// Guide pages are now SSR (their live state is admin-controlled), so they're no
+// longer auto-discovered by @astrojs/sitemap. List them here at build time,
+// skipping any file that ships as draft/unlisted in its frontmatter. (Runtime
+// unlisting is handled by the page's own noindex/404 — this is the build-time
+// baseline; re-deploy refreshes it.)
+const POSTS_DIR = 'src/content/posts';
+const guidePages = fs.readdirSync(POSTS_DIR)
+  .filter((f) => f.endsWith('.mdx'))
+  .filter((f) => {
+    const fm = (fs.readFileSync(path.join(POSTS_DIR, f), 'utf8').split('---')[1] || '');
+    return !/^\s*draft:\s*true/m.test(fm) && !/^\s*unlisted:\s*true/m.test(fm);
+  })
+  .map((f) => `https://landcruisersa.co.za/useful-info/${f.replace(/\.mdx$/, '')}/`);
 
 export default defineConfig({
   site: 'https://landcruisersa.co.za',
@@ -105,12 +121,12 @@ export default defineConfig({
         'https://landcruisersa.co.za/market/hilux-d4d/',
         'https://landcruisersa.co.za/market/fortuner-gd6/',
         'https://landcruisersa.co.za/market/fortuner-d4d/',
+        // SSR guide pages (draft/unlisted files excluded above)
+        ...guidePages,
       ],
-      // Keep admin pages — and unlisted previews (Faan collection, canopy-guide
-      // draft) — out of the sitemap. Remove a slug here when its post publishes.
-      filter: (page) => !page.includes('/admin/')
-        && !page.includes('/inside-the-webuycars-land-cruiser-collection')
-        && !page.includes('/land-cruiser-canopies-trays-south-africa'),
+      // Keep admin pages out of the sitemap. (Guide draft/unlisted exclusions are
+      // now handled where guidePages is built, above.)
+      filter: (page) => !page.includes('/admin/'),
     }),
   ],
   vite: {

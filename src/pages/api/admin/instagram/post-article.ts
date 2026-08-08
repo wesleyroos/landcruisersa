@@ -7,6 +7,7 @@ import { setArticlePosted, setArticlePostError, clearArticlePostError } from '@/
 import { db } from '@/db/index';
 import { igPosts } from '@/db/schema';
 import { requireAdmin, unauthorized } from '@/lib/admin-auth';
+import { effectiveState } from '@/lib/post-state';
 import { SITE } from '@/data/site';
 
 // featuredImage is usually a full R2 URL already. A relative value is a local
@@ -37,10 +38,12 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     return new Response(JSON.stringify({ error: 'slug required' }), { status: 400 });
   }
 
-  const posts = await getCollection('posts', p => !p.data.draft && !p.data.unlisted);
-  const post = posts.find(p => p.slug === slug);
+  const post = (await getCollection('posts')).find(p => p.slug === slug);
   if (!post) {
-    return new Response(JSON.stringify({ error: 'Article not found (or still a draft)' }), { status: 404 });
+    return new Response(JSON.stringify({ error: 'Article not found' }), { status: 404 });
+  }
+  if (effectiveState(post) !== 'published') {
+    return new Response(JSON.stringify({ error: 'Only published guides can be posted to Instagram. Set it to Published first.' }), { status: 400 });
   }
 
   const imageUrl = toAbsolute(post.data.featuredImage);

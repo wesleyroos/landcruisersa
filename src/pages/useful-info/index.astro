@@ -1,10 +1,16 @@
 ---
+export const prerender = false;
+
 import Base from '@/layouts/Base.astro';
 import { SITE } from '@/data/site';
 import PostCard from '@/components/PostCard.astro';
 import { getCollection } from 'astro:content';
+import { getAllOverrides, effectiveState } from '@/lib/post-state';
 
-const allPosts = await getCollection('posts', p => !p.data.draft && !p.data.unlisted);
+// SSR so live publication state applies — only published guides are listed.
+const overrides = getAllOverrides();
+const allPosts = (await getCollection('posts'))
+  .filter(p => effectiveState(p, overrides.get(p.slug) ?? null) === 'published');
 const posts = allPosts.sort((a, b) => b.data.publishedAt.valueOf() - a.data.publishedAt.valueOf());
 
 const categories = [

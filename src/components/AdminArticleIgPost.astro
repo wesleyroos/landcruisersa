@@ -16,6 +16,7 @@
     <textarea id="aigp-caption" class="igp-caption" rows="14" spellcheck="false"></textarea>
     <div class="igp-actions">
       <button id="aigp-cancel"    class="igp-btn igp-btn-outline">Cancel</button>
+      <button id="aigp-storylink" class="igp-btn igp-btn-outline">📎 Copy story link</button>
       <button id="aigp-rehashtag" class="igp-btn igp-btn-outline" style="margin-right:auto">↺ New hashtags</button>
       <button id="aigp-confirm"   class="igp-btn igp-btn-dark">Post Now</button>
     </div>
@@ -32,12 +33,23 @@
   const modalCaption   = document.getElementById('aigp-caption') as HTMLTextAreaElement;
   const modalMeta      = document.getElementById('aigp-meta')!;
   const modalCancel    = document.getElementById('aigp-cancel')!;
+  const modalStoryLink = document.getElementById('aigp-storylink') as HTMLButtonElement;
   const modalRehashtag = document.getElementById('aigp-rehashtag') as HTMLButtonElement;
   const modalConfirm   = document.getElementById('aigp-confirm') as HTMLButtonElement;
   const toast          = document.getElementById('aigp-toast')!;
 
-  const CTA_MARKER = '📖 Read the full guide — link in bio';
   const ENDPOINT   = '/api/admin/instagram/post-article';
+
+  // Split a caption into its body and its trailing hashtag paragraph (independent
+  // of the exact CTA wording, which varies now the caption embeds the article URL).
+  function splitBodyHashtags(caption: string): { body: string; hashtags: string } {
+    const parts = caption.split(/\n\n+/);
+    const last = parts[parts.length - 1] ?? '';
+    if (parts.length > 1 && last.trimStart().startsWith('#')) {
+      return { body: parts.slice(0, -1).join('\n\n'), hashtags: last.trim() };
+    }
+    return { body: caption, hashtags: '' };
+  }
 
   function showToast(msg: string, type: 'ok' | 'err') {
     toast.textContent = msg;
@@ -48,6 +60,20 @@
 
   modalCancel.addEventListener('click', () => { modal.hidden = true; pendingSlug = null; });
   modal.addEventListener('click', (e) => { if (e.target === modal) { modal.hidden = true; pendingSlug = null; } });
+
+  // Copy the ig-story-tagged article URL — the link to drop in an Instagram Story
+  // sticker after posting, so story taps attribute to `ig-story` in analytics.
+  modalStoryLink.addEventListener('click', async () => {
+    if (!pendingSlug) return;
+    const url = `https://landcruisersa.co.za/useful-info/${pendingSlug}/?utm_source=ig-story`;
+    try {
+      await navigator.clipboard.writeText(url);
+      modalStoryLink.textContent = '✓ Copied!';
+      setTimeout(() => { modalStoryLink.textContent = '📎 Copy story link'; }, 1500);
+    } catch {
+      showToast('Copy failed — link: ' + url, 'err');
+    }
+  });
 
   // Delegated — any [data-action="post-article"] button on the page opens the modal
   document.addEventListener('click', async (e) => {
@@ -104,16 +130,10 @@
       const data = await res.json();
       if (!res.ok) { showToast(data.error ?? 'Failed to regenerate', 'err'); return; }
 
-      const ctaIdx = data.caption.indexOf(CTA_MARKER);
-      const newHashtags = ctaIdx !== -1 ? data.caption.slice(ctaIdx + CTA_MARKER.length).trimStart() : '';
-
-      const current = modalCaption.value;
-      const bodyEnd = current.indexOf(CTA_MARKER);
-      if (bodyEnd !== -1) {
-        modalCaption.value = current.slice(0, bodyEnd + CTA_MARKER.length) + (newHashtags ? '\n\n' + newHashtags : '');
-      } else {
-        modalCaption.value = current.trimEnd() + '\n\n' + newHashtags;
-      }
+      // Keep the (possibly edited) body, swap only the trailing hashtag block.
+      const newHashtags = splitBodyHashtags(data.caption).hashtags;
+      const { body } = splitBodyHashtags(modalCaption.value);
+      modalCaption.value = newHashtags ? `${body}\n\n${newHashtags}` : body;
       success = true;
     } finally {
       modalRehashtag.disabled = false;
