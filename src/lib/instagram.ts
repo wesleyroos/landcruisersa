@@ -358,6 +358,7 @@ export interface ArticleForPost {
   title:   string;
   excerpt: string;
   tags?:   string[];
+  slug?:   string;
 }
 
 export const ARTICLE_CTA = '📖 Read the full guide — link in bio';
@@ -368,7 +369,13 @@ function buildArticleFallbackHashtags(): string {
 }
 
 function buildArticleCaptionBody(article: ArticleForPost): string {
-  return [article.title, '', article.excerpt.trim(), '', ARTICLE_CTA].join('\n');
+  // With a slug we embed the full article URL (utm-tagged). It's inert on IG but
+  // becomes a clickable link on the Facebook cross-post — same fb-caption trick
+  // the listing captions use. Without a slug we fall back to "link in bio".
+  const cta = article.slug
+    ? `📖 Read the full guide:\nhttps://landcruisersa.co.za/useful-info/${article.slug}/?utm_source=fb-caption`
+    : ARTICLE_CTA;
+  return [article.title, '', article.excerpt.trim(), '', cta].join('\n');
 }
 
 export async function generateArticleHashtags(article: ArticleForPost): Promise<string> {

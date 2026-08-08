@@ -44,7 +44,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
   }
 
   const imageUrl = toAbsolute(post.data.featuredImage);
-  const article = { title: post.data.title, excerpt: post.data.excerpt, tags: post.data.tags };
+  const article = { title: post.data.title, excerpt: post.data.excerpt, tags: post.data.tags, slug: post.slug };
 
   // Instagram's publishing API only accepts JPEG via image_url — reject anything
   // else up front (in BOTH preview and post) so the admin gets a clear reason
