@@ -1,6 +1,7 @@
 import { sendPostSuggestionEmail } from './post-suggestion-email';
 import { syncIgInsightsDaily } from './ig-insights';
 import { snapshotGscDaily } from './gsc-snapshot';
+import { maybeRefreshIgToken } from './instagram';
 
 // Server-side morning trigger. The site runs 24/7 on Fly, so we don't depend on
 // GitHub's (chronically delayed) scheduled Actions for the daily IG email.
@@ -28,6 +29,9 @@ export function ensurePostSuggestionScheduler(): void {
         const g = await snapshotGscDaily();
         if (g.ok) console.log(`[gsc-snapshot] wrote ${g.rows} rows across ${g.days.length} day(s)`);
       } catch (e) { console.error('[gsc-snapshot] daily snapshot failed', e); }
+      // Keep the Instagram long-lived token alive (self-guards to ~weekly) so it
+      // never lapses to Meta's 60-day expiry and forces a manual reconnect.
+      try { await maybeRefreshIgToken(); } catch (e) { console.error('[ig-token] auto-refresh tick failed', e); }
       const res = await sendPostSuggestionEmail();
       if (res.emailed) console.log(`[ig-suggestion] sent morning email (${res.suggestions.length} picks)`);
     } catch (e) {

@@ -48,9 +48,11 @@ export async function getCredentials(): Promise<IgCredentials | null> {
 
 export async function saveCredentials(creds: IgCredentials) {
   await Promise.all([
-    setConfig('ig_user_id',      creds.userId),
-    setConfig('ig_access_token', creds.accessToken),
-    setConfig('ig_username',     creds.username),
+    setConfig('ig_user_id',       creds.userId),
+    setConfig('ig_access_token',  creds.accessToken),
+    setConfig('ig_username',      creds.username),
+    // Stamp the token's freshness so the auto-refresher knows when it last renewed.
+    setConfig('ig_token_refreshed_at', String(Date.now())),
   ]);
 }
 
@@ -109,6 +111,34 @@ export async function exchangeForLongLivedToken(shortToken: string, appSecret: s
   const data = await res.json();
   if (!res.ok) throw new Error(data.error?.message ?? 'Long-lived token exchange failed');
   return data.access_token;
+}
+
+// Auto-refresh: keep the long-lived token alive so it never hits Meta's 60-day
+// expiry (after which it can't be refreshed — only a full reconnect fixes it).
+// Meta lets you refresh any token that's ≥24h old and still valid, extending it
+// another 60 days. Called from the daily server scheduler; self-guards to ~weekly.
+const IG_REFRESH_EVERY_MS = 7 * 24 * 3600 * 1000;
+
+export async function maybeRefreshIgToken(): Promise<void> {
+  const creds = await getCredentials();
+  if (!creds) return;
+
+  const last = Number(await getConfig('ig_token_refreshed_at')) || 0;
+  if (!last) {
+    // Pre-existing token of unknown age — start the clock rather than risk
+    // refreshing a <24h token (which Meta rejects). Refreshes kick in next week.
+    await setConfig('ig_token_refreshed_at', String(Date.now()));
+    return;
+  }
+  if (Date.now() - last < IG_REFRESH_EVERY_MS) return;
+
+  try {
+    const newToken = await refreshLongLivedToken(creds.accessToken);
+    await saveCredentials({ ...creds, accessToken: newToken }); // re-stamps ig_token_refreshed_at
+    console.log('[IG] long-lived token auto-refreshed (+60 days)');
+  } catch (e) {
+    console.error('[IG] token auto-refresh failed — may need a manual reconnect:', e instanceof Error ? e.message : String(e));
+  }
 }
 
 export async function refreshLongLivedToken(accessToken: string): Promise<string> {

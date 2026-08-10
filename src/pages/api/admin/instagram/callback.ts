@@ -8,13 +8,17 @@ import {
   getIgUserInfo,
   saveCredentials,
 } from '@/lib/instagram';
+import { publicOrigin } from '@/lib/http-guards';
 
 const APP_ID       = import.meta.env.INSTAGRAM_APP_ID       ?? process.env.INSTAGRAM_APP_ID;
 const APP_SECRET   = import.meta.env.INSTAGRAM_APP_SECRET   ?? process.env.INSTAGRAM_APP_SECRET;
 const REDIRECT_URI = import.meta.env.INSTAGRAM_REDIRECT_URI ?? process.env.INSTAGRAM_REDIRECT_URI;
 
-export const GET: APIRoute = async ({ url }) => {
-  const origin = url.origin;
+export const GET: APIRoute = async ({ url, request }) => {
+  // Behind Fly's proxy, url.origin is the INTERNAL host (localhost) — redirecting
+  // there dumps the admin on a dead "localhost refused to connect" page. Use the
+  // public host (X-Forwarded-Host) so the success/redirect lands on the real site.
+  const origin = publicOrigin(request);
   const go = (path: string) => Response.redirect(`${origin}${path}`, 302);
 
   const code  = url.searchParams.get('code');
