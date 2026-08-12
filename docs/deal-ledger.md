@@ -290,6 +290,18 @@ so threads either progress or get consciously dropped — never drift.
   `ad_titan` site_config on PROD per the runbook in [[project-titan-placement]];
   ad_events currently 0 (config-gated OFF). First rand on the scoreboard at first
   invoice.
+- **STATUS (2026-08-12): alive but stalled on Titan's side.** Two+ weeks past the
+  intended go-live; ad_events still 0. Wesley has followed up repeatedly; Titan
+  replied they're **"still keen, just crazy busy."** Read: partner-bandwidth delay,
+  NOT cold feet — so keep a warm-nudge cadence (don't hard-push a busy buyer and
+  risk the relationship) and flip `ad_titan` live the day the banners + signed IO
+  arrive. The deal isn't at risk; the *delivery* is what's slipping.
+
+## D6 status update
+- **STATUS (2026-08-12):** Wesley re-nudged Tristan again. Still awaiting a reply on
+  fee terms; well past the 24-Jul date but the thread is being kept warm rather than
+  formally parked. If it stays silent, the pre-commitment is to park it and let D7
+  (outbound to 2–3 other dealers with our own anchor) carry the motion.
 
 ---
 
