@@ -38,6 +38,20 @@ export const PATCH: APIRoute = async ({ params, request, cookies }) => {
   if ('featured' in updates) updates.featured = Boolean(updates.featured);
   if ('dealer_offer_optin' in updates) updates.dealer_offer_optin = Boolean(updates.dealer_offer_optin);
 
+  // Social boost fulfilment. Deliberately NOT a free edit of social_boost: only
+  // Paystack may declare something paid, so admin can move a paid boost to
+  // "posted" or "refunded" and nothing else. A listing that was never paid for
+  // can't be flipped into a payment record by editing the form.
+  if ('boost_state' in body) {
+    const current = db.select({ b: listings.social_boost }).from(listings).where(eq(listings.id, id)).get()?.b;
+    if (current === 'paid' || current === 'refunded') {
+      const state = String(body.boost_state);
+      if (state === 'owed')     { updates.social_boost = 'paid';     updates.social_boost_posted_at = null; }
+      else if (state === 'posted')   { updates.social_boost = 'paid';     updates.social_boost_posted_at = new Date(); }
+      else if (state === 'refunded') { updates.social_boost = 'refunded'; }
+    }
+  }
+
   // '' (the admin form's "Auto" option) clears back to NULL = re-classifiable.
   if ('body_type' in updates) {
     if (!['', 'game-viewer', 'standard', null].includes(updates.body_type as string | null)) {

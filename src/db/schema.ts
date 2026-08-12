@@ -38,6 +38,15 @@ export const listings = sqliteTable('listings', {
   review_flag:  integer('review_flag', { mode: 'boolean' }).notNull().default(false),
   dealer_offer_optin: integer('dealer_offer_optin', { mode: 'boolean' }).notNull().default(false), // seller opted in to be shopped to dealer partners
 
+  // Paid social boost — seller pays a once-off fee to have us post their vehicle
+  // to the LCSA Instagram + Facebook pages. 'requested' = ticked the box but has
+  // not paid (we owe them nothing); 'paid' = money received, we owe them a post.
+  social_boost:          text('social_boost').notNull().default('none'),   // 'none' | 'requested' | 'paid' | 'refunded'
+  social_boost_ref:      text('social_boost_ref'),                          // our payment reference (also the Paystack reference)
+  social_boost_amount:   integer('social_boost_amount'),                    // amount actually paid, in cents (price can change between tests)
+  social_boost_paid_at:  integer('social_boost_paid_at', { mode: 'timestamp' }),
+  social_boost_posted_at: integer('social_boost_posted_at', { mode: 'timestamp' }), // fulfilled — posted to social
+
   ig_posted_at: integer('ig_posted_at', { mode: 'timestamp' }),    // last posted to Instagram
   ig_media_id:  text('ig_media_id'),                                // IG media id of that post — insights join key
   ig_skipped_at: integer('ig_skipped_at', { mode: 'timestamp' }),   // admin skipped this suggestion — never suggest again (undo on listing page)

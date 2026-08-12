@@ -6,6 +6,7 @@ import { listings } from '@/db/schema';
 import { rateLimited, clientIp } from '@/lib/rate-limit';
 import { detectBodyType } from '@/lib/sources/normalize';
 import { randomToken } from '@/lib/token';
+import { boostEnabled, boostPriceRand } from '@/lib/social-boost';
 
 function slugify(str: string) {
   return str
@@ -24,6 +25,7 @@ export const POST: APIRoute = async ({ request }) => {
     description, mods, photos,
     seller_name, seller_email, seller_phone,
     dealer_offer_optin = false,
+    social_boost = false,
     body_type = null,
     lcsa_hp,
   } = body;
@@ -55,6 +57,13 @@ export const POST: APIRoute = async ({ request }) => {
   // the seller when the listing goes live (see lib/seller-live-email).
   const editToken = randomToken();
 
+  // Paid social boost. The seller only ticked a box here — no money has moved
+  // yet, so we record the intent and hand back a payment reference the browser
+  // uses to open the Paystack popup. 'requested' means we owe them nothing;
+  // only Paystack's own confirmation flips it to 'paid'.
+  const wantsBoost = social_boost === true && boostEnabled();
+  const boostRef = wantsBoost ? randomToken() : null;
+
   await db.insert(listings).values({
     slug,
     listing_type,
@@ -80,6 +89,8 @@ export const POST: APIRoute = async ({ request }) => {
       ? 'game-viewer'
       : detectBodyType(String(title), String(description ?? '')),
     status: 'pending',
+    social_boost: wantsBoost ? 'requested' : 'none',
+    social_boost_ref: boostRef,
     edit_token: editToken,
     created_at: new Date(),
   });
@@ -102,12 +113,18 @@ export const POST: APIRoute = async ({ request }) => {
                ${listing_type === 'for_sale' ? `<p>Price: R${Number(price).toLocaleString()}</p>` : ''}
                <p>From: ${seller_name} — ${seller_email} — ${seller_phone}</p>
                ${dealer_offer_optin === true && listing_type === 'for_sale' ? `<p>🏷️ <strong>Wants a dealer offer</strong> — shop to dealer partners.</p>` : ''}
+               ${wantsBoost ? `<p>📣 <strong>Asked for the social boost (R${boostPriceRand()})</strong> — payment not confirmed yet. You'll get a separate "PAID" email if it goes through; don't post it until then.</p>` : ''}
                <p><a href="https://landcruisersa.co.za/admin">Review in Admin →</a></p>`,
       }),
     }).catch(() => {}); // fire-and-forget
   }
 
-  return new Response(JSON.stringify({ ok: true, slug }), {
+  return new Response(JSON.stringify({
+    ok: true,
+    slug,
+    boost_ref: boostRef,
+    boost_price: wantsBoost ? boostPriceRand() : null,
+  }), {
     status: 201,
     headers: { 'Content-Type': 'application/json' },
   });

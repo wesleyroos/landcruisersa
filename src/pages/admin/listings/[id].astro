@@ -407,6 +407,29 @@ const rand0 = (n: number) => 'R' + n.toLocaleString('en-ZA');
               <option value="true"  selected={!!listing.dealer_offer_optin}>🏷️ Yes — seller wants a dealer offer (shop to dealer partners)</option>
             </select>
           </div>
+          {listing.social_boost === 'requested' && (
+            <div class="field">
+              <label>Social boost</label>
+              <p class="boost-note">📣 Seller asked for the paid social boost but <strong>never paid</strong> — we owe them nothing. Nothing to do here.</p>
+            </div>
+          )}
+          {(listing.social_boost === 'paid' || listing.social_boost === 'refunded') && (
+            <div class="field">
+              <label>
+                Social boost
+                <span class="label-hint">
+                  paid {listing.social_boost_amount ? `R${(listing.social_boost_amount / 100).toLocaleString('en-ZA')}` : ''}
+                  {listing.social_boost_paid_at ? ` on ${new Date(listing.social_boost_paid_at).toLocaleDateString('en-ZA')}` : ''}
+                  — post to Instagram + Facebook, then mark it posted
+                </span>
+              </label>
+              <select name="boost_state">
+                <option value="owed" selected={listing.social_boost === 'paid' && !listing.social_boost_posted_at}>💰 Paid — still owes a post</option>
+                <option value="posted" selected={listing.social_boost === 'paid' && !!listing.social_boost_posted_at}>✅ Posted to Instagram + Facebook</option>
+                <option value="refunded" selected={listing.social_boost === 'refunded'}>↩️ Refunded (refund it in the Paystack dashboard too)</option>
+              </select>
+            </div>
+          )}
         </div>
 
         <!-- Vehicle Details -->
@@ -735,6 +758,7 @@ const rand0 = (n: number) => 'R' + n.toLocaleString('en-ZA');
     color: #6B7280; margin-bottom: 0.375rem; text-transform: uppercase; letter-spacing: 0.06em;
   }
   .label-hint { font-weight: 400; text-transform: none; letter-spacing: 0; color: #9CA3AF; }
+  .boost-note { font-size: 0.8rem; color: #6B7280; line-height: 1.5; margin: 0; }
   input, select, textarea {
     box-sizing: border-box; width: 100%; border: 1.5px solid #DDD9D3; border-radius: 0.5rem;
     font-size: 0.9375rem; color: #111; background: white;

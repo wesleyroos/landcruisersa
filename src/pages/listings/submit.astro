@@ -2,6 +2,12 @@
 export const prerender = false;
 import Base from '@/layouts/Base.astro';
 import { igFollowersDisplay, igFollowersK } from '@/lib/ig-followers';
+import { boostEnabled, boostPriceRand } from '@/lib/social-boost';
+
+// Paid social boost. Hidden entirely unless Paystack is configured AND the
+// admin toggle is on, so the offer can never appear without a way to pay.
+const boostOn = boostEnabled();
+const boostPrice = boostPriceRand();
 ---
 
 <Base
@@ -16,7 +22,7 @@ import { igFollowersDisplay, igFollowersK } from '@/lib/ig-followers';
     </div>
     <div class="ig-value-text">
       <p class="ig-value-head">Reach {igFollowersDisplay()} Land Cruiser buyers on Instagram</p>
-      <p class="ig-value-sub">Every listing submitted here gets posted to our Instagram following — {igFollowersK()} people who specifically follow Land Cruisers in South Africa. Free.</p>
+      <p class="ig-value-sub">We post the Cruisers we feature to our Instagram following — {igFollowersK()} people who specifically follow Land Cruisers in South Africa. Free, and listing is free too.</p>
     </div>
   </div>
 </div>
@@ -261,6 +267,18 @@ import { igFollowersDisplay, igFollowersK } from '@/lib/ig-followers';
           <span><strong>Want a dealer offer too?</strong> Tick to let us shop your Land Cruiser to our network of vetted dealer partners for a direct cash offer — a fast, hassle-free alternative to a private sale. We'll only share your details with a dealer if you tick this, and you can still sell privately.</span>
         </label>
       </div>
+      {boostOn && (
+        <div class="field" id="social-boost-field">
+          <label class="dealer-consent boost-consent" for="f-social-boost">
+            <input id="f-social-boost" type="checkbox" />
+            <span><strong>📣 Want us to market your Cruiser on social media? R{boostPrice} once-off.</strong>
+            We'll post your vehicle to the Land Cruiser SA <strong>Instagram and Facebook</strong> pages
+            within 3 working days of your listing going live — in front of {igFollowersDisplay()} Cruiser
+            people. Free listings are hand-picked; this one is guaranteed. You pay on the next screen,
+            and we refund you in full if we don't post it.</span>
+          </label>
+        </div>
+      )}
     </div>
 
     <p id="form-error" class="field-error hidden"></p>
@@ -278,11 +296,26 @@ import { igFollowersDisplay, igFollowersK } from '@/lib/ig-followers';
       <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
     </div>
     <h2 id="success-heading">Listing Submitted!</h2>
-    <p id="success-body">We'll review it and get it live within 24 hours. You'll get an email when it's published and posted to Instagram.</p>
+    <p id="success-body">We'll review it and get it live within 24 hours. You'll get an email when it's published.</p>
+
+    <div id="boost-panel" class="boost-panel hidden">
+      <p id="boost-status" class="boost-status">One last step — pay for your social media boost to lock it in.</p>
+      <button type="button" class="btn-next boost-pay-btn" id="boost-pay-btn">Pay R{boostPrice} →</button>
+      <button type="button" class="boost-recheck hidden" id="boost-recheck">Already paid? Check again</button>
+      <p class="boost-fine">Your listing is safely submitted either way — the boost is optional and you can skip it.</p>
+    </div>
+
     <a href="/listings/" class="btn-next" style="display:inline-flex;text-decoration:none;max-width:240px;margin:0 auto;">Browse Listings</a>
   </div>
 
 </div>
+
+{boostOn && (
+  <>
+    <div id="boost-config" data-price={String(boostPrice)} hidden></div>
+    <script is:inline src="https://js.paystack.co/v2/inline.js"></script>
+  </>
+)}
 
 </Base>
 
@@ -629,6 +662,32 @@ import { igFollowersDisplay, igFollowersK } from '@/lib/ig-followers';
     color: #6B7280; line-height: 1.5; cursor: pointer;
   }
   .dealer-consent strong { color: #374151; font-weight: 700; }
+  /* Paid social boost — tinted so it reads as an offer, not another consent box. */
+  .field label.boost-consent {
+    background: rgba(245,166,35,0.07);
+    border: 1px solid rgba(245,166,35,0.35);
+    border-radius: 0.625rem;
+    padding: 0.75rem 0.85rem;
+  }
+  .boost-consent strong { color: #111; }
+
+  .boost-panel {
+    margin: 0 auto 1.5rem;
+    max-width: 380px;
+    background: rgba(245,166,35,0.08);
+    border: 1px solid rgba(245,166,35,0.35);
+    border-radius: 0.75rem;
+    padding: 1.1rem 1.25rem;
+    display: flex; flex-direction: column; gap: 0.75rem; align-items: stretch;
+  }
+  .boost-panel.boost-paid { background: rgba(22,163,74,0.07); border-color: rgba(22,163,74,0.3); }
+  .boost-status { font-size: 0.85rem; color: #374151; line-height: 1.55; margin: 0; }
+  .boost-pay-btn { max-width: none; }
+  .boost-recheck {
+    background: none; border: none; padding: 0; cursor: pointer;
+    font-size: 0.78rem; font-weight: 600; color: #B8860B; text-decoration: underline;
+  }
+  .boost-fine { font-size: 0.7rem; color: #9CA3AF; line-height: 1.45; margin: 0; }
   .field label.dealer-consent input {
     -webkit-appearance: auto; appearance: auto;
     width: 1rem; height: 1rem; min-width: 1rem; margin-top: 0.1rem; padding: 0;
@@ -834,11 +893,13 @@ import { igFollowersDisplay, igFollowersK } from '@/lib/ig-followers';
     const step3Sub = document.getElementById('step3-sub')!;
     const phoneHint = document.getElementById('phone-hint')!;
     const dealerOfferField = document.getElementById('dealer-offer-field')!;
+    const boostField = document.getElementById('social-boost-field'); // absent when the offer is off
 
     if (selectedType === 'show_off') {
       saleFields.classList.add('hidden');
       modsField.classList.remove('hidden');
       dealerOfferField.classList.add('hidden');
+      boostField?.classList.add('hidden');
       descLabel.textContent = 'Build Story *';
       step3Sub.textContent = 'Tell us about your build.';
       (document.getElementById('f-description') as HTMLTextAreaElement).placeholder =
@@ -848,6 +909,7 @@ import { igFollowersDisplay, igFollowersK } from '@/lib/ig-followers';
       saleFields.classList.remove('hidden');
       modsField.classList.add('hidden');
       dealerOfferField.classList.remove('hidden');
+      boostField?.classList.remove('hidden');
       descLabel.textContent = 'Description *';
       step3Sub.textContent = 'Tell buyers about your vehicle.';
       (document.getElementById('f-description') as HTMLTextAreaElement).placeholder =
@@ -1011,6 +1073,8 @@ import { igFollowersDisplay, igFollowersK } from '@/lib/ig-followers';
       seller_phone: phone,
       dealer_offer_optin: selectedType === 'for_sale'
         && (document.getElementById('f-dealer-optin') as HTMLInputElement).checked,
+      social_boost: selectedType === 'for_sale'
+        && !!(document.getElementById('f-social-boost') as HTMLInputElement | null)?.checked,
       body_type: selectedType === 'for_sale'
         && (document.getElementById('f-game-viewer') as HTMLInputElement).checked
         ? 'game-viewer' : null,
@@ -1025,6 +1089,12 @@ import { igFollowersDisplay, igFollowersK } from '@/lib/ig-followers';
       });
 
       if (res.ok) {
+        const json = await res.json().catch(() => ({} as Record<string, unknown>));
+        // Listing is saved. If they asked for the boost, collect payment now —
+        // never before, so a failed payment can't cost them the listing.
+        if (typeof json.boost_ref === 'string' && json.boost_ref) {
+          startBoost(json.boost_ref);
+        }
         // Update success message based on type
         if (selectedType === 'show_off') {
           (document.getElementById('success-heading') as HTMLElement).textContent = 'Build Submitted!';
@@ -1044,6 +1114,125 @@ import { igFollowersDisplay, igFollowersK } from '@/lib/ig-followers';
       formError.classList.remove('hidden');
       submitBtn.disabled = false;
       submitBtn.textContent = 'Submit Listing';
+    }
+  });
+
+  // ── Paid social boost ────────────────────────────────
+  // Runs only after the listing itself is safely stored. The amount is set
+  // server-side; this code only opens the popup and asks our server to confirm
+  // the outcome with Paystack — it never decides that anything was paid.
+  const boostPanel   = document.getElementById('boost-panel');
+  const boostStatus  = document.getElementById('boost-status');
+  const boostPayBtn  = document.getElementById('boost-pay-btn') as HTMLButtonElement | null;
+  const boostRecheck = document.getElementById('boost-recheck') as HTMLButtonElement | null;
+  const boostPrice   = document.getElementById('boost-config')?.getAttribute('data-price') ?? '';
+
+  let boostRef = '';
+  let pollTimer = 0;
+
+  function boostPaidUI() {
+    window.clearInterval(pollTimer);
+    if (boostStatus) boostStatus.innerHTML =
+      '<strong>✅ Payment received — thanks!</strong><br/>We\'ll post your Cruiser to Instagram and Facebook within 3 working days of your listing going live. A receipt is on its way to your inbox.';
+    boostPanel?.classList.add('boost-paid');
+    boostPayBtn?.classList.add('hidden');
+    boostRecheck?.classList.add('hidden');
+  }
+
+  function boostUnpaidUI(message: string) {
+    if (boostStatus) boostStatus.textContent = message;
+    boostPayBtn?.classList.remove('hidden');
+    boostRecheck?.classList.remove('hidden');
+    if (boostPayBtn) {
+      boostPayBtn.disabled = false;
+      boostPayBtn.textContent = `Pay R${boostPrice} \u2192`;
+    }
+  }
+
+  // Backstop for the case where the popup's callback never fires (tab switch,
+  // mobile redirect): Paystack's webhook marks the row paid server-side, and
+  // this poll notices. DB read only — cheap.
+  function pollBoostStatus() {
+    window.clearInterval(pollTimer);
+    let ticks = 0;
+    pollTimer = window.setInterval(async () => {
+      if (++ticks > 36) { window.clearInterval(pollTimer); return; } // ~3 minutes
+      try {
+        const r = await fetch(`/api/social-boost/status?ref=${encodeURIComponent(boostRef)}`);
+        const j = await r.json();
+        if (j.paid) boostPaidUI();
+      } catch { /* keep polling */ }
+    }, 5000);
+  }
+
+  async function confirmBoost(): Promise<boolean> {
+    try {
+      const r = await fetch('/api/social-boost/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ref: boostRef }),
+      });
+      const j = await r.json();
+      if (j.paid) { boostPaidUI(); return true; }
+    } catch { /* fall through */ }
+    return false;
+  }
+
+  async function openBoostPopup() {
+    if (!boostRef) return;
+    if (boostPayBtn) { boostPayBtn.disabled = true; boostPayBtn.textContent = 'Opening payment\u2026'; }
+
+    let data: { access_code?: string; error?: string };
+    try {
+      const r = await fetch('/api/social-boost/init', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ref: boostRef }),
+      });
+      data = await r.json();
+      if (!r.ok || !data.access_code) {
+        boostUnpaidUI(data.error ?? 'We could not open the payment window. Please try again.');
+        return;
+      }
+    } catch {
+      boostUnpaidUI('Network error — please try again.');
+      return;
+    }
+
+    const Paystack = (window as any).PaystackPop;
+    if (!Paystack) {
+      boostUnpaidUI('The payment window could not load. Please check your connection and try again.');
+      return;
+    }
+
+    pollBoostStatus();
+    try {
+      const popup = new Paystack();
+      popup.resumeTransaction(data.access_code, {
+        onSuccess: () => { confirmBoost(); },
+        onCancel: () => boostUnpaidUI('Payment cancelled. Your listing is still submitted — you can pay for the boost any time below.'),
+        onError: () => boostUnpaidUI('That payment did not go through. Please try again.'),
+      });
+    } catch {
+      boostUnpaidUI('The payment window could not open. Please try again.');
+    }
+  }
+
+  function startBoost(ref: string) {
+    boostRef = ref;
+    boostPanel?.classList.remove('hidden');
+    openBoostPopup();
+  }
+
+  boostPayBtn?.addEventListener('click', openBoostPopup);
+  boostRecheck?.addEventListener('click', async () => {
+    boostRecheck.disabled = true;
+    boostRecheck.textContent = 'Checking\u2026';
+    const paid = await confirmBoost();
+    if (!paid) {
+      boostRecheck.disabled = false;
+      boostRecheck.textContent = 'Already paid? Check again';
+      if (boostStatus) boostStatus.textContent = 'We have not received a payment yet. If you just paid, give it a few seconds and check again.';
     }
   });
 </script>

@@ -755,3 +755,43 @@ date, compare to baseline, mark HIT / MISS / PARTIAL, and write the lesson.
   itself is the lesson (audience spokes die of inconsistency, not reach).
 - **Result:** _pending 2026-08-21_
 - **Lesson:** _tbd_
+
+## P22 — Paid social boost (first direct-to-consumer revenue test)
+
+- **Opened:** 2026-08-12 (built + gated OFF; the clock starts the day it is
+  switched on in `/admin/settings` — record that date here)
+- **Review on:** 30 days after switch-on, or after 20 boost-eligible
+  submissions, whichever comes first
+- **Surface:** `/listings/submit` step 4 — an optional tick-box on for-sale
+  listings offering a post to the LCSA Instagram + Facebook pages for **R99**
+  once-off, paid by Paystack popup immediately after the listing is stored.
+  State on `listings.social_boost`: `requested` (ticked, never paid) →
+  `paid` (Paystack confirmed) → posted/refunded via admin.
+- **Thesis:** the audience is the asset, and private sellers are the one group
+  with an urgent reason to rent it (a car they need sold). This is the cheapest
+  possible test of whether ANY consumer on this site will pay us money —
+  and it is own-product revenue, so it passes the locked monetization rule (no
+  chasing third parties to pay). A "no" here is as valuable as a "yes": it kills
+  the seller-pays direction and points everything at the B2B/WBC track.
+- **Baseline:** R0 consumer revenue to date. Fill in own-listing submission
+  volume for the prior 30d from prod at switch-on: _tbd_
+- **Predictions (grade at review):**
+  1. *(PRIMARY — the actual question)* **≥ 15% of for-sale submitters tick the
+     box.** Grading: `social_boost != 'none'` ÷ own for-sale listings created in
+     the window. Below 5% = the offer is dead, pull it.
+  2. **≥ 50% of tickers complete payment** (`paid` ÷ `requested + paid`). A big
+     gap between ticking and paying means the price is wrong or the checkout is
+     leaking — that is a fixable result, not a failed one.
+  3. *(directional)* Ticking the box does **not** reduce total submissions —
+     watch own-listing volume against the prior 30d. If submissions fall, the
+     paid ask is scaring sellers off and the cost outweighs the revenue.
+  4. *(stretch)* First R500 of consumer revenue collected.
+- **Caveat:** volume is tiny (own listings are a handful a month), so this will
+  be a small-n read — treat prediction 1 as directional unless there are ≥ 20
+  eligible submissions. Do NOT re-price mid-window; log the price with each row
+  (`social_boost_amount`) and change it only between windows.
+- **Cost of being wrong:** near zero — refund and remove the tick-box. The real
+  risk is reputational (taking money and not posting), which the admin queue
+  badge and the "owes a post" state exist to prevent.
+- **Result:** _pending_
+- **Lesson:** _tbd_

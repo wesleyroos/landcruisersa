@@ -591,6 +591,16 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
                   {l.dealer_offer_optin && (
                     <span class="badge badge-dealer">🏷️ Dealer offer</span>
                   )}
+                  {l.social_boost === 'paid' && (
+                    <span class="badge badge-boost-paid">
+                      {l.social_boost_posted_at
+                        ? '📣 Boost posted'
+                        : `📣 PAID boost${l.social_boost_amount ? ` R${(l.social_boost_amount / 100).toLocaleString('en-ZA')}` : ''} — owes a post`}
+                    </span>
+                  )}
+                  {l.social_boost === 'requested' && (
+                    <span class="badge badge-boost-unpaid">📣 Boost — unpaid</span>
+                  )}
                 </div>
                 <a href={`/admin/listings/${l.id}`} class="lcard-title">{l.title}</a>
                 <p class="lcard-sub">{l.year} · {l.model.replaceAll('-', ' ').toUpperCase()} · {l.province}{l.mileage > 0 ? ` · ${l.mileage.toLocaleString('en-ZA')} km` : ''}</p>
@@ -893,6 +903,8 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
   .badge-sale { background: #FEF3C7; color: #92400E; }
   .badge-show { background: #F3F4F6; color: #6B7280; }
   .badge-dealer { background: #FDE68A; color: #92400E; }
+  .badge-boost-paid { background: #DCFCE7; color: #166534; }
+  .badge-boost-unpaid { background: #F3F4F6; color: #6B7280; }
 
   .lcard-price { font-size: 0.9375rem; font-weight: 700; color: #111111; }
   .chg-chip {

@@ -3,6 +3,7 @@ export const prerender = false;
 
 import AdminLayout from '@/layouts/AdminLayout.astro';
 import { getCredentials } from '@/lib/instagram';
+import { boostConfigured, boostEnabled, boostPriceRand } from '@/lib/social-boost';
 
 const cookie = Astro.cookies.get('lcsa_admin');
 const adminSecret = import.meta.env.ADMIN_SECRET ?? process.env.ADMIN_SECRET ?? '';
@@ -12,6 +13,10 @@ if (!cookie || cookie.value !== adminSecret) {
 
 const creds = await getCredentials();
 const connected = !!creds;
+
+const boostReady = boostConfigured();   // Paystack keys present?
+const boostOn = boostEnabled();
+const boostPrice = boostPriceRand();
 
 const urlError   = Astro.url.searchParams.get('error');
 const urlSuccess = Astro.url.searchParams.get('connected');
@@ -73,6 +78,33 @@ const errorMessages: Record<string, string> = {
       )}
     </div>
 
+    <div class="settings-section">
+      <h2 class="settings-heading">Paid social boost</h2>
+
+      <div class={`conn-card ${boostOn ? 'conn-card-ok' : 'conn-card-off'}`}>
+        <div class="conn-icon">📣</div>
+        <div class="conn-body">
+          <p class="conn-title">
+            {!boostReady
+              ? 'Paystack not connected'
+              : boostOn ? `Live — sellers are offered it at R${boostPrice}` : 'Off — sellers are not offered it'}
+          </p>
+          <p class="conn-sub">
+            {!boostReady
+              ? 'Set PAYSTACK_SECRET_KEY and PAYSTACK_PUBLIC_KEY on the server, then this can be switched on.'
+              : 'Private sellers can pay to have their vehicle posted to our Instagram and Facebook pages. Paid boosts show up in the pending queue and email you.'}
+          </p>
+        </div>
+        <div class="conn-actions">
+          <input id="boost-price" class="price-input" type="number" min="10" max="5000" step="1"
+                 value={boostPrice} disabled={!boostReady} aria-label="Boost price in rand" />
+          <button id="boost-save" class="btn btn-outline" disabled={!boostReady}>Save price</button>
+          <button id="boost-toggle" class={`btn ${boostOn ? 'btn-danger' : 'btn-ig'}`} disabled={!boostReady}
+                  data-on={boostOn ? '1' : '0'}>{boostOn ? 'Switch off' : 'Switch on'}</button>
+        </div>
+      </div>
+    </div>
+
   </div>
 
   <div id="toast" class="toast" hidden></div>
@@ -102,7 +134,12 @@ const errorMessages: Record<string, string> = {
   .conn-title { font-size: 0.9rem; font-weight: 700; color: #111111; }
   .conn-sub   { font-size: 0.72rem; color: #9CA3AF; margin-top: 0.15rem; }
 
-  .conn-actions { display: flex; gap: 0.5rem; flex-shrink: 0; flex-wrap: wrap; }
+  .conn-actions { display: flex; gap: 0.5rem; flex-shrink: 0; flex-wrap: wrap; align-items: center; }
+  .price-input {
+    width: 5.5rem; border: 1.5px solid #E5E7EB; border-radius: 0.375rem;
+    padding: 0.4rem 0.55rem; font-size: 0.8rem; font-weight: 700; color: #111111;
+  }
+  .price-input:disabled { background: #F9FAFB; color: #9CA3AF; }
 
   .alert { margin-top: 0.25rem; border-radius: 0.5rem; padding: 0.625rem 1rem; font-size: 0.8rem; font-weight: 600; }
   .alert-ok  { background: #DCFCE7; color: #166534; }
@@ -153,6 +190,37 @@ const errorMessages: Record<string, string> = {
     } finally {
       btn.disabled = false; btn.textContent = 'Refresh Token';
     }
+  });
+
+  async function saveBoost(payload: Record<string, unknown>, btn: HTMLButtonElement, label: string) {
+    btn.disabled = true; btn.textContent = 'Saving…';
+    try {
+      const res = await fetch('/api/admin/social-boost-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok) { showToast(data.error ?? 'Could not save.', 'err'); btn.disabled = false; btn.textContent = label; return; }
+      showToast('Saved.', 'ok');
+      if ('enabled' in payload) { location.reload(); return; }
+      btn.disabled = false; btn.textContent = label;
+    } catch {
+      showToast('Network error.', 'err');
+      btn.disabled = false; btn.textContent = label;
+    }
+  }
+
+  document.getElementById('boost-save')?.addEventListener('click', function () {
+    const price = Number((document.getElementById('boost-price') as HTMLInputElement).value);
+    saveBoost({ price }, this as HTMLButtonElement, 'Save price');
+  });
+
+  document.getElementById('boost-toggle')?.addEventListener('click', function () {
+    const btn = this as HTMLButtonElement;
+    const turningOn = btn.dataset.on !== '1';
+    if (turningOn && !confirm('Switch the paid social boost on? Sellers will be charged real money and we commit to posting their vehicle.')) return;
+    saveBoost({ enabled: turningOn }, btn, turningOn ? 'Switch on' : 'Switch off');
   });
 
   document.getElementById('disconnect-btn')?.addEventListener('click', async function () {
