@@ -92,7 +92,7 @@ const errorMessages: Record<string, string> = {
           <p class="conn-sub">
             {!boostReady
               ? 'Set PAYSTACK_SECRET_KEY and PAYSTACK_PUBLIC_KEY on the server, then this can be switched on.'
-              : 'Private sellers can pay to have their vehicle posted to our Instagram and Facebook pages. Paid boosts show up in the pending queue and email you.'}
+              : 'Private sellers can pay to have their vehicle posted to our Instagram and Facebook pages. Paid boosts show up in the pending queue and email you. Payments are confirmed by asking Paystack directly every 5 minutes — no webhook needed, since this Paystack business points its webhook at the GD portal.'}
           </p>
         </div>
         <div class="conn-actions">

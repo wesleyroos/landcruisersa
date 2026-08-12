@@ -1,6 +1,7 @@
 import { defineMiddleware } from 'astro:middleware';
 import { ensurePostSuggestionScheduler } from './lib/post-suggestion-scheduler';
 import { ensureAlertsScheduler } from './lib/alerts-scheduler';
+import { ensureBoostScheduler } from './lib/boost-scheduler';
 import { rateLimited, clientIp } from './lib/rate-limit';
 
 // Per-IP throttle for the heavy SSR listing pages. Each /listings render is
@@ -19,6 +20,7 @@ export const onRequest = defineMiddleware(async ({ url, cookies, redirect, reque
   // first request after boot.
   ensurePostSuggestionScheduler();
   ensureAlertsScheduler();
+  ensureBoostScheduler();
 
   const path = url.pathname;
   const isAdminArea = path.startsWith('/admin');

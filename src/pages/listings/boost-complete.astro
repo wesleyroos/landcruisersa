@@ -1,0 +1,76 @@
+---
+export const prerender = false;
+
+import Base from '@/layouts/Base.astro';
+import { verifyTransaction, markBoostPaid, boostConfigured } from '@/lib/social-boost';
+import { sendBoostReceipt, sendBoostAdminAlert } from '@/lib/boost-email';
+
+// Landing page for payment methods that leave the popup and come back by
+// redirect (3-D Secure on some cards, bank transfer on mobile). Paystack returns
+// the browser here with ?reference=. We pass this as the per-transaction
+// callback_url, which overrides the account-level one — otherwise a redirect
+// would land the seller on the portal's callback URL, which is not ours.
+//
+// Cards that complete inside the popup never reach this page; the submit form
+// confirms them in place.
+
+const reference = (Astro.url.searchParams.get('reference')
+  ?? Astro.url.searchParams.get('trxref') ?? '').trim();
+
+let paid = false;
+if (reference && boostConfigured()) {
+  const result = await verifyTransaction(reference);
+  if (result?.success) {
+    paid = true;
+    const listing = markBoostPaid(result.reference, result.amountCents);
+    if (listing) {
+      await Promise.allSettled([
+        sendBoostReceipt(listing, result.amountCents),
+        sendBoostAdminAlert(listing, result.amountCents),
+      ]);
+    }
+  }
+}
+---
+
+<Base title="Payment — Land Cruiser SA" description="Social boost payment confirmation.">
+  <div class="wrap">
+    {paid ? (
+      <>
+        <div class="icon ok">✓</div>
+        <h1>Payment received</h1>
+        <p>Thanks — your listing is submitted and your social media boost is locked in.</p>
+        <p class="sub">We'll post your Cruiser to our Instagram and Facebook pages within 3 working days of your listing going live. A receipt is on its way to your inbox.</p>
+      </>
+    ) : (
+      <>
+        <div class="icon warn">!</div>
+        <h1>Payment not completed</h1>
+        <p><strong>Your listing is safe</strong> — it was submitted before payment and is already in our review queue.</p>
+        <p class="sub">We just haven't received the boost payment. If you've only now paid, give it a minute and refresh this page. Otherwise you can ignore this — your listing goes live either way.</p>
+      </>
+    )}
+    <a href="/listings/" class="btn">Browse listings</a>
+  </div>
+</Base>
+
+<style>
+  .wrap {
+    max-width: 32rem; margin: 0 auto; padding: 4rem 1.5rem 5rem; text-align: center;
+  }
+  .icon {
+    width: 3rem; height: 3rem; border-radius: 999px; margin: 0 auto 1.25rem;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.5rem; font-weight: 800;
+  }
+  .icon.ok { background: #DCFCE7; color: #166534; }
+  .icon.warn { background: #FEF3C7; color: #92400E; }
+  h1 { font-size: 1.5rem; font-weight: 800; color: #111; margin-bottom: 0.75rem; }
+  p { font-size: 0.95rem; color: #374151; line-height: 1.6; margin-bottom: 0.75rem; }
+  .sub { font-size: 0.85rem; color: #6B7280; }
+  .btn {
+    display: inline-block; margin-top: 1.5rem; background: #F5A623; color: #111;
+    font-size: 0.85rem; font-weight: 700; text-decoration: none;
+    padding: 0.75rem 1.5rem; border-radius: 0.6rem;
+  }
+</style>

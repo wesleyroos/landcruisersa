@@ -5,6 +5,7 @@ import { db } from '@/db/index';
 import { listings } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { rateLimited, clientIp } from '@/lib/rate-limit';
+import { publicOrigin } from '@/lib/http-guards';
 import { randomBytes } from 'node:crypto';
 import {
   boostEnabled, boostPriceCents, boostPriceRand, publicKey, initTransaction,
@@ -41,8 +42,11 @@ export const POST: APIRoute = async ({ request }) => {
 
   const amountCents = boostPriceCents();
   const meta = { listing_id: listing.id, slug: listing.slug, product: 'social_boost' };
+  // Per-transaction callback overrides the account-level one (which belongs to
+  // the GD portal), so a redirect-based payment method returns to US.
+  const callbackUrl = `${publicOrigin(request)}/listings/boost-complete`;
 
-  let init = await initTransaction({ email, amountCents, reference: ref, metadata: meta });
+  let init = await initTransaction({ email, amountCents, reference: ref, callbackUrl, metadata: meta });
 
   // Paystack rejects a reference it has already seen. That happens when a seller
   // abandons the popup and re-opens it, so mint a fresh reference, store it on
@@ -50,7 +54,7 @@ export const POST: APIRoute = async ({ request }) => {
   // late completion of the old attempt can still be matched back.
   if (!init) {
     const retryRef = `${ref.slice(0, 24)}${randomBytes(6).toString('hex')}`;
-    init = await initTransaction({ email, amountCents, reference: retryRef, metadata: meta });
+    init = await initTransaction({ email, amountCents, reference: retryRef, callbackUrl, metadata: meta });
     if (init) {
       db.update(listings).set({ social_boost_ref: init.reference }).where(eq(listings.id, listing.id)).run();
     }
