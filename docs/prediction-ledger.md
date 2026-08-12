@@ -758,40 +758,55 @@ date, compare to baseline, mark HIT / MISS / PARTIAL, and write the lesson.
 
 ## P22 — Paid social boost (first direct-to-consumer revenue test)
 
-- **Opened:** 2026-08-12 (built + gated OFF; the clock starts the day it is
-  switched on in `/admin/settings` — record that date here)
-- **Review on:** 30 days after switch-on, or after 20 boost-eligible
-  submissions, whichever comes first
-- **Surface:** `/listings/submit` step 4 — an optional tick-box on for-sale
-  listings offering a post to the LCSA Instagram + Facebook pages for **R99**
-  once-off, paid by Paystack popup immediately after the listing is stored.
-  State on `listings.social_boost`: `requested` (ticked, never paid) →
-  `paid` (Paystack confirmed) → posted/refunded via admin.
+- **Opened:** 2026-08-12 (built, Paystack live keys set on prod, offer toggled
+  **OFF**). The clock starts the day it is switched on in `/admin/settings` —
+  **record that date here.**
+- **Review on:** after **20 eligible submissions**, or 45 days from switch-on,
+  whichever comes first. (At the current rate of 14 for-sale submissions/30d,
+  20 lands in roughly six weeks.)
+- **Surface:** `/listings/submit` step 4 — a dark offer card on for-sale
+  listings: R99 once-off to post the vehicle to the LCSA Instagram **and**
+  Facebook pages within 3 working days of going live. Ticking it switches the
+  submit button to "Submit & Pay R99"; the Paystack popup opens after the
+  listing is already stored. State on `listings.social_boost`: `requested`
+  (ticked, never paid) → `paid` (Paystack confirmed) → posted/refunded.
 - **Thesis:** the audience is the asset, and private sellers are the one group
   with an urgent reason to rent it (a car they need sold). This is the cheapest
-  possible test of whether ANY consumer on this site will pay us money —
-  and it is own-product revenue, so it passes the locked monetization rule (no
-  chasing third parties to pay). A "no" here is as valuable as a "yes": it kills
-  the seller-pays direction and points everything at the B2B/WBC track.
-- **Baseline:** R0 consumer revenue to date. Fill in own-listing submission
-  volume for the prior 30d from prod at switch-on: _tbd_
+  possible test of whether ANY consumer on this site will pay us money — and
+  it's own-product revenue, so it passes the locked monetization rule (no
+  chasing third parties to pay). A "no" is as valuable as a "yes": it kills the
+  seller-pays direction and points everything at the B2B/WBC track.
+- **Baseline (2026-08-12, prod):**
+  - Own for-sale listings: **14 / 30d** (26 / 90d — all 26 own listings are from
+    the last 90 days, so submissions are growing, not flat).
+  - Consumer revenue to date: **R0**. No consumer has ever been asked to pay.
+  - Reach being sold: IG **20,809** (live) + FB **~9,500** (manual) ≈ 30,000.
 - **Predictions (grade at review):**
   1. *(PRIMARY — the actual question)* **≥ 15% of for-sale submitters tick the
      box.** Grading: `social_boost != 'none'` ÷ own for-sale listings created in
      the window. Below 5% = the offer is dead, pull it.
   2. **≥ 50% of tickers complete payment** (`paid` ÷ `requested + paid`). A big
      gap between ticking and paying means the price is wrong or the checkout is
-     leaking — that is a fixable result, not a failed one.
-  3. *(directional)* Ticking the box does **not** reduce total submissions —
-     watch own-listing volume against the prior 30d. If submissions fall, the
-     paid ask is scaring sellers off and the cost outweighs the revenue.
-  4. *(stretch)* First R500 of consumer revenue collected.
-- **Caveat:** volume is tiny (own listings are a handful a month), so this will
-  be a small-n read — treat prediction 1 as directional unless there are ≥ 20
-  eligible submissions. Do NOT re-price mid-window; log the price with each row
-  (`social_boost_amount`) and change it only between windows.
-- **Cost of being wrong:** near zero — refund and remove the tick-box. The real
-  risk is reputational (taking money and not posting), which the admin queue
-  badge and the "owes a post" state exist to prevent.
-- **Result:** _pending_
+     leaking — a fixable result, not a failed one.
+  3. *(directional)* Submissions **don't fall** below the 14/30d baseline. If
+     they do, the paid ask is scaring sellers off and it costs more than it earns.
+  4. *(stretch)* **R500 collected** (≈ 5 paid boosts).
+- **Caveat — small n, read it honestly:** 14 submissions/30d means prediction 1
+  is a 2-or-3-seller signal. Treat anything under 20 eligible submissions as
+  directional only, and do NOT re-price mid-window — each row stores what was
+  actually paid (`social_boost_amount`); change price only between windows.
+- **What is already de-risked (2026-08-12, Paystack test mode):** transaction
+  opens and returns a valid R99 access code; a real test-card charge was read
+  back correctly and recorded as paid; a payment made with the tab closed was
+  picked up by the 5-minute reconcile sweep (this account's webhook belongs to
+  the GD portal, so the sweep — not the webhook — is the confirmation path);
+  repeat confirmations don't double-email. So a null result means sellers didn't
+  want it, NOT that the plumbing broke.
+- **Cost of being wrong:** near zero — refund and remove the card. The real risk
+  is reputational (taking money and not posting), which the "owes a post" badge
+  in the pending queue exists to prevent.
+- **Watch-out:** revenue currently settles into **Gro Digital's** Paystack
+  business, not LCSA's. Fine for a test; revisit before it's material, since
+  LCSA is meant to be separable (see docs/strategy-2026-06-23.md).
+- **Result:** _pending — not yet switched on_
 - **Lesson:** _tbd_
