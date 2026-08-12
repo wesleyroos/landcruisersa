@@ -56,6 +56,21 @@ const sellers = db.select({
   .groupBy(listings.seller_email)
   .orderBy(sql`max(created_at) desc`)
   .all();
+
+// Total user base = everyone we hold an email for across all three lists
+// (signups + private sellers + legacy contacts), de-duplicated by email so a
+// person who appears on two lists is only counted once.
+const totalBase = db.get<{ n: number }>(sql.raw(`
+  SELECT count(*) n FROM (
+    SELECT lower(trim(email)) e FROM users WHERE trim(email) != ''
+    UNION
+    SELECT lower(trim(seller_email)) e FROM listings
+      WHERE source = 'own' AND trim(seller_email) != ''
+        AND seller_email NOT LIKE '%grodigital%' AND seller_email NOT LIKE '%landcruisersa%'
+    UNION
+    SELECT lower(trim(email)) e FROM contacts WHERE trim(email) != ''
+  )
+`))?.n ?? 0;
 ---
 
 <AdminLayout title="Users" activePage="users">
@@ -65,6 +80,7 @@ const sellers = db.select({
     </div>
 
     <div class="stats">
+      <div class="stat wide"><span class="num">{totalBase}</span><span class="lbl">Total users</span><span class="hint">signups + sellers + legacy, de-duped</span></div>
       <div class="stat"><span class="num">{total}</span><span class="lbl">Signups</span></div>
       <div class="stat"><span class="num">{verified}</span><span class="lbl">Verified</span></div>
       <div class="stat"><span class="num">{consented}</span><span class="lbl">Alert opt-ins</span></div>
@@ -191,6 +207,10 @@ const sellers = db.select({
   .stat { background: #fff; border: 1px solid #E5E7EB; border-radius: 0.75rem; padding: 1rem 1.5rem; display: flex; flex-direction: column; min-width: 120px; }
   .stat .num { font-size: 1.75rem; font-weight: 800; color: #111; line-height: 1; }
   .stat .lbl { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: #9CA3AF; margin-top: 0.35rem; }
+  .stat .hint { font-size: 0.66rem; color: #B6BCC6; margin-top: 0.2rem; }
+  .stat.wide { border-color: #F5A623; }
+  .stat.wide .num { color: #111; }
+  .stat.wide .lbl { color: #D4881A; }
   .card { background: #fff; border: 1px solid #E5E7EB; border-radius: 0.75rem; padding: 1.25rem 1.5rem; }
   h2 { font-size: 1rem; font-weight: 700; color: #111; display: flex; align-items: center; gap: 0.5rem; }
   .count { background: #F5A623; color: #111; font-size: 0.7rem; font-weight: 700; padding: 0.1rem 0.5rem; border-radius: 999px; }
