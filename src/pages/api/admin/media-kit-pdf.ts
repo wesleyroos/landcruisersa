@@ -17,7 +17,10 @@ export const GET: APIRoute = async ({ cookies, url, request }) => {
   const origin = publicOrigin(request);
   const secret = cookies.get('lcsa_admin')?.value ?? '';
 
-  const pageUrl = `${origin}/admin/media-kit${forParam ? `?for=${encodeURIComponent(forParam)}` : ''}`;
+  const qs = new URLSearchParams();
+  if (forParam) qs.set('for', forParam);
+  if (url.searchParams.get('ads') === '0') qs.set('ads', '0');
+  const pageUrl = `${origin}/admin/media-kit${qs.toString() ? `?${qs}` : ''}`;
   let html: string;
   try {
     const res = await fetch(pageUrl, { headers: { Cookie: `lcsa_admin=${secret}` } });

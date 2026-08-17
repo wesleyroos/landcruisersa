@@ -14,6 +14,9 @@ const adminSecret = import.meta.env.ADMIN_SECRET ?? process.env.ADMIN_SECRET ?? 
 if (!cookie || cookie.value !== adminSecret) return Astro.redirect('/admin/login');
 
 const preparedFor = (Astro.url.searchParams.get('for') ?? '').trim().slice(0, 60);
+// ?ads=0 drops the rate card. Some conversations (an insurer structuring a
+// product, an investor) want the audience evidence without a media buy attached.
+const showAds = Astro.url.searchParams.get('ads') !== '0';
 
 const PK = import.meta.env.PLAUSIBLE_API_KEY ?? process.env.PLAUSIBLE_API_KEY;
 async function plau(endpoint: string, params: Record<string, string>) {
@@ -31,7 +34,7 @@ async function plau(endpoint: string, params: Record<string, string>) {
 let visitors30 = 0, pageviews30 = 0, avgSec = 0;
 let channels: { source: string; visitors: number }[] = [];
 let topPages: { page: string; visitors: number }[] = [];
-let weekly: { label: string; v: number; date?: string }[] = [];
+let trend: { date: string; v: number }[] = [];
 try {
   const agg = await plau('aggregate', { period: '30d', metrics: 'visitors,pageviews,visit_duration' });
   visitors30 = agg?.results?.visitors?.value ?? 0;
@@ -44,23 +47,20 @@ try {
   const pg = await plau('breakdown', { period: '30d', property: 'event:page', metrics: 'visitors', limit: '8' });
   topPages = (pg?.results ?? []).map((r: any) => ({ page: r.page, visitors: r.visitors }));
 
-  const ts = await plau('timeseries', { period: '30d', interval: 'week', metrics: 'visitors' });
-  weekly = (ts?.results ?? []).map((r: any) => ({ label: (r.date ?? '').slice(5), v: r.visitors ?? 0, date: r.date }));
-  if (weekly.length < 2) {
-    // Fallback: daily over 56d bucketed into ISO weeks.
-    const end = new Date();
-    const start = new Date(Date.now() - 56 * 86400000);
-    const ymd = (d: Date) => d.toISOString().slice(0, 10);
-    const d = await plau('timeseries', { period: 'custom', date: `${ymd(start)},${ymd(end)}`, interval: 'date', metrics: 'visitors' });
-    const buckets = new Map<string, number>();
-    for (const r of (d?.results ?? [])) {
-      const dt = new Date(r.date + 'T00:00:00Z');
-      const monday = new Date(dt); monday.setUTCDate(dt.getUTCDate() - ((dt.getUTCDay() + 6) % 7));
-      const k = ymd(monday);
-      buckets.set(k, (buckets.get(k) ?? 0) + (r.visitors ?? 0));
-    }
-    weekly = [...buckets.entries()].sort().map(([k, v]) => ({ label: k.slice(5), v, date: k }));
-  }
+  // Daily pageviews over 91 days — the shape a partner recognises from an
+  // analytics dashboard. Ends yesterday (today is a partial day and would draw
+  // a false dip) and starts at the first day with data: the flat run before
+  // 11 June is when analytics wasn't installed yet, not a period of no traffic,
+  // so plotting those zeros would overstate the ramp.
+  const yday = new Date(Date.now() - 86400000);
+  const from = new Date(Date.now() - 91 * 86400000);
+  const ymd2 = (d: Date) => d.toISOString().slice(0, 10);
+  const t = await plau('timeseries', {
+    period: 'custom', date: `${ymd2(from)},${ymd2(yday)}`, interval: 'date', metrics: 'pageviews',
+  });
+  const rows = (t?.results ?? []).map((r: any) => ({ date: r.date as string, v: (r.pageviews ?? 0) as number }));
+  const firstReal = rows.findIndex((r: { v: number }) => r.v > 0);
+  trend = firstReal >= 0 ? rows.slice(firstReal) : [];
 } catch { /* leave defaults */ }
 
 // ── Where the audience is (Plausible geo) ──
@@ -135,16 +135,27 @@ const mins = (s: number) => `${Math.floor(s / 60)}m ${Math.round(s % 60)}s`;
 const today = new Date().toLocaleDateString('en-ZA', { day: 'numeric', month: 'long', year: 'numeric' });
 const growthX = visitors30 && 434 ? Math.round(visitors30 / 434) : 0; // vs 22-Jun benchmark
 
-// Drop the week in progress. Plausible's last weekly bucket covers today only,
-// so plotting it draws a cliff on the right of the chart and makes a growing
-// site look like a collapsing one — the exact opposite of what the chart is for.
-weekly = weekly.filter(w => {
-  const start = w.date ? new Date(`${w.date}T00:00:00Z`) : null;
-  if (!start) return true;
-  const end = new Date(start.getTime() + 6 * 86400000);
-  return end.getTime() < Date.now();
-});
-const wkMax = Math.max(1, ...weekly.map(w => w.v));
+// ── Trend chart geometry ──
+const CH = { w: 720, h: 190, padL: 36, padR: 8, padT: 12, padB: 20 };
+const trendMax = Math.max(1, ...trend.map(p => p.v));
+const yTop = Math.max(250, Math.ceil(trendMax / 250) * 250);
+const lastI = Math.max(1, trend.length - 1);
+const px = (i: number) => CH.padL + (i / lastI) * (CH.w - CH.padL - CH.padR);
+const py = (v: number) => CH.padT + (1 - v / yTop) * (CH.h - CH.padT - CH.padB);
+const baseY = CH.h - CH.padB;
+const linePath = trend.map((p, i) => `${i ? 'L' : 'M'}${px(i).toFixed(1)},${py(p.v).toFixed(1)}`).join(' ');
+const areaPath = trend.length ? `${linePath} L${px(trend.length - 1).toFixed(1)},${baseY} L${px(0).toFixed(1)},${baseY} Z` : '';
+const gridVals = [0, 0.25, 0.5, 0.75, 1].map(f => Math.round(yTop * f));
+const xTicks = trend.length ? [...new Set([0, Math.floor(lastI * 0.25), Math.floor(lastI * 0.5), Math.floor(lastI * 0.75), lastI])] : [];
+const dayLabel = (iso: string) => new Date(`${iso}T00:00:00Z`)
+  .toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' });
+// Growth claim comes from the same series the chart draws, so the headline and
+// the picture can never disagree.
+const avgOf = (a: { v: number }[]) => a.length ? Math.round(a.reduce((n, p) => n + p.v, 0) / a.length) : 0;
+const firstWkAvg = avgOf(trend.slice(0, 7));
+const lastWkAvg = avgOf(trend.slice(-7));
+const trendX = firstWkAvg ? Math.round(lastWkAvg / firstWkAvg) : 0;
+const trendWeeks = Math.round(trend.length / 7);
 // Social headline figures come from ONE Meta Business Suite export so the period
 // and the counting method match across both platforms. Update the whole block
 // together when a fresh export arrives — never mix periods between IG and FB.
@@ -192,8 +203,8 @@ const igEngRate = igReach30 ? Math.round((igEng30 / igReach30) * 1000) / 10 : 0;
   <div class="toolbar no-print">
     <a href="/admin/advertisers" class="tb-link">← Advertisers</a>
     <div class="tb-right">
-      <span class="tb-hint">Personalise: add <code>?for=Company Name</code> to the URL</span>
-      <a href={`/api/admin/media-kit-pdf${preparedFor ? `?for=${encodeURIComponent(preparedFor)}` : ''}`} class="tb-btn" id="dl-pdf">⬇ Download PDF</a>
+      <span class="tb-hint">Personalise: <code>?for=Company Name</code> · hide the rate card: <code>?ads=0</code></span>
+      <a href={`/api/admin/media-kit-pdf${(() => { const q = new URLSearchParams(); if (preparedFor) q.set('for', preparedFor); if (!showAds) q.set('ads', '0'); return q.toString() ? `?${q}` : ''; })()}`} class="tb-btn" id="dl-pdf">⬇ Download PDF</a>
     </div>
   </div>
 
@@ -228,18 +239,35 @@ const igEngRate = igReach30 ? Math.round((igEng30 / igReach30) * 1000) / 10 : 0;
     </section>
 
     <!-- GROWTH -->
-    {weekly.length >= 2 && (
+    {trend.length >= 14 && (
       <section class="block">
-        <h2>Growth {growthX > 1 && <span class="pill">{growthX}× since June</span>}</h2>
-        <p class="block-sub">Weekly website visitors — the trend that matters to an advertiser.</p>
-        <div class="chart">
-          {weekly.map(w => (
-            <div class="bar-col">
-              <div class="bar" style={`height:${Math.round((w.v / wkMax) * 100)}%`}><span class="bar-v">{w.v}</span></div>
-              <span class="bar-x">{w.label}</span>
-            </div>
+        <h2>Growth {trendX > 1 && <span class="pill">{trendX}× in {trendWeeks} weeks</span>}</h2>
+        <p class="block-sub">Daily pageviews since analytics went live on {dayLabel(trend[0].date)}.</p>
+        <svg class="trend" viewBox={`0 0 ${CH.w} ${CH.h}`} role="img" aria-label="Daily pageviews trend">
+          <defs>
+            <linearGradient id="tgrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%"   stop-color="#F5A623" stop-opacity="0.32" />
+              <stop offset="100%" stop-color="#F5A623" stop-opacity="0.02" />
+            </linearGradient>
+          </defs>
+          {gridVals.map(v => (
+            <>
+              <line x1={CH.padL} y1={py(v)} x2={CH.w - CH.padR} y2={py(v)} class="tg-line" />
+              <text x={CH.padL - 6} y={py(v) + 3} class="tg-y">{v >= 1000 ? `${(v / 1000).toFixed(1)}k` : v}</text>
+            </>
           ))}
-        </div>
+          <path d={areaPath} fill="url(#tgrad)" />
+          <path d={linePath} class="tg-path" />
+          {trend.length > 0 && (
+            <circle cx={px(trend.length - 1)} cy={py(trend[trend.length - 1].v)} r="3.5" class="tg-dot" />
+          )}
+          {xTicks.map(i => (
+            <text x={px(i)} y={CH.h - 6} class="tg-x" text-anchor={i === 0 ? 'start' : i === lastI ? 'end' : 'middle'}>
+              {dayLabel(trend[i].date)}
+            </text>
+          ))}
+        </svg>
+        <p class="chart-note">Peak day: {fmt(trendMax)} pageviews · last 7 days averaging {fmt(lastWkAvg)}/day.</p>
       </section>
     )}
 
@@ -313,28 +341,30 @@ const igEngRate = igReach30 ? Math.round((igEng30 / igReach30) * 1000) / 10 : 0;
       <p class="block-sub">Real Cruiser builds, cross-posted across Instagram and Facebook (+ a growing WhatsApp Channel). The audience is Cruiser people — not bought followers. Nearly all of the reach is people who don't follow us yet, so the audience refreshes rather than recycles. <span class="src">Social figures: Meta Business Suite, {META.period}. *Interactions across both platforms.</span></p>
     </section>
 
-    <!-- PLACEMENTS -->
-    <section class="block placements">
-      <h2>Advertising with us</h2>
-      <div class="place-grid">
-        <div class="place">
-          <span class="place-h">Listing banners</span>
-          <p>Your banner on every vehicle listing — beside the price and market data, seen by high-intent buyers.</p>
+    {showAds && (
+      <!-- PLACEMENTS -->
+      <section class="block placements">
+        <h2>Advertising with us</h2>
+        <div class="place-grid">
+          <div class="place">
+            <span class="place-h">Listing banners</span>
+            <p>Your banner on every vehicle listing — beside the price and market data, seen by high-intent buyers.</p>
+          </div>
+          <div class="place">
+            <span class="place-h">Official partner</span>
+            <p>A dedicated partner listing + placement in relevant guides (e.g. security, tyres, overland gear).</p>
+          </div>
+          <div class="place">
+            <span class="place-h">Sponsored content</span>
+            <p>A featured article or build feature to our audience, on-site and across social.</p>
+          </div>
         </div>
-        <div class="place">
-          <span class="place-h">Official partner</span>
-          <p>A dedicated partner listing + placement in relevant guides (e.g. security, tyres, overland gear).</p>
+        <div class="pricing">
+          <span class="pricing-h">Packages from <b>R2,500 / month</b></span>
+          <span class="pricing-sub">Tailored to your goals — flat placement, performance-based, or a mix. We track every click we send you, so every review works off real numbers.</span>
         </div>
-        <div class="place">
-          <span class="place-h">Sponsored content</span>
-          <p>A featured article or build feature to our audience, on-site and across social.</p>
-        </div>
-      </div>
-      <div class="pricing">
-        <span class="pricing-h">Packages from <b>R2,500 / month</b></span>
-        <span class="pricing-sub">Tailored to your goals — flat placement, performance-based, or a mix. We track every click we send you, so every review works off real numbers.</span>
-      </div>
-    </section>
+      </section>
+    )}
 
     <!-- FOOTER -->
     <footer class="ftr">
@@ -428,6 +458,13 @@ const igEngRate = igReach30 ? Math.round((igEng30 / igReach30) * 1000) / 10 : 0;
   .sp-stats b { display: block; font-family: var(--disp); font-weight: 800; font-size: 1.2rem; color: var(--ink); line-height: 1; }
   .sp-stats span { display: block; font-size: 0.58rem; text-transform: uppercase; letter-spacing: 0.02em; color: var(--mut); margin-top: 0.25rem; }
   .src { display: block; margin-top: 0.3rem; font-size: 0.6rem; color: var(--mut); }
+  .trend { width: 100%; height: auto; margin-top: 0.7rem; display: block; }
+  .tg-line { stroke: var(--line); stroke-width: 1; }
+  .tg-y { font-size: 9px; fill: var(--mut); text-anchor: end; }
+  .tg-x { font-size: 9px; fill: var(--mut); }
+  .tg-path { fill: none; stroke: #E09612; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+  .tg-dot { fill: #E09612; stroke: #fff; stroke-width: 1.5; }
+  .chart-note { font-size: 0.68rem; color: var(--mut); margin-top: 0.3rem; }
 
   .placements { background: var(--ink); border-radius: 12px; padding: 1.3rem 1.4rem; color: #fff; }
   .placements h2 { color: #fff; }
