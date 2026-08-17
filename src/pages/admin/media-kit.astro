@@ -59,7 +59,7 @@ try {
       const k = ymd(monday);
       buckets.set(k, (buckets.get(k) ?? 0) + (r.visitors ?? 0));
     }
-    weekly = [...buckets.entries()].sort().map(([k, v]) => ({ label: k.slice(5), v }));
+    weekly = [...buckets.entries()].sort().map(([k, v]) => ({ label: k.slice(5), v, date: k }));
   }
 } catch { /* leave defaults */ }
 
