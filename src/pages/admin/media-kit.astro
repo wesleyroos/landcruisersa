@@ -31,7 +31,7 @@ async function plau(endpoint: string, params: Record<string, string>) {
 let visitors30 = 0, pageviews30 = 0, avgSec = 0;
 let channels: { source: string; visitors: number }[] = [];
 let topPages: { page: string; visitors: number }[] = [];
-let weekly: { label: string; v: number }[] = [];
+let weekly: { label: string; v: number; date?: string }[] = [];
 try {
   const agg = await plau('aggregate', { period: '30d', metrics: 'visitors,pageviews,visit_duration' });
   visitors30 = agg?.results?.visitors?.value ?? 0;
@@ -45,7 +45,7 @@ try {
   topPages = (pg?.results ?? []).map((r: any) => ({ page: r.page, visitors: r.visitors }));
 
   const ts = await plau('timeseries', { period: '30d', interval: 'week', metrics: 'visitors' });
-  weekly = (ts?.results ?? []).map((r: any) => ({ label: (r.date ?? '').slice(5), v: r.visitors ?? 0 }));
+  weekly = (ts?.results ?? []).map((r: any) => ({ label: (r.date ?? '').slice(5), v: r.visitors ?? 0, date: r.date }));
   if (weekly.length < 2) {
     // Fallback: daily over 56d bucketed into ISO weeks.
     const end = new Date();
@@ -134,6 +134,16 @@ const kfmt = (n: number) => n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1000 ? 
 const mins = (s: number) => `${Math.floor(s / 60)}m ${Math.round(s % 60)}s`;
 const today = new Date().toLocaleDateString('en-ZA', { day: 'numeric', month: 'long', year: 'numeric' });
 const growthX = visitors30 && 434 ? Math.round(visitors30 / 434) : 0; // vs 22-Jun benchmark
+
+// Drop the week in progress. Plausible's last weekly bucket covers today only,
+// so plotting it draws a cliff on the right of the chart and makes a growing
+// site look like a collapsing one — the exact opposite of what the chart is for.
+weekly = weekly.filter(w => {
+  const start = w.date ? new Date(`${w.date}T00:00:00Z`) : null;
+  if (!start) return true;
+  const end = new Date(start.getTime() + 6 * 86400000);
+  return end.getTime() < Date.now();
+});
 const wkMax = Math.max(1, ...weekly.map(w => w.v));
 // Social headline figures come from ONE Meta Business Suite export so the period
 // and the counting method match across both platforms. Update the whole block
@@ -234,15 +244,18 @@ const igEngRate = igReach30 ? Math.round((igEng30 / igReach30) * 1000) / 10 : 0;
     )}
 
     <!-- AUDIENCE -->
+    <section class="block">
+      <h2>The audience</h2>
+      <ul class="aud">
+        <li>Land Cruiser owners &amp; buyers — considered R300k–R2m purchases</li>
+        <li>4×4, overland, safari &amp; game-viewer market (B2C and B2B)</li>
+        <li>Avg. {mins(avgSec)} on site — an engaged, intent-led reader</li>
+        <li>Security-conscious owners of high theft-target vehicles</li>
+      </ul>
+    </section>
+
     <section class="block two-col">
       <div>
-        <h2>The audience</h2>
-        <ul class="aud">
-          <li>Land Cruiser owners &amp; buyers — considered R300k–R2m purchases</li>
-          <li>4×4, overland, safari &amp; game-viewer market (B2C and B2B)</li>
-          <li>Avg. {mins(avgSec)} on site — an engaged, intent-led reader</li>
-          <li>Security-conscious owners of high theft-target vehicles</li>
-        </ul>
         <h3>Where they come from</h3>
         <div class="rows">
           {chanMerged.slice(0, 6).map(c => (
@@ -433,7 +446,7 @@ const igEngRate = igReach30 ? Math.round((igEng30 / igReach30) * 1000) / 10 : 0;
      page break — this is what orphaned a single channels row onto the next page.
      Sections themselves may flow so pages fill naturally; a heading never sits alone
      at the bottom (break-after: avoid). */
-  .rows, .regions, .hero-stats, .chart, .social, .sp, .placements, .ig-grid {
+  .rows, .regions, .hero-stats, .chart, .social, .sp, .placements, .ig-grid, .two-col {
     break-inside: avoid; page-break-inside: avoid;
   }
   h2, h3 { break-after: avoid; page-break-after: avoid; }
