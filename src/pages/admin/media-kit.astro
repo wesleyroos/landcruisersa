@@ -135,13 +135,27 @@ const mins = (s: number) => `${Math.floor(s / 60)}m ${Math.round(s % 60)}s`;
 const today = new Date().toLocaleDateString('en-ZA', { day: 'numeric', month: 'long', year: 'numeric' });
 const growthX = visitors30 && 434 ? Math.round(visitors30 / 434) : 0; // vs 22-Jun benchmark
 const wkMax = Math.max(1, ...weekly.map(w => w.v));
-// Facebook — no API, so these are the latest Meta export figures. Update when a
-// fresh export arrives. Source: Meta Business Suite, Jul 8 – Aug 4 2026 (36 posts).
-const FB = { followers: 7800, reach: 969905, views: 1645326, eng: 22793 };
-const socialFollowers = igFollowers + FB.followers;
-const socialReach = igReach30 + FB.reach;
-const socialViews = igViews30 + FB.views;
-const fbEngRate = FB.reach ? Math.round((FB.eng / FB.reach) * 1000) / 10 : 0;
+// Social headline figures come from ONE Meta Business Suite export so the period
+// and the counting method match across both platforms. Update the whole block
+// together when a fresh export arrives — never mix periods between IG and FB.
+//
+// ⚠️ igReach30 above is a SUM of per-post reach, which double-counts anyone who
+// saw more than one post. Meta's `igReach` here is the de-duplicated account
+// count and is the only reach figure that goes in front of a partner.
+const META = {
+  period: '15 Jul – 11 Aug 2026',
+  fbFollowers: 9_500,
+  fbViews: 2_016_524,
+  igViews: 456_761,
+  igReach: 103_700,
+  igReachNonFollowers: 98_041,
+  interactions: 24_200,      // both platforms
+  interactionsNonFollowerPct: 73,
+};
+const socialFollowers = igFollowers + META.fbFollowers;
+const socialReach = META.igReach;
+const socialViews = META.igViews + META.fbViews;
+const igNonFollowerPct = META.igReach ? Math.round((META.igReachNonFollowers / META.igReach) * 100) : 0;
 const CHAN_LABEL: Record<string, string> = { 'Direct / None': 'Direct', 'fb-caption': 'Facebook', 'ig-story': 'Instagram', ig: 'Instagram', 'wa-channel': 'WhatsApp' };
 // Merge raw sources that share a display label (ig + ig-story + Instagram → one row).
 const chanMerged = (() => {
@@ -262,28 +276,28 @@ const igEngRate = igReach30 ? Math.round((igEng30 / igReach30) * 1000) / 10 : 0;
 
     <!-- SOCIAL -->
     <section class="block">
-      <h2>Social reach <span class="pill">{kfmt(socialReach)} / month across IG + Facebook</span></h2>
+      <h2>Social reach <span class="pill">{kfmt(socialViews)} content views / month</span></h2>
       <div class="social">
         <div class="sp">
           <div class="sp-head"><span class="sp-name">Instagram</span><span class="sp-fol">{fmt(igFollowers)} followers</span></div>
           <div class="sp-stats">
-            <div><b>{kfmt(igReach30)}</b><span>reach / mo</span></div>
-            <div><b>{kfmt(igViews30)}</b><span>views / mo</span></div>
-            <div><b>{fmt(igEng30)}</b><span>engagements</span></div>
-            <div><b>{igEngRate}%</b><span>eng. rate</span></div>
+            <div><b>{kfmt(META.igReach)}</b><span>accounts reached</span></div>
+            <div><b>{kfmt(META.igViews)}</b><span>views</span></div>
+            <div><b>{igNonFollowerPct}%</b><span>non-followers</span></div>
+            <div><b>+{fmt(igGrowth30)}</b><span>followers / mo</span></div>
           </div>
         </div>
         <div class="sp">
-          <div class="sp-head"><span class="sp-name">Facebook</span><span class="sp-fol">{fmt(FB.followers)} followers</span></div>
+          <div class="sp-head"><span class="sp-name">Facebook</span><span class="sp-fol">{fmt(META.fbFollowers)} followers</span></div>
           <div class="sp-stats">
-            <div><b>{kfmt(FB.reach)}</b><span>reach / mo</span></div>
-            <div><b>{kfmt(FB.views)}</b><span>views / mo</span></div>
-            <div><b>{fmt(FB.eng)}</b><span>engagements</span></div>
-            <div><b>{fbEngRate}%</b><span>eng. rate</span></div>
+            <div><b>{kfmt(META.fbViews)}</b><span>views</span></div>
+            <div><b>{fmt(META.interactions)}</b><span>interactions*</span></div>
+            <div><b>{META.interactionsNonFollowerPct}%</b><span>non-followers</span></div>
+            <div><b>{igPosts30}</b><span>posts / mo</span></div>
           </div>
         </div>
       </div>
-      <p class="block-sub">Real Cruiser builds, cross-posted across Instagram and Facebook (+ a growing WhatsApp Channel). The audience is Cruiser people — not bought followers.</p>
+      <p class="block-sub">Real Cruiser builds, cross-posted across Instagram and Facebook (+ a growing WhatsApp Channel). The audience is Cruiser people — not bought followers. Nearly all of the reach is people who don't follow us yet, so the audience refreshes rather than recycles. <span class="src">Social figures: Meta Business Suite, {META.period}. *Interactions across both platforms.</span></p>
     </section>
 
     <!-- PLACEMENTS -->
@@ -400,6 +414,7 @@ const igEngRate = igReach30 ? Math.round((igEng30 / igReach30) * 1000) / 10 : 0;
   .sp-stats div { text-align: center; }
   .sp-stats b { display: block; font-family: var(--disp); font-weight: 800; font-size: 1.2rem; color: var(--ink); line-height: 1; }
   .sp-stats span { display: block; font-size: 0.58rem; text-transform: uppercase; letter-spacing: 0.02em; color: var(--mut); margin-top: 0.25rem; }
+  .src { display: block; margin-top: 0.3rem; font-size: 0.6rem; color: var(--mut); }
 
   .placements { background: var(--ink); border-radius: 12px; padding: 1.3rem 1.4rem; color: #fff; }
   .placements h2 { color: #fff; }
@@ -414,11 +429,20 @@ const igEngRate = igReach30 ? Math.round((igEng30 / igReach30) * 1000) / 10 : 0;
     justify-content: space-between; align-items: flex-end; font-size: 0.78rem; color: var(--ink2); }
   .ftr-note { font-size: 0.68rem; color: var(--mut); text-align: right; max-width: 30ch; }
 
-  @page { size: A4; margin: 0; }
+  /* Keep the small groups (lists, stat grids, chart, cards) from splitting across a
+     page break — this is what orphaned a single channels row onto the next page.
+     Sections themselves may flow so pages fill naturally; a heading never sits alone
+     at the bottom (break-after: avoid). */
+  .rows, .regions, .hero-stats, .chart, .social, .sp, .placements, .ig-grid {
+    break-inside: avoid; page-break-inside: avoid;
+  }
+  h2, h3 { break-after: avoid; page-break-after: avoid; }
+
+  @page { size: A4; margin: 14mm 15mm; }
   @media print {
     body { background: #fff; }
     .no-print { display: none !important; }
-    .sheet { margin: 0; box-shadow: none; width: auto; min-height: auto; padding: 12mm 12mm; }
+    .sheet { margin: 0; box-shadow: none; width: auto; min-height: auto; padding: 0; }
     .placements { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     .stat.accent, .bar, .pill { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   }
