@@ -531,8 +531,27 @@ date, compare to baseline, mark HIT / MISS / PARTIAL, and write the lesson.
   2. The page draws ≥1 game-viewer query into the **top 10** average position within the window (weak-SERP thesis).
   3. If Article 1 ships: it captures ≥2 informational queries ("game viewer price/cost") the listings page can't.
   4. Stretch: a first AI-citation for a "game viewer for sale South Africa"-class query (the hero metric).
-- **Result:** _pending 2026-08-17_
-- **Lesson:** _tbd_
+- **Result (2026-08-18): HIT.** All three measurable predictions cleared; the
+  stretch is unverifiable (no per-query citation telemetry).
+  1. Indexed for **12+ distinct** game-viewer queries (bar ≥3).
+  2. Head terms sit at **#1.4 / #1.8** — "game viewers for sale", "game viewer
+     for sale" (bar: ≥1 in the top 10).
+  3. Article 1 captures informational + geo queries the listings page doesn't:
+     "game viewer conversions", "game viewer for sale hoedspruit", "toyota
+     safari land cruiser price" (bar ≥2).
+  `/game-viewers/` went 0 → **421 clicks / 2,652 impressions at position 3.5**
+  in six weeks, and is now one of the three biggest search pages on the site.
+  Classified game-viewer stock 32 → 57.
+- **Lesson:** the weak-SERP play is **repeatable, and is now the house style**:
+  find commercial search vocabulary whose SERP is served by thin aggregators
+  with no editorial, ship a listings vertical + one citable definition + one
+  buyer's-guide article, and take the head term inside six weeks. It has now
+  worked twice (model pages, game viewers) with classics (P18) tracking the
+  same shape. The listings page wins the transactional head term; the article
+  picks up the informational and geo long-tail — **ship both, not either**.
+  Corollary for prioritisation: this is cheap, fast and compounding, which is
+  precisely why it must not be allowed to crowd out the revenue work — the
+  bottleneck is capture, not another vertical.
 
 ## P16 — Data-backed dealer outreach converts (deal-ledger D7)
 

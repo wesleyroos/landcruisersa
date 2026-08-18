@@ -303,6 +303,48 @@ so threads either progress or get consciously dropped — never drift.
   formally parked. If it stays silent, the pre-commitment is to park it and let D7
   (outbound to 2–3 other dealers with our own anchor) carry the motion.
 
+## D5 status update
+- **STATUS (2026-08-18): still not live — 3 weeks past the intended go-live.**
+  `ad_events = 0`; titansecure outbound 13 lifetime. Nothing has changed
+  commercially (terms accepted 22-Jul, IO sent, "definitely still want to
+  proceed"); the blocker is unchanged and is **their marketing team's bandwidth
+  producing two banner files**. Repeated warm nudges have not moved it.
+  - **Pre-commitment (new, 2026-08-18): stop nudging, remove their work.**
+    Build the 728×90 + 300×250 banners ourselves from Titan's brand assets and
+    send them for one-line approval ("use these, or send yours"). Flip
+    `ad_titan` on approval. If there is still no response by **2026-08-29**,
+    escalate to Stephan directly referencing the signed IO and a start date.
+
+## D8 — Lazar Welding (rail/accessory manufacturer) 🟢 INBOUND
+
+- **Stage:** Conversation (inbound — emailed 2026-08-13 asking to sell product
+  through the platform; pivoted by us to advertising)
+- **Value hypothesis:** R4,000/mo partner package (banner on every listing +
+  partner page + buyer-guide placement), or a R2,500 single sponsored feature.
+- **Why the fit is unusually strong:** they make **heavy-duty cattle rails for
+  the 79-series and Hilux**, and the 70-series is **55% of all vehicle views on
+  the site** (5,258 of 9,562 in 30d) and **70% of buyer handoffs**. Their own
+  demo vehicle is a **Gys Pitzer** bakkie — the dealer from D3, a warm mutual.
+- **Next action:** Wesley to send the pitch + the 70-series-specific stats.
+- **Kill-or-advance:** reply / call booked by **2026-08-27**, else one follow-up
+  then park.
+
+## D9 — Marco (broker) → Santam: LC-niche insurance product 🟢 INBOUND
+
+- **Stage:** Lead (inbound 2026-08-17 — asked for the media kit to show Santam)
+- **Value hypothesis:** unclear and potentially the largest on the board — an
+  insurance product structured for the Land Cruiser niche, with LCSA as the
+  audience/data partner. Could be distribution (referral/affiliate), data
+  (theft/valuation), or co-brand.
+- **What we've done:** neutral media kit (no rate card) generated 2026-08-17 and
+  sent — `?ads=0` variant, current numbers, de-duplicated reach.
+- **Next action:** ask Marco what Santam actually reacted to, and what shape he
+  has in mind, before proposing anything. Do NOT lead with a banner price — this
+  is a product conversation, not a media buy.
+- **Kill-or-advance:** feedback from the Santam chat by **2026-09-01**.
+- ⚠️ **Philosophy check:** must land as own-product or a trackable self-serve
+  referral — not a "send us leads and we'll pay you if they convert" shape.
+
 ---
 
 *Review cadence: alongside the prediction-ledger review. Update stage + scoreboard whenever a deal moves.*
