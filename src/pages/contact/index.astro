@@ -295,7 +295,13 @@ import { SITE } from '@/data/site';
     successEl.classList.add('hidden');
     errorEl.classList.add('hidden');
 
-    const data = Object.fromEntries(new FormData(form));
+    // source_path is always '/contact/' from this form, so the referrer is the
+    // page that actually prompted them to write in — that's the one worth knowing.
+    const data = {
+      ...Object.fromEntries(new FormData(form)),
+      source_path: location.pathname,
+      referrer: document.referrer,
+    };
     submitBtn.disabled = true;
     submitBtn.textContent = 'Sending…';
 
