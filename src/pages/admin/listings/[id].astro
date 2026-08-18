@@ -234,6 +234,11 @@ const rand0 = (n: number) => 'R' + n.toLocaleString('en-ZA');
           <option value="pending"  selected={listing.status === 'pending'}>⏳ Pending</option>
           <option value="active"   selected={listing.status === 'active'}>✅ Active (live)</option>
           <option value="sold"     selected={listing.status === 'sold'}>💰 Sold</option>
+          {/* Set by ingest's cross-source dedupe, never picked from scratch — but it
+              has to be listed, or opening a suppressed row would show "Pending" and
+              silently save that over the real state. Switching it back to Active is
+              the manual override when the dedupe got it wrong. */}
+          <option value="duplicate" selected={listing.status === 'duplicate'}>👯 Duplicate (already on site via another portal)</option>
         </select>
         <button type="submit" class="btn-save ds-save" id="save-btn">Save Changes</button>
       </div>

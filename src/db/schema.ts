@@ -23,7 +23,11 @@ export const listings = sqliteTable('listings', {
   seller_name:  text('seller_name').notNull(),
   seller_email: text('seller_email').notNull(),
   seller_phone: text('seller_phone').notNull(),
-  status:       text('status').notNull().default('pending'), // 'pending' | 'active' | 'sold' | 'removed'
+  // 'pending' | 'active' | 'sold' | 'removed' | 'inactive' | 'duplicate'
+  // 'duplicate' = the same physical car is already live under another portal's
+  // row (set by ingest's cross-source dedupe). Hidden like any non-active
+  // status, but it is NOT an off-market state — see lib/listing-status.
+  status:       text('status').notNull().default('pending'),
   fuel_type:    text('fuel_type'),                           // 'Diesel' | 'Petrol' | 'Hybrid' | 'Electric'
   fuel_consumption: real('fuel_consumption'),                // L/100km
   power_kw:     integer('power_kw'),                        // kW

@@ -115,6 +115,31 @@ db.exec(`
   )
 `);
 
+// Classic chassis-code repair: rows sitting in 'other' whose title carries an
+// unambiguous classic code. Two ways they got there — the public submit form
+// carried no classic options until 2026-08-18 (a private seller with an HJ45 had
+// to pick "Other"), and rows ingested before the chassis patterns were added to
+// normalizeModel() were never re-classified. Either way the car stayed off
+// /classics/ and out of the classic market data.
+// Mirrors the [fbh]j regexes in normalizeModel() — GLOB is case-sensitive, hence
+// UPPER(title). Keep the two in step. Same year <= 1995 guard as the classifier:
+// modern dealer titles reuse these strings as garbage (an FJ Cruiser sold as
+// "FJ 62 4.0 Station Wagon"). Unlocked rows already in the LC segment only, so
+// this repairs a model without ever re-segmenting other-4x4 bycatch. Idempotent —
+// a repaired row leaves the model = 'other' filter. Ordered 40 -> 55 -> 60 to
+// match the classifier's precedence.
+for (const [slug, digits] of [['40-series', '4[0-7]'], ['55-series', '55'], ['60-series', '6[0-2]']]) {
+  db.exec(`
+    UPDATE listings SET model = '${slug}'
+    WHERE model = 'other' AND model_locked = 0
+      AND segment = 'land-cruiser'
+      AND year > 0 AND year <= 1995
+      AND (   UPPER(title) GLOB '*[FBH]J${digits}*'
+           OR UPPER(title) GLOB '*[FBH]J ${digits}*'
+           OR UPPER(title) GLOB '*[FBH]J-${digits}*' )
+  `);
+}
+
 // Backfill body_type = 'game-viewer' from title/description keywords. Mirrors
 // detectBodyType() in src/lib/sources/normalize.ts (SQLite LIKE approximation —
 // keep the two lexicons in step). Only touches NULL rows, so an admin's manual

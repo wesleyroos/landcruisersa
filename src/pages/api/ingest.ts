@@ -3,8 +3,77 @@ export const prerender = false;
 import type { APIRoute } from 'astro';
 import { db } from '@/db/index';
 import { listings, priceEvents } from '@/db/schema';
-import { and, eq, ne } from 'drizzle-orm';
+import { and, eq, gt, ne } from 'drizzle-orm';
 import { segmentForModel, detectBodyType } from '@/lib/sources/normalize';
+
+// A used vehicle this many model years old with a 0 km reading is a source that
+// doesn't publish mileage, not a genuine delivery-mileage car. Below this age,
+// 0 km is ordinary new/demo stock — dozens of dealers legitimately list the same
+// 2026 79-series at the same list price with 0 km, and treating those as
+// duplicates of each other would gut the new-vehicle side of the site.
+const MILEAGE_HOLE_MIN_AGE = 3;
+
+// Engine displacement as written in a listing title ("4.5 GX", "2.8GD-6", "4.0 V6").
+// This is the tiebreak when mileage can't be one: two variants of a model often
+// share a list price to the rand. A 2021 Prado "2.8 GD VX-L" and a 2021 Prado
+// "4.0 V6 VX-L" both listed at R909,900 are two different cars.
+function displacement(title: string): string | null {
+  const m = title.match(/\b([1-9])\.(\d)(?!\d)/);
+  return m ? `${m[1]}.${m[2]}` : null;
+}
+
+// Cross-source dedupe: the same physical car often appears on multiple portals
+// (a WeBuyCars unit on both webuycars.co.za and cars.co.za; a classics dealer's
+// stock on both its own website and AutoTrader). Returns the listing this one
+// duplicates, or null.
+//
+// Matching on year + model + price + mileage is the strong form and stays the
+// default. It could never fire for a source that publishes no mileage at all,
+// though — Vintage Cars SA sends mileage 0 on every car, so four of its classics
+// sat on the site alongside the same dealer's AutoTrader ads for the same cars
+// (the FJ60 at R450,000, the FJ62 at R399,000, the 80 GX at R499,000, the 70 EFI
+// at R750,000; found 2026-08-18). For those the mileage is dropped from the key
+// and two narrow guards take its place: the car must be old enough that 0 km is
+// a data hole, and the match must be against a row that DOES carry mileage, so
+// the zero-mileage row is always the one suppressed. That direction is what keeps
+// this from flapping between two rows of the same car on alternating crawls.
+async function findCrossSourceDuplicate(v: {
+  source: string; year: number; model: string; price: number;
+  mileage: number; new_or_used: string; title: string;
+}): Promise<{ id: number; slug: string } | null> {
+  if (!(v.price > 0)) return null;
+
+  const sameCar = [
+    eq(listings.status, 'active'),
+    eq(listings.year, v.year),
+    eq(listings.model, v.model),
+    eq(listings.price, v.price),
+    ne(listings.source, v.source),
+  ];
+
+  if (v.mileage > 0) {
+    const [dup] = await db.select({ id: listings.id, slug: listings.slug })
+      .from(listings)
+      .where(and(...sameCar, eq(listings.mileage, v.mileage)))
+      .limit(1);
+    return dup ?? null;
+  }
+
+  if (v.new_or_used !== 'Used') return null;
+  if (v.year > new Date().getFullYear() - MILEAGE_HOLE_MIN_AGE) return null;
+
+  const candidates = await db.select({ id: listings.id, slug: listings.slug, title: listings.title })
+    .from(listings)
+    .where(and(...sameCar, gt(listings.mileage, 0)))
+    .limit(5);
+
+  const mine = displacement(v.title);
+  const dup = candidates.find(c => {
+    const theirs = displacement(c.title);
+    return !(mine && theirs && mine !== theirs);
+  });
+  return dup ? { id: dup.id, slug: dup.slug } : null;
+}
 
 function slugify(str: string) {
   return str
@@ -92,6 +161,22 @@ export const POST: APIRoute = async ({ request }) => {
     // otherwise re-asserted on every crawl.
     const effectiveModel = existing[0].model_locked ? existing[0].model : String(model);
 
+    // The insert-time dedupe below only ever sees a car once. A source that
+    // publishes no mileage was never caught by it, so its duplicates already
+    // exist as rows — and this branch re-asserts 'active' on every crawl, which
+    // would resurrect them however they were cleaned up. So re-check here.
+    // Restricted to the zero-mileage form on purpose: there the loser is always
+    // the row missing the mileage, so two crawls can't take turns suppressing
+    // each other. Self-healing — if the other portal's ad goes down, the next
+    // crawl finds no match and this row returns to 'active'.
+    const duplicateOf = Number(mileage ?? 0) === 0
+      ? await findCrossSourceDuplicate({
+          source: String(source), year: Number(year), model: effectiveModel,
+          price: Number(price ?? 0), mileage: 0,
+          new_or_used: String(new_or_used ?? 'Used'), title: String(title),
+        })
+      : null;
+
     await db.update(listings).set({
       title: String(title),
       model: effectiveModel,
@@ -127,39 +212,37 @@ export const POST: APIRoute = async ({ request }) => {
       // Weak "safari" phrases are not trusted for other-4x4 bycatch.
       body_type: existing[0].body_type
         ?? detectBodyType(String(title), String(description ?? '').trim() || existing[0].description, segmentOverride !== 'other-4x4'),
-      status: 'active',
+      // 'duplicate' deliberately sits outside both OFF_MARKET_STATUSES and
+      // ON_MARKET_STATUSES (see lib/listing-status): the car has NOT left the
+      // market, it's just already on the site under another portal's row. Using
+      // 'removed' here would stamp off_market_at and inject a phantom
+      // "delisted today" into the days-on-market and turnover insights.
+      status: duplicateOf ? 'duplicate' : 'active',
     }).where(eq(listings.id, existing[0].id));
 
-    return new Response(JSON.stringify({ ok: true, action: 'updated', slug: existing[0].slug }), {
+    return new Response(JSON.stringify({
+      ok: true,
+      action: duplicateOf ? 'updated_duplicate' : 'updated',
+      slug: existing[0].slug,
+      ...(duplicateOf ? { duplicate_of: duplicateOf.slug } : {}),
+    }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     });
   }
 
-  // Cross-source dedupe: the same physical car often appears on multiple
-  // portals (e.g. a WeBuyCars unit on both webuycars.co.za and cars.co.za).
-  // Skip creating when another source already carries an active listing with
-  // identical year, model, price and mileage. Zero price/mileage is excluded —
-  // too many legitimate listings share those.
-  if (Number(price) > 0 && Number(mileage) > 0) {
-    const dup = await db.select({ id: listings.id, slug: listings.slug })
-      .from(listings)
-      .where(and(
-        eq(listings.status, 'active'),
-        eq(listings.year, Number(year)),
-        eq(listings.model, String(model)),
-        eq(listings.price, Number(price)),
-        eq(listings.mileage, Number(mileage)),
-        ne(listings.source, String(source)),
-      ))
-      .limit(1);
+  // Don't create a second row for a car another portal already carries.
+  const dup = await findCrossSourceDuplicate({
+    source: String(source), year: Number(year), model: String(model),
+    price: Number(price ?? 0), mileage: Number(mileage ?? 0),
+    new_or_used: String(new_or_used ?? 'Used'), title: String(title),
+  });
 
-    if (dup.length > 0) {
-      return new Response(JSON.stringify({ ok: true, action: 'skipped_duplicate', slug: dup[0].slug }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      });
-    }
+  if (dup) {
+    return new Response(JSON.stringify({ ok: true, action: 'skipped_duplicate', slug: dup.slug }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 
   const slug = `${base}-${String(source_id).slice(-8)}`;
