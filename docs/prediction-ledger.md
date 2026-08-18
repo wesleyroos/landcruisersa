@@ -600,8 +600,24 @@ date, compare to baseline, mark HIT / MISS / PARTIAL, and write the lesson.
   canopy manufacturer logged in outbound_clicks.
 - **Caveat:** competing sites are commercial (retailers with fitment pages);
   8 weeks is early for a fresh page; publish date depends on review.
-- **Result:** _pending 2026-09-05_
-- **Lesson:** _tbd_
+- **Result (2026-08-18): VOID — the change never actually went live.** The
+  article was written (2,266 words, `publishedAt: 2026-07-05`) and returns 200,
+  but ships with **`unlisted: true`** in its frontmatter, which means:
+  `<meta name="robots" content="noindex, nofollow">`, excluded from
+  `sitemap-0.xml` (the build-time filter drops unlisted files), absent from the
+  `/useful-info/` index, and zero internal links. It is the ONLY guide missing
+  from the sitemap. Predictably: **4 impressions, 0 clicks, 1 visitor in 30d.**
+  This is NOT evidence against the canopies/trays thesis — the thesis was never
+  tested. Grading it MISS would have poisoned the ledger with a failure that
+  belonged to distribution, not demand.
+- **Re-arm:** review Wesley→flip to Live in `/admin/posts` (or drop
+  `unlisted: true` and redeploy so it enters the sitemap), then set a new review
+  date 8 weeks after it is genuinely discoverable.
+- **Lesson:** "published" is not one state. A post can be written, merged,
+  deployed, and returning 200 while being invisible to every discovery surface
+  we own. **Add a publish check to the ledger routine: before opening a content
+  prediction, confirm the URL is in the sitemap AND on its index page AND not
+  noindexed** — otherwise the clock starts on a page nobody can find.
 
 ## P17 — Dealer-offer data: the verification premium + the trade-vs-asking floor
 
@@ -730,8 +746,14 @@ date, compare to baseline, mark HIT / MISS / PARTIAL, and write the lesson.
   (business-brain drift-guard applies). "Did people respond positively" =
   funnel didn't degrade + directional lift + Wesley's qualitative read.
 - **Baseline (30d to 2026-07-22, prod DB):**
-  - Portal handoffs (`click_events`): **322** · listing views (`view_events`): **3,966**
+  - Handoffs (`click_events`): **322** · listing views (`view_events`): **3,966**
     → **81 handoffs / 1,000 listing views** (the number that matters)
+  - ⚠️ **DEFINITION CORRECTED 2026-08-18.** This line was labelled "Portal
+    handoffs", but 322 is **ALL `click_events`** in that window — portal-only
+    was 225 (58.6/1,000). Two checkups (05-Aug, 12-Aug) and the first pass of
+    the 18-Aug checkup compared **portal-only NOW** against this **all-events
+    baseline** and graded a MISS off it. That is apples-to-oranges. Graded
+    like-for-like on either definition, the rate is FLAT-TO-UP (see Result).
   - Valuation requests: **102/30d**
 - **Predictions (review 2026-08-21):**
   1. *(PRIMARY, no-regression)* handoff rate ≥ **75 / 1,000 listing views**
@@ -741,8 +763,37 @@ date, compare to baseline, mark HIT / MISS / PARTIAL, and write the lesson.
      eyeball only — no threshold).
 - **Caveat:** handoff rate is also moved by stock mix (a hot 79 batch lifts it
   regardless of UI). If the rate moves ±10%, call it flat.
-- **Result:** _pending 2026-08-21_
-- **Lesson:** _tbd_
+- **Reading (2026-08-18, 3 days early — all bars computable):**
+  | Definition | Baseline (to 22-Jul) | Now (30d) | Bar | Grade |
+  |---|---|---|---|---|
+  | ALL `click_events` ÷ views | 81.2 (322÷3,966) | **82.5** (901÷10,926) | ≥75 | **HIT** |
+  | Portal-only ÷ views | 58.6 (225÷3,837) | **65.3** (713÷10,927) | — | up 11% |
+  - Prediction 2 (valuations ≥100/30d): **124** → HIT.
+  - **Same-cohort check** (does the card suppress click-through by satisfying
+    the buyer?): every buying-intent cohort's handoff rate ROSE —
+    70-series **54.7 → 61.6**, modern (200/300/Prado/100/80) **63.5 → 81.3**.
+    Direct-contact actions (reveal number/email/WhatsApp/call) rose faster
+    still: **2.1 → 3.7 per 1,000** (+76%). Favourites **27 → 117** (4.3×,
+    against 2.8× view growth).
+  - **The one cohort that fell is classics: 73 → 36.1**, on 6.5× the views
+    (178 → 1,165). That is the mix shift, and it is real — but it is confined
+    to the enthusiast/browse audience, not the buyer audience.
+- **Result (2026-08-18, graded 3 days early — every bar was already
+  computable and can only improve): HIT.** Rate 81.2 → 82.5 against a ≥75
+  no-regression bar; valuations 124 vs ≥100. The card did not degrade the
+  funnel; on buying-intent traffic it improved alongside it.
+- **Lesson:** two lessons, one of them about us.
+  1. **On the product:** "more insight on the page makes people click away
+     less" is intuitive but did NOT happen where it would matter — buyers
+     clicked through MORE, contacted sellers directly MORE, and saved more
+     vehicles. Depth and handoff are not in tension for someone with intent.
+     Where depth *does* substitute for clicking is the **enthusiast browse**
+     audience (classics), who were never going to click a portal link anyway.
+  2. **On the method:** a baseline whose LABEL disagreed with its NUMBER
+     produced two consecutive wrong grades in the same direction. Any future
+     baseline line must record the exact query, not a prose label — and when
+     a rate looks like it is sliding while every absolute is rising, recompute
+     BOTH periods with one query before writing the word "miss".
 
 ## P21 — WhatsApp Channel (owned-audience spoke)
 
@@ -772,8 +823,24 @@ date, compare to baseline, mark HIT / MISS / PARTIAL, and write the lesson.
 - **Caveat:** follower count is a manual metric (no API) — log it in the weekly
   checkup. Prediction 1 fails cheaply if posting cadence doesn't hold; that
   itself is the lesson (audience spokes die of inconsistency, not reach).
-- **Result:** _pending 2026-08-21_
-- **Lesson:** _tbd_
+- **Reading (2026-08-18, Wesley's manual channel read):**
+  1. Followers **75** vs bar **≥75** → **MET** (24 → 36 → 65 → 75 across checkups).
+  2. Popup join-clicks **164** vs bar ≥40 → MET (4×).
+  3. `wa-channel` sessions **155** (visit_events) vs bar ≥100 → MET.
+     (Plausible counts 79 unique visitors for the same tag — sessions vs
+     uniques; the bar says sessions, so 155 is the graded figure and 79 is
+     the conservative read. Both are recorded so neither can be cherry-picked.)
+  4. Stretch — first tracked conversion in a `wa-channel` session: not yet joined.
+- **Result (2026-08-18): HIT** on all three measurable predictions; stretch
+  unresolved. Formal date was 21-Aug; graded 3 days early because every bar is
+  met and a follower count does not go backwards materially in 3 days.
+- **Lesson:** the popup did the work, not the posting — 164 join-clicks against
+  a 40 bar is the whole story, and the channel hit its follower target the week
+  the popup was live. An owned-audience spoke is a **distribution** problem
+  (put the ask in front of existing traffic) far more than a content problem.
+  Next question is retention, not acquisition: 155 sessions is reach, and the
+  stretch (a tracked conversion from a channel session) is still unanswered —
+  re-arm that as the real test of whether this audience is worth anything.
 
 ## P22 — Paid social boost (first direct-to-consumer revenue test)
 
@@ -827,5 +894,13 @@ date, compare to baseline, mark HIT / MISS / PARTIAL, and write the lesson.
 - **Watch-out:** revenue currently settles into **Gro Digital's** Paystack
   business, not LCSA's. Fine for a test; revisit before it's material, since
   LCSA is meant to be separable (see docs/strategy-2026-06-23.md).
-- **Result:** _pending — not yet switched on_
+- **SWITCHED ON 2026-08-12 16:27 SAST** (site_config `social_boost_enabled=1`;
+  offer confirmed rendering on the live submit form). **Review therefore falls
+  due 2026-09-26**, or earlier at 20 eligible submissions.
+- **Reading (2026-08-18): no sample yet — 0 eligible submissions since
+  switch-on.** The most recent private-seller for-sale listing was 12-Aug 13:33,
+  about three hours BEFORE the toggle. So the 0% take-up is a denominator of
+  zero, not a rejection. At the baseline rate (13–14 own for-sale listings/30d)
+  expect the first read around mid-September.
+- **Result:** _pending 2026-09-26_
 - **Lesson:** _tbd_
