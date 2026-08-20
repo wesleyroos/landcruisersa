@@ -412,6 +412,15 @@ const rand0 = (n: number) => 'R' + n.toLocaleString('en-ZA');
               <option value="true"  selected={!!listing.dealer_offer_optin}>🏷️ Yes — seller wants a dealer offer (shop to dealer partners)</option>
             </select>
           </div>
+          {/* 'none' has to say so out loud. Rendering nothing made "the seller
+              didn't tick the box" look identical to "the boost field is broken",
+              which is exactly how it read from the admin side. */}
+          {(!listing.social_boost || listing.social_boost === 'none') && (
+            <div class="field">
+              <label>Social boost</label>
+              <p class="boost-note">No — seller didn't ask for it{listing.source === 'own' ? '' : ' (scraped listing — never offered)'}.</p>
+            </div>
+          )}
           {listing.social_boost === 'requested' && (
             <div class="field">
               <label>Social boost</label>

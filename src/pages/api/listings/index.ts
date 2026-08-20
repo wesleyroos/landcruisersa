@@ -114,6 +114,7 @@ export const POST: APIRoute = async ({ request }) => {
                <p>From: ${seller_name} — ${seller_email} — ${seller_phone}</p>
                ${dealer_offer_optin === true && listing_type === 'for_sale' ? `<p>🏷️ <strong>Wants a dealer offer</strong> — shop to dealer partners.</p>` : ''}
                ${wantsBoost ? `<p>📣 <strong>Asked for the social boost (R${boostPriceRand()})</strong> — payment not confirmed yet. You'll get a separate "PAID" email if it goes through; don't post it until then.</p>` : ''}
+               ${listing_type === 'for_sale' ? `<p style="color:#666;font-size:13px">Add-ons — dealer offer: <strong>${dealer_offer_optin === true ? 'yes' : 'no'}</strong> · social boost: <strong>${wantsBoost ? `asked (R${boostPriceRand()}, unpaid)` : boostEnabled() ? 'no' : 'not offered — boost is switched off'}</strong></p>` : ''}
                <p><a href="https://landcruisersa.co.za/admin">Review in Admin →</a></p>`,
       }),
     }).catch(() => {}); // fire-and-forget
