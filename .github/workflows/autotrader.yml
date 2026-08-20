@@ -31,8 +31,10 @@ jobs:
           cache: 'npm'
       - run: npm ci
 
+      # NOT continue-on-error: a zero-discovery run (proxy outage, AT field
+      # rename) must show RED in Actions. It stayed green through 2026-08-18/19
+      # while every fetch failed, so the only signal was the Resend alert email.
       - name: Discover & ingest
-        continue-on-error: true
         run: node --experimental-strip-types src/scripts/ingest-autotrader.ts
         env:
           INGEST_TOKEN: ${{ secrets.INGEST_TOKEN }}
@@ -49,6 +51,7 @@ jobs:
           PROXY_PASS: ${{ secrets.PROXY_PASS }}
 
       - name: Backfill galleries (LC first)
+        if: always()
         continue-on-error: true
         run: node --experimental-strip-types scripts/backfill-at-images.ts
         env:
@@ -62,6 +65,7 @@ jobs:
           PROXY_PASS: ${{ secrets.PROXY_PASS }}
 
       - name: Backfill descriptions
+        if: always()
         continue-on-error: true
         run: node --experimental-strip-types src/scripts/backfill-at-descriptions.ts
         env:
