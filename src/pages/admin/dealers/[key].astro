@@ -1,0 +1,443 @@
+---
+export const prerender = false;
+
+import AdminLayout from '@/layouts/AdminLayout.astro';
+import { db } from '@/db/index';
+import { sql } from 'drizzle-orm';
+import { dealerKey, SOURCE_LABEL } from '@/lib/dealer-name';
+
+const cookie = Astro.cookies.get('lcsa_admin');
+const adminSecret = import.meta.env.ADMIN_SECRET ?? process.env.ADMIN_SECRET ?? '';
+if (!cookie || cookie.value !== adminSecret) {
+  return Astro.redirect('/admin/login');
+}
+
+// ─── One dealership's floor ──────────────────────────────────────────────────
+// Every Cruiser this dealership has ever had on our radar: what's on the floor
+// now, what has moved, and how they price. Two things to keep straight:
+//  • The same physical car is listed by the same branch on several portals, so
+//    stock is the MAX per portal, never the sum — the vehicle list flags the
+//    cross-portal twins instead of hiding them.
+//  • Portals spell the branch differently; we match on the folded key, so the
+//    page covers every spelling variant of the same dealership.
+
+const key = (Astro.params.key ?? '').toLowerCase();
+if (!key) return Astro.redirect('/admin/dealers');
+
+// Resolve the key back to the exact seller_name strings it came from.
+const names = db.all<{ seller: string; n: number }>(sql`
+  SELECT seller_name seller, count(*) n
+  FROM listings
+  WHERE source != 'own' AND seller_name != ''
+  GROUP BY seller_name
+`).filter(r => dealerKey(r.seller) === key);
+
+if (names.length === 0) return Astro.redirect('/admin/dealers');
+
+// Most-listed spelling is the display name.
+const dealerName = [...names].sort((a, b) => b.n - a.n)[0].seller;
+const variants = names.map(n => n.seller);
+
+type Row = {
+  id: number; slug: string; title: string; model: string; year: number;
+  price: number; mileage: number; province: string; status: string;
+  source: string; source_url: string | null; photos: string;
+  seller: string; created_at: number; off_market_at: number | null;
+  transmission: string; segment: string;
+};
+const vehicles = db.all<Row>(sql`
+  SELECT id, slug, title, model, year, price, mileage, province, status, source,
+         source_url, photos, seller_name seller, created_at, off_market_at,
+         transmission, segment
+  FROM listings
+  WHERE seller_name IN (${sql.join(variants.map(v => sql`${v}`), sql`, `)})
+  ORDER BY (status = 'active') DESC, created_at DESC
+`);
+
+const DAY = 86_400;
+const nowSec = Math.floor(Date.now() / 1000);
+const fourWeeksAgo = nowSec - 28 * DAY;
+const twelveWeeksAgo = nowSec - 84 * DAY;
+
+const live = vehicles.filter(v => v.status === 'active');
+const gone = vehicles.filter(v => v.status !== 'active');
+
+const sources = [...new Set(vehicles.map(v => v.source))];
+const provinces = [...new Set(live.map(v => v.province).filter(Boolean))];
+const isWbc = sources.includes('wbc');
+
+const median = (a: number[]) => {
+  if (!a.length) return null;
+  const s = [...a].sort((x, y) => x - y);
+  return s[Math.floor(s.length / 2)];
+};
+
+// Identity of a physical car — the same rule ingest uses to mark cross-source
+// duplicates: year + model + price + mileage. A 0 km reading is a data hole or
+// new stock a dealer holds several of, so those never fold together.
+const carKey = (v: Row) =>
+  v.mileage > 0 && v.price > 0 ? `${v.year}|${v.model}|${v.price}|${v.mileage}` : `row:${v.id}`;
+
+// A dealer's floor counted in CARS, not listings: within one portal every row is
+// a separate car, but the same key on two portals is one car advertised twice.
+// So per key, take the most any single portal lists — never the sum.
+function distinctCars(rows: Row[]): number {
+  const groups = new Map<string, Map<string, number>>();
+  for (const v of rows) {
+    const k = carKey(v);
+    if (!groups.has(k)) groups.set(k, new Map());
+    const perSource = groups.get(k)!;
+    perSource.set(v.source, (perSource.get(v.source) ?? 0) + 1);
+  }
+  let n = 0;
+  for (const perSource of groups.values()) n += Math.max(...perSource.values());
+  return n;
+}
+
+// Rows sharing a car key across two portals get flagged in the list, so a
+// doubled-up car is visible rather than silently deduped away.
+const twinSources = new Map<string, Set<string>>();
+for (const v of live) {
+  if (!twinSources.has(carKey(v))) twinSources.set(carKey(v), new Set());
+  twinSources.get(carKey(v))!.add(v.source);
+}
+const isTwin = (v: Row) => (twinSources.get(carKey(v))?.size ?? 0) > 1;
+
+const stock = distinctCars(live);
+
+const livePrices = live.map(v => v.price).filter(p => p > 0);
+const medPrice = median(livePrices);
+const minPrice = livePrices.length ? Math.min(...livePrices) : null;
+const maxPrice = livePrices.length ? Math.max(...livePrices) : null;
+
+// Days on market: only rows that actually left the market, capped at a year to
+// keep re-ingested oddities out of the median.
+const domValues = gone
+  .filter(v => v.off_market_at && v.created_at && v.off_market_at - v.created_at >= 0
+            && v.off_market_at - v.created_at <= 365 * DAY)
+  .map(v => Math.round((v.off_market_at! - v.created_at) / DAY));
+const medDom = median(domValues);
+// Platform median for context — is this dealer fast or slow vs everyone else?
+const platformDomRows = db.all<{ d: number }>(sql`
+  SELECT (off_market_at - created_at) / 86400.0 d FROM listings
+  WHERE off_market_at IS NOT NULL AND created_at IS NOT NULL AND source != 'own'
+    AND (off_market_at - created_at) BETWEEN 0 AND ${365 * DAY}
+`);
+const platformDomMed = median(platformDomRows.map(r => r.d));
+const platformDom = platformDomMed != null ? Math.round(platformDomMed) : null;
+
+const off4w = distinctCars(gone.filter(v => v.off_market_at && v.off_market_at >= fourWeeksAgo));
+const added4w = distinctCars(vehicles.filter(v => v.created_at >= fourWeeksAgo));
+
+// Buyer handoffs we sent them — the value side of the relationship.
+const slugs = vehicles.map(v => v.slug);
+const handoffs = slugs.length
+  ? db.all<{ source: string; ts: number }>(sql`
+      SELECT source, created_at ts FROM click_events
+      WHERE source != 'finance_calc' AND created_at >= ${twelveWeeksAgo}
+        AND listing_slug IN (${sql.join(slugs.map(s => sql`${s}`), sql`, `)})
+    `)
+  : [];
+const h12 = handoffs.length;
+const h4 = handoffs.filter(h => h.ts >= fourWeeksAgo).length;
+
+// Model mix on the floor (dedup twins so one car counts once).
+const byModel = new Map<string, Row[]>();
+for (const v of live) {
+  if (!byModel.has(v.model)) byModel.set(v.model, []);
+  byModel.get(v.model)!.push(v);
+}
+const mix = [...byModel.entries()]
+  .map(([model, rows]) => [model, distinctCars(rows)] as [string, number])
+  .sort((a, b) => b[1] - a[1]);
+const mixMax = Math.max(1, ...mix.map(m => m[1]));
+
+const fmtR = (n: number | null) =>
+  n == null ? '—' : n >= 1_000_000 ? `R${(n / 1_000_000).toFixed(2).replace(/\.?0+$/, '')}m` : `R${Math.round(n / 1000)}k`;
+const fmtModel = (m: string) => m.replaceAll('-', ' ').toUpperCase();
+const dateFmt = (sec: number) =>
+  new Intl.DateTimeFormat('en-ZA', { day: 'numeric', month: 'short', year: '2-digit' }).format(new Date(sec * 1000));
+const firstPhoto = (photos: string) => { try { return JSON.parse(photos)[0] ?? null; } catch { return null; } };
+const daysOn = (v: Row) => Math.round(((v.off_market_at ?? nowSec) - v.created_at) / DAY);
+const STATUS_LABEL: Record<string, string> = {
+  active: 'In stock', removed: 'Gone', inactive: 'Inactive', sold: 'Sold',
+  duplicate: 'Dup', pending: 'Pending',
+};
+---
+
+<AdminLayout title={dealerName} activePage="dealers">
+  <a href="/admin/dealers" class="back">← Dealer radar</a>
+
+  <div class="page-head">
+    <h1>
+      {dealerName}
+      {isWbc && <span class="tag tag-wbc" title="WeBuyCars branch">WBC</span>}
+    </h1>
+    <p class="sub">
+      {sources.map(s => SOURCE_LABEL[s] ?? s).join(' + ')}
+      {provinces.length > 0 && <> · {provinces.join(', ')}</>}
+      {variants.length > 1 && <> · listed under {variants.length} name spellings</>}
+    </p>
+  </div>
+
+  <div class="kpis">
+    <div class="kpi">
+      <span class="kpi-n">{stock}</span>
+      <span class="kpi-l">vehicles on the floor</span>
+      <span class="kpi-note">
+        {live.length !== stock
+          ? `${live.length} listings across ${sources.length} portals · ${vehicles.length} seen all time`
+          : `${vehicles.length} seen all time`}
+      </span>
+    </div>
+    <div class="kpi">
+      <span class="kpi-n">{fmtR(medPrice)}</span>
+      <span class="kpi-l">median asking price</span>
+      <span class="kpi-note">{minPrice != null ? `${fmtR(minPrice)} – ${fmtR(maxPrice)}` : 'no live stock'}</span>
+    </div>
+    <div class="kpi">
+      <span class="kpi-n">{medDom != null ? medDom : '—'}<span class="kpi-dim">{medDom != null ? 'd' : ''}</span></span>
+      <span class="kpi-l">median days on market</span>
+      <span class="kpi-note">
+        {domValues.length < 3
+          ? `only ${domValues.length} closed — too few to trust`
+          : platformDom != null
+            ? `platform median ${platformDom}d · n=${domValues.length}`
+            : `n=${domValues.length}`}
+      </span>
+    </div>
+    <div class="kpi">
+      <span class="kpi-n">{h4}<span class="kpi-dim"> / {h12}</span></span>
+      <span class="kpi-l">buyer handoffs · 4w / 12w</span>
+      <span class="kpi-note">{off4w} left the market in 4w · {added4w} added</span>
+    </div>
+  </div>
+
+  {mix.length > 0 && (
+    <div class="mix">
+      <span class="mix-label">On the floor</span>
+      <div class="mix-bars">
+        {mix.map(([model, n]) => (
+          <a class="mix-item" href={`#m-${model}`} data-model={model}>
+            <span class="mix-name">{fmtModel(model)}</span>
+            <span class="mix-bar"><span class="mix-fill" style={`width:${Math.round(n / mixMax * 100)}%`}></span></span>
+            <span class="mix-n">{n}</span>
+          </a>
+        ))}
+      </div>
+    </div>
+  )}
+
+  <div class="toolbar">
+    <input type="search" id="v-search" placeholder="Filter these vehicles…" autocomplete="off" />
+    <div class="segs" role="group" aria-label="Status">
+      <button class="seg-btn active" data-status="active">In stock ({live.length})</button>
+      <button class="seg-btn" data-status="gone">Off market ({gone.length})</button>
+      <button class="seg-btn" data-status="all">All ({vehicles.length})</button>
+    </div>
+    <div class="segs" role="group" aria-label="Sort">
+      <button class="sort-btn active" data-sort="added">Newest</button>
+      <button class="sort-btn" data-sort="price">Price</button>
+      <button class="sort-btn" data-sort="year">Year</button>
+      <button class="sort-btn" data-sort="mileage">Mileage</button>
+      <button class="sort-btn" data-sort="days">Days listed</button>
+    </div>
+    <span class="result-count" id="v-count"></span>
+  </div>
+
+  <div class="tbl">
+    <div class="tbl-head">
+      <span class="c-car">Vehicle</span>
+      <span class="c-col">Year</span>
+      <span class="c-col">Mileage</span>
+      <span class="c-col">Price</span>
+      <span class="c-col">Days</span>
+      <span class="c-col">Status</span>
+      <span class="c-act"></span>
+    </div>
+    <div id="v-rows">
+      {vehicles.map(v => (
+        <div
+          class="vrow"
+          data-name={`${v.title} ${v.model} ${v.year} ${v.province} ${v.transmission}`.toLowerCase()}
+          data-model={v.model}
+          data-status={v.status === 'active' ? 'active' : 'gone'}
+          data-price={v.price}
+          data-year={v.year}
+          data-mileage={v.mileage}
+          data-days={daysOn(v)}
+          data-added={v.created_at}
+          hidden={v.status !== 'active'}
+        >
+          <span class="c-car">
+            {firstPhoto(v.photos)
+              ? <img class="v-thumb" src={firstPhoto(v.photos)} alt="" loading="lazy" />
+              : <span class="v-thumb v-thumb-empty">🚗</span>}
+            <span class="v-text">
+              <a class="v-title" href={`/admin/listings/${v.id}`}>{v.title}</a>
+              <span class="v-sub">
+                {fmtModel(v.model)}{v.province ? ` · ${v.province}` : ''} · {SOURCE_LABEL[v.source] ?? v.source}
+                {isTwin(v) && <span class="tag tag-twin" title="This car is also listed by this dealer on another portal">twin</span>}
+                {v.segment !== 'land-cruiser' && <span class="tag tag-seg">{v.segment}</span>}
+              </span>
+            </span>
+          </span>
+          <span class="c-col">{v.year}</span>
+          <span class="c-col">{v.mileage > 0 ? `${Math.round(v.mileage / 1000)}k` : '—'}</span>
+          <span class="c-col c-price">{v.price > 0 ? fmtR(v.price) : '—'}</span>
+          <span class="c-col">{daysOn(v)}d</span>
+          <span class="c-col">
+            <span class={`st st-${v.status}`}>{STATUS_LABEL[v.status] ?? v.status}</span>
+            {v.status !== 'active' && v.off_market_at && <span class="st-date">{dateFmt(v.off_market_at)}</span>}
+          </span>
+          <span class="c-act">
+            {v.slug && <a href={`/listings/${v.slug}/`} target="_blank" title="Public page">View</a>}
+            {v.source_url && <a href={v.source_url} target="_blank" title="Original portal listing">↗</a>}
+          </span>
+        </div>
+      ))}
+    </div>
+  </div>
+
+  <p class="foot-note">
+    Everything this dealership has had on our radar, live or gone. "Days" counts from when we
+    first saw the listing to when it left the market (or today, for live stock) — it's our
+    observation window, not their true listing date, so treat short numbers on recently-added
+    cars with care. Handoff = a portal click-through, WhatsApp, call, email or number-reveal on
+    their stock.
+  </p>
+</AdminLayout>
+
+<script>
+  const rowsEl = document.getElementById('v-rows')!;
+  const allRows = [...rowsEl.querySelectorAll<HTMLElement>('.vrow')];
+  const search = document.getElementById('v-search') as HTMLInputElement | null;
+  const countEl = document.getElementById('v-count');
+
+  let status = 'active';
+  let model = '';
+
+  const apply = () => {
+    const q = (search?.value ?? '').trim().toLowerCase();
+    let visible = 0;
+    for (const r of allRows) {
+      const ok = (status === 'all' || r.dataset.status === status)
+        && (!model || r.dataset.model === model)
+        && (q === '' || (r.dataset.name ?? '').includes(q));
+      r.hidden = !ok;
+      if (ok) visible++;
+    }
+    if (countEl) countEl.textContent = `${visible} vehicle${visible === 1 ? '' : 's'}${model ? ` · ${model.replaceAll('-', ' ')}` : ''}`;
+  };
+  apply();
+
+  search?.addEventListener('input', apply);
+
+  document.querySelectorAll<HTMLButtonElement>('.seg-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.seg-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      status = btn.dataset.status!;
+      apply();
+    });
+  });
+
+  // Clicking a model in the mix filters to it; clicking it again clears.
+  document.querySelectorAll<HTMLElement>('.mix-item').forEach(item => {
+    item.addEventListener('click', e => {
+      e.preventDefault();
+      const m = item.dataset.model!;
+      model = model === m ? '' : m;
+      document.querySelectorAll('.mix-item').forEach(i => i.classList.toggle('on', i === item && model !== ''));
+      apply();
+    });
+  });
+
+  document.querySelectorAll<HTMLButtonElement>('.sort-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const k = btn.dataset.sort!;
+      const dir = k === 'mileage' ? 1 : -1;   // low km first; everything else biggest/latest first
+      const sorted = [...allRows].sort((a, b) => {
+        const av = Number(a.dataset[k] ?? 0), bv = Number(b.dataset[k] ?? 0);
+        return dir === 1 ? av - bv : bv - av;
+      });
+      sorted.forEach(r => rowsEl.appendChild(r));
+    });
+  });
+</script>
+
+<style>
+  .back { font-size: 12px; color: #888; text-decoration: none; }
+  .back:hover { color: #111; }
+  .page-head { margin: 8px 0 18px; }
+  h1 { font-size: 22px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+  .sub { color: #666; font-size: 13px; margin-top: 4px; }
+
+  .tag { font-size: 9px; font-weight: 700; border-radius: 4px; padding: 1px 5px; text-transform: uppercase; }
+  .tag-wbc { background: #fff4dd; color: #9a6b00; }
+  .tag-twin { background: #eef4ff; color: #3c5fa8; margin-left: 6px; }
+  .tag-seg { background: #f2f2f2; color: #888; margin-left: 6px; }
+
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-bottom: 14px; }
+  .kpi { border: 1px solid #e5e5e5; border-radius: 8px; padding: 12px 14px; display: flex; flex-direction: column; gap: 2px; background: white; }
+  .kpi-n { font-size: 21px; font-weight: 700; }
+  .kpi-dim { font-size: 14px; color: #999; font-weight: 600; }
+  .kpi-l { font-size: 11.5px; color: #777; }
+  .kpi-note { font-size: 10.5px; color: #aaa; margin-top: 2px; }
+
+  .mix { border: 1px solid #e5e5e5; border-radius: 8px; padding: 10px 14px; margin-bottom: 14px; background: white; }
+  .mix-label { font-size: 11px; color: #999; text-transform: uppercase; letter-spacing: 0.04em; }
+  .mix-bars { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 4px 18px; margin-top: 8px; }
+  .mix-item { display: flex; align-items: center; gap: 8px; text-decoration: none; color: inherit; padding: 2px 4px; border-radius: 5px; cursor: pointer; }
+  .mix-item:hover { background: #fafafa; }
+  .mix-item.on { background: #fff4dd; }
+  .mix-name { flex: 0 0 96px; font-size: 11.5px; font-weight: 600; color: #444; }
+  .mix-bar { flex: 1; height: 10px; background: #f2f2f2; border-radius: 3px; overflow: hidden; }
+  .mix-fill { display: block; height: 100%; background: #F5A623; }
+  .mix-n { font-size: 11.5px; font-weight: 700; color: #333; font-variant-numeric: tabular-nums; }
+
+  .toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+  #v-search { flex: 0 1 240px; padding: 7px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px; }
+  #v-search:focus { outline: none; border-color: #999; }
+  .segs { display: flex; gap: 4px; }
+  .seg-btn, .sort-btn { padding: 5px 11px; border: 1px solid #ddd; background: white; border-radius: 6px; font-size: 12px; color: #444; cursor: pointer; }
+  .seg-btn.active, .sort-btn.active { background: #111; color: white; border-color: #111; }
+  .result-count { font-size: 12px; color: #888; }
+
+  .tbl { border: 1px solid #e5e5e5; border-radius: 8px; overflow-x: auto; background: white; }
+  .tbl-head, .vrow { display: flex; align-items: center; min-width: 760px; }
+  .tbl-head { border-bottom: 1px solid #e5e5e5; background: #fafafa; font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; color: #999; }
+  .c-car { flex: 1; padding: 7px 10px; min-width: 0; display: flex; align-items: center; gap: 9px; }
+  .c-col { flex: 0 0 84px; text-align: right; padding: 7px 10px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .c-act { flex: 0 0 74px; text-align: right; padding: 7px 10px; white-space: nowrap; }
+  .tbl-head .c-car { display: block; }
+
+  .vrow { border-bottom: 1px solid #f4f4f4; font-size: 12.5px; color: #555; }
+  /* display:flex above wins over the browser's [hidden] rule — the filter
+     scripts set .hidden, so say it explicitly or nothing ever hides. */
+  .vrow[hidden] { display: none; }
+  .vrow:last-child { border-bottom: none; }
+  .vrow:hover { background: #fffdf7; }
+  .v-thumb { width: 46px; height: 34px; object-fit: cover; border-radius: 5px; flex-shrink: 0; background: #f2f2f2; }
+  .v-thumb-empty { display: flex; align-items: center; justify-content: center; font-size: 15px; }
+  .v-text { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+  .v-title { font-weight: 600; color: #222; text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .v-title:hover { color: #B8860B; }
+  .v-sub { font-size: 10.5px; color: #999; white-space: nowrap; }
+  .c-price { font-weight: 700; color: #222; }
+
+  .st { font-size: 10px; font-weight: 700; border-radius: 4px; padding: 1px 6px; }
+  .st-active { background: #e8f6ec; color: #15803D; }
+  .st-removed, .st-inactive { background: #f4f4f4; color: #888; }
+  .st-sold { background: #fff4dd; color: #9a6b00; }
+  .st-duplicate { background: #eef4ff; color: #3c5fa8; }
+  .st-pending { background: #fdf0e3; color: #b06a00; }
+  .st-date { display: block; font-size: 9.5px; color: #bbb; margin-top: 2px; }
+
+  .c-act a { color: #999; text-decoration: none; font-size: 11.5px; margin-left: 7px; }
+  .c-act a:hover { color: #111; }
+
+  .foot-note { color: #888; font-size: 12px; margin-top: 12px; max-width: 780px; line-height: 1.55; }
+</style>

@@ -12,6 +12,7 @@ import { desc, eq, and, or, gte, lte, sql, like, isNotNull, inArray } from 'driz
 import type { Listing } from '@/db/schema';
 import type { SQL } from 'drizzle-orm';
 import { firstPhotoOrNull } from '@/lib/photos';
+import { dealerKey } from '@/lib/dealer-name';
 
 const PAGE_SIZE = 50;
 const page = Math.max(1, Number(Astro.url.searchParams.get('page') ?? '1'));
@@ -605,7 +606,9 @@ const grouped: { label: string; status: string; items: Listing[]; total: number 
                 <a href={`/admin/listings/${l.id}`} class="lcard-title">{l.title}</a>
                 <p class="lcard-sub">{l.year} · {l.model.replaceAll('-', ' ').toUpperCase()} · {l.province}{l.mileage > 0 ? ` · ${l.mileage.toLocaleString('en-ZA')} km` : ''}</p>
                 <p class="lcard-seller">
-                  {l.seller_name} · <a href={`mailto:${l.seller_email}`}>{l.seller_email}</a> · <a href={`tel:${l.seller_phone}`}>{l.seller_phone}</a>
+                  {(l.source ?? 'own') !== 'own' && l.seller_name
+                    ? <a href={`/admin/dealers/${dealerKey(l.seller_name)}`} title="All this dealership's Cruisers">{l.seller_name}</a>
+                    : l.seller_name} · <a href={`mailto:${l.seller_email}`}>{l.seller_email}</a> · <a href={`tel:${l.seller_phone}`}>{l.seller_phone}</a>
                 </p>
                 <p class="lcard-date">{formatDate(l.created_at)}</p>
                 {l.ig_posted_at && (

@@ -4,6 +4,7 @@ export const prerender = false;
 import AdminLayout from '@/layouts/AdminLayout.astro';
 import { db } from '@/db/index';
 import { sql } from 'drizzle-orm';
+import { dealerKey, dealerGroupKey } from '@/lib/dealer-name';
 
 const cookie = Astro.cookies.get('lcsa_admin');
 const adminSecret = import.meta.env.ADMIN_SECRET ?? process.env.ADMIN_SECRET ?? '';
@@ -21,15 +22,11 @@ if (!cookie || cookie.value !== adminSecret) {
 // decide autonomously — but same-branch duplicates across portals are merged,
 // and a sort mode clusters group siblings for the group-level read.
 
-// Merge cross-source duplicates of the SAME physical dealership (singular/
-// plural, punctuation, abbreviations) — NOT group merging.
-const norm = (s: string) => s.toLowerCase()
-  .replace(/[^a-z0-9 ]/g, ' ')
-  .replace(/\binvestment\b/g, 'investments')
-  .replace(/\bvanderbijlpark\b/g, 'vdbp')
-  .replace(/\s+/g, ' ').trim();
-// Group heuristic for ADJACENCY (sort clustering + chip), never identity.
-const groupKey = (s: string) => norm(s).split(' ').slice(0, 2).join(' ');
+// Dealership identity (cross-source duplicate merging) and the group heuristic
+// used only for adjacency live in lib/dealer-name — the per-dealership stock
+// page keys off the same function, so a row's link always resolves.
+const norm = dealerKey;
+const groupKey = dealerGroupKey;
 
 // ── Stock per branch (active, cross-source: same branch on two portals lists
 // the same cars — take max, don't sum) ──
@@ -224,7 +221,7 @@ const weekLabel = (ms: number) => new Intl.DateTimeFormat('en-ZA', { day: 'numer
   </div>
 
   <div class="toolbar">
-    <input type="search" id="dealer-search" placeholder="Find a dealership…" autocomplete="off" />
+    <input type="search" id="dealer-search" placeholder="Find any dealership by name…" autocomplete="off" />
     <div class="sorts" role="group" aria-label="Sort rows">
       <button class="sort-btn active" data-sort="h4">Demand</button>
       <button class="sort-btn" data-sort="sold4">Sell-through</button>
@@ -234,8 +231,14 @@ const weekLabel = (ms: number) => new Intl.DateTimeFormat('en-ZA', { day: 'numer
     <span class="result-count" id="result-count"></span>
   </div>
 
+  <!-- Every dealership in the DB, not just the ranked rows (search hits all of them) -->
+  <div class="lookup" id="lookup" hidden>
+    <div class="lookup-head"><span id="lookup-label">Searching…</span></div>
+    <div id="lookup-rows"></div>
+  </div>
+
   <!-- Ranked branches -->
-  <div class="rank">
+  <div class="rank" id="rank">
     <div class="rank-head">
       <span class="rh-name"></span>
       <span class="rh-bar">Handoffs · 4w</span>
@@ -246,8 +249,9 @@ const weekLabel = (ms: number) => new Intl.DateTimeFormat('en-ZA', { day: 'numer
     </div>
     <div id="rank-rows">
       {rows.map(b => { const t = trend(b); return (
-        <div
+        <a
           class="rrow"
+          href={`/admin/dealers/${b.key}`}
           data-name={b.name.toLowerCase()}
           data-h4={b.h4}
           data-sold4={b.sold4}
@@ -267,7 +271,7 @@ const weekLabel = (ms: number) => new Intl.DateTimeFormat('en-ZA', { day: 'numer
           <span class="rr-col">{b.sold4 || '—'}</span>
           <span class="rr-col">{b.stock || '—'}</span>
           <span class="rr-col">{b.domMedian !== null ? `${b.domMedian}d` : '—'}</span>
-        </div>
+        </a>
       );})}
     </div>
   </div>
@@ -292,10 +296,60 @@ const weekLabel = (ms: number) => new Intl.DateTimeFormat('en-ZA', { day: 'numer
   };
   updateCount();
 
+  // Typing filters the ranked rows AND asks the server for every other
+  // dealership that matches — the radar only renders the top branches, but the
+  // DB holds a couple of thousand, and "show me this dealer's stock" must work
+  // for any of them.
+  const rankEl = document.getElementById('rank')!;
+  const lookupEl = document.getElementById('lookup')!;
+  const lookupRows = document.getElementById('lookup-rows')!;
+  const lookupLabel = document.getElementById('lookup-label')!;
+  let seq = 0;
+
+  const esc = (t: string) => t.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
+
+  async function lookup(q: string) {
+    const mine = ++seq;
+    lookupEl.hidden = false;
+    lookupLabel.textContent = 'Searching all dealerships…';
+    lookupRows.innerHTML = '';
+    try {
+      const res = await fetch(`/api/admin/dealer-search?q=${encodeURIComponent(q)}`);
+      const data = await res.json();
+      if (mine !== seq) return;                       // a newer keystroke won
+      const hits: any[] = data.dealers ?? [];
+      lookupLabel.textContent = hits.length
+        ? `${data.total > hits.length ? `${hits.length} of ${data.total}` : hits.length} dealership${hits.length === 1 ? '' : 's'} matching "${q}"`
+        : `No dealership matches "${q}"`;
+      lookupRows.innerHTML = hits.map(d => `
+        <a class="lk-row" href="/admin/dealers/${d.key}">
+          <span class="lk-name">${esc(d.name)}</span>
+          <span class="lk-src">${d.sources.map((x: string) => esc(x)).join(' + ')}</span>
+          <span class="lk-n">${d.stock || '—'}<span class="lk-dim"> in stock</span></span>
+          <span class="lk-n">${d.total}<span class="lk-dim"> all time</span></span>
+        </a>`).join('');
+    } catch {
+      if (mine !== seq) return;
+      lookupLabel.textContent = 'Dealership search failed — try again.';
+    }
+  }
+
+  let timer: ReturnType<typeof setTimeout> | undefined;
   search?.addEventListener('input', () => {
     const q = search.value.trim().toLowerCase();
     for (const r of allRows) r.hidden = q !== '' && !(r.dataset.name ?? '').includes(q);
     updateCount();
+
+    clearTimeout(timer);
+    if (q.length < 2) {
+      seq++;                                          // cancel any in-flight render
+      lookupEl.hidden = true;
+      rankEl.hidden = false;
+      return;
+    }
+    rankEl.hidden = true;                             // the ranked list can't answer "any dealer"
+    if (countEl) countEl.textContent = '';            // "0 of 80" means nothing here
+    timer = setTimeout(() => lookup(q), 200);
   });
 
   document.querySelectorAll<HTMLButtonElement>('.sort-btn').forEach(btn => {
@@ -362,7 +416,13 @@ const weekLabel = (ms: number) => new Intl.DateTimeFormat('en-ZA', { day: 'numer
   .rh-bar, .rr-bar { flex: 1; padding: 7px 10px; }
   .rh-col, .rr-col { flex: 0 0 72px; text-align: right; padding: 7px 10px; white-space: nowrap; }
 
-  .rrow { border-bottom: 1px solid #f4f4f4; font-size: 12.5px; }
+  .lookup { border: 1px solid #e5e5e5; border-radius: 8px; background: white; margin-bottom: 12px; overflow: hidden; }
+  .lookup-head { padding: 7px 12px; background: #fafafa; border-bottom: 1px solid #e5e5e5; font-size: 11px; color: #888; }
+
+  .rrow { border-bottom: 1px solid #f4f4f4; font-size: 12.5px; text-decoration: none; color: inherit; }
+  /* Without this the search filter sets [hidden] but display:flex keeps the
+     row on screen — the box looked like it did nothing. */
+  .rrow[hidden] { display: none; }
   .rrow:last-child { border-bottom: none; }
   .rrow:hover { background: #fffdf7; }
   .rr-name { display: flex; align-items: center; gap: 6px; }
@@ -381,4 +441,16 @@ const weekLabel = (ms: number) => new Intl.DateTimeFormat('en-ZA', { day: 'numer
   .tr-new { color: #F5A623; font-weight: 700; }
 
   .foot-note { color: #888; font-size: 12px; margin-top: 12px; max-width: 780px; line-height: 1.55; }
+</style>
+
+<!-- Lookup rows are injected by the search script, so Astro's scoped styles
+     (which key off a build-time attribute) can't reach them. -->
+<style is:global>
+  #lookup-rows .lk-row { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-bottom: 1px solid #f4f4f4; font-size: 12.5px; text-decoration: none; color: inherit; }
+  #lookup-rows .lk-row:last-child { border-bottom: none; }
+  #lookup-rows .lk-row:hover { background: #fffdf7; }
+  #lookup-rows .lk-name { flex: 1; font-weight: 600; color: #222; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #lookup-rows .lk-src { font-size: 10px; color: #999; white-space: nowrap; }
+  #lookup-rows .lk-n { flex: 0 0 96px; text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; color: #444; white-space: nowrap; }
+  #lookup-rows .lk-dim { font-weight: 400; color: #aaa; font-size: 10.5px; }
 </style>

@@ -10,6 +10,7 @@ import { getDemand, getDaysOnMarket, getModelMedianDom } from '@/lib/listing-sta
 import { db } from '@/db/index';
 import { listings, dealerOffers, listingDocs } from '@/db/schema';
 import { eq, desc } from 'drizzle-orm';
+import { dealerKey } from '@/lib/dealer-name';
 
 const id = Number(Astro.params.id);
 if (isNaN(id)) return Astro.redirect('/admin');
@@ -541,7 +542,14 @@ const rand0 = (n: number) => 'R' + n.toLocaleString('en-ZA');
         <div class="card">
           <h2 class="card-heading">Seller</h2>
           <div class="field">
-            <label>Name</label>
+            <label>
+              Name
+              {!isOwn && listing.seller_name && (
+                <a class="label-link" href={`/admin/dealers/${dealerKey(listing.seller_name)}`}>
+                  see their other stock →
+                </a>
+              )}
+            </label>
             <input type="text" name="seller_name" value={listing.seller_name} />
           </div>
           <div class="field-row">
@@ -709,6 +717,8 @@ const rand0 = (n: number) => 'R' + n.toLocaleString('en-ZA');
 </AdminLayout>
 
 <style>
+  .label-link { float: right; font-weight: 500; font-size: 11px; color: #B8860B; text-decoration: none; text-transform: none; letter-spacing: 0; }
+  .label-link:hover { text-decoration: underline; }
   .edit-header {
     display: flex; align-items: center; justify-content: space-between;
     margin-bottom: 1.5rem; flex-wrap: wrap; gap: 0.75rem;
