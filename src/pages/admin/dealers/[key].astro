@@ -242,10 +242,14 @@ const STATUS_LABEL: Record<string, string> = {
       <button class="sort-btn" data-sort="mileage">Mileage</button>
       <button class="sort-btn" data-sort="days">Days listed</button>
     </div>
+    <div class="segs" role="group" aria-label="View">
+      <button class="view-btn" data-view="list" title="Compact list">☰ List</button>
+      <button class="view-btn active" data-view="grid" title="Big photos">▦ Grid</button>
+    </div>
     <span class="result-count" id="v-count"></span>
   </div>
 
-  <div class="tbl">
+  <div class="tbl grid" id="tbl">
     <div class="tbl-head">
       <span class="c-car">Vehicle</span>
       <span class="c-col">Year</span>
@@ -282,13 +286,17 @@ const STATUS_LABEL: Record<string, string> = {
               </span>
             </span>
           </span>
-          <span class="c-col">{v.year}</span>
-          <span class="c-col">{v.mileage > 0 ? `${Math.round(v.mileage / 1000)}k` : '—'}</span>
-          <span class="c-col c-price">{v.price > 0 ? fmtR(v.price) : '—'}</span>
-          <span class="c-col">{daysOn(v)}d</span>
-          <span class="c-col">
-            <span class={`st st-${v.status}`}>{STATUS_LABEL[v.status] ?? v.status}</span>
-            {v.status !== 'active' && v.off_market_at && <span class="st-date">{dateFmt(v.off_market_at)}</span>}
+          <!-- display:contents in list mode, so the table layout is unchanged;
+               in grid mode this wrapper becomes the card's meta line. -->
+          <span class="c-data">
+            <span class="c-col c-year">{v.year}</span>
+            <span class="c-col c-km">{v.mileage > 0 ? `${Math.round(v.mileage / 1000)}k` : '—'}</span>
+            <span class="c-col c-price">{v.price > 0 ? fmtR(v.price) : '—'}</span>
+            <span class="c-col c-days">{daysOn(v)}d</span>
+            <span class="c-col c-status">
+              <span class={`st st-${v.status}`}>{STATUS_LABEL[v.status] ?? v.status}</span>
+              {v.status !== 'active' && v.off_market_at && <span class="st-date">{dateFmt(v.off_market_at)}</span>}
+            </span>
           </span>
           <span class="c-act">
             {v.slug && <a href={`/listings/${v.slug}/`} target="_blank" title="Public page">View</a>}
@@ -353,6 +361,25 @@ const STATUS_LABEL: Record<string, string> = {
     });
   });
 
+  // Grid (big photos) vs list (compact numbers). Remembered per browser, so the
+  // choice sticks as you move between dealerships.
+  const tbl = document.getElementById('tbl')!;
+  const setView = (v: string) => {
+    tbl.classList.toggle('grid', v === 'grid');
+    document.querySelectorAll<HTMLButtonElement>('.view-btn')
+      .forEach(b => b.classList.toggle('active', b.dataset.view === v));
+  };
+  let saved: string | null = null;
+  try { saved = localStorage.getItem('lcsa-dealer-view'); } catch { /* private mode */ }
+  if (saved) setView(saved);
+  document.querySelectorAll<HTMLButtonElement>('.view-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const v = btn.dataset.view!;
+      setView(v);
+      try { localStorage.setItem('lcsa-dealer-view', v); } catch { /* private mode */ }
+    });
+  });
+
   document.querySelectorAll<HTMLButtonElement>('.sort-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
@@ -414,13 +441,16 @@ const STATUS_LABEL: Record<string, string> = {
   .c-act { flex: 0 0 74px; text-align: right; padding: 7px 10px; white-space: nowrap; }
   .tbl-head .c-car { display: block; }
 
+  /* List mode: the wrapper vanishes so its children stay table columns. */
+  .c-data { display: contents; }
+
   .vrow { border-bottom: 1px solid #f4f4f4; font-size: 12.5px; color: #555; }
   /* display:flex above wins over the browser's [hidden] rule — the filter
      scripts set .hidden, so say it explicitly or nothing ever hides. */
   .vrow[hidden] { display: none; }
   .vrow:last-child { border-bottom: none; }
   .vrow:hover { background: #fffdf7; }
-  .v-thumb { width: 46px; height: 34px; object-fit: cover; border-radius: 5px; flex-shrink: 0; background: #f2f2f2; }
+  .v-thumb { width: 64px; height: 48px; object-fit: cover; border-radius: 5px; flex-shrink: 0; background: #f2f2f2; }
   .v-thumb-empty { display: flex; align-items: center; justify-content: center; font-size: 15px; }
   .v-text { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
   .v-title { font-weight: 600; color: #222; text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -438,6 +468,48 @@ const STATUS_LABEL: Record<string, string> = {
 
   .c-act a { color: #999; text-decoration: none; font-size: 11.5px; margin-left: 7px; }
   .c-act a:hover { color: #111; }
+
+
+  /* ── Grid mode ──────────────────────────────────────────────────────────
+     Same rows, laid out as photo cards — for judging stock by eye rather
+     than reading numbers. Every hide rule needs the .grid prefix too, or the
+     card selectors out-specify it and filtered rows come back. */
+  .tbl.grid { overflow-x: visible; border: none; background: none; }
+  .tbl.grid .tbl-head { display: none; }
+  .tbl.grid #v-rows {
+    display: grid; gap: 14px;
+    grid-template-columns: repeat(auto-fill, minmax(232px, 1fr));
+  }
+  .tbl.grid .vrow {
+    flex-direction: column; align-items: stretch; min-width: 0;
+    border: 1px solid #e5e5e5; border-radius: 8px; overflow: hidden; background: white;
+  }
+  .tbl.grid .vrow:hover { background: white; border-color: #d8d8d8; box-shadow: 0 2px 10px rgba(0,0,0,0.06); }
+  .tbl.grid .vrow[hidden] { display: none; }
+
+  /* Let the title block absorb the slack so a two-line title doesn't push one
+     card's price/status line out of step with its neighbours. */
+  .tbl.grid .c-car { flex: 1; flex-direction: column; align-items: stretch; gap: 0; padding: 0; }
+  .tbl.grid .v-text { flex: 1; }
+  .tbl.grid .v-thumb { width: 100%; height: 158px; border-radius: 0; }
+  .tbl.grid .v-thumb-empty { font-size: 30px; }
+  .tbl.grid .v-text { padding: 9px 11px 4px; }
+  .tbl.grid .tag { white-space: nowrap; }
+  .tbl.grid .v-title { white-space: normal; overflow: visible; line-height: 1.35; }
+  .tbl.grid .v-sub { white-space: normal; margin-top: 2px; }
+
+  .tbl.grid .c-data { display: flex; flex-wrap: wrap; align-items: baseline; gap: 3px 9px; padding: 0 11px 8px; }
+  .tbl.grid .c-col { flex: 0 0 auto; text-align: left; padding: 0; }
+  .tbl.grid .c-price { font-size: 15px; order: -1; flex-basis: 100%; }
+  .tbl.grid .c-km::after { content: ' km'; color: #aaa; }
+  .tbl.grid .c-days::after { content: ' listed'; color: #aaa; }
+  .tbl.grid .c-status { margin-left: auto; }
+  .tbl.grid .st-date { display: inline; margin-left: 4px; }
+  .tbl.grid .c-act { flex: 0 0 auto; text-align: left; padding: 0 11px 10px; border-top: 1px solid #f4f4f4; padding-top: 8px; }
+  .tbl.grid .c-act a:first-child { margin-left: 0; }
+
+  .view-btn { padding: 5px 11px; border: 1px solid #ddd; background: white; border-radius: 6px; font-size: 12px; color: #444; cursor: pointer; }
+  .view-btn.active { background: #111; color: white; border-color: #111; }
 
   .foot-note { color: #888; font-size: 12px; margin-top: 12px; max-width: 780px; line-height: 1.55; }
 </style>
