@@ -3,6 +3,7 @@ import { db } from '@/db/index';
 import { siteConfig } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import type { Listing } from '@/db/schema';
+import { fitPhotoForIg, fitPhotosForIg } from './ig-image-fit';
 
 const IG_API           = 'https://graph.instagram.com/v21.0';
 const IG_AUTH_URL      = 'https://www.instagram.com/oauth/authorize';
@@ -448,7 +449,11 @@ export async function buildArticleCaptionWithAIHashtags(article: ArticleForPost)
 // ─── Generic single-image publish (articles) ──────────────────────────────────
 
 export async function publishImageToInstagram(creds: IgCredentials, imageUrl: string, caption: string): Promise<string> {
-  const containerId = await createSingleContainer(creds.userId, creds.accessToken, imageUrl, caption);
+  // Crop to an Instagram-legal aspect ratio if needed (wide hero images sit
+  // right on the 1.91:1 line) — otherwise IG rejects the whole post.
+  const fitted = await fitPhotoForIg(imageUrl);
+  if (!fitted) throw new Error("This image's shape isn't allowed on Instagram (must be between 4:5 and 1.91:1) and the crop couldn't be saved. Try a different featured image.");
+  const containerId = await createSingleContainer(creds.userId, creds.accessToken, fitted, caption);
   await waitForContainer(containerId, creds.accessToken);
   return publishMedia(creds.userId, creds.accessToken, containerId);
 }
@@ -481,7 +486,10 @@ export async function postListingToInstagram(listing: Listing, creds: IgCredenti
     throw new Error(`No IG-publishable photos: all ${photos.length} are AutoTrader hotlinks (IG rejects them) — run the AT image rehost, then retry`);
   }
 
-  const imageUrls = safe.slice(0, 10); // IG carousel max 10
+  // Instagram rejects anything outside 4:5 → 1.91:1 (and fails the ENTIRE post
+  // with "The aspect ratio is not supported"), so crop the offenders first.
+  const imageUrls = await fitPhotosForIg(safe.slice(0, 10)); // IG carousel max 10
+  if (!imageUrls.length) throw new Error('None of this listing\'s photos could be made Instagram-safe (aspect ratio) — try again in a minute.');
   const caption   = customCaption ?? buildCaption(listing);
 
   if (imageUrls.length === 1) {
