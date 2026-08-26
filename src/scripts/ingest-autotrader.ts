@@ -150,13 +150,35 @@ async function ingest() {
     siteUrl: SITE_URL, token: TOKEN, aborted, capHit: discoverStats.capHit,
   });
 
+  // capHit here means "a model's crawl came up short" — i.e. we did NOT see the
+  // whole catalogue. Partial data is still worth keeping (it's fresh, and the
+  // reconciliation guard above already refuses to reap off a short crawl), but
+  // the RUN must not read as healthy.
+  const coverageIncomplete = Boolean(discoverStats.capHit);
+
   console.log(`[autotrader] done — created: ${created}, updated: ${updated}, skipped: ${skipped}, removed: ${removed}${aborted ? ' (ABORTED — partial, prod unreachable)' : ''}`);
   await reportRun('autotrader', {
     found: refs.length, created, updated, skipped, removed,
-    ok: !aborted,
-    note: aborted ? 'upload aborted — prod unreachable mid-run' : undefined,
+    ok: !aborted && !coverageIncomplete,
+    note: aborted ? 'upload aborted — prod unreachable mid-run'
+        : coverageIncomplete ? `partial crawl — only ${refs.length} of the catalogue was reachable (blocked or rate-limited mid-crawl)`
+        : undefined,
     sourceTotal: discoverStats.sourceTotal, capHit: discoverStats.capHit,
   });
+
+  // The zero-guard above only catches a crawl that returned NOTHING. A crawl
+  // that dies after page 1 returns a small non-zero number and used to exit 0 —
+  // green in Actions, green in /admin/scrapers. That's how 2026-08-26's run
+  // reported success on 32 of ~7,000 listings. Fail loudly instead.
+  if (coverageIncomplete) {
+    await sendAlert(
+      `${ALERT_TAG} AutoTrader ingest: PARTIAL crawl (${refs.length} refs)`,
+      `AutoTrader discovery came up short — only ${refs.length} listings were reachable.\n\n`
+      + `Data captured was still saved and the off-market sweep was skipped, so nothing was wrongly delisted. `
+      + `Usual cause: rate-limited (503) mid-crawl, or the residential proxy tunnel failed and the fallback ran into AutoTrader's per-IP limit.`,
+    );
+    process.exit(1);
+  }
 }
 
 ingest().catch(async (err) => {

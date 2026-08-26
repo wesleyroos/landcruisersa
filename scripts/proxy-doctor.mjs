@@ -20,7 +20,11 @@ import net from 'node:net';
 import dns from 'node:dns/promises';
 import { fetch as ufetch, ProxyAgent } from 'undici';
 
-const HOST = process.env.PROXY_HOST ?? '';
+// PROXY_DOCTOR_HOST pins a specific gateway POP (an IP is fine — the proxy leg
+// is plain HTTP CONNECT, no TLS to the gateway, so there's no certificate to
+// match). Point it at a POP known to work from elsewhere to test whether the
+// DNS geo-routing is what's picking a broken one.
+const HOST = process.env.PROXY_DOCTOR_HOST || process.env.PROXY_HOST || '';
 const PORT = Number(process.env.PROXY_PORT ?? 823);
 const USER = process.env.PROXY_USER ?? '';
 const PASS = process.env.PROXY_PASS ?? '';

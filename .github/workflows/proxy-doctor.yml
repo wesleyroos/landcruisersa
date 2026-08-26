@@ -13,6 +13,10 @@ on:
         description: 'Host to probe through the proxy'
         required: false
         default: 'www.autotrader.co.za'
+      gateway:
+        description: 'Override the proxy gateway (IP or hostname) to test a specific POP'
+        required: false
+        default: ''
 
 jobs:
   doctor:
@@ -36,3 +40,4 @@ jobs:
           PROXY_USER: ${{ secrets.PROXY_USER }}
           PROXY_PASS: ${{ secrets.PROXY_PASS }}
           PROXY_DOCTOR_TARGET: ${{ inputs.target }}
+          PROXY_DOCTOR_HOST: ${{ inputs.gateway }}
