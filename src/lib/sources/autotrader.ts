@@ -1,4 +1,4 @@
-import { politeFetch } from './http.ts';
+import { politeFetch, errDetail } from './http.ts';
 import { normalizeModel, normalizeProvince } from './normalize.ts';
 import { collectExtraSegments } from './registry.ts';
 import type { DiscoveredRef, DiscoverStats, NormalizedListing, LivenessResult, SourceAdapter } from './types.ts';
@@ -263,7 +263,7 @@ export const AutoTraderAdapter: SourceAdapter = {
             if (pr.ok) { html = await pr.text(); break; }
             console.warn(`[autotrader] ${slug} page ${page} → HTTP ${pr.status} (attempt ${attempt + 1})`);
           } catch (e) {
-            console.warn(`[autotrader] ${slug} page ${page} fetch failed (attempt ${attempt + 1}): ${e}`);
+            console.warn(`[autotrader] ${slug} page ${page} fetch failed (attempt ${attempt + 1}): ${errDetail(e)}`);
           }
           if (attempt < 2) await new Promise(done => setTimeout(done, 5000 * (attempt + 1)));
         }

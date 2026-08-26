@@ -18,6 +18,23 @@ export class RateLimitError extends Error {
 
 import { proxyFetch } from './proxy.ts';
 
+// undici reports every connection-level failure as a bare "TypeError: fetch
+// failed" and buries the actual reason in err.cause. When the residential proxy
+// is the failing hop, that cause IS the diagnosis — a dead gateway, refused
+// auth, and an exhausted traffic allowance all print identically without it.
+// (2026-08-21→26: six dead AutoTrader runs logged ~1,000 bare "fetch failed"
+// lines and not one said what broke.) Walk the cause chain instead.
+export function errDetail(e: unknown): string {
+  const parts: string[] = [];
+  let cur = e as { name?: string; message?: string; code?: string; cause?: unknown } | undefined;
+  for (let depth = 0; cur && depth < 4; depth++) {
+    const code = cur.code ? ` [${cur.code}]` : '';
+    parts.push(`${cur.name ?? 'Error'}: ${cur.message ?? String(cur)}${code}`);
+    cur = cur.cause as typeof cur;
+  }
+  return parts.join(' ← ') || String(e);
+}
+
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
 export async function politeFetch(

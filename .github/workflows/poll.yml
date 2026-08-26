@@ -9,7 +9,11 @@ jobs:
   poll:
     name: Check Liveness
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # 60, not 30: the LC pass alone now takes the full 30 min (648 pollable
+    # listings x ~2.8s of WBC get-car verification) and the Jimny pass runs
+    # after it, so every run since at least 2026-08-20 was CANCELLED mid-poll —
+    # the tail of the queue never got checked and the workflow showed red.
+    timeout-minutes: 60
 
     steps:
       - uses: actions/checkout@v4

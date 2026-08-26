@@ -24,16 +24,32 @@ function lcSlugs(): string[] {
 async function fetchSitemapUrls(): Promise<string[]> {
   const urls: string[] = [];
   for (let i = 1; i <= SITEMAP_FILE_CAP; i++) {
-    const res = await fetch(`${BASE}/wp-sitemap-posts-vehicle-${i}.xml`, {
-      headers: { 'User-Agent': 'Mozilla/5.0' },
-      signal: AbortSignal.timeout(10_000),
-    });
-    if (!res.ok) break;
-    const xml = await res.text();
+    let xml: string;
+    try {
+      const res = await fetch(`${BASE}/wp-sitemap-posts-vehicle-${i}.xml`, {
+        headers: { 'User-Agent': 'Mozilla/5.0' },
+        signal: AbortSignal.timeout(10_000),
+      });
+      // ⚠️ Do NOT gate on res.ok. Since ~2026-08-20 WeBuyBakkies serves its
+      // sitemap files with HTTP **404** while the body is a perfectly valid
+      // <urlset> full of vehicles. `if (!res.ok) break` therefore threw away
+      // good stock and zeroed discovery for 33 consecutive runs while the
+      // source was fine. Trust the BODY instead: past the last real file the
+      // site returns its HTML 404 page, which carries no vehicle <loc>s — so
+      // "this file yielded no vehicles" is the stop condition.
+      xml = await res.text();
+    } catch (e) {
+      console.warn(`[wbb] sitemap file ${i} unreadable: ${e instanceof Error ? e.message : String(e)}`);
+      break;
+    }
+
+    const before = urls.length;
     for (const m of xml.matchAll(/<loc>(https:\/\/webuybakkies\.co\.za\/vehicles\/[^<]+)<\/loc>/g)) {
       urls.push(m[1].trim());
     }
-    // Last allowed file still resolved — a file 11 would go unread.
+    if (urls.length === before) break;   // no vehicles in this file → past the last one
+
+    // Last allowed file still had stock — a file 11 would go unread.
     if (i === SITEMAP_FILE_CAP) {
       discoverStats.capHit = true;
       console.warn(`[wbb] read all ${SITEMAP_FILE_CAP} allowed sitemap files — any further files are not crawled`);

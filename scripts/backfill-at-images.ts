@@ -15,6 +15,7 @@
 
 import { reportRun } from '../src/lib/sources/report.ts';
 import { proxyFetch } from '../src/lib/sources/proxy.ts';
+import { errDetail } from '../src/lib/sources/http.ts';
 import { isSourceScheduled } from '../src/lib/sources/extra-config.ts';
 
 const SITE_URL   = process.env.SITE_URL   ?? 'https://landcruisersa.fly.dev';
@@ -126,7 +127,7 @@ async function run() {
         aborted = true; abortNote = 'rate-limited (429/503) — aborted';
         break;
       }
-      process.stdout.write(`fetch error: ${String(err).slice(0, 60)}\n`);
+      process.stdout.write(`fetch error: ${errDetail(err).slice(0, 160)}\n`);
       failed++;
       await delay(DELAY_MS);
       continue;
