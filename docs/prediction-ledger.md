@@ -229,6 +229,14 @@ date, compare to baseline, mark HIT / MISS / PARTIAL, and write the lesson.
 - **Most-watched (manage the feature on these, raw counts, vs the clean 2026-06-17 conversion baseline):** net-new verified emails/wk · saves/wk · alert click-backs/wk · downstream finance_calc / valuation / enquiry events attributable to alert click-backs.
 - **Result (2026-07-30, graded 3d late): PARTIAL.** List-building leg **HIT** — 17 external signups (bar ≥5), 10 verified = 59% (bar ≥40%, gate ≥10 met), 65 saves = 58 favourites + 7 saved searches (bar ≥8), 14 alerts fired (≥10 gate met). Opt-in 9/17 = 53% (just under the 60% secondary bar). **Re-engagement leg MISS** — **0 alert click-backs** (`visit_events utm_source='alert'`) despite 14 alerts firing (bar was ≥1). So the feature works as an owned-list + save engine, but the alert emails — the actual point (manufacture return visits) — pulled nobody back yet.
 - **Lesson:** the account-gate did NOT kill the saves loop (65 saves, hypothesis refuted — good). The failure moved downstream to the alert→return-visit step. Prime suspects per pre-registration: deliverability (Gmail Promotions/spam — check SPF/DKIM/DMARC + inbox placement) or alerts not compelling enough. **Next:** verify deliverability before re-arming; re-review alert click-backs ~2026-08-27 once more alerts have fired.
+- **Re-review result (2026-08-26): HIT.** The re-engagement leg reversed on its
+  own: **56 lifetime alert click-backs** (0 on 30-Jul → 26 on 18-Aug → 56 now),
+  40 alert-sourced visitors in the last 30d (Plausible). No deliverability work
+  was ever done — the July zero was alert *volume*, exactly as the pre-registered
+  caveat allowed, not a broken email leg. Loop status at grading: 59 external
+  signups · 45 verified (76%) · 40 opted-in · 176 favourites · 28 saved
+  searches · 17 alerts fired. P7 overall upgrades from PARTIAL to **HIT** —
+  both legs (owned list + manufactured return visits) now work.
 
 ---
 
@@ -902,5 +910,15 @@ date, compare to baseline, mark HIT / MISS / PARTIAL, and write the lesson.
   about three hours BEFORE the toggle. So the 0% take-up is a denominator of
   zero, not a rejection. At the baseline rate (13–14 own for-sale listings/30d)
   expect the first read around mid-September.
+- **Reading (2026-08-26): first sample — 4 eligible submissions, 1 tick, 0 paid.**
+  Own for-sale listings since switch-on: 19-Aug (id 24902), 20-Aug ×2, 25-Aug.
+  Listing 24902 has `social_boost='requested'` with `social_boost_paid_at NULL`
+  a week later — the seller ticked the R99 offer and never completed Paystack.
+  Directionally: tick rate 1/4 = 25% (above the 15% bar), payment completion
+  0/1 (the pre-registered "checkout is leaking" scenario). n=4 — directional
+  only, no re-pricing. **Action before reading this as abandonment: check the
+  GD Paystack dashboard for a ~19-Aug R99 charge** — if the seller paid and the
+  reconcile sweep missed it, we owe a post; if not, send an "unfinished boost"
+  nudge (we have their details on the listing).
 - **Result:** _pending 2026-09-26_
 - **Lesson:** _tbd_
