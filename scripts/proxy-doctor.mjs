@@ -114,3 +114,22 @@ try {
 } catch (e) {
   console.log(`4. DIRECT   FAILED — ${causeChain(e)}`);
 }
+
+// ── 5. The library's own selection path (what the scrapers actually do) ───────
+// Raw probes above answer "is this gateway usable"; this answers "does our code
+// FIND a usable one from here", which is the question that matters.
+if (!process.env.PROXY_DOCTOR_HOST) {
+  const { primeGateway, proxyFetch, proxyFellBack } = await import('../src/lib/sources/proxy.ts');
+  const picked = await primeGateway();
+  console.log(`5. LIBRARY  picked gateway ${picked}${picked === HOST ? ' (hostname — no candidate probed clean)' : ''}`);
+  for (let i = 1; i <= 3; i++) {
+    const t = Date.now();
+    try {
+      const res = await proxyFetch(TARGET_URL, { headers: { 'User-Agent': UA, Accept: 'text/html' } });
+      const body = await res.text();
+      console.log(`5.${i} HTTP ${res.status} — ${body.length} bytes in ${Date.now() - t}ms  (fell back to direct: ${proxyFellBack()})`);
+    } catch (e) {
+      console.log(`5.${i} FAILED in ${Date.now() - t}ms\n     ${causeChain(e)}`);
+    }
+  }
+}

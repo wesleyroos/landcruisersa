@@ -33,7 +33,7 @@ jobs:
       - run: npm ci
 
       - name: Probe
-        run: node scripts/proxy-doctor.mjs
+        run: node --experimental-strip-types scripts/proxy-doctor.mjs
         env:
           PROXY_HOST: ${{ secrets.PROXY_HOST }}
           PROXY_PORT: ${{ secrets.PROXY_PORT }}

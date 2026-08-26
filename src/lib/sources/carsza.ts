@@ -1,7 +1,7 @@
 import { chromium } from 'playwright-core';
 import type { Browser, Page, LaunchOptions } from 'playwright-core';
 import { normalizeModel, normalizeProvince } from './normalize.ts';
-import { playwrightProxy } from './proxy.ts';
+import { playwrightProxy, primeGateway } from './proxy.ts';
 import { collectExtraSegments } from './registry.ts';
 import type { DiscoveredRef, DiscoverStats, NormalizedListing, LivenessResult, SourceAdapter } from './types.ts';
 
@@ -145,6 +145,10 @@ async function launchSession(): Promise<{ browser: Browser; page: Page }> {
   const ATTEMPTS = 4;
   const sessBase = process.env.SCRAPE_SEGMENT === 'jimny' ? 'jimny-carsza' : 'carsza';
   let lastErr: unknown;
+
+  // Pick a working gateway POP before the first launch — the geo-routed default
+  // can be one that accepts the tunnel and then stalls every navigation.
+  await primeGateway();
 
   for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
     const launchOptions: LaunchOptions = {
