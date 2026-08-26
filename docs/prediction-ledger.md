@@ -1052,3 +1052,32 @@ date, compare to baseline, mark HIT / MISS / PARTIAL, and write the lesson.
   not a third title.
 - **Result:** _pending 2026-09-23_
 - **Lesson:** _tbd_
+
+## P27 — /listings/ head-term retitle ("land cruiser for sale")
+
+- **Opened:** 2026-08-26 · **⏳ SHIPS 2026-09-02 — PRE-AUTHORISED.** Wesley
+  approved this on 26-Aug and does not want to be asked again: the first LCSA
+  session on or after **2026-09-02** must make this change, push it, and fill
+  in the ship date here. Shipping was deliberately held a week so the FJ
+  consolidation (P23, deployed 26-Aug) and this bet don't land in the same
+  GSC window.
+- **Review on:** 4 weeks after ship (~2026-09-30).
+- **Surface:** `/listings/` (src/pages/listings/index.astro ~line 88).
+- **The change (exactly this, nothing else in the same deploy):**
+  - title: "Land Cruiser Listings — Buy & Sell in South Africa"
+    → **"Land Cruisers For Sale in South Africa — Live Listings & Prices"**
+  - meta description: lead with "for sale" phrasing to match.
+- **Thesis:** the head term "land cruiser for sale" (4,625 impr/28d, pos 6.0,
+  2.1% CTR) never sees its own words in our title — the page says "Listings —
+  Buy & Sell". Exact-match packaging is the same lever that gave the verticals
+  15–17% CTR.
+- **Baseline (28d to 23-Aug):** /listings/ 565 clicks / 17,145 impr / 3.3% /
+  pos 7.4 · "land cruiser for sale" 96c / 4,625i / 2.1% / pos 6.0.
+- **Predictions (review ~30-Sep):**
+  1. *(PRIMARY)* "land cruiser for sale" CTR ≥ **3.5%** (from 2.1%) at
+     comparable position.
+  2. /listings/ page CTR ≥ **4.2%** (from 3.3%).
+  3. *(guard)* /listings/ total clicks do NOT fall below 500/28d — if they do,
+     revert the title and grade MISS honestly.
+- **Result:** _pending — ship first_
+- **Lesson:** _tbd_
