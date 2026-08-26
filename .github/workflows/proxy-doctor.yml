@@ -1,0 +1,38 @@
+name: Proxy Doctor
+
+# Manual only. Runs scripts/proxy-doctor.mjs on a GitHub runner to answer, in
+# ~30 seconds, whether the residential proxy is usable FROM CI — the environment
+# where AutoTrader keeps failing while the identical code works from the Mac.
+# Prints the proxy's raw CONNECT reply, which is the detail undici buries inside
+# a bare "TypeError: fetch failed".
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Host to probe through the proxy'
+        required: false
+        default: 'www.autotrader.co.za'
+
+jobs:
+  doctor:
+    name: Probe the residential proxy
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+
+      - name: Probe
+        run: node scripts/proxy-doctor.mjs
+        env:
+          PROXY_HOST: ${{ secrets.PROXY_HOST }}
+          PROXY_PORT: ${{ secrets.PROXY_PORT }}
+          PROXY_USER: ${{ secrets.PROXY_USER }}
+          PROXY_PASS: ${{ secrets.PROXY_PASS }}
+          PROXY_DOCTOR_TARGET: ${{ inputs.target }}
