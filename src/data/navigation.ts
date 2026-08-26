@@ -5,6 +5,7 @@ export const NAV_LINKS = [
     { label: 'Classic Cruisers', href: '/classics/' },
     { label: 'FJ Cruisers', href: '/fj-cruiser/' },
   ]},
+  { label: 'Builds', href: '/builds/' },
   { label: 'Vehicle Valuation', href: '/valuation/' },
   { label: 'Market Data', href: '/market/' },
   { label: 'Useful Info', href: '/useful-info/' },

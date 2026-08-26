@@ -1,0 +1,63 @@
+---
+export const prerender = false;
+
+import Base from '@/layouts/Base.astro';
+import { db } from '@/db/index';
+import { communityBuilds } from '@/db/schema';
+import { eq, desc } from 'drizzle-orm';
+
+// Public wall of featured community Cruiser builds — the growth engine's home
+// on the site (ported from Jimny SA). Each repost lands here; the gallery is a
+// citable, rankable asset ("Land Cruiser builds South Africa") that grows with
+// every feature.
+const builds = db.select({
+  slug: communityBuilds.slug, handle: communityBuilds.credit_handle,
+  image: communityBuilds.image_url, hook: communityBuilds.hook,
+  featured: communityBuilds.featured, posted_at: communityBuilds.posted_at,
+}).from(communityBuilds)
+  .where(eq(communityBuilds.status, 'posted'))
+  .orderBy(desc(communityBuilds.featured), desc(communityBuilds.posted_at))
+  .all();
+---
+
+<Base
+  title="Land Cruiser Builds — Community Rigs from South Africa"
+  description="A wall of the best Toyota Land Cruiser builds in South Africa — kitted 79s, Troopies, wagons and full overland rigs from the community. Featured on Land Cruiser SA."
+>
+  <section class="bg-[#111111] pt-10 pb-10">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6">
+      <p class="text-[#F5A623] font-heading font-bold uppercase tracking-widest text-xs mb-2">The community</p>
+      <h1 class="font-heading font-bold uppercase text-white text-4xl md:text-5xl leading-none">Cruiser Builds</h1>
+      <p class="text-white/60 text-sm mt-3 max-w-xl">The best Land Cruiser rigs in South Africa — kitted 79s, Troopies, wagons and full overland builds from the community. Spotted a great one? Tag <a href="https://instagram.com/landcruisersa" class="text-[#F5A623] hover:underline">@landcruisersa</a> to be featured.</p>
+    </div>
+  </section>
+  <div class="h-1 bg-[#F5A623]"></div>
+
+  <section class="max-w-7xl mx-auto px-4 sm:px-6 py-10">
+    {builds.length === 0 ? (
+      <div class="text-center py-24">
+        <p class="text-[#6B7280] text-lg mb-2">No featured builds yet — check back soon.</p>
+        <a href="/listings/" class="text-[#D4881A] font-semibold hover:underline">Browse Land Cruisers for sale →</a>
+      </div>
+    ) : (
+      <div class="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
+        {builds.map(b => (
+          <a href={`/builds/${b.slug}/`} class="group relative block aspect-square overflow-hidden rounded-xl bg-[#F5F3EE]">
+            <img src={b.image} alt={`Land Cruiser build by @${b.handle}`} loading="lazy" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+            <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-3">
+              <p class="text-white text-xs font-semibold truncate">@{b.handle}</p>
+            </div>
+          </a>
+        ))}
+      </div>
+    )}
+
+    <div class="mt-12 text-center">
+      <p class="text-[#6B7280] text-sm mb-4">Want a Cruiser of your own to build?</p>
+      <div class="flex flex-wrap items-center justify-center gap-3">
+        <a href="/listings/" class="inline-flex items-center gap-2 bg-[#F5A623] text-[#111111] font-heading font-bold uppercase tracking-wide px-6 py-3 rounded-xl hover:bg-[#D4881A] transition-colors text-sm">Browse Land Cruisers for sale</a>
+        <a href="/valuation/" class="inline-flex items-center gap-2 border border-[#DDD9D3] text-[#111111] font-heading font-bold uppercase tracking-wide px-6 py-3 rounded-xl hover:border-[#F5A623] transition-colors text-sm">Value your Cruiser</a>
+      </div>
+    </div>
+  </section>
+</Base>

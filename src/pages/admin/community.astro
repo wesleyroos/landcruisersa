@@ -1,0 +1,354 @@
+---
+export const prerender = false;
+
+import AdminLayout from '@/layouts/AdminLayout.astro';
+import { db } from '@/db/index';
+import { communityBuilds } from '@/db/schema';
+import { desc, ne, sql } from 'drizzle-orm';
+import { fetchLiveMetrics } from '@/lib/ig-insights';
+
+// Auth is enforced by middleware (guards all /admin pages).
+
+// Queue: best builds first (their like count is our "how good is this" signal),
+// then newest. NULL likes sink to the bottom.
+const queue = db.select().from(communityBuilds)
+  .where(ne(communityBuilds.status, 'posted'))
+  .orderBy(sql`COALESCE(source_likes, -1) DESC`, desc(communityBuilds.created_at))
+  .all();
+
+// Posted builds + their live IG performance (latest ig_post_metrics snapshot,
+// joined on the media id we stored when posting).
+const posted = db.all<{
+  slug: string; handle: string; image: string; posted_at: number | null; media_id: string | null;
+  views: number | null; reach: number | null; likes: number | null; comments: number | null; follows: number | null;
+}>(sql`
+  SELECT b.slug, b.credit_handle handle, b.image_url image, b.posted_at, b.media_id,
+         m.views, m.reach, m.likes, m.comments, m.follows
+  FROM community_builds b
+  LEFT JOIN (
+    SELECT p.media_id, p.views, p.reach, p.likes, p.comments, p.follows
+    FROM ig_post_metrics p
+    INNER JOIN (SELECT media_id, MAX(fetched_at) mf FROM ig_post_metrics GROUP BY media_id) l
+      ON l.media_id = p.media_id AND l.mf = p.fetched_at
+  ) m ON m.media_id = b.media_id
+  WHERE b.status = 'posted'
+  ORDER BY b.posted_at DESC
+  LIMIT 40
+`);
+
+// Live Graph-API metrics for the posted builds (like the listings "Posted" view)
+// so a build posted minutes ago shows numbers now — not only after the 07:00
+// sync. Live value wins; the synced snapshot is the fallback. Non-fatal.
+const liveMetrics = await fetchLiveMetrics(posted.map(p => p.media_id).filter((x): x is string => !!x));
+const pick = (live: number | null | undefined, synced: number | null) => (live ?? null) !== null ? live! : synced;
+const postedRows = posted.map(p => {
+  const lv = p.media_id ? liveMetrics.get(p.media_id) : undefined;
+  return {
+    ...p,
+    views: pick(lv?.views, p.views), reach: pick(lv?.reach, p.reach),
+    likes: pick(lv?.likes, p.likes), comments: pick(lv?.comments, p.comments),
+    follows: pick(lv?.follows, p.follows),
+  };
+});
+
+// The market strips a build page can show (must match update.ts MARKET_MODELS +
+// site-stats MODEL_LABELS).
+const MARKET_OPTIONS: [string, string][] = [
+  ['', 'All Cruisers'],
+  ['79-series', '79 Series market'], ['76-series', '76 Series market'],
+  ['78-series', '78 Troopy market'], ['70-series', '70 Series market'],
+  ['80-series', '80 Series market'], ['100-series', '100 Series market'],
+  ['200-series', '200 Series market'], ['300-series', '300 Series market'],
+  ['prado-90', 'Prado 90 market'], ['prado-120', 'Prado 120 market'],
+  ['prado-150', 'Prado 150 market'], ['prado-250', 'Prado 250 market'],
+  ['fj-cruiser', 'FJ Cruiser market'], ['40-series', '40 Series market'],
+  ['60-series', '60 Series market'], ['land-cruiser-fj', 'LC FJ (2026) market'],
+];
+
+const fmt = (sec: number | null) => sec ? new Intl.DateTimeFormat('en-ZA', { day: 'numeric', month: 'short' }).format(new Date(sec * 1000)) : '';
+const num = (n: number | null | undefined) => (n ?? null) === null ? '—' : Number(n).toLocaleString('en-ZA');
+const imgCount = (b: typeof queue[number]) => { try { const a = JSON.parse(b.images ?? 'null'); return Array.isArray(a) ? a.length : 1; } catch { return 1; } };
+---
+
+<AdminLayout title="Community" activePage="community">
+  <div class="head">
+    <div>
+      <h1>Community reposts</h1>
+      <p class="sub">Capture great community builds with the browser extension (the amber button on instagram.com), tweak, and post. Each becomes a <a href="/builds/" target="_blank">/builds</a> page that tags the owner and links back to the marketplace.</p>
+    </div>
+  </div>
+
+  <!-- QUEUE (the main thing) -->
+  <section class="card">
+    <div class="card-head">
+      <h2>Queue <span class="count">{queue.length}</span></h2>
+      <details class="addmanual">
+        <summary>＋ add manually</summary>
+        <p class="hint">If the extension can't grab a post: screenshot the photo (⌘⇧4), drop it here, add the handle.</p>
+        <div id="drop" class="drop">
+          <input id="up-file" type="file" accept="image/*" hidden />
+          <p class="drop-text">Drop a screenshot, or <button type="button" id="up-pick" class="linkbtn">choose a file</button></p>
+          <img id="up-preview" class="up-preview" hidden />
+        </div>
+        <div class="cap-form">
+          <input id="up-handle" type="text" placeholder="@owner handle" />
+          <input id="up-source" type="url" placeholder="post URL (optional)" />
+          <button id="up-btn" class="btn btn-primary" disabled>Capture</button>
+          <span id="up-status" class="cap-status"></span>
+        </div>
+      </details>
+    </div>
+
+    {queue.length === 0 ? <p class="empty">Nothing queued. Grab a build with the extension on instagram.com.</p> : (
+      <div class="q-grid">
+        {queue.map(b => (
+          <div class="qcard" data-id={b.id} data-slug={b.slug} data-images={b.images ?? JSON.stringify([b.image_url])}>
+            <div class="qthumb-wrap">
+              <img class="qthumb" src={b.image_url} alt={`@${b.credit_handle}`} loading="lazy" />
+              {imgCount(b) > 1 && <span class="qcarousel">🖼 {imgCount(b)}</span>}
+            </div>
+            <div class="qbody">
+              <div class="qrow">
+                <span class="qhandle">@<input class="q-credit" value={b.credit_handle} /></span>
+                {b.source_url && <a href={b.source_url} target="_blank" rel="noopener" class="qlink">source ↗</a>}
+                <span class={`qstatus qstatus-${b.status}`}>{b.status}</span>
+              </div>
+              {imgCount(b) > 1 && (
+                <div class="qslides">
+                  <span class="qslides-lbl">Slides — click to set cover, ✕ to drop:</span>
+                  <div class="qslides-strip"></div>
+                </div>
+              )}
+              {(b.location || b.build_spec || b.source_likes) && (
+                <p class="qmeta">
+                  {b.location && <span>📍 {b.location}</span>}
+                  {b.build_spec && <span>🔧 {b.build_spec}</span>}
+                  {b.source_likes ? <span>♥ {b.source_likes.toLocaleString()}</span> : null}
+                </p>
+              )}
+              <label class="qmarket">Price panel shows:
+                <select class="q-market">
+                  {MARKET_OPTIONS.map(([value, label]) => (
+                    <option value={value} selected={(b.market_model ?? '') === value}>{label}</option>
+                  ))}
+                </select>
+              </label>
+              <textarea class="q-caption" rows="7">{b.caption}</textarea>
+              <div class="qactions">
+                <button class="btn btn-primary q-post">Post to IG</button>
+                <button class="btn q-save">Save</button>
+                <button class="btn q-story" title="Copy the story link (utm-tagged) for the IG story link sticker">📋 Story</button>
+                <button class="btn q-del">Delete</button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    )}
+  </section>
+
+  <!-- POSTED — compact, with live performance -->
+  {posted.length > 0 && (
+    <section class="card">
+      <h2>Posted <span class="count">{posted.length}</span></h2>
+      <p class="hint">Live IG performance (pulled fresh on load, archived daily). Reach + follows are what tell you which builds grow the account.</p>
+      <div class="plist">
+        {postedRows.map(p => (
+          <div class="pitem">
+            <a class="pbuild-link" href={`/builds/${p.slug}/`} target="_blank">
+              <img src={p.image} alt={`@${p.handle}`} loading="lazy" />
+              <span class="phandle">@{p.handle}</span>
+            </a>
+            <div class="pstats">
+              <span class="pstat"><b>{num(p.reach)}</b> reach</span>
+              <span class="pstat"><b>{num(p.views)}</b> views</span>
+              <span class="pstat"><b>{num(p.likes)}</b> likes</span>
+              <span class="pstat"><b>{num(p.comments)}</b> comments</span>
+              <span class={`pstat ${p.follows ? 'pfollow' : ''}`}><b>{num(p.follows)}</b> follows</span>
+            </div>
+            <div class="pright">
+              <span class="pdate">{fmt(p.posted_at)}</span>
+              <button class="pstory" data-slug={p.slug} title="Copy the story link (utm-tagged)">📋</button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  )}
+</AdminLayout>
+
+<style>
+  .head { margin-bottom: 16px; }
+  h1 { font-size: 22px; font-weight: 700; }
+  .sub { color: #666; font-size: 13px; margin-top: 4px; max-width: 700px; line-height: 1.5; }
+  .sub a { color: #D4881A; }
+  .card { border: 1px solid #e5e5e5; border-radius: 10px; padding: 16px; margin-bottom: 16px; background: #fff; }
+  .card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 10px; flex-wrap: wrap; }
+  .card h2 { font-size: 14px; font-weight: 700; }
+  .count { font-size: 12px; color: #9CA3AF; font-weight: 600; }
+  .hint { font-size: 12px; color: #6B7280; margin-bottom: 10px; line-height: 1.5; }
+  .empty { font-size: 13px; color: #9CA3AF; }
+
+  .addmanual > summary { font-size: 12px; color: #D4881A; cursor: pointer; font-weight: 600; list-style: none; }
+  .addmanual[open] { border: 1px solid #eee; border-radius: 8px; padding: 12px; margin-top: 6px; flex-basis: 100%; }
+  .drop { border: 2px dashed #DDD9D3; border-radius: 10px; padding: 14px; text-align: center; margin: 8px 0; transition: border-color .15s, background .15s; }
+  .drop.over { border-color: #F5A623; background: #FDF6EA; }
+  .drop-text { font-size: 13px; color: #6B7280; }
+  .linkbtn { border: none; background: none; color: #D4881A; font-weight: 700; cursor: pointer; font-size: 13px; padding: 0; text-decoration: underline; }
+  .up-preview { max-height: 150px; border-radius: 8px; margin-top: 8px; display: inline-block; }
+  .cap-form { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .cap-form input { flex: 1 1 160px; padding: 8px 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px; }
+  .cap-status { font-size: 12px; } .cap-status.err { color: #B91C1C; }
+
+  .q-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; }
+  .qcard { border: 1px solid #eee; border-radius: 10px; overflow: hidden; display: flex; flex-direction: column; }
+  .qthumb-wrap { position: relative; }
+  .qthumb { width: 100%; aspect-ratio: 1; object-fit: cover; background: #F5F3EE; display: block; }
+  .qcarousel { position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,.6); color: #fff; font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 6px; }
+  .qbody { padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+  .qrow { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+  .qhandle { font-weight: 700; }
+  .qmeta { display: flex; flex-wrap: wrap; gap: 8px; font-size: 11px; color: #6B7280; }
+  .qslides-lbl { font-size: 10px; color: #9CA3AF; display: block; margin-bottom: 4px; }
+  .qslides-strip { display: flex; gap: 6px; flex-wrap: wrap; }
+  .qslide { position: relative; width: 48px; height: 48px; border-radius: 6px; overflow: hidden; cursor: pointer; border: 2px solid transparent; }
+  .qslide.cover { border-color: #F5A623; }
+  .qslide img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .qslide-cover-tag { position: absolute; bottom: 0; left: 0; right: 0; background: #F5A623; color: #111; font-size: 8px; font-weight: 700; text-align: center; }
+  .qslide-x { position: absolute; top: 1px; right: 1px; width: 15px; height: 15px; line-height: 14px; text-align: center; background: rgba(0,0,0,.65); color: #fff; border-radius: 50%; font-size: 10px; }
+  .qslide-x:hover { background: #B91C1C; }
+  .qmarket { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #6B7280; }
+  .q-market { font-size: 11px; padding: 3px 6px; border: 1px solid #ddd; border-radius: 6px; background: #fff; }
+  .q-credit { border: none; border-bottom: 1px dashed #ccc; font: inherit; font-weight: 700; width: 130px; padding: 1px 2px; }
+  .q-credit:focus { outline: none; border-bottom-color: #F5A623; }
+  .qlink { color: #D4881A; margin-left: auto; }
+  .qstatus { font-size: 10px; text-transform: uppercase; letter-spacing: .04em; padding: 2px 6px; border-radius: 4px; background: #F3F4F6; color: #6B7280; }
+  .qstatus-queued { background: #FDF6EA; color: #9a6b12; }
+  .q-caption { width: 100%; border: 1px solid #e5e5e5; border-radius: 8px; padding: 8px; font-size: 12px; font-family: inherit; resize: vertical; line-height: 1.5; }
+  .qactions { display: flex; gap: 6px; }
+  .btn { font-size: 12px; font-weight: 700; padding: 7px 12px; border-radius: 8px; border: 1px solid #ddd; background: #fff; cursor: pointer; }
+  .btn:disabled { opacity: .5; cursor: default; }
+  .btn-primary { background: #F5A623; border-color: #F5A623; color: #111; }
+  .btn-primary:hover:not(:disabled) { background: #D4881A; }
+  .q-del:hover { background: #FEF2F2; border-color: #FECACA; color: #B91C1C; }
+
+  .plist { display: flex; flex-direction: column; gap: 8px; }
+  .pitem { display: flex; align-items: center; gap: 14px; padding: 8px; border: 1px solid #eee; border-radius: 10px; flex-wrap: wrap; }
+  .pbuild-link { display: flex; align-items: center; gap: 8px; text-decoration: none; color: #111; font-weight: 600; overflow: hidden; flex: 0 0 auto; min-width: 150px; }
+  .pbuild-link img { width: 40px; height: 40px; object-fit: cover; border-radius: 6px; flex-shrink: 0; }
+  .phandle { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pstats { display: flex; flex-wrap: wrap; gap: 6px; flex: 1 1 auto; }
+  .pstat { font-size: 11px; color: #6B7280; background: #F5F5F4; border-radius: 6px; padding: 3px 8px; white-space: nowrap; }
+  .pstat b { color: #111; font-weight: 700; font-variant-numeric: tabular-nums; margin-right: 2px; }
+  .pstat.pfollow { background: #F0FDF4; }
+  .pstat.pfollow b { color: #15803D; }
+  .pright { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+  .pstory { border: none; background: none; cursor: pointer; font-size: 14px; padding: 2px 4px; flex-shrink: 0; opacity: .5; }
+  .pstory:hover { opacity: 1; }
+  .pdate { text-align: right; color: #9CA3AF; font-size: 11px; }
+</style>
+
+<script>
+  // ── Screenshot / file upload (fallback capture) ──
+  const drop = document.getElementById('drop');
+  const fileInput = document.getElementById('up-file') as HTMLInputElement | null;
+  const preview = document.getElementById('up-preview') as HTMLImageElement | null;
+  const upBtn = document.getElementById('up-btn') as HTMLButtonElement | null;
+  const upStatus = document.getElementById('up-status');
+  let picked: File | null = null;
+  const setFile = (f: File | null) => {
+    picked = f && f.type.startsWith('image/') ? f : null;
+    if (upBtn) upBtn.disabled = !picked;
+    if (preview) { if (picked) { preview.src = URL.createObjectURL(picked); preview.hidden = false; } else preview.hidden = true; }
+  };
+  document.getElementById('up-pick')?.addEventListener('click', () => fileInput?.click());
+  fileInput?.addEventListener('change', () => setFile(fileInput.files?.[0] ?? null));
+  if (drop) {
+    ['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
+    ['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
+    drop.addEventListener('drop', (e: any) => { const f = e.dataTransfer?.files?.[0]; if (f) setFile(f); });
+  }
+  window.addEventListener('paste', (e: any) => { const f = [...(e.clipboardData?.files || [])][0]; if (f) setFile(f); });
+  upBtn?.addEventListener('click', async () => {
+    if (!picked || !upStatus) return;
+    const handle = (document.getElementById('up-handle') as HTMLInputElement).value.trim();
+    const source = (document.getElementById('up-source') as HTMLInputElement).value.trim();
+    if (!handle) { upStatus.textContent = 'handle required'; upStatus.className = 'cap-status err'; return; }
+    upBtn.disabled = true; upStatus.textContent = 'Uploading…'; upStatus.className = 'cap-status';
+    const fd = new FormData();
+    fd.append('image', picked); fd.append('handle', handle); if (source) fd.append('source', source);
+    const d = await fetch('/api/admin/community/upload', { method: 'POST', body: fd }).then(r => r.json()).catch(() => ({ error: 'network' }));
+    if (d.ok) location.reload(); else { upStatus.textContent = d.error || 'failed'; upStatus.className = 'cap-status err'; upBtn.disabled = false; }
+  });
+
+  // ── Posted: copy story link ──
+  document.querySelectorAll<HTMLButtonElement>('.pstory').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const link = `https://landcruisersa.co.za/builds/${btn.dataset.slug}/?utm_source=ig-story`;
+      try { await navigator.clipboard.writeText(link); btn.textContent = '✓'; }
+      catch { window.prompt('Story link:', link); }
+      setTimeout(() => { btn.textContent = '📋'; }, 1400);
+    });
+  });
+
+  // ── Queue cards ──
+  const j = (url: string, body: any) => fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(r => r.json());
+  document.querySelectorAll<HTMLElement>('.qcard').forEach(card => {
+    const id = Number(card.dataset.id);
+    const slug = card.dataset.slug || '';
+    const caption = card.querySelector('.q-caption') as HTMLTextAreaElement;
+    const credit = card.querySelector('.q-credit') as HTMLInputElement;
+    const market = card.querySelector('.q-market') as HTMLSelectElement;
+    const cover = card.querySelector('.qthumb') as HTMLImageElement;
+    const badge = card.querySelector('.qcarousel');
+
+    // ── Carousel slide editor: drop junk slides, click one to make it the cover ──
+    let images: string[] = [];
+    try { images = JSON.parse(card.dataset.images || '[]'); } catch {}
+    const strip = card.querySelector('.qslides-strip') as HTMLElement | null;
+    let imagesDirty = false;
+    function renderStrip() {
+      if (!strip) return;
+      if (cover) cover.src = images[0];
+      if (badge) badge.textContent = `🖼 ${images.length}`;
+      strip.innerHTML = images.map((src, i) =>
+        `<div class="qslide${i === 0 ? ' cover' : ''}" data-i="${i}"><img src="${src}" />${i === 0 ? '<span class="qslide-cover-tag">cover</span>' : ''}${images.length > 1 ? '<span class="qslide-x" data-x="' + i + '">✕</span>' : ''}</div>`
+      ).join('');
+    }
+    if (strip) {
+      renderStrip();
+      strip.addEventListener('click', (e) => {
+        const t = e.target as HTMLElement;
+        const x = t.closest('.qslide-x') as HTMLElement | null;
+        if (x) { const i = Number(x.dataset.x); if (images.length > 1) { images.splice(i, 1); imagesDirty = true; renderStrip(); } return; }
+        const s = t.closest('.qslide') as HTMLElement | null;
+        if (s) { const i = Number(s.dataset.i); if (i > 0) { const [m] = images.splice(i, 1); images.unshift(m); imagesDirty = true; renderStrip(); } }
+      });
+    }
+    const patch = () => { const p: any = { id, caption: caption.value, credit_handle: credit.value, market_model: market?.value || null }; if (imagesDirty) p.images = images; return p; };
+
+    card.querySelector('.q-save')?.addEventListener('click', async (e) => {
+      const btn = e.target as HTMLButtonElement; btn.disabled = true; btn.textContent = 'Saving…';
+      await j('/api/admin/community/update', patch()); imagesDirty = false;
+      btn.textContent = 'Saved'; setTimeout(() => { btn.textContent = 'Save'; btn.disabled = false; }, 1200);
+    });
+    card.querySelector('.q-story')?.addEventListener('click', async (e) => {
+      const btn = e.target as HTMLButtonElement;
+      const link = `https://landcruisersa.co.za/builds/${slug}/?utm_source=ig-story`;
+      try { await navigator.clipboard.writeText(link); btn.textContent = '✓ Link copied — sticker text: SEE THE PRICE 👀'; }
+      catch { window.prompt('Story link (sticker text: SEE THE PRICE 👀):', link); btn.textContent = '📋 Story'; }
+      setTimeout(() => { btn.textContent = '📋 Story'; }, 2600);
+    });
+    card.querySelector('.q-del')?.addEventListener('click', async () => {
+      if (!confirm('Delete this draft?')) return;
+      await j('/api/admin/community/update', { id, action: 'delete' }); card.remove();
+    });
+    card.querySelector('.q-post')?.addEventListener('click', async (e) => {
+      const btn = e.target as HTMLButtonElement; btn.disabled = true; btn.textContent = 'Posting…';
+      await j('/api/admin/community/update', patch()); imagesDirty = false;
+      const d = await j('/api/admin/community/post', { id }).catch(() => ({ error: 'network' }));
+      if (d.ok) { btn.textContent = '✓ Posted'; setTimeout(() => location.reload(), 1200); }
+      else { alert('Post failed: ' + (d.error || '?')); btn.textContent = 'Post to IG'; btn.disabled = false; }
+    });
+  });
+</script>

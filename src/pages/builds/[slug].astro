@@ -1,0 +1,116 @@
+---
+export const prerender = false;
+
+import Base from '@/layouts/Base.astro';
+import { db } from '@/db/index';
+import { communityBuilds } from '@/db/schema';
+import { eq, and, ne, desc } from 'drizzle-orm';
+import { getMarketSnapshot } from '@/lib/site-stats';
+
+const { slug } = Astro.params;
+const build = db.select().from(communityBuilds)
+  .where(and(eq(communityBuilds.slug, String(slug)), eq(communityBuilds.status, 'posted')))
+  .get();
+if (!build) return Astro.redirect('/builds/');
+
+// A few more builds for the "more from the community" strip.
+const more = db.select({ slug: communityBuilds.slug, handle: communityBuilds.credit_handle, image: communityBuilds.image_url })
+  .from(communityBuilds)
+  .where(and(eq(communityBuilds.status, 'posted'), ne(communityBuilds.id, build.id)))
+  .orderBy(desc(communityBuilds.posted_at))
+  .limit(6).all();
+
+const ownerUrl = build.source_url || `https://instagram.com/${build.credit_handle}`;
+let gallery: string[] = [build.image_url];
+if (build.images) { try { const a = JSON.parse(build.images); if (Array.isArray(a) && a.length) gallery = a; } catch { /* cover only */ } }
+
+// The hook that pays off the "SEE THE PRICE 👀" story tap: what a Cruiser like
+// this is going for on the live market right now.
+const market = getMarketSnapshot(build.market_model);
+const rk = (n: number) => n >= 1_000_000 ? `R${(n / 1_000_000).toFixed(n % 1_000_000 === 0 ? 0 : 1)}m` : `R${Math.round(n / 1000)}k`;
+const count = market ? market.count.toLocaleString('en-ZA') : '';
+const browseHref = (market ? market.browseHref : '/listings/') + ((market?.browseHref ?? '/listings/').includes('?') ? '&' : '?') + 'utm_source=builds';
+---
+
+<Base
+  title={`Land Cruiser build by @${build.credit_handle} — Land Cruiser SA`}
+  description={build.hook ? `${build.hook} A featured Toyota Land Cruiser community build in South Africa by @${build.credit_handle}.` : `A featured Toyota Land Cruiser community build by @${build.credit_handle}.`}
+>
+  <section class="max-w-5xl mx-auto px-4 sm:px-6 py-8">
+    <a href="/builds/" class="inline-flex items-center gap-1.5 text-sm text-[#6B7280] hover:text-[#111111] mb-5">← All builds</a>
+
+    <div class="grid md:grid-cols-2 gap-6 md:gap-10 items-start">
+      <div class="space-y-3">
+        {gallery.map((src, i) => (
+          <div class="rounded-2xl overflow-hidden bg-[#F5F3EE]">
+            <img src={src} alt={`Land Cruiser build by @${build.credit_handle}${i ? ` (${i + 1})` : ''}`} width={build.width ?? 1080} height={build.height ?? 1080} loading={i === 0 ? 'eager' : 'lazy'} class="w-full h-auto" />
+          </div>
+        ))}
+      </div>
+
+      <div>
+        <p class="text-[#D4881A] font-heading font-bold uppercase tracking-widest text-xs mb-2">Featured build</p>
+        {build.hook && <h1 class="font-heading font-bold uppercase text-[#111111] text-2xl md:text-3xl leading-tight mb-4">{build.hook}</h1>}
+
+        <a href={ownerUrl} target="_blank" rel="noopener" class="inline-flex items-center gap-2 mb-6 group">
+          <span class="w-9 h-9 rounded-full bg-[#111111] text-white flex items-center justify-center text-sm">📷</span>
+          <span>
+            <span class="block text-sm font-bold text-[#111111] group-hover:text-[#D4881A] transition-colors">@{build.credit_handle}</span>
+            <span class="block text-xs text-[#6B7280]">Photo &amp; build — view on Instagram</span>
+          </span>
+        </a>
+
+        {build.location && <p class="text-sm text-[#6B7280] mb-2">📍 {build.location}</p>}
+        {build.build_spec && (
+          <p class="text-sm text-[#111111] mb-4"><span class="font-bold text-[#6B7280] text-xs uppercase tracking-wide">Build</span><br />🔧 {build.build_spec}</p>
+        )}
+
+        <div class="border-t border-[#DDD9D3] pt-6 mt-2">
+          {market ? (
+            <div class="rounded-2xl bg-[#F5F3EE] border border-[#E7E3DB] p-5 mb-4">
+              <p class="text-[#D4881A] font-heading font-bold uppercase tracking-widest text-xs mb-1">The market right now</p>
+              <p class="text-sm text-[#6B7280] mb-4">What a Cruiser like this is going for — <span class="font-semibold text-[#111111]">{count}</span> {market.label} for sale today.</p>
+              <div class="grid grid-cols-3 gap-2 mb-4 text-center">
+                <div class="bg-white rounded-xl py-3 px-1">
+                  <div class="font-heading font-bold text-[#111111] text-lg leading-none">{rk(market.entry)}</div>
+                  <div class="text-[10px] uppercase tracking-wide text-[#6B7280] mt-1">From</div>
+                </div>
+                <div class="bg-white rounded-xl py-3 px-1">
+                  <div class="font-heading font-bold text-[#111111] text-lg leading-none">{rk(market.median)}</div>
+                  <div class="text-[10px] uppercase tracking-wide text-[#6B7280] mt-1">Typical</div>
+                </div>
+                <div class="bg-white rounded-xl py-3 px-1">
+                  <div class="font-heading font-bold text-[#111111] text-lg leading-none">{rk(market.high)}</div>
+                  <div class="text-[10px] uppercase tracking-wide text-[#6B7280] mt-1">Well-specced</div>
+                </div>
+              </div>
+              <a href={browseHref} class="block w-full text-center bg-[#F5A623] text-[#111111] font-heading font-bold uppercase tracking-wide px-5 py-3 rounded-xl hover:bg-[#D4881A] transition-colors text-sm mb-2">See the {count} for sale →</a>
+              <a href="/valuation/?utm_source=builds" class="block w-full text-center border border-[#DDD9D3] text-[#111111] font-heading font-bold uppercase tracking-wide px-5 py-3 rounded-xl hover:border-[#F5A623] transition-colors text-sm">What's yours worth?</a>
+              <p class="text-[10px] text-[#9CA3AF] mt-3 text-center">Live asking prices from Land Cruiser SA's classifieds{market.matched ? '' : ' (all Cruisers)'} · updated daily</p>
+            </div>
+          ) : (
+            <div class="flex flex-col gap-2.5 mb-4">
+              <p class="text-sm text-[#6B7280] mb-1">Inspired? Whether you're building yours or hunting for the right one to start with —</p>
+              <a href="/listings/?utm_source=builds" class="inline-flex items-center justify-center gap-2 bg-[#F5A623] text-[#111111] font-heading font-bold uppercase tracking-wide px-5 py-3 rounded-xl hover:bg-[#D4881A] transition-colors text-sm">Browse Land Cruisers for sale</a>
+              <a href="/valuation/?utm_source=builds" class="inline-flex items-center justify-center gap-2 border border-[#DDD9D3] text-[#111111] font-heading font-bold uppercase tracking-wide px-5 py-3 rounded-xl hover:border-[#F5A623] transition-colors text-sm">What's your Cruiser worth?</a>
+            </div>
+          )}
+          <a href="/useful-info/" class="inline-flex items-center justify-center gap-2 text-[#6B7280] font-semibold px-1 py-1 hover:text-[#111111] transition-colors text-sm">Build &amp; buying guides →</a>
+        </div>
+      </div>
+    </div>
+
+    {more.length > 0 && (
+      <div class="mt-14">
+        <h2 class="font-heading font-bold uppercase text-[#111111] text-lg mb-4">More from the community</h2>
+        <div class="grid grid-cols-3 md:grid-cols-6 gap-2 sm:gap-3">
+          {more.map(m => (
+            <a href={`/builds/${m.slug}/`} class="group relative block aspect-square overflow-hidden rounded-lg bg-[#F5F3EE]">
+              <img src={m.image} alt={`Land Cruiser build by @${m.handle}`} loading="lazy" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+            </a>
+          ))}
+        </div>
+      </div>
+    )}
+  </section>
+</Base>

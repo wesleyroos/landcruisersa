@@ -30,3 +30,6 @@ local.db
 local.db-shm
 local.db-wal
 /logo.png
+
+# Repost Chrome extension — personal tool with the admin token baked in
+tools/lcsa-repost-extension/
