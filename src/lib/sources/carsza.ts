@@ -136,7 +136,13 @@ async function apiGet(page: Page, qs: string): Promise<{ meta?: { total: number 
 // session (sessid.<base>-<n>) → a different exit IP, making the attempts roughly
 // independent (P(all fail) ≈ 0.1³). 3×120s worst case fits the 75-min job budget.
 async function launchSession(): Promise<{ browser: Browser; page: Page }> {
-  const ATTEMPTS = 3;
+  // 4th attempt is deliberately UNPROXIED. Fresh sticky sessions only help when
+  // the proxy itself works; on 2026-08-26 the gateway POP serving GitHub Actions
+  // let every TLS handshake through the tunnel time out, so all three proxied
+  // attempts died identically (ERR_TIMED_OUT) and cars.co.za went 6 days without
+  // a scrape. Cloudflare may well refuse a datacenter IP — but headed Chrome
+  // sometimes clears it, and an attempt that might work beats a run that can't.
+  const ATTEMPTS = 4;
   const sessBase = process.env.SCRAPE_SEGMENT === 'jimny' ? 'jimny-carsza' : 'carsza';
   let lastErr: unknown;
 
@@ -150,8 +156,12 @@ async function launchSession(): Promise<{ browser: Browser; page: Page }> {
     // sticky session then holds THAT IP's CF clearance for the rest of the run
     // (every API page goes through this browser). No-op on the Mac (PROXY_* unset
     // → direct, the Mac's own residential IP; retries reuse it, still harmless).
-    const proxy = playwrightProxy(`${sessBase}-${attempt}`);
+    const lastDitchDirect = attempt === ATTEMPTS;
+    const proxy = lastDitchDirect ? undefined : playwrightProxy(`${sessBase}-${attempt}`);
     if (proxy) launchOptions.proxy = proxy;
+    else if (lastDitchDirect && playwrightProxy(sessBase)) {
+      console.warn('[carsza] all proxied attempts failed — final attempt goes DIRECT from this machine\'s own IP');
+    }
 
     let browser: Browser | null = null;
     try {

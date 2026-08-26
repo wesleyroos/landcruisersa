@@ -55,6 +55,42 @@ export interface IgSyncResult {
   failed: number;
 }
 
+// Live per-post metrics for an admin view — fetched fresh from the Graph API on
+// page load so a post published minutes ago shows numbers now, not only after
+// the 07:00 sync. Read-only; the daily sync is what preserves history.
+export interface LiveMetric { views: number | null; reach: number | null; likes: number | null; comments: number | null; saves: number | null; shares: number | null; follows: number | null }
+
+export async function fetchLiveMetrics(mediaIds: string[]): Promise<Map<string, LiveMetric>> {
+  const out = new Map<string, LiveMetric>();
+  const ids = [...new Set(mediaIds.filter(Boolean))];
+  if (!ids.length) return out;
+  const creds = await getCredentials();
+  if (!creds) return out;
+
+  let byId = new Map<string, MediaListItem>();
+  try {
+    const media = await fetchMediaList(creds.userId, creds.accessToken);
+    byId = new Map(media.map(m => [m.id, m]));
+  } catch { /* like/comment counts unavailable — insights still fetched below */ }
+
+  await Promise.all(ids.map(async (id) => {
+    try {
+      const ins = await fetchInsights(id, creds.accessToken);
+      const li = byId.get(id);
+      out.set(id, {
+        views: ins.views ?? null,
+        reach: ins.reach ?? null,
+        likes: li?.like_count ?? null,
+        comments: li?.comments_count ?? null,
+        saves: ins.saved ?? null,
+        shares: ins.shares ?? null,
+        follows: ins.follows ?? null,
+      });
+    } catch { /* fresh/unavailable → caller falls back to synced snapshot */ }
+  }));
+  return out;
+}
+
 export async function syncIgInsights(): Promise<IgSyncResult | null> {
   const creds = await getCredentials();
   if (!creds) return null;

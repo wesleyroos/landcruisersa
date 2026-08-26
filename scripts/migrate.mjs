@@ -567,6 +567,48 @@ const addRunCol = (col, def) => {
 addRunCol('source_total', "source_total INTEGER");
 addRunCol('cap_hit',      "cap_hit      INTEGER NOT NULL DEFAULT 0");
 
+// ── Community Build Engine ────────────────────────────────────────────────────
+// Ported from Jimny SA: reposted community builds + their /builds pages, plus
+// the watchlist of IG source accounts. New tables → CREATE TABLE IF NOT EXISTS.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS ig_source_accounts (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    handle       TEXT    NOT NULL UNIQUE,
+    note         TEXT,
+    active       INTEGER NOT NULL DEFAULT 1,
+    last_seen_at INTEGER,
+    created_at   INTEGER NOT NULL
+  )
+`);
+db.exec(`
+  CREATE TABLE IF NOT EXISTS community_builds (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    slug           TEXT    NOT NULL UNIQUE,
+    credit_handle  TEXT    NOT NULL,
+    source_url     TEXT,
+    source_caption TEXT,
+    image_url      TEXT    NOT NULL,
+    images         TEXT,
+    width          INTEGER,
+    height         INTEGER,
+    caption        TEXT,
+    hook           TEXT,
+    location       TEXT,
+    market_model   TEXT,
+    build_spec     TEXT,
+    source_hashtags TEXT,
+    source_likes   INTEGER,
+    status         TEXT    NOT NULL DEFAULT 'draft',
+    scheduled_for  INTEGER,
+    posted_at      INTEGER,
+    media_id       TEXT,
+    featured       INTEGER NOT NULL DEFAULT 0,
+    created_at     INTEGER NOT NULL
+  )
+`);
+db.exec(`CREATE INDEX IF NOT EXISTS community_builds_status ON community_builds (status, scheduled_for)`);
+db.exec(`CREATE INDEX IF NOT EXISTS community_builds_posted ON community_builds (posted_at)`);
+
 // ── IG Hero Engine ────────────────────────────────────────────────────────────
 // Post log, per-post metric snapshots, and the daily suggestion log. New tables
 // → CREATE TABLE IF NOT EXISTS (NOT REQUIRED_COLS — that guards listings only).

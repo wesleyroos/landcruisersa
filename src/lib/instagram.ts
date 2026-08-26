@@ -458,6 +458,22 @@ export async function publishImageToInstagram(creds: IgCredentials, imageUrl: st
   return publishMedia(creds.userId, creds.accessToken, containerId);
 }
 
+// Generic 1-N image publish (community reposts): single image → the single-image
+// path above; more → a carousel. Out-of-ratio photos are cropped/dropped first.
+export async function publishImagesToInstagram(creds: IgCredentials, imageUrls: string[], caption: string): Promise<string> {
+  const urls = await fitPhotosForIg(imageUrls.filter(Boolean).slice(0, 10)); // IG carousel max 10
+  if (urls.length === 0) throw new Error('no publishable images');
+  if (urls.length === 1) return publishImageToInstagram(creds, urls[0], caption);
+  const childIds: string[] = [];
+  for (const url of urls) {
+    const childId = await createChildContainer(creds.userId, creds.accessToken, url);
+    await waitForContainer(childId, creds.accessToken);
+    childIds.push(childId);
+  }
+  const carouselId = await createCarouselContainer(creds.userId, creds.accessToken, childIds, caption);
+  return publishMedia(creds.userId, creds.accessToken, carouselId);
+}
+
 // ─── Main post function ───────────────────────────────────────────────────────
 
 // Filter out photo URLs Instagram's publisher is KNOWN to reject (observed

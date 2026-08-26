@@ -592,3 +592,48 @@ export const listingDocs = sqliteTable('listing_docs', {
   created_at:      integer('created_at', { mode: 'timestamp' }).notNull(),
 });
 export type ListingDoc = typeof listingDocs.$inferSelect;
+
+// ── Community Build Engine ───────────────────────────────────────────────────
+// Ported from Jimny SA (the pathfinder — its bets #7–#9 all HIT, 2026-08): the
+// audience flywheel that reposts great community Cruiser builds (found on IG)
+// with generous credit + a tag, and mirrors each as a /builds/{slug} page that
+// links back to the marketplace. Distinct from the listing engine (commerce) —
+// this is the audience engine.
+
+// Watchlist of IG source accounts worth pulling builds from. The capture
+// front-end resolves their recent posts.
+export const igSourceAccounts = sqliteTable('ig_source_accounts', {
+  id:          integer('id').primaryKey({ autoIncrement: true }),
+  handle:      text('handle').notNull().unique(),   // without the @
+  note:        text('note'),                         // free label ("79 builds")
+  active:      integer('active', { mode: 'boolean' }).notNull().default(true),
+  last_seen_at: integer('last_seen_at', { mode: 'timestamp' }),  // last time we pulled from it
+  created_at:  integer('created_at', { mode: 'timestamp' }).notNull(),
+});
+
+// One captured community build → a queued/posted repost + its /builds page.
+export const communityBuilds = sqliteTable('community_builds', {
+  id:            integer('id').primaryKey({ autoIncrement: true }),
+  slug:          text('slug').notNull().unique(),        // /builds/{slug}
+  credit_handle: text('credit_handle').notNull(),        // the owner we tag + credit (no @)
+  source_url:    text('source_url'),                     // original IG post permalink
+  source_caption: text('source_caption'),                // their original caption (context)
+  image_url:     text('image_url').notNull(),            // cover (first image), rehosted on R2
+  images:        text('images'),                          // JSON array of all R2 image URLs (carousel)
+  width:         integer('width'),
+  height:        integer('height'),
+  caption:       text('caption'),                        // OUR repost caption (editable)
+  hook:          text('hook'),                           // the punchy opener (for the /builds page)
+  location:      text('location'),                        // place tag pulled off the post
+  market_model:  text('market_model'),                    // which listings market to show on /builds: an LC model slug | null (all Cruisers)
+  build_spec:    text('build_spec'),                      // derived from their hashtags: "ARB · OME · BFGoodrich"
+  source_hashtags: text('source_hashtags'),               // csv of their hashtags (raw, for future mining)
+  source_likes:  integer('source_likes'),                 // their like count — a "how good is this build" signal
+  status:        text('status').notNull().default('draft'), // draft | queued | posted | skipped
+  scheduled_for: integer('scheduled_for', { mode: 'timestamp' }), // drip time (queued)
+  posted_at:     integer('posted_at', { mode: 'timestamp' }),
+  media_id:      text('media_id'),                        // IG media id once posted (insights join)
+  featured:      integer('featured', { mode: 'boolean' }).notNull().default(false), // pin on /builds
+  created_at:    integer('created_at', { mode: 'timestamp' }).notNull(),
+});
+export type CommunityBuild = typeof communityBuilds.$inferSelect;
