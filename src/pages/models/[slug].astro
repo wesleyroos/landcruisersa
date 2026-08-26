@@ -48,7 +48,10 @@ const LISTING_SLUG_MAP: Record<string, string> = {
   'land-cruiser-fj': 'fj-cruiser',
 };
 const listingSlug = LISTING_SLUG_MAP[m.slug];
-const listingsUrl = listingSlug ? `/listings/model/${listingSlug}/` : '/listings/';
+// The FJ family's shelf graduated to the /fj-cruiser/ vertical (2026-08-26).
+const listingsUrl = listingSlug === 'fj-cruiser'
+  ? '/fj-cruiser/'
+  : listingSlug ? `/listings/model/${listingSlug}/` : '/listings/';
 
 const canonicalUrl = `${SITE.url}/models/${m.slug}/`;
 

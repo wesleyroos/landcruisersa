@@ -427,8 +427,30 @@ date, compare to baseline, mark HIT / MISS / PARTIAL, and write the lesson.
   (c) **Demote** — Google keeps preferring homepage/market → accept it and stop
       investing in the shelf pages.
   Record the choice + rationale in Result/Lesson below.
-- **Result:** _pending 2026-08-27_
-- **Lesson:** _tbd_
+- **Result (2026-08-26, graded 1 day early with 28d GSC query→page data): PARTIAL.**
+  Prediction 1 (model pages served for ≥3 "[model] for sale" families): **MISS —
+  only 2.** The shelf won just one family (fj-cruiser: "fj cruiser for sale",
+  53 clicks/3,700 impr, pos 7.2–8.6) and /models/80-series/ won a second
+  (80-series family, 104 clicks, pos 6.2); Google still serves the homepage or
+  /listings/ for the 70/79/100/200 families, and /classics/ + /market/ took the
+  40/60 families. Prediction 2 (impressions ≥3× July baseline): **HIT** — the
+  shelves went from near-invisible to thousands of impressions (fj-cruiser
+  alone 3,407/28d).
+- **DECISION (pre-committed at this review): consolidate, starting where the
+  evidence is strongest.** The pattern across P14/P18/P12 is now unambiguous:
+  **top-level verticals win (game-viewers pos 3.5, classics pos 4.8, CTR
+  15–17%) while nested shelves stall (pos 7–8.6, CTR 2–3%)**. So consolidation
+  = *promote a model family to a top-level vertical*, one at a time, biggest
+  impression pool first. Shipped today: **/fj-cruiser/** (family vertical:
+  retro FJ Cruiser + 2026 Land Cruiser FJ, per-generation price strips, filter
+  pills, capsule) with the old shelf 301'd, nav/chips/sitemap rewired → logged
+  as P23. Other families keep the split unchanged until the FJ result reads
+  (don't churn 9 pages on one datapoint). /models/ fact-sheets stay (they serve
+  informational intent and won the 80-family).
+- **Lesson:** a richer *nested* page beats a bare nested page on impressions
+  but not on being *chosen* — Google picks the page whose URL and internal
+  votes say "this is a section of the site", which is what the vertical pattern
+  provides and a /listings/model/ shelf never got.
 
 ## P13 — IG Hero Engine v2 (acceptance rate + follows per post)
 
@@ -916,9 +938,117 @@ date, compare to baseline, mark HIT / MISS / PARTIAL, and write the lesson.
   a week later — the seller ticked the R99 offer and never completed Paystack.
   Directionally: tick rate 1/4 = 25% (above the 15% bar), payment completion
   0/1 (the pre-registered "checkout is leaking" scenario). n=4 — directional
-  only, no re-pricing. **Action before reading this as abandonment: check the
-  GD Paystack dashboard for a ~19-Aug R99 charge** — if the seller paid and the
-  reconcile sweep missed it, we owe a post; if not, send an "unfinished boost"
-  nudge (we have their details on the listing).
+  only, no re-pricing.
+- **Correction (2026-08-26, from Wesley):** the seller **tried to pay and hit a
+  payment issue** — this was a genuine checkout failure, not abandonment or
+  disinterest. Wesley comped the boost ("we'll give it to him for free"); the
+  row was set to `paid` / R0 on prod so the admin queue shows the owed post.
+  For grading: this seller counts as a **tick** for prediction 1 and a
+  **checkout failure** (not a refusal) for prediction 2 — and the first live
+  datapoint says fix the payment path before reading price signal into
+  completion rate.
 - **Result:** _pending 2026-09-26_
+- **Lesson:** _tbd_
+
+## P23 — FJ Cruiser family vertical (consolidation pilot from P12)
+
+- **Opened:** 2026-08-26 (shipped same day)
+- **Review on:** 2026-10-07 (6-week window; GSC lags ~3 days)
+- **Surface:** new top-level `/fj-cruiser/` — both generations (retro FJ Cruiser
+  2011–2023 + new 2026 Land Cruiser FJ) with per-generation price strips, filter
+  pills, citable capsule, guide/market/valuation links. Old shelf
+  `/listings/model/fj-cruiser/` 301s here; nav ("Listings ▾ → FJ Cruisers"),
+  chips on /listings/, /classics/, /game-viewers/, model pages, sitemap and
+  llms.txt all rewired.
+- **Thesis:** P12's read — top-level verticals get *chosen* by Google (P14
+  game-viewers pos 3.5, P18 classics pos 4.8, CTR 15–17%) while nested shelves
+  stall (FJ shelf pos 7.2–8.6, CTR 2.1%) — applied to the biggest un-verticalised
+  impression pool: ~1,940 impr/28d on the two "fj cruiser for sale (south
+  africa)" head terms, plus a second intact pool ("toyota fj cruiser 2026 price
+  south africa", 643 impr) for the new model.
+- **Baseline (28d to 23-Aug, GSC):** "fj cruiser"-term clicks ≈ **75/28d**
+  (shelf 53 + market 9 + classics 5 + models/land-cruiser-fj 3 + listing pages);
+  "fj cruiser for sale" 38c/1,389i pos 7.2 · "fj cruiser for sale south africa"
+  20c/543i pos 5.7–6.1 · shelf page total 72c/3,407i pos 8.6, CTR 2.1%.
+  Stock: 112 retro (median R699,900ish across family: R199,995–R965,900) + 124
+  new LC FJ.
+- **Predictions (review 2026-10-07):**
+  1. *(PRIMARY)* fj-term clicks ≥ **115/28d** (~1.5× baseline), with
+     /fj-cruiser/ the top served page for the family.
+  2. "fj cruiser for sale" moves into the **top 5** average position (from 7.2).
+  3. Page CTR ≥ **6%** on ≥2,500 impressions (verticals precedent: 15–17%;
+     6% is the conservative bar at this volume).
+  4. ≥ 1 query from the *new* Land Cruiser FJ family served by /fj-cruiser/
+     (currently split across /models/land-cruiser-fj/ and /market/).
+  5. *(stretch)* first AI referral landing on /fj-cruiser/.
+- **Caveat:** a 301 mid-flight can dip rankings for 1–3 weeks before
+  consolidating — don't panic-read an early wobble; judge at the review.
+- **Result:** _pending 2026-10-07_
+- **Lesson:** _tbd_
+
+## P24 — LX V8 price harvest (79-price article retarget)
+
+- **Opened:** 2026-08-26
+- **Review on:** 2026-10-07 (6 weeks)
+- **Surface:** `/useful-info/land-cruiser-79-price-south-africa/` — metaTitle →
+  "Land Cruiser 79 LX V8 Double Cab Price in South Africa (2026)", new "LX V8
+  double cab price" H2 with a 13-year live-data price table (128 LX V8 DCs,
+  median R1,199,450, R675,900–R2,399,900), new FAQ, refreshed headline numbers
+  (878 listings, median R969,990, dated Aug 2026).
+- **Thesis:** "toyota land cruiser lx v8 double cab price" (1,571 impr/28d,
+  1.4% CTR) plus the wider v8-price family is currently served by a single
+  2026 *listing page* (6,979 impr) — a ranking that dies when the car sells. A
+  dedicated data-backed section on an article we control captures it durably.
+  The 79-price article currently ranks for approximately nothing (not in the
+  top-40 query→page pairs), so the retitle risks ~zero existing clicks.
+- **Baseline (28d to 23-Aug):** article: ~0 clicks on v8 queries. Listing
+  28446638: 22c/1,571i pos 7.4 on the head term; v8-family clicks to listing
+  pages ≈ 35/28d.
+- **Predictions (review 2026-10-07):**
+  1. *(PRIMARY)* the article becomes a served page for ≥ 2 queries in the
+     "lx v8 / v8 price" family, with ≥ **10 clicks/28d**.
+  2. Combined v8-price-family clicks (article + listings) ≥ **50/28d** (~1.4×).
+  3. *(directional)* article impressions ≥ 1,000/28d (from ~0 on this family).
+- **Result:** _pending 2026-10-07_
+- **Lesson:** _tbd_
+
+## P25 — /market/ page titles: intent match + live median in the SERP
+
+- **Opened:** 2026-08-26
+- **Review on:** 2026-09-23 (4 weeks — title-swap CTR effects show fast)
+- **Surface:** `/market/[model]` — title "…Prices South Africa — Live Market
+  Data" → "**{Model} Price in South Africa ({year}) — Median {R median}**"
+  (live number in the title; SSR so it stays current). Also fixed the
+  "Toyota Toyota …" duplication in the Dataset schema name/description.
+- **Thesis:** diagnosed 13-Aug, unactioned 2 checkups: /market/ pages carry
+  ~0.8% CTR on ~7,000 impr at pos 6–7 vs 4.9% site average — the title
+  advertises a dashboard ("Live Market Data") to searchers asking a price
+  question. A title that answers with the actual number should convert
+  impressions at multiples of that.
+- **Baseline (13-Aug diagnosis):** /market/* aggregate ≈ 0.8% CTR on 7,060
+  impr, pos ~6–7. (Recompute the same aggregate at review.)
+- **Prediction (review 2026-09-23):** /market/* aggregate CTR ≥ **2.0%**
+  (2.5× baseline) on comparable impressions; MISS if < 1.4%.
+- **Result:** _pending 2026-09-23_
+- **Lesson:** _tbd_
+
+## P26 — Tyre guide CTR retry (P1's second attempt)
+
+- **Opened:** 2026-08-26
+- **Review on:** 2026-09-23 (4 weeks)
+- **Surface:** `/useful-info/land-cruiser-tyres-buyers-guide/` — metaTitle →
+  "Land Cruiser Tyre Size Chart — Every Model, 76 to 300 & Prado";
+  metaDescription rewritten to promise the exact size ("The exact tyre size for
+  every Land Cruiser in one chart…"). No other changes (variable kept clean).
+- **Thesis:** the page is the site's single biggest CTR leak — **9,392 impr/28d
+  at 1.0% CTR, pos 7.9** ("land cruiser tyre size" 126i/0.8%/pos 8). P1's first
+  packaging attempt (model-list title) missed; this retry leads with
+  "Tyre Size Chart" — the artefact the searcher wants — instead of a list of
+  model numbers.
+- **Baseline (28d to 23-Aug):** 96 clicks / 9,392 impr / **1.0%** / pos 7.9.
+- **Prediction (review 2026-09-23):** CTR ≥ **2.0%** and clicks ≥ **150/28d**
+  at comparable impressions. MISS below 1.4% — and after two packaging misses
+  the conclusion becomes "it's a position problem, feed it internal links",
+  not a third title.
+- **Result:** _pending 2026-09-23_
 - **Lesson:** _tbd_

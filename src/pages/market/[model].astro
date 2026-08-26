@@ -94,8 +94,8 @@ const era = modelEra(model!);                            // "2016 onward" | null
 const datasetSchema = {
   "@context": "https://schema.org",
   "@type": "Dataset",
-  "name": `Toyota ${fullName} Prices — South Africa`,
-  "description": `Live asking prices for ${count} Toyota ${fullName} vehicles for sale in South Africa. Average ${R(avg)}, median ${R(median)}, range ${R(min)} to ${R(max)}. Updated ${updated.toISOString().slice(0, 10)}.`,
+  "name": `${fullName} Prices — South Africa`,
+  "description": `Live asking prices for ${count} ${fullName} vehicles for sale in South Africa. Average ${R(avg)}, median ${R(median)}, range ${R(min)} to ${R(max)}. Updated ${updated.toISOString().slice(0, 10)}.`,
   "url": `https://landcruisersa.co.za/market/${model}/`,
   "creator": { "@type": "Organization", "name": "Land Cruiser SA", "url": "https://landcruisersa.co.za" },
   "license": "https://creativecommons.org/licenses/by/4.0/",
@@ -105,7 +105,7 @@ const datasetSchema = {
 ---
 
 <Base
-  title={`${fullName} Prices South Africa — Live Market Data`}
+  title={`${fullName} Price in South Africa (${updated.getFullYear()}) — Median ${R(median)}`}
   description={`What does a ${fullName} cost in South Africa? ${count} currently for sale: average ${R(avg)}, median ${R(median)}, range ${R(min)}–${R(max)}. Updated ${updatedStr}.`}
   schema={datasetSchema}
 >

@@ -329,9 +329,12 @@ so threads either progress or get consciously dropped — never drift.
 - **Kill-or-advance:** reply / call booked by **2026-08-27**, else one follow-up
   then park.
 
-## D9 — Marco (broker) → Santam: LC-niche insurance product 🟢 INBOUND
+## D9 — Marco (broker, Studii) → Santam: LC-niche insurance product 🟢 INBOUND
 
 - **Stage:** Lead (inbound 2026-08-17 — asked for the media kit to show Santam)
+- **Note (2026-08-26):** Wesley frames this as an **own-product play** — an
+  LCSA-branded/co-owned insurance offering, not a referral banner — consistent
+  with the audience-first → own-products strategy (see strategy memory).
 - **Value hypothesis:** unclear and potentially the largest on the board — an
   insurance product structured for the Land Cruiser niche, with LCSA as the
   audience/data partner. Could be distribution (referral/affiliate), data

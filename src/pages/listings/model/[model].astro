@@ -5,7 +5,7 @@ import Base from '@/layouts/Base.astro';
 import { SITE } from '@/data/site';
 import { db } from '@/db/index';
 import { listings } from '@/db/schema';
-import { and, eq, desc, or, like } from 'drizzle-orm';
+import { and, eq, desc, like } from 'drizzle-orm';
 import { MODELS } from '@/data/models';
 import { firstThumb, hasUsablePhoto } from '@/lib/photos';
 import { getRecentPriceChanges } from '@/lib/price-changes';
@@ -19,9 +19,9 @@ const MODEL_MAP: Record<string, { label: string; description: string }> = {
   '200-series': { label: '200 Series', description: 'Toyota Land Cruiser 200 Series' },
   '300-series': { label: '300 Series', description: 'Toyota Land Cruiser 300 Series' },
   'prado': { label: 'Prado', description: 'Toyota Land Cruiser Prado' },
-  'fj-cruiser': { label: 'FJ Cruiser', description: 'Toyota FJ Cruiser' },
-  // Hilux/Fortuner are intentionally absent — they're not public (any request
-  // for those slugs falls through to the /listings/ redirect below).
+  // fj-cruiser 301s to the /fj-cruiser/ vertical (below); Hilux/Fortuner are
+  // intentionally absent — they're not public (any request for those slugs
+  // falls through to the /listings/ redirect below).
 };
 
 const { model } = Astro.params;
@@ -31,6 +31,13 @@ const { model } = Astro.params;
 // short-lived URL so nothing splits between two pages.
 if (model === 'classic' || model === '40-series' || model === '55-series' || model === '60-series') {
   return Astro.redirect('/classics/', 301);
+}
+
+// The FJ family graduated to its own vertical at /fj-cruiser/ (P12 review,
+// 2026-08-26): Google already served this shelf for the FJ query family, so the
+// consolidation keeps that equity on one stronger page.
+if (model === 'fj-cruiser') {
+  return Astro.redirect('/fj-cruiser/', 301);
 }
 
 const modelInfo = MODEL_MAP[model!];
@@ -45,13 +52,6 @@ if (model === 'prado') {
   results = await db.select().from(listings)
     .where(and(eq(listings.status, 'active'), like(listings.model, `${model}%`)))
     .orderBy(desc(listings.featured), desc(listings.created_at));
-} else if (model === 'fj-cruiser') {
-  results = await db.select().from(listings)
-    .where(and(
-      eq(listings.status, 'active'),
-      or(eq(listings.model, 'fj-cruiser'), eq(listings.model, 'land-cruiser-fj'))
-    ))
-    .orderBy(desc(listings.featured), desc(listings.created_at));
 } else {
   results = await db.select().from(listings)
     .where(and(eq(listings.status, 'active'), eq(listings.model, model!)))
@@ -61,10 +61,7 @@ if (model === 'prado') {
 results = results.filter(l => hasUsablePhoto(l.photos));
 
 // Find matching model guide if it exists
-const modelGuide = MODELS.find(m =>
-  m.slug === model ||
-  (model === 'fj-cruiser' && (m.slug === 'fj-cruiser' || m.slug === 'land-cruiser-fj'))
-);
+const modelGuide = MODELS.find(m => m.slug === model);
 
 function formatPrice(n: number) { return 'R' + n.toLocaleString('en-ZA'); }
 function formatMileage(n: number) { return n.toLocaleString('en-ZA') + ' km'; }
@@ -96,8 +93,7 @@ const biggestDrop = dropBySlug.size ? Math.max(...dropBySlug.values()) : 0;
 const kR = (n: number) =>
   n >= 1_000_000 ? 'R' + (n / 1_000_000).toFixed(n % 1_000_000 === 0 ? 0 : 1) + 'm' : 'R' + Math.round(n / 1000) + 'k';
 
-// The listings page's model filter uses 'fj' for FJ Cruisers.
-const listingsModelParam = model === 'fj-cruiser' ? 'fj' : model;
+const listingsModelParam = model;
 
 const canonicalUrl = `${SITE.url}/listings/model/${model}/`;
 const title = `${modelInfo.description} For Sale in South Africa`;
@@ -266,6 +262,12 @@ const description = results.length
             {info.label}
           </a>
         ))}
+        <a href="/fj-cruiser/" class="px-4 py-2 border border-[#DDD9D3] rounded-full text-sm text-[#4A4A4A] hover:border-[#F5A623] hover:text-[#F5A623] transition-colors">
+          FJ Cruiser
+        </a>
+        <a href="/classics/" class="px-4 py-2 border border-[#DDD9D3] rounded-full text-sm text-[#4A4A4A] hover:border-[#F5A623] hover:text-[#F5A623] transition-colors">
+          Classic Cruisers
+        </a>
         <a href="/game-viewers/" class="px-4 py-2 border border-[#DDD9D3] rounded-full text-sm text-[#4A4A4A] hover:border-[#F5A623] hover:text-[#F5A623] transition-colors">
           Game Viewers
         </a>

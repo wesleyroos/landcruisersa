@@ -3,6 +3,7 @@ export const NAV_LINKS = [
     { label: 'All Listings', href: '/listings/' },
     { label: 'Game Viewers', href: '/game-viewers/' },
     { label: 'Classic Cruisers', href: '/classics/' },
+    { label: 'FJ Cruisers', href: '/fj-cruiser/' },
   ]},
   { label: 'Vehicle Valuation', href: '/valuation/' },
   { label: 'Market Data', href: '/market/' },

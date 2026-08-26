@@ -330,12 +330,15 @@ const description = results.length
         {[
           ['76-series', '76 Series'], ['78-series', '78 Series (Troopcarrier)'], ['79-series', '79 Series'],
           ['80-series', '80 Series'], ['100-series', '100 Series'], ['200-series', '200 Series'],
-          ['300-series', '300 Series'], ['prado', 'Prado'], ['fj-cruiser', 'FJ Cruiser'],
+          ['300-series', '300 Series'], ['prado', 'Prado'],
         ].map(([slug, label]) => (
           <a href={`/listings/model/${slug}/`} class="px-4 py-2 border border-[#DDD9D3] rounded-full text-sm text-[#4A4A4A] hover:border-[#F5A623] hover:text-[#F5A623] transition-colors">
             {label}
           </a>
         ))}
+        <a href="/fj-cruiser/" class="px-4 py-2 border border-[#DDD9D3] rounded-full text-sm text-[#4A4A4A] hover:border-[#F5A623] hover:text-[#F5A623] transition-colors">
+          FJ Cruiser
+        </a>
         <a href="/classics/" class="px-4 py-2 border border-[#DDD9D3] rounded-full text-sm text-[#4A4A4A] hover:border-[#F5A623] hover:text-[#F5A623] transition-colors">
           Classic Cruisers
         </a>
