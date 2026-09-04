@@ -6,7 +6,8 @@ import { listings } from '@/db/schema';
 import { rateLimited, clientIp } from '@/lib/rate-limit';
 import { detectBodyType } from '@/lib/sources/normalize';
 import { randomToken } from '@/lib/token';
-import { boostEnabled, boostPriceRand } from '@/lib/social-boost';
+import { boostEnabled, boostPriceRand, boostPayUrl } from '@/lib/social-boost';
+import { sendSubmissionReceipt } from '@/lib/submit-email';
 
 function slugify(str: string) {
   return str
@@ -91,6 +92,7 @@ export const POST: APIRoute = async ({ request }) => {
     status: 'pending',
     social_boost: wantsBoost ? 'requested' : 'none',
     social_boost_ref: boostRef,
+    social_boost_asked_at: wantsBoost ? new Date() : null,
     edit_token: editToken,
     created_at: new Date(),
   });
@@ -113,11 +115,24 @@ export const POST: APIRoute = async ({ request }) => {
                ${listing_type === 'for_sale' ? `<p>Price: R${Number(price).toLocaleString()}</p>` : ''}
                <p>From: ${seller_name} — ${seller_email} — ${seller_phone}</p>
                ${dealer_offer_optin === true && listing_type === 'for_sale' ? `<p>🏷️ <strong>Wants a dealer offer</strong> — shop to dealer partners.</p>` : ''}
-               ${wantsBoost ? `<p>📣 <strong>Asked for the social boost (R${boostPriceRand()})</strong> — payment not confirmed yet. You'll get a separate "PAID" email if it goes through; don't post it until then.</p>` : ''}
+               ${wantsBoost ? `<p>📣 <strong>Asked for the social boost (R${boostPriceRand()})</strong> — payment not confirmed yet. You'll get a separate "PAID" email if it goes through; don't post it until then.<br/>Pay link to send them: <a href="${boostPayUrl({ edit_token: editToken })}">${boostPayUrl({ edit_token: editToken })}</a></p>` : ''}
                ${listing_type === 'for_sale' ? `<p style="color:#666;font-size:13px">Add-ons — dealer offer: <strong>${dealer_offer_optin === true ? 'yes' : 'no'}</strong> · social boost: <strong>${wantsBoost ? `asked (R${boostPriceRand()}, unpaid)` : boostEnabled() ? 'no' : 'not offered — boost is switched off'}</strong></p>` : ''}
                <p><a href="https://landcruisersa.co.za/admin">Review in Admin →</a></p>`,
       }),
     }).catch(() => {}); // fire-and-forget
+  }
+
+  // Seller's own confirmation. When they asked for the boost we hold this back:
+  // they're still inside the Paystack popup, so we can't yet say whether the
+  // payment landed. lib/boost-followup sends theirs a few minutes later, with
+  // the pay link if it never did.
+  if (!wantsBoost) {
+    sendSubmissionReceipt({
+      to: String(seller_email),
+      sellerName: String(seller_name),
+      title: String(title),
+      showOff: listing_type === 'show_off',
+    }).catch(() => {});
   }
 
   return new Response(JSON.stringify({

@@ -11,7 +11,7 @@
 
 import { db } from '@/db/index';
 import { listings } from '@/db/schema';
-import { and, eq, gte, isNotNull, sql } from 'drizzle-orm';
+import { and, eq, isNotNull, sql } from 'drizzle-orm';
 import { verifyTransaction, markBoostPaid, boostConfigured } from './social-boost';
 import { sendBoostReceipt, sendBoostAdminAlert } from './boost-email';
 
@@ -38,9 +38,11 @@ export async function reconcileBoosts(opts: { windowHours?: number } = {}): Prom
     .where(and(
       eq(listings.social_boost, 'requested'),
       isNotNull(listings.social_boost_ref),
-      gte(listings.created_at, since),
+      // Off the moment the boost was asked for, not the listing's age — a boost
+      // started days later from the emailed pay link must still be swept.
+      sql`COALESCE(social_boost_asked_at, created_at) >= ${Math.floor(since.getTime() / 1000)}`,
     ))
-    .orderBy(sql`created_at desc`)
+    .orderBy(sql`COALESCE(social_boost_asked_at, created_at) desc`)
     .limit(MAX_PER_SWEEP)
     .all();
 

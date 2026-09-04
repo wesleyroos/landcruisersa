@@ -10,7 +10,7 @@
 //   • The listing is created FIRST and payment happens after. A failed or
 //     abandoned payment must never cost the seller their listing.
 
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { db } from '@/db/index';
 import { listings, siteConfig } from '@/db/schema';
 import { eq } from 'drizzle-orm';
@@ -180,4 +180,39 @@ export function markBoostPaid(reference: string, amountCents: number, fallbackLi
     .run();
 
   return { ...listing, social_boost: 'paid', social_boost_amount: amountCents };
+}
+
+// ── Resuming an unpaid boost ─────────────────────────────────────────────────
+// Payment used to be reachable only from the submit page, in the seconds after
+// a listing was created: close that tab and the seller had no way back, and we
+// had no way to ask for the money again. Both of the first two real requests
+// were lost that way. The pay link below is keyed on edit_token — the stable
+// per-listing capability token we already email — rather than social_boost_ref,
+// which init() re-mints whenever Paystack rejects a re-used reference.
+
+const SITE = 'https://landcruisersa.co.za';
+
+export function boostPayUrl(listing: { edit_token?: string | null }): string | null {
+  return listing.edit_token ? `${SITE}/listings/boost/${listing.edit_token}` : null;
+}
+
+// A listing the seller may still pay a boost on: one of our own submissions
+// (never a scraped row) that isn't already paid for.
+export function listingByEditToken(token: string) {
+  const listing = db.select().from(listings).where(eq(listings.edit_token, token)).get();
+  if (!listing || listing.source_url) return null;
+  return listing;
+}
+
+// Puts a listing into 'requested' and hands back a payment reference. Called
+// when someone clicks Pay on the boost page for a listing that never asked for
+// a boost (or whose reference predates this flow) — never on a page view, so a
+// row only says 'requested' once a seller has actually reached for their card.
+export function ensureBoostRef(listingId: number, existingRef: string | null): string {
+  const ref = existingRef ?? randomBytes(32).toString('hex');
+  db.update(listings)
+    .set({ social_boost: 'requested', social_boost_ref: ref, social_boost_asked_at: new Date() })
+    .where(eq(listings.id, listingId))
+    .run();
+  return ref;
 }

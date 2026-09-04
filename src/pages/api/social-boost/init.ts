@@ -9,6 +9,7 @@ import { publicOrigin } from '@/lib/http-guards';
 import { randomBytes } from 'node:crypto';
 import {
   boostEnabled, boostPriceCents, boostPriceRand, publicKey, initTransaction,
+  listingByEditToken, ensureBoostRef,
 } from '@/lib/social-boost';
 
 // Opens a Paystack transaction for a listing whose seller asked for the social
@@ -25,17 +26,29 @@ export const POST: APIRoute = async ({ request }) => {
     return bad('Too many attempts — please try again later.', 429);
   }
 
+  // Two ways in: `ref` from the submit page (payment straight after submitting)
+  // and `token` — the listing's edit_token — from the emailed pay link, which
+  // has to keep working after init() re-mints the reference.
   let ref = '';
+  let token = '';
   try {
-    ref = String(((await request.json()) as { ref?: string }).ref ?? '').trim();
+    const body = (await request.json()) as { ref?: string; token?: string };
+    ref = String(body.ref ?? '').trim();
+    token = String(body.token ?? '').trim();
   } catch {
     return bad('Invalid request.');
   }
-  if (!ref) return bad('Missing payment reference.');
+  if (!ref && !token) return bad('Missing payment reference.');
 
-  const listing = db.select().from(listings).where(eq(listings.social_boost_ref, ref)).get();
+  const listing = token
+    ? listingByEditToken(token)
+    : db.select().from(listings).where(eq(listings.social_boost_ref, ref)).get();
   if (!listing) return bad('We could not find that listing.', 404);
   if (listing.social_boost === 'paid') return bad('This boost has already been paid for.', 409);
+
+  // Coming in by pay link, the listing may never have asked for a boost (or its
+  // reference predates this flow) — mint one now that they've clicked Pay.
+  if (token) ref = ensureBoostRef(listing.id, listing.social_boost_ref);
 
   const email = (listing.seller_email ?? '').trim();
   if (!email.includes('@')) return bad('That listing has no valid email address.');

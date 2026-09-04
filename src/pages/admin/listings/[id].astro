@@ -11,6 +11,7 @@ import { db } from '@/db/index';
 import { listings, dealerOffers, listingDocs } from '@/db/schema';
 import { eq, desc } from 'drizzle-orm';
 import { dealerKey } from '@/lib/dealer-name';
+import { boostPayUrl } from '@/lib/social-boost';
 
 const id = Number(Astro.params.id);
 if (isNaN(id)) return Astro.redirect('/admin');
@@ -425,7 +426,15 @@ const rand0 = (n: number) => 'R' + n.toLocaleString('en-ZA');
           {listing.social_boost === 'requested' && (
             <div class="field">
               <label>Social boost</label>
-              <p class="boost-note">📣 Seller asked for the paid social boost but <strong>never paid</strong> — we owe them nothing. Nothing to do here.</p>
+              <p class="boost-note">📣 Seller asked for the paid social boost but <strong>never paid</strong> — we owe them nothing until they do.</p>
+              {boostPayUrl(listing) ? (
+                <>
+                  <p class="boost-note">They get this link by email 15 minutes after submitting. Send it again by WhatsApp if they ask how to pay:</p>
+                  <input class="boost-link" type="text" readonly value={boostPayUrl(listing)} onclick="this.select()" />
+                </>
+              ) : (
+                <p class="boost-note">No pay link — this row has no edit token (submitted before the manage-link flow).</p>
+              )}
             </div>
           )}
           {(listing.social_boost === 'paid' || listing.social_boost === 'refunded') && (
@@ -782,7 +791,11 @@ const rand0 = (n: number) => 'R' + n.toLocaleString('en-ZA');
     color: #6B7280; margin-bottom: 0.375rem; text-transform: uppercase; letter-spacing: 0.06em;
   }
   .label-hint { font-weight: 400; text-transform: none; letter-spacing: 0; color: #9CA3AF; }
-  .boost-note { font-size: 0.8rem; color: #6B7280; line-height: 1.5; margin: 0; }
+  .boost-note { font-size: 0.8rem; color: #6B7280; line-height: 1.5; margin: 0 0 0.4rem; }
+  .boost-link {
+    width: 100%; font-size: 0.75rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    padding: 0.5rem 0.6rem; border: 1px solid #E5E7EB; border-radius: 0.4rem; background: #F9FAFB; color: #374151;
+  }
   input, select, textarea {
     box-sizing: border-box; width: 100%; border: 1.5px solid #DDD9D3; border-radius: 0.5rem;
     font-size: 0.9375rem; color: #111; background: white;

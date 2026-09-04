@@ -1,0 +1,262 @@
+---
+export const prerender = false;
+
+import Base from '@/layouts/Base.astro';
+import { firstThumb } from '@/lib/photos';
+import { boostEnabled, boostPriceRand, listingByEditToken } from '@/lib/social-boost';
+import { socialReachDisplay, fbFollowersDisplay } from '@/lib/social-reach';
+import { igFollowersDisplay } from '@/lib/ig-followers';
+
+// Standalone payment page for the paid social boost, reachable from a link we
+// email the seller. Payment used to live only on the submit page, in the tab
+// they had open — abandon it and neither side could pick the payment back up.
+//
+// Keyed on edit_token (stable) rather than social_boost_ref (re-minted whenever
+// Paystack rejects a re-used reference), so the emailed link keeps working for
+// as many attempts as it takes.
+
+const { token } = Astro.params;
+const listing = token ? listingByEditToken(token) : null;
+
+const on = boostEnabled();
+const price = boostPriceRand();
+const paid = listing?.social_boost === 'paid';
+const photo = listing ? firstThumb(listing.photos, 320) : '';
+const model = listing ? listing.model.replace(/-/g, ' ').toUpperCase() : '';
+---
+
+<Base
+  title="Boost your listing — Land Cruiser SA"
+  description="Pay for the social media boost on your Land Cruiser listing."
+  noindex={true}
+>
+  <div class="bp-wrap">
+    {!listing ? (
+      <div class="bp-card bp-msg">
+        <h1>Link not valid</h1>
+        <p>This payment link isn’t valid — it may have expired or the listing was removed. Reply to your confirmation email or contact <a href="mailto:info@landcruisersa.co.za">info@landcruisersa.co.za</a> and we’ll sort it out.</p>
+        <a class="bp-ghost" href="/listings/">Browse listings</a>
+      </div>
+    ) : paid ? (
+      <div class="bp-card bp-msg">
+        <div class="bp-tick">✓</div>
+        <h1>Already paid — thank you</h1>
+        <p>The boost on your <strong>{listing.title}</strong> is paid for. We post it to the Land Cruiser SA Instagram and Facebook pages within 3 working days of the listing going live.</p>
+        <a class="bp-ghost" href={`/listings/${listing.slug}/`}>View your listing</a>
+      </div>
+    ) : !on ? (
+      <div class="bp-card bp-msg">
+        <h1>Boosts are paused</h1>
+        <p>We’ve temporarily stopped taking boost payments. Your listing is unaffected — it stays live either way. Email <a href="mailto:info@landcruisersa.co.za">info@landcruisersa.co.za</a> and we’ll let you know the moment they’re back on.</p>
+        <a class="bp-ghost" href={`/listings/${listing.slug}/`}>View your listing</a>
+      </div>
+    ) : (
+      <>
+        <p class="bp-kicker">Finish your social media boost</p>
+        <h1 class="bp-h1">Put your Cruiser in front of {socialReachDisplay()} followers</h1>
+        <p class="bp-lede">
+          Your listing is submitted and safe — this is only the optional <strong>R{price}</strong> boost you started.
+        </p>
+
+        <div class="bp-card">
+          <div class="bp-vehicle">
+            {photo && <img src={photo} alt="" width="88" height="66" loading="lazy" />}
+            <div>
+              <p class="bp-vtitle">{listing.title}</p>
+              <p class="bp-vmeta">{listing.year} · {model}{listing.province ? ` · ${listing.province}` : ''}</p>
+            </div>
+            <span class="bp-amount">R{price}</span>
+          </div>
+
+          <div class="bp-channels">
+            <div class="bp-channel">
+              <span class="bp-ch-name">Instagram</span>
+              <span class="bp-ch-num">{igFollowersDisplay()}</span>
+            </div>
+            <div class="bp-channel">
+              <span class="bp-ch-name">Facebook</span>
+              <span class="bp-ch-num">{fbFollowersDisplay()}</span>
+            </div>
+          </div>
+
+          <ul class="bp-points">
+            <li>Posted to both pages within <strong>3 working days</strong> of your listing going live</li>
+            <li>Buyers come straight to you — <strong>no commission</strong> on the sale</li>
+            <li>Full refund if we don’t post it</li>
+          </ul>
+
+          <button type="button" class="bp-pay" id="bp-pay" data-token={token}>Pay R{price} →</button>
+          <button type="button" class="bp-recheck hidden" id="bp-recheck">Already paid? Check again</button>
+          <p class="bp-status hidden" id="bp-status"></p>
+          <p class="bp-secure">🔒 Card payment handled by Paystack. We never see your card details.</p>
+        </div>
+
+        <p class="bp-fine">
+          Changed your mind? Just ignore this page — your listing stays live either way, free.
+        </p>
+
+        <script is:inline src="https://js.paystack.co/v2/inline.js"></script>
+        <script is:inline define:vars={{ token, price }}>
+          const payBtn = document.getElementById('bp-pay');
+          const recheck = document.getElementById('bp-recheck');
+          const statusEl = document.getElementById('bp-status');
+          let ref = '';
+          let pollTimer = 0;
+
+          function say(msg, kind) {
+            statusEl.textContent = msg;
+            statusEl.className = `bp-status${kind ? ` bp-${kind}` : ''}`;
+          }
+
+          function paidUI() {
+            window.clearInterval(pollTimer);
+            document.getElementById('bp-pay').classList.add('hidden');
+            recheck.classList.add('hidden');
+            say('✅ Payment received — thanks! We’ll post your Cruiser to Instagram and Facebook within 3 working days of your listing going live. A receipt is on its way to your inbox.', 'ok');
+          }
+
+          function idle(msg) {
+            payBtn.disabled = false;
+            payBtn.textContent = `Pay R${price} →`;
+            recheck.classList.remove('hidden');
+            if (msg) say(msg);
+          }
+
+          // Backstop for a popup callback that never fires (tab switch, mobile
+          // redirect): the server-side sweep marks the row paid and this notices.
+          function poll() {
+            window.clearInterval(pollTimer);
+            let ticks = 0;
+            pollTimer = window.setInterval(async () => {
+              if (++ticks > 36) { window.clearInterval(pollTimer); return; } // ~3 min
+              if (!ref) return;
+              try {
+                const r = await fetch(`/api/social-boost/status?ref=${encodeURIComponent(ref)}`);
+                if ((await r.json()).paid) paidUI();
+              } catch { /* keep polling */ }
+            }, 5000);
+          }
+
+          async function confirm() {
+            if (!ref) return false;
+            try {
+              const r = await fetch('/api/social-boost/verify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ref }),
+              });
+              if ((await r.json()).paid) { paidUI(); return true; }
+            } catch { /* fall through */ }
+            return false;
+          }
+
+          async function pay() {
+            payBtn.disabled = true;
+            payBtn.textContent = 'Opening payment…';
+            say('');
+            statusEl.classList.add('hidden');
+
+            let data;
+            try {
+              const r = await fetch('/api/social-boost/init', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ token }),
+              });
+              data = await r.json();
+              if (!r.ok || !data.access_code) { idle(data.error || 'We could not open the payment window. Please try again.'); return; }
+            } catch {
+              idle('Network error — please try again.');
+              return;
+            }
+
+            ref = data.reference;
+            if (!window.PaystackPop) { idle('The payment window could not load. Please check your connection and try again.'); return; }
+
+            poll();
+            try {
+              new window.PaystackPop().resumeTransaction(data.access_code, {
+                onSuccess: () => { confirm(); },
+                onCancel: () => idle('Payment cancelled — nothing was charged. You can pay any time from this link.'),
+                onError: () => idle('That payment did not go through. Please try again.'),
+              });
+            } catch {
+              idle('The payment window could not open. Please try again.');
+            }
+          }
+
+          payBtn.addEventListener('click', pay);
+          recheck.addEventListener('click', async () => {
+            recheck.disabled = true;
+            const ok = await confirm();
+            recheck.disabled = false;
+            if (!ok) say('We haven’t received a payment for this listing yet.');
+          });
+        </script>
+      </>
+    )}
+  </div>
+</Base>
+
+<style>
+  .bp-wrap { max-width: 34rem; margin: 0 auto; padding: 2.5rem 1.25rem 4rem; }
+  .bp-kicker {
+    font-size: 0.7rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;
+    color: #F5A623; margin: 0 0 0.5rem;
+  }
+  .bp-h1 { font-size: 1.5rem; font-weight: 800; color: #111; line-height: 1.25; margin: 0 0 0.6rem; }
+  .bp-lede { font-size: 0.95rem; color: #374151; line-height: 1.6; margin: 0 0 1.5rem; }
+
+  .bp-card {
+    background: #fff; border: 1px solid #E5E7EB; border-radius: 0.9rem;
+    padding: 1.25rem; box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  }
+
+  .bp-vehicle { display: flex; align-items: center; gap: 0.8rem; padding-bottom: 1rem; border-bottom: 1px solid #F3F4F6; }
+  .bp-vehicle img { width: 88px; height: 66px; object-fit: cover; border-radius: 0.5rem; flex-shrink: 0; }
+  .bp-vtitle { font-size: 0.9rem; font-weight: 700; color: #111; margin: 0 0 0.15rem; line-height: 1.35; }
+  .bp-vmeta { font-size: 0.75rem; color: #6B7280; margin: 0; }
+  .bp-amount { margin-left: auto; font-size: 1.15rem; font-weight: 800; color: #111; white-space: nowrap; }
+
+  .bp-channels { display: flex; gap: 0.6rem; margin: 1rem 0; }
+  .bp-channel {
+    flex: 1; display: flex; align-items: center; justify-content: space-between; gap: 0.4rem;
+    background: #F9FAFB; border: 1px solid #F3F4F6; border-radius: 0.55rem; padding: 0.5rem 0.65rem;
+  }
+  .bp-ch-name { font-size: 0.72rem; color: #6B7280; }
+  .bp-ch-num { font-size: 0.82rem; font-weight: 800; color: #111; }
+
+  .bp-points { list-style: none; padding: 0; margin: 0 0 1.15rem; display: flex; flex-direction: column; gap: 0.4rem; }
+  .bp-points li { font-size: 0.8rem; color: #6B7280; line-height: 1.45; padding-left: 1.1rem; position: relative; }
+  .bp-points li::before { content: '✓'; position: absolute; left: 0; color: #F5A623; font-weight: 800; }
+  .bp-points strong { color: #374151; font-weight: 700; }
+
+  .bp-pay {
+    display: block; width: 100%; background: #F5A623; color: #111; border: 0;
+    font-size: 0.95rem; font-weight: 800; padding: 0.85rem 1rem; border-radius: 0.6rem; cursor: pointer;
+  }
+  .bp-pay:hover { background: #E09612; }
+  .bp-pay:disabled { opacity: 0.6; cursor: default; }
+  .bp-recheck {
+    display: block; width: 100%; margin-top: 0.6rem; background: none; border: 0;
+    font-size: 0.78rem; color: #6B7280; text-decoration: underline; cursor: pointer;
+  }
+  .bp-status { font-size: 0.83rem; color: #374151; line-height: 1.55; margin: 0.85rem 0 0; }
+  .bp-status.bp-ok { color: #166534; }
+  .bp-secure { font-size: 0.7rem; color: #9CA3AF; text-align: center; margin: 0.85rem 0 0; }
+  .bp-fine { font-size: 0.78rem; color: #9CA3AF; line-height: 1.5; margin: 1rem 0 0; text-align: center; }
+
+  .bp-msg { text-align: center; }
+  .bp-msg h1 { font-size: 1.35rem; font-weight: 800; color: #111; margin: 0 0 0.7rem; }
+  .bp-msg p { font-size: 0.92rem; color: #374151; line-height: 1.6; margin: 0 0 1.25rem; }
+  .bp-tick {
+    width: 2.75rem; height: 2.75rem; border-radius: 999px; margin: 0 auto 1rem;
+    display: flex; align-items: center; justify-content: center;
+    background: #DCFCE7; color: #166534; font-size: 1.35rem; font-weight: 800;
+  }
+  .bp-ghost {
+    display: inline-block; border: 1px solid #E5E7EB; border-radius: 0.6rem;
+    padding: 0.6rem 1.2rem; font-size: 0.82rem; font-weight: 700; color: #374151; text-decoration: none;
+  }
+  .hidden { display: none; }
+</style>

@@ -1,4 +1,5 @@
 import { reconcileBoosts } from './boost-reconcile';
+import { sweepBoostFollowups } from './boost-followup';
 import { boostEnabled } from './social-boost';
 
 // In-process sweep for unconfirmed boost payments. Mirrors the alerts/IG
@@ -18,11 +19,17 @@ export function ensureBoostScheduler(): void {
 
   const tick = async () => {
     try {
-      if (!boostEnabled()) return;
-      const res = await reconcileBoosts();
-      if (res.paid) console.log(`[boost] reconciled ${res.paid} payment(s) of ${res.checked} pending`);
+      if (boostEnabled()) {
+        const res = await reconcileBoosts();
+        if (res.paid) console.log(`[boost] reconciled ${res.paid} payment(s) of ${res.checked} pending`);
+      }
+      // Runs even with the offer switched off: a seller who already asked is
+      // still owed their submission receipt (and the pay link if they never
+      // finished), and the page behind that link handles the paused case.
+      const sent = await sweepBoostFollowups();
+      if (sent) console.log(`[boost] sent ${sent} submission follow-up(s)`);
     } catch (e) {
-      console.error('[boost] reconcile tick failed', e);
+      console.error('[boost] tick failed', e);
     }
   };
 

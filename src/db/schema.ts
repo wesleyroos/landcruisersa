@@ -50,6 +50,11 @@ export const listings = sqliteTable('listings', {
   social_boost_amount:   integer('social_boost_amount'),                    // amount actually paid, in cents (price can change between tests)
   social_boost_paid_at:  integer('social_boost_paid_at', { mode: 'timestamp' }),
   social_boost_posted_at: integer('social_boost_posted_at', { mode: 'timestamp' }), // fulfilled — posted to social
+  // The clock the reconcile sweep and the payment reminder run off. created_at
+  // is the wrong clock now that a boost can be started days after the listing
+  // was submitted (the emailed "finish your payment" link).
+  social_boost_asked_at:  integer('social_boost_asked_at', { mode: 'timestamp' }),
+  social_boost_nudged_at: integer('social_boost_nudged_at', { mode: 'timestamp' }), // one-shot "you didn't finish paying" reminder
 
   ig_posted_at: integer('ig_posted_at', { mode: 'timestamp' }),    // last posted to Instagram
   ig_media_id:  text('ig_media_id'),                                // IG media id of that post — insights join key

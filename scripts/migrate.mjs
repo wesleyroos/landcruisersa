@@ -77,6 +77,8 @@ addCol('social_boost_ref',       "social_boost_ref       TEXT");
 addCol('social_boost_amount',    "social_boost_amount    INTEGER");
 addCol('social_boost_paid_at',   "social_boost_paid_at   INTEGER");
 addCol('social_boost_posted_at', "social_boost_posted_at INTEGER");
+addCol('social_boost_asked_at',  "social_boost_asked_at  INTEGER");
+addCol('social_boost_nudged_at', "social_boost_nudged_at INTEGER");
 
 // One-time rollout for the AT gallery backfill marker: the search tile yields at
 // most ~7 images, so any AutoTrader listing already holding 8+ was fetched from
@@ -857,7 +859,7 @@ const REQUIRED_COLS = [
   'body_type', 'ig_skipped_at', 'model_locked', 'photos_backfilled_at', 'edit_token',
   'sold_channel', 'sold_to', 'sold_date',
   'social_boost', 'social_boost_ref', 'social_boost_amount', 'social_boost_paid_at',
-  'social_boost_posted_at',
+  'social_boost_posted_at', 'social_boost_asked_at', 'social_boost_nudged_at',
 ];
 const finalCols = new Set(
   db.prepare("SELECT name FROM pragma_table_info('listings')").all().map(r => r.name)
