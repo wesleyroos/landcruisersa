@@ -1055,13 +1055,10 @@ date, compare to baseline, mark HIT / MISS / PARTIAL, and write the lesson.
 
 ## P27 — /listings/ head-term retitle ("land cruiser for sale")
 
-- **Opened:** 2026-08-26 · **⏳ SHIPS 2026-09-02 — PRE-AUTHORISED.** Wesley
-  approved this on 26-Aug and does not want to be asked again: the first LCSA
-  session on or after **2026-09-02** must make this change, push it, and fill
-  in the ship date here. Shipping was deliberately held a week so the FJ
-  consolidation (P23, deployed 26-Aug) and this bet don't land in the same
-  GSC window.
-- **Review on:** 4 weeks after ship (~2026-09-30).
+- **Opened:** 2026-08-26 · **✅ SHIPPED 2026-09-04** (pre-authorised on 26-Aug;
+  held a week so the FJ consolidation (P23, deployed 26-Aug) and this bet
+  don't land in the same GSC window).
+- **Review on:** 2026-10-02 (4 weeks after ship).
 - **Surface:** `/listings/` (src/pages/listings/index.astro ~line 88).
 - **The change (exactly this, nothing else in the same deploy):**
   - title: "Land Cruiser Listings — Buy & Sell in South Africa"
