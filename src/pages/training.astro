@@ -1,5 +1,6 @@
 ---
 import Base from '@/layouts/Base.astro';
+import ConsentCheckbox from '../components/ConsentCheckbox.astro';
 ---
 
 <Base
@@ -287,6 +288,7 @@ import Base from '@/layouts/Base.astro';
           <textarea id="message" name="message" rows="3"
             class="w-full border border-[#DDD9D3] rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#F5A623] transition-colors resize-none"></textarea>
         </div>
+        <ConsentCheckbox id="training-consent" />
         <button type="submit" id="training-submit"
           class="w-full bg-[#F5A623] text-[#111111] font-heading font-bold uppercase tracking-wide py-4 rounded-lg hover:bg-[#D4881A] transition-colors disabled:opacity-50">
           Send Enquiry

@@ -1,6 +1,7 @@
 ---
 import Base from '@/layouts/Base.astro';
 import { SITE } from '@/data/site';
+import ConsentCheckbox from '../../components/ConsentCheckbox.astro';
 ---
 
 <Base
@@ -204,6 +205,7 @@ import { SITE } from '@/data/site';
               <label class="label" for="message">Tell us about your brand & goals</label>
               <textarea class="input textarea" id="message" name="message" rows="5" placeholder="What does your brand do, who's your target customer, and what are you hoping to achieve?"></textarea>
             </div>
+            <ConsentCheckbox id="advert-consent" />
             <button type="submit" class="submit-btn" id="advert-submit-btn">Send Enquiry →</button>
           </form>
         </div>
@@ -252,10 +254,11 @@ import { SITE } from '@/data/site';
     submitBtn.textContent = 'Sending…';
 
     try {
+      const consent = !!(document.getElementById('advert-consent') as HTMLInputElement | null)?.checked;
       const res = await fetch('/api/contact', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, phone, subject: 'partnership', message: fullMessage }),
+        body: JSON.stringify({ name, email, phone, subject: 'partnership', message: fullMessage, consent }),
       });
       if (res.ok) {
         form.classList.add('hidden');

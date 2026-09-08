@@ -874,3 +874,49 @@ if (missing.length) {
 
 console.log('[migrate] Schema ready.');
 db.close();
+
+// ─── Marketing consent, 2026-09-08 ──────────────────────────────────────────
+//
+// Every table that captures a person now records whether they agreed to hear
+// from us, and which form they agreed on. Until now only `users` (consent_at)
+// and `finance_leads` (consent) had anything, so the other five had people in
+// them with no recorded basis for marketing to them at all.
+//
+// consent_source is the point of the exercise: "they consented" is worth very
+// little without being able to say where and when. New rows get it from the
+// tick box on the form; the rows that existed before this migration get
+// 'bulk-import-2026-09-08', which is honest about what it is — an assertion by
+// the account owner at import, not an individual opt-in we witnessed.
+const CONSENT_TABLES = ['contacts', 'valuation_requests', 'training_leads', 'enquiries', 'wanted_requests'];
+for (const t of CONSENT_TABLES) {
+  addColTo(t, 'consent_at', 'consent_at INTEGER');
+  addColTo(t, 'consent_source', 'consent_source TEXT');
+}
+
+// One-time backfill, made idempotent by the cutoff rather than by a flag:
+// anything created before the moment this shipped is backfilled, anything
+// after it comes from the form. Re-running is a no-op because those rows are
+// no longer NULL.
+const CONSENT_BACKFILL_CUTOFF = 1788870661; // 2026-09-08T12:31Z
+for (const t of CONSENT_TABLES) {
+  const r = db
+    .prepare(
+      `UPDATE ${t} SET consent_at = created_at, consent_source = 'bulk-import-2026-09-08'
+       WHERE consent_at IS NULL AND created_at < ?`,
+    )
+    .run(CONSENT_BACKFILL_CUTOFF);
+  if (r.changes > 0) console.log(`[migrate] Backfilled consent on ${r.changes} ${t} row(s)`);
+}
+
+// `users` already had the column but 29 of 88 rows were null — registered
+// people who were never asked. Same treatment, same honest source.
+addColTo('users', 'consent_source', 'consent_source TEXT');
+{
+  const r = db
+    .prepare(
+      `UPDATE users SET consent_at = created_at, consent_source = 'bulk-import-2026-09-08'
+       WHERE consent_at IS NULL AND created_at < ?`,
+    )
+    .run(CONSENT_BACKFILL_CUTOFF);
+  if (r.changes > 0) console.log(`[migrate] Backfilled consent on ${r.changes} users row(s)`);
+}

@@ -37,6 +37,7 @@ const specPicker = Object.fromEntries(
 );
 const specPickerJson = JSON.stringify(specPicker);
 const specYearsJson = JSON.stringify(getSpecYearRanges());
+import ConsentCheckbox from './ConsentCheckbox.astro';
 ---
 
 <div class="vt" data-preset-model={model} data-year-ranges={yearRangesJson} data-spec={specPickerJson} data-spec-years={specYearsJson}>
@@ -98,6 +99,7 @@ const specYearsJson = JSON.stringify(getSpecYearRanges());
       <label>Leave this empty<input type="text" name="lcsa_hp" tabindex="-1" autocomplete="off" /></label>
     </div>
 
+    <ConsentCheckbox id="vt-consent" />
     <button type="submit" class="vt-submit">SEE MY ESTIMATE →</button>
     <p class="vt-mini">Free · instant · no sign-up. Estimates from live market asking prices.</p>
   </form>
@@ -406,6 +408,8 @@ const specYearsJson = JSON.stringify(getSpecYearRanges());
         province: fd.get('province') || '',
         engine: spec.engine, grade: spec.grade, body: spec.body,
         lcsa_hp: fd.get('lcsa_hp') || '',
+        // The tick box is part of the same form, so FormData already has it.
+        consent: fd.get('consent') === 'on',
         utm_source: utm,
         source_path: location.pathname,
         client_id: clientId,

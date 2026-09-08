@@ -84,6 +84,13 @@ export const POST: APIRoute = async ({ request }) => {
   // Anonymous snapshot — best-effort; never block the estimate on a write hiccup.
   let draftId: number | null = null;
   try {
+  // A checkbox reaches here three different ways depending on the form:
+
+  // a JSON boolean, "true", or "on" from Object.fromEntries(FormData).
+
+  // Absent means unticked.
+
+  const consent = ['true', 'on', '1'].includes(String(body?.consent ?? '').toLowerCase());
     const res = db.insert(valuationRequests).values({
       model, year, mileage, province, condition,
       sell_low:       v.available ? v.sellLow : null,
@@ -96,6 +103,7 @@ export const POST: APIRoute = async ({ request }) => {
       anchor_basis:   v.available ? v.cohort.anchorBasis : null,
       source: 'valuation_tool', source_path, utm_source, client_id,
       created_at: new Date(),
+      ...(consent ? { consent_at: new Date(), consent_source: 'valuation-tool' } : {}),
     }).run();
     draftId = Number(res.lastInsertRowid);
   } catch (err) {

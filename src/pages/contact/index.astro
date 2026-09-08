@@ -1,6 +1,7 @@
 ---
 import Base from '@/layouts/Base.astro';
 import { SITE } from '@/data/site';
+import ConsentCheckbox from '../../components/ConsentCheckbox.astro';
 ---
 
 <Base
@@ -60,6 +61,7 @@ import { SITE } from '@/data/site';
                 <label class="label" for="message">Message</label>
                 <textarea class="input textarea" id="message" name="message" rows="6" placeholder="Tell us what's on your mind..." required></textarea>
               </div>
+              <ConsentCheckbox id="contact-consent" />
               <button type="submit" class="submit-btn" id="submit-btn">Send Message →</button>
             </form>
           </div>

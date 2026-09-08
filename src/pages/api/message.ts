@@ -67,7 +67,25 @@ export const POST: APIRoute = async ({ request }) => {
 
   // DB first — never lose an enquiry to an email hiccup.
   try {
-    db.insert(enquiries).values({ name, phone: phone || null, email: email || null, message, source_path, created_at: new Date() }).run();
+    // A checkbox reaches here three different ways depending on the form:
+
+    // a JSON boolean, "true", or "on" from Object.fromEntries(FormData).
+
+    // Absent means unticked.
+
+    const consent = ['true', 'on', '1'].includes(String(body?.consent ?? '').toLowerCase());
+    db.insert(enquiries)
+      .values({
+        name,
+        phone: phone || null,
+        email: email || null,
+        message,
+        source_path,
+        created_at: new Date(),
+        // POPIA: the tick box, not an assumption.
+        ...(consent ? { consent_at: new Date(), consent_source: 'site-message' } : {}),
+      })
+      .run();
   } catch (err) {
     console.error('[enquiry] DB insert failed:', err);
     return fail('Could not send your message. Please try again.', 500);

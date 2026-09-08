@@ -64,6 +64,17 @@ export const POST: APIRoute = async ({ request }) => {
   }
 
   try {
+
+  // A checkbox reaches here three different ways depending on the form:
+
+
+  // a JSON boolean, "true", or "on" from Object.fromEntries(FormData).
+
+
+  // Absent means unticked.
+
+
+  const consent = ['true', 'on', '1'].includes(String(body?.consent ?? '').toLowerCase());
     db.insert(trainingLeads).values({
       name,
       email: email.trim(),
@@ -72,6 +83,7 @@ export const POST: APIRoute = async ({ request }) => {
       land_cruiser: landCruiser?.trim() || null,
       message: message?.trim() || null,
       created_at: new Date(),
+      ...(consent ? { consent_at: new Date(), consent_source: 'training-enquiry' } : {}),
     }).run();
   } catch (err) {
     console.error('[training-enquiry] DB insert failed:', err);

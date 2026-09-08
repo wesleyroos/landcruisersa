@@ -65,6 +65,17 @@ export const POST: APIRoute = async ({ request }) => {
   // Best-effort capture to the inbox (chat widget + contact page both POST here).
   // Wrapped so a DB hiccup can NEVER affect the email path below.
   try {
+
+  // A checkbox reaches here three different ways depending on the form:
+
+
+  // a JSON boolean, "true", or "on" from Object.fromEntries(FormData).
+
+
+  // Absent means unticked.
+
+
+  const consent = ['true', 'on', '1'].includes(String(body?.consent ?? '').toLowerCase());
     db.insert(enquiries).values({
       name: name.trim(),
       email: email.trim(),
@@ -72,6 +83,7 @@ export const POST: APIRoute = async ({ request }) => {
       message: message.trim(),
       source_path: page || `contact:${subject || 'general'}`,
       created_at: new Date(),
+      ...(consent ? { consent_at: new Date(), consent_source: 'contact-form' } : {}),
     }).run();
   } catch (err) {
     console.error('[contact] enquiries insert failed (non-fatal):', err);

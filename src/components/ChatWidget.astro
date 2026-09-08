@@ -2,6 +2,7 @@
 // Floating "chat-style" enquiry widget, site-wide (rendered in Base.astro).
 // Brand-orange. Submits via fetch to the proven /api/contact endpoint (same flow
 // as the contact page) → emails. Not real WhatsApp — a familiar chat UX.
+import ConsentCheckbox from './ConsentCheckbox.astro';
 ---
 
 <div class="cw">
@@ -23,6 +24,7 @@
         <input class="cw-in" name="phone" placeholder="Phone (optional)" maxlength="40" inputmode="tel" autocomplete="tel" />
         <textarea class="cw-in" name="message" placeholder="Your message…" rows="3" maxlength="2000"></textarea>
         <p class="cw-err" id="cw-err" hidden></p>
+        <ConsentCheckbox id="cw-consent" />
         <button type="submit" class="cw-send" id="cw-send">Send message</button>
       </form>
       <div class="cw-done" id="cw-done" hidden>Thanks! 🙌 We'll be in touch soon.</div>
@@ -62,9 +64,10 @@
       if (err) err.hidden = true;
       send.disabled = true; const label = send.textContent; send.textContent = 'Sending…';
       try {
+        const consent = !!(document.getElementById('cw-consent') as HTMLInputElement | null)?.checked;
         const res = await fetch('/api/contact', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, email, phone, subject: 'general', message, source_path: location.pathname }),
+          body: JSON.stringify({ name, email, phone, subject: 'general', message, consent, source_path: location.pathname }),
         });
         if (res.ok) {
           form.hidden = true; if (done) done.hidden = false;

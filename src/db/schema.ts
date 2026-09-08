@@ -88,6 +88,10 @@ export const trainingLeads = sqliteTable('training_leads', {
   land_cruiser: text('land_cruiser'),
   message:      text('message'),
   created_at:   integer('created_at', { mode: 'timestamp' }).notNull(),
+  // Marketing consent. consent_source names the form they ticked it on, or
+  // 'bulk-import-2026-09-08' for rows that predate the tick box.
+  consent_at:     integer('consent_at', { mode: 'timestamp' }),
+  consent_source: text('consent_source'),
 });
 
 // "Looking for a game viewer?" wanted-requests — structured buyer demand we can
@@ -122,6 +126,10 @@ export const contacts = sqliteTable('contacts', {
   origin:     text('origin').notNull().default('wp-import'),
   note:       text('note'),
   created_at: integer('created_at', { mode: 'timestamp' }).notNull(),
+  // Marketing consent. consent_source names the form they ticked it on, or
+  // 'bulk-import-2026-09-08' for rows that predate the tick box.
+  consent_at:     integer('consent_at', { mode: 'timestamp' }),
+  consent_source: text('consent_source'),
 });
 
 // Sponsored-placement measurement (Titan IO-2026-001 + future advertisers).
@@ -328,6 +336,10 @@ export const valuationRequests = sqliteTable('valuation_requests', {
   utm_source:    text('utm_source'),
   client_id:     text('client_id'),              // anonymous per-browser id — groups repeat valuations
   created_at:    integer('created_at', { mode: 'timestamp' }).notNull(),
+  // Marketing consent. consent_source names the form they ticked it on, or
+  // 'bulk-import-2026-09-08' for rows that predate the tick box.
+  consent_at:     integer('consent_at', { mode: 'timestamp' }),
+  consent_source: text('consent_source'),
 });
 
 export type ValuationRequest = typeof valuationRequests.$inferSelect;
@@ -408,6 +420,10 @@ export const enquiries = sqliteTable('enquiries', {
   message:     text('message').notNull(),
   source_path: text('source_path'),
   created_at:  integer('created_at', { mode: 'timestamp' }).notNull(),
+  // Marketing consent. consent_source names the form they ticked it on, or
+  // 'bulk-import-2026-09-08' for rows that predate the tick box.
+  consent_at:     integer('consent_at', { mode: 'timestamp' }),
+  consent_source: text('consent_source'),
 });
 export type Enquiry = typeof enquiries.$inferSelect;
 
@@ -433,6 +449,7 @@ export const users = sqliteTable('users', {
   email:         text('email').notNull().unique(),    // stored lower-cased + trimmed
   name:          text('name'),                          // optional display name, editable on /account
   verified_at:   integer('verified_at', { mode: 'timestamp' }),   // first successful magic-link click
+  consent_source: text('consent_source'),
   consent_at:    integer('consent_at', { mode: 'timestamp' }),    // POPIA: agreed to alert emails
   last_login_at: integer('last_login_at', { mode: 'timestamp' }),
   disabled:      integer('disabled', { mode: 'boolean' }).notNull().default(false), // admin kill-switch

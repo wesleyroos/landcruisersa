@@ -66,6 +66,7 @@ export const POST: APIRoute = async ({ request }) => {
       seats, budget, use_type, timeline, message, source_path,
       consent_at: now,
       created_at: now,
+      ...(consent ? { consent_at: now, consent_source: 'game-viewer-wanted' } : {}),
     }).run();
   } catch (err) {
     console.error('[game-viewer-enquiry] DB insert failed:', err);

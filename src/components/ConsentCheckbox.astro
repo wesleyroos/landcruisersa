@@ -1,0 +1,52 @@
+---
+// The marketing opt-in, in one place.
+//
+// The wording IS the legal artifact: if there is ever a complaint, what matters
+// is being able to say exactly what the person agreed to. Six copies across six
+// forms would drift, and then nobody could say which version somebody saw.
+//
+// Deliberately not pre-ticked. A box that arrives already ticked is not consent
+// in any regime, and it also produces a list that looks consented and is not —
+// which is worse than a smaller honest one.
+interface Props {
+  id: string;
+  /** Extra note for forms where something is also shared onward. */
+  extra?: string;
+  required?: boolean;
+}
+const { id, extra, required = true } = Astro.props;
+---
+
+<label class="lcsa-consent" for={id}>
+  <input type="checkbox" id={id} name="consent" required={required} />
+  <span>
+    I agree to Land Cruiser SA keeping these details and sending me occasional
+    updates, offers and news.{extra ? ` ${extra}` : ''} You can unsubscribe from any
+    message.
+  </span>
+</label>
+
+<style>
+  .lcsa-consent {
+    display: flex;
+    gap: 0.6rem;
+    align-items: flex-start;
+    margin: 0.9rem 0;
+    font-size: 0.8125rem;
+    line-height: 1.45;
+    color: #555;
+    cursor: pointer;
+  }
+  .lcsa-consent input {
+    /* Nudged down to sit on the first line of text rather than above it. */
+    margin-top: 0.15rem;
+    width: 1rem;
+    height: 1rem;
+    flex-shrink: 0;
+    accent-color: #f5a623;
+    cursor: pointer;
+  }
+  .lcsa-consent span {
+    min-width: 0;
+  }
+</style>
