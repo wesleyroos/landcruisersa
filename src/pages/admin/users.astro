@@ -3,7 +3,11 @@ export const prerender = false;
 
 import AdminLayout from '@/layouts/AdminLayout.astro';
 import { db } from '@/db/index';
-import { users, favorites, savedSearches, contacts, listings } from '@/db/schema';
+import {
+  users, favorites, savedSearches, contacts, listings,
+  enquiries, trainingLeads, wantedRequests, financeLeads,
+  valuationRequests, valuationCertificates,
+} from '@/db/schema';
 import { desc, sql } from 'drizzle-orm';
 
 const cookie = Astro.cookies.get('lcsa_admin');
@@ -12,152 +16,228 @@ if (!cookie || cookie.value !== adminSecret) {
   return Astro.redirect('/admin/login');
 }
 
-const allUsers = db.select().from(users).orderBy(desc(users.created_at)).limit(500).all();
-const total = (db.select({ n: sql<number>`cast(count(*) as int)` }).from(users).get())?.n ?? 0;
-const verified = (db.select({ n: sql<number>`cast(count(*) as int)` }).from(users).where(sql`verified_at is not null`).get())?.n ?? 0;
-const consented = (db.select({ n: sql<number>`cast(count(*) as int)` }).from(users).where(sql`consent_at is not null`).get())?.n ?? 0;
+// ── The master list ──────────────────────────────────────────────────────────
+// One row per PERSON, merged across every table that captures somebody:
+// accounts, private sellers, the old WordPress import, enquiries (contact form
+// + chat + advertise), training, game-viewer wanted, finance leads, valuations
+// and certificate leads. Identity = email (lowercased); phone-only people get
+// a phone identity so they aren't dropped. Internal/test addresses excluded.
 
-// Favourite + saved-search counts per user, pulled as maps.
-const favCounts = new Map<number, number>();
-for (const r of db.select({ uid: favorites.user_id, n: sql<number>`cast(count(*) as int)` }).from(favorites).groupBy(favorites.user_id).all()) {
-  favCounts.set(r.uid, r.n);
+interface Person {
+  name: string;
+  email: string;
+  phone: string;
+  sources: Record<string, number>;   // label → row count
+  consentAt: number | null;          // earliest consent, ms
+  consentSource: string | null;
+  first: number;                     // ms
+  last: number;                      // ms
+  notes: string[];                   // activity fragments ("3 listings · 1 sold")
 }
-const searchCounts = new Map<number, number>();
-for (const r of db.select({ uid: savedSearches.user_id, n: sql<number>`cast(count(*) as int)` }).from(savedSearches).groupBy(savedSearches.user_id).all()) {
-  searchCounts.set(r.uid, r.n);
-}
 
-const fmt = (d: Date | null) => d ? new Date(d).toLocaleString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
-
-// Legacy contacts (old WordPress/WooCommerce import) — NOT signed-up users;
-// kept apart so the accounts metrics above stay clean.
-const allContacts = db.select().from(contacts).orderBy(contacts.source, contacts.email).limit(500).all();
-const contactTotal = (db.select({ n: sql<number>`cast(count(*) as int)` }).from(contacts).get())?.n ?? 0;
-const contactsBySource = db.select({ source: contacts.source, n: sql<number>`cast(count(*) as int)` })
-  .from(contacts).groupBy(contacts.source).orderBy(sql`count(*) desc`).all();
-const SOURCE_LABEL: Record<string, string> = {
-  shop_customer: '🛒 Shop customer',
-  contact_form: '✉️ Contact form',
-  wp_user: '👤 WP account',
+const people = new Map<string, Person>();
+const isInternal = (e: string) => /grodigital|landcruisersa/i.test(e);
+const keyFor = (email: string, phone: string): string | null => {
+  const e = email.trim().toLowerCase();
+  if (e) return isInternal(e) ? null : e;
+  const p = phone.replace(/\D/g, '');
+  return p.length >= 9 ? `p:${p.slice(-9)}` : null;
 };
 
-// Private sellers — one row per person who has listed a vehicle with us.
-// Queried live off `listings` (single source of truth), not copied anywhere.
-const sellers = db.select({
+function absorb(
+  source: string,
+  row: {
+    name?: string | null; email?: string | null; phone?: string | null;
+    at: Date | number | null; consentAt?: Date | number | null; consentSource?: string | null;
+  },
+) {
+  const email = String(row.email ?? '').trim();
+  const phone = String(row.phone ?? '').trim();
+  const key = keyFor(email, phone);
+  if (!key) return;
+  const at = row.at ? new Date(row.at as Date).getTime() : 0;
+  const cAt = row.consentAt ? new Date(row.consentAt as Date).getTime() : null;
+
+  let p = people.get(key);
+  if (!p) {
+    p = { name: '', email: email.toLowerCase(), phone: '', sources: {}, consentAt: null, consentSource: null, first: at || Date.now(), last: at || 0, notes: [] };
+    people.set(key, p);
+  }
+  const name = String(row.name ?? '').trim();
+  if (name.length > p.name.length) p.name = name;
+  if (!p.email && email) p.email = email.toLowerCase();
+  if (!p.phone && phone) p.phone = phone;
+  p.sources[source] = (p.sources[source] ?? 0) + 1;
+  if (at) { p.first = Math.min(p.first, at); p.last = Math.max(p.last, at); }
+  if (cAt && (!p.consentAt || cAt < p.consentAt)) {
+    p.consentAt = cAt;
+    p.consentSource = row.consentSource ?? null;
+  }
+}
+
+// 1. Accounts (signups for favourites/alerts)
+const allUsers = db.select().from(users).orderBy(desc(users.created_at)).all();
+const favCounts = new Map<number, number>();
+for (const r of db.select({ uid: favorites.user_id, n: sql<number>`cast(count(*) as int)` }).from(favorites).groupBy(favorites.user_id).all()) favCounts.set(r.uid, r.n);
+const searchCounts = new Map<number, number>();
+for (const r of db.select({ uid: savedSearches.user_id, n: sql<number>`cast(count(*) as int)` }).from(savedSearches).groupBy(savedSearches.user_id).all()) searchCounts.set(r.uid, r.n);
+for (const u of allUsers) {
+  absorb('Account', { name: u.name, email: u.email, at: u.created_at, consentAt: u.consent_at, consentSource: u.consent_source });
+  const key = keyFor(u.email, '');
+  const p = key ? people.get(key) : null;
+  if (p) {
+    if (u.last_login_at) p.last = Math.max(p.last, new Date(u.last_login_at).getTime());
+    const fav = favCounts.get(u.id) ?? 0; const ss = searchCounts.get(u.id) ?? 0;
+    if (fav) p.notes.push(`${fav} fav${fav === 1 ? '' : 's'}`);
+    if (ss) p.notes.push(`${ss} alert${ss === 1 ? '' : 's'}`);
+    if (u.verified_at) p.notes.push('verified');
+  }
+}
+
+// 2. Private sellers — live off the listings table (own listings only)
+const sellerRows = db.select({
   email: listings.seller_email,
   name: sql<string>`max(seller_name)`,
   phone: sql<string>`max(seller_phone)`,
   total: sql<number>`cast(count(*) as int)`,
   active: sql<number>`cast(sum(status = 'active') as int)`,
   sold: sql<number>`cast(sum(status = 'sold') as int)`,
+  first: sql<number>`min(created_at)`,
   latest: sql<number>`max(created_at)`,
+  consentAt: sql<number | null>`min(seller_consent_at)`,
+  consentSource: sql<string | null>`max(seller_consent_source)`,
 }).from(listings)
-  .where(sql`source = 'own' AND seller_email != '' AND seller_email NOT LIKE '%grodigital%' AND seller_email NOT LIKE '%landcruisersa%'`)
-  .groupBy(listings.seller_email)
-  .orderBy(sql`max(created_at) desc`)
+  .where(sql`source = 'own' AND trim(seller_email) != ''`)
+  .groupBy(sql`lower(trim(seller_email))`)
   .all();
+for (const s of sellerRows) {
+  absorb('Seller', {
+    name: s.name, email: s.email, phone: s.phone,
+    at: s.first * 1000,
+    consentAt: s.consentAt ? s.consentAt * 1000 : null, consentSource: s.consentSource,
+  });
+  const key = keyFor(s.email, s.phone);
+  const p = key ? people.get(key) : null;
+  if (p) {
+    p.last = Math.max(p.last, s.latest * 1000);
+    p.sources['Seller'] = s.total;
+    p.notes.push(`${s.total} listing${s.total === 1 ? '' : 's'}${s.active ? ` (${s.active} live)` : ''}${s.sold ? ` · ${s.sold} sold` : ''}`);
+  }
+}
 
-// Total user base = everyone we hold an email for across all three lists
-// (signups + private sellers + legacy contacts), de-duplicated by email so a
-// person who appears on two lists is only counted once.
-const totalBase = db.get<{ n: number }>(sql.raw(`
-  SELECT count(*) n FROM (
-    SELECT lower(trim(email)) e FROM users WHERE trim(email) != ''
-    UNION
-    SELECT lower(trim(seller_email)) e FROM listings
-      WHERE source = 'own' AND trim(seller_email) != ''
-        AND seller_email NOT LIKE '%grodigital%' AND seller_email NOT LIKE '%landcruisersa%'
-    UNION
-    SELECT lower(trim(email)) e FROM contacts WHERE trim(email) != ''
-  )
-`))?.n ?? 0;
+// 3. Old WordPress/WooCommerce import (extracted 15 Jul 2026)
+const WP_LABEL: Record<string, string> = { shop_customer: 'WP shop', contact_form: 'WP contact', wp_user: 'WP account' };
+for (const c of db.select().from(contacts).all()) {
+  absorb(WP_LABEL[c.source] ?? 'WP legacy', { name: c.name, email: c.email, at: c.created_at, consentAt: c.consent_at, consentSource: c.consent_source });
+}
+
+// 4. Enquiries — contact form, chat widget, advertise-with-us
+for (const e of db.select().from(enquiries).all()) {
+  absorb('Enquiry', { name: e.name, email: e.email, phone: e.phone, at: e.created_at, consentAt: e.consent_at, consentSource: e.consent_source });
+}
+
+// 5. 4x4 training enquiries
+for (const t of db.select().from(trainingLeads).all()) {
+  absorb('Training', { name: t.name, email: t.email, phone: t.phone, at: t.created_at, consentAt: t.consent_at, consentSource: t.consent_source });
+}
+
+// 6. Game-viewer wanted requests
+for (const w of db.select().from(wantedRequests).all()) {
+  absorb('Wanted', { name: w.name, email: w.email, phone: w.phone, at: w.created_at, consentAt: w.consent_at, consentSource: 'game-viewer-wanted' });
+}
+
+// 7. Finance leads (consent is an INTEGER 0/1 on this older table)
+for (const f of db.select().from(financeLeads).all()) {
+  absorb('Finance', { name: f.name, email: f.email, phone: f.phone, at: f.created_at, consentAt: f.consent ? f.created_at : null, consentSource: f.consent ? 'finance-lead' : null });
+}
+
+// 8. Valuations that left contact details (the tool itself works anonymously)
+for (const v of db.select().from(valuationRequests).where(sql`(trim(coalesce(email,'')) != '' OR trim(coalesce(phone,'')) != '')`).all()) {
+  absorb('Valuation', {
+    name: v.name, email: v.email, phone: v.phone, at: v.created_at,
+    consentAt: v.consent_at ?? (v.consent ? v.created_at : null),
+    consentSource: v.consent_source ?? (v.consent ? 'valuation-tool' : null),
+  });
+}
+
+// 9. Certificate leads (gated PDF download)
+for (const c of db.select().from(valuationCertificates).where(sql`trim(coalesce(email,'')) != ''`).all()) {
+  absorb('Certificate', { name: c.name, email: c.email, phone: c.phone, at: c.issued_at, consentAt: c.consent_at, consentSource: 'valuation-certificate' });
+}
+
+const master = [...people.values()].sort((a, b) => b.last - a.last);
+const masterTotal = master.length;
+const consentedTotal = master.filter(p => p.consentAt).length;
+const recordTotal = master.reduce((s, p) => s + Object.values(p.sources).reduce((x, n) => x + n, 0), 0);
+
+// Per-source person counts (a person can appear under several)
+const sourceTotals = new Map<string, number>();
+for (const p of master) for (const s of Object.keys(p.sources)) sourceTotals.set(s, (sourceTotals.get(s) ?? 0) + 1);
+const SOURCE_ORDER = ['Account', 'Seller', 'Certificate', 'Valuation', 'Finance', 'Training', 'Wanted', 'Enquiry', 'WP shop', 'WP contact', 'WP account'];
+const sourceChips = SOURCE_ORDER.filter(s => sourceTotals.has(s)).map(s => ({ s, n: sourceTotals.get(s)! }));
+
+const fmtMs = (ms: number | null) => ms ? new Date(ms).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
+const consentLabel = (p: Person) =>
+  !p.consentAt ? '' : p.consentSource?.startsWith('bulk-import') ? 'imported' : (p.consentSource ?? 'opt-in');
+
+// Client payload for search/filter + master CSV export
+const clientRows = master.map(p => ({
+  n: p.name, e: p.email, ph: p.phone,
+  s: Object.entries(p.sources).map(([k, v]) => v > 1 ? `${k} ×${v}` : k),
+  c: p.consentAt ? 1 : 0, cs: consentLabel(p),
+  f: p.first, l: p.last, a: p.notes.join(' · '),
+}));
+const rowsJson = JSON.stringify(clientRows).replace(/</g, '\\u003c');
 ---
 
 <AdminLayout title="Users" activePage="users">
   <div class="ib">
     <div class="topbar">
-      <button id="export-btn" class="export-btn" type="button">⬇ Export CSV</button>
+      <button id="master-csv" class="export-btn ghost" type="button">⬇ Master CSV</button>
+      <button id="export-btn" class="export-btn" type="button">⬇ Meta audience CSV</button>
     </div>
 
     <div class="stats">
-      <div class="stat wide"><span class="num">{totalBase}</span><span class="lbl">Total users</span><span class="hint">signups + sellers + legacy, de-duped</span></div>
-      <div class="stat"><span class="num">{total}</span><span class="lbl">Signups</span></div>
-      <div class="stat"><span class="num">{verified}</span><span class="lbl">Verified</span></div>
-      <div class="stat"><span class="num">{consented}</span><span class="lbl">Alert opt-ins</span></div>
+      <div class="stat wide"><span class="num">{masterTotal}</span><span class="lbl">Total people</span><span class="hint">every source, de-duplicated</span></div>
+      <div class="stat"><span class="num">{consentedTotal}</span><span class="lbl">With consent</span><span class="hint">{masterTotal ? Math.round(consentedTotal / masterTotal * 100) : 0}% of the base</span></div>
+      <div class="stat"><span class="num">{recordTotal}</span><span class="lbl">Raw records</span><span class="hint">before de-duplication</span></div>
     </div>
 
     <section class="card">
-      <h2>Users <span class="count">{total}</span></h2>
-      <p class="sub">Everyone who has created a profile to save vehicles or set up alerts. Verified = clicked their sign-in link. Opt-in = agreed to alert emails (POPIA).</p>
-      {allUsers.length === 0 ? <p class="empty">No signups yet.</p> : (
-        <table>
-          <thead><tr><th>Joined</th><th>Name</th><th>Email</th><th>Verified</th><th>Alerts</th><th>Saved</th><th>Searches</th><th>Last seen</th></tr></thead>
-          <tbody>
-            {allUsers.map(u => (
-              <tr class={u.disabled ? 'disabled' : ''}>
-                <td class="nowrap muted">{fmt(u.created_at)}</td>
-                <td class="b">{u.name ?? '—'}</td>
-                <td><a href={`mailto:${u.email}`}>{u.email}</a></td>
-                <td class="nowrap">{u.verified_at ? '✅' : '—'}</td>
-                <td class="nowrap">{u.consent_at ? '🔔' : '—'}</td>
-                <td class="nowrap b">{favCounts.get(u.id) ?? 0}</td>
-                <td class="nowrap">{searchCounts.get(u.id) ?? 0}</td>
-                <td class="nowrap muted small">{fmt(u.last_login_at)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-    </section>
-
-    <section class="card">
-      <h2>Private sellers <span class="count">{sellers.length}</span></h2>
-      <p class="sub">Everyone who has listed a vehicle with us (live from the listings table). These are the warmest contacts on the site — owners with a Cruiser to sell, and the seed of the dealer-sourcing loop.</p>
-      {sellers.length === 0 ? <p class="empty">No private sellers yet.</p> : (
-        <table>
-          <thead><tr><th>Latest listing</th><th>Name</th><th>Email</th><th>Phone</th><th>Listings</th><th>Active</th><th>Sold</th></tr></thead>
-          <tbody>
-            {sellers.map(s => (
-              <tr>
-                <td class="nowrap muted">{fmt(new Date(s.latest * 1000))}</td>
-                <td class="b">{s.name || '—'}</td>
-                <td><a href={`mailto:${s.email}`}>{s.email}</a></td>
-                <td class="nowrap"><a href={`tel:${s.phone}`}>{s.phone}</a></td>
-                <td class="nowrap b">{s.total}</td>
-                <td class="nowrap">{s.active}</td>
-                <td class="nowrap">{s.sold}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-    </section>
-
-    <section class="card">
-      <h2>Legacy contacts <span class="count">{contactTotal}</span></h2>
+      <h2>Master list <span class="count">{masterTotal}</span></h2>
       <p class="sub">
-        Imported from the old WordPress/WooCommerce site (extracted 15 Jul 2026). These are
-        past customers and enquirers — <b>not</b> signed-up users, and they receive nothing
-        until the mailer plan is armed.
-        {contactsBySource.length > 0 && (
-          <span> Breakdown: {contactsBySource.map(s => `${SOURCE_LABEL[s.source] ?? s.source} ${s.n}`).join(' · ')}</span>
-        )}
+        One row per person across everything: accounts, private sellers, the old WordPress
+        import, enquiries, training, game-viewer wanted requests, finance leads, valuations
+        and certificate downloads. Consent = a recorded opt-in (“imported” = the honest
+        bulk backfill, not an individual tick). Click a source chip to filter.
       </p>
-      {allContacts.length === 0 ? <p class="empty">No contacts imported yet.</p> : (
-        <table>
-          <thead><tr><th>Source</th><th>Name</th><th>Email</th><th>Note</th></tr></thead>
-          <tbody>
-            {allContacts.map(c => (
-              <tr>
-                <td class="nowrap">{SOURCE_LABEL[c.source] ?? c.source}</td>
-                <td class="b">{c.name || '—'}</td>
-                <td><a href={`mailto:${c.email}`}>{c.email}</a></td>
-                <td class="muted small">{c.note ?? '—'}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+      <div class="filters">
+        <input id="q" type="search" placeholder="Search name, email or phone…" autocomplete="off" />
+        <div class="chips">
+          <button class="chip active" data-src="">All {masterTotal}</button>
+          {sourceChips.map(c => <button class="chip" data-src={c.s}>{c.s} {c.n}</button>)}
+          <button class="chip" data-src="__noconsent">No consent {masterTotal - consentedTotal}</button>
+        </div>
+      </div>
+      <table id="master-table">
+        <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Sources</th><th>Consent</th><th>Activity</th><th>First seen</th><th>Last seen</th></tr></thead>
+        <tbody>
+          {master.map(p => (
+            <tr data-src={Object.keys(p.sources).join('|')} data-consent={p.consentAt ? '1' : '0'}
+                data-q={`${p.name} ${p.email} ${p.phone}`.toLowerCase()}>
+              <td class="b">{p.name || '—'}</td>
+              <td>{p.email ? <a href={`mailto:${p.email}`}>{p.email}</a> : '—'}</td>
+              <td class="nowrap">{p.phone ? <a href={`tel:${p.phone}`}>{p.phone}</a> : '—'}</td>
+              <td class="srcs">{Object.entries(p.sources).map(([s, n]) => <span class="src">{s}{n > 1 ? ` ×${n}` : ''}</span>)}</td>
+              <td class="nowrap">{p.consentAt ? <span class={consentLabel(p) === 'imported' ? 'cons imported' : 'cons'} title={fmtMs(p.consentAt)}>✅ <i>{consentLabel(p)}</i></span> : <span class="muted">—</span>}</td>
+              <td class="muted small">{p.notes.join(' · ') || '—'}</td>
+              <td class="nowrap muted small">{fmtMs(p.first)}</td>
+              <td class="nowrap muted small">{fmtMs(p.last)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p id="no-rows" class="empty" hidden>Nothing matches that filter.</p>
     </section>
   </div>
 
@@ -167,13 +247,12 @@ const totalBase = db.get<{ n: number }>(sql.raw(`
       <p class="modal-sub">
         Pick which lists to include. The file is formatted for a <b>Meta Custom
         Audience</b> — email, phone (E.164), first &amp; last name, country — with
-        consent columns (<code>verified</code>, <code>alert_optin</code>) so you can
-        filter to opted-in people before uploading.
+        consent columns so you can filter to opted-in people before uploading.
       </p>
       <div class="opts">
-        <label class="opt"><input type="checkbox" class="exp-list" value="users" checked /> <span>Users <b>{total}</b></span></label>
-        <label class="opt"><input type="checkbox" class="exp-list" value="sellers" checked /> <span>Private sellers <b>{sellers.length}</b></span></label>
-        <label class="opt"><input type="checkbox" class="exp-list" value="contacts" checked /> <span>Legacy contacts <b>{contactTotal}</b></span></label>
+        <label class="opt"><input type="checkbox" class="exp-list" value="users" checked /> <span>Users</span></label>
+        <label class="opt"><input type="checkbox" class="exp-list" value="sellers" checked /> <span>Private sellers</span></label>
+        <label class="opt"><input type="checkbox" class="exp-list" value="contacts" checked /> <span>Legacy contacts</span></label>
       </div>
       <div class="modal-actions">
         <button id="export-cancel" class="btn-ghost" type="button">Cancel</button>
@@ -182,18 +261,70 @@ const totalBase = db.get<{ n: number }>(sql.raw(`
     </div>
   </div>
 
-  <script>
+  <script define:vars={{ rowsJson }}>
+    // ── Search + source filter ──
+    const rows = Array.from(document.querySelectorAll('#master-table tbody tr'));
+    const q = document.getElementById('q');
+    const noRows = document.getElementById('no-rows');
+    let activeSrc = '';
+    function apply() {
+      const needle = (q?.value ?? '').trim().toLowerCase();
+      let shown = 0;
+      for (const tr of rows) {
+        const srcs = (tr.getAttribute('data-src') ?? '').split('|');
+        const okSrc = !activeSrc
+          || (activeSrc === '__noconsent' ? tr.getAttribute('data-consent') === '0' : srcs.includes(activeSrc));
+        const okQ = !needle || (tr.getAttribute('data-q') ?? '').includes(needle);
+        const show = okSrc && okQ;
+        tr.hidden = !show;
+        if (show) shown++;
+      }
+      if (noRows) noRows.hidden = shown > 0;
+    }
+    q?.addEventListener('input', apply);
+    document.querySelectorAll('.chip').forEach((chip) => {
+      chip.addEventListener('click', () => {
+        document.querySelectorAll('.chip').forEach((c) => c.classList.remove('active'));
+        chip.classList.add('active');
+        activeSrc = chip.getAttribute('data-src') ?? '';
+        apply();
+      });
+    });
+
+    // ── Master CSV (the de-duplicated list, built client-side) ──
+    document.getElementById('master-csv')?.addEventListener('click', () => {
+      const data = JSON.parse(rowsJson);
+      const esc = (v) => '"' + String(v ?? '').replace(/"/g, '""') + '"';
+      const lines = ['name,email,phone,sources,consent,consent_source,first_seen,last_seen,activity'];
+      for (const r of data) {
+        lines.push([
+          esc(r.n), esc(r.e), esc(r.ph), esc(r.s.join(' | ')),
+          r.c ? 'yes' : 'no', esc(r.cs),
+          r.f ? new Date(r.f).toISOString().slice(0, 10) : '',
+          r.l ? new Date(r.l).toISOString().slice(0, 10) : '',
+          esc(r.a),
+        ].join(','));
+      }
+      const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'lcsa-master-users.csv';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
+
+    // ── Meta audience export modal (unchanged, server-generated) ──
     const btn = document.getElementById('export-btn');
     const modal = document.getElementById('export-modal');
     const cancel = document.getElementById('export-cancel');
     const go = document.getElementById('export-go');
-    const close = () => { if (modal) (modal as HTMLElement).hidden = true; };
-    btn?.addEventListener('click', () => { if (modal) (modal as HTMLElement).hidden = false; });
+    const close = () => { if (modal) modal.hidden = true; };
+    btn?.addEventListener('click', () => { if (modal) modal.hidden = false; });
     cancel?.addEventListener('click', close);
     modal?.addEventListener('click', (e) => { if (e.target === modal) close(); });
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
     go?.addEventListener('click', () => {
-      const lists = Array.from(document.querySelectorAll<HTMLInputElement>('.exp-list:checked')).map(c => c.value);
+      const lists = Array.from(document.querySelectorAll('.exp-list:checked')).map((c) => c.value);
       if (lists.length === 0) { alert('Pick at least one list to export.'); return; }
       window.location.href = '/api/admin/export-users?lists=' + encodeURIComponent(lists.join(','));
       close();
@@ -202,38 +333,50 @@ const totalBase = db.get<{ n: number }>(sql.raw(`
 </AdminLayout>
 
 <style>
-  .ib { display: flex; flex-direction: column; gap: 1.5rem; max-width: 1100px; }
+  .ib { display: flex; flex-direction: column; gap: 1.5rem; max-width: 1250px; }
   .stats { display: flex; gap: 1rem; flex-wrap: wrap; }
   .stat { background: #fff; border: 1px solid #E5E7EB; border-radius: 0.75rem; padding: 1rem 1.5rem; display: flex; flex-direction: column; min-width: 120px; }
   .stat .num { font-size: 1.75rem; font-weight: 800; color: #111; line-height: 1; }
   .stat .lbl { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: #9CA3AF; margin-top: 0.35rem; }
   .stat .hint { font-size: 0.66rem; color: #B6BCC6; margin-top: 0.2rem; }
   .stat.wide { border-color: #F5A623; }
-  .stat.wide .num { color: #111; }
   .stat.wide .lbl { color: #D4881A; }
   .card { background: #fff; border: 1px solid #E5E7EB; border-radius: 0.75rem; padding: 1.25rem 1.5rem; }
   h2 { font-size: 1rem; font-weight: 700; color: #111; display: flex; align-items: center; gap: 0.5rem; }
   .count { background: #F5A623; color: #111; font-size: 0.7rem; font-weight: 700; padding: 0.1rem 0.5rem; border-radius: 999px; }
   .sub { font-size: 0.8rem; color: #6B7280; margin: 0.3rem 0 1rem; }
   .empty { font-size: 0.875rem; color: #9CA3AF; padding: 0.5rem 0; }
+
+  .filters { display: flex; flex-direction: column; gap: 0.6rem; margin-bottom: 0.9rem; }
+  .filters input { border: 1px solid #E5E7EB; border-radius: 0.6rem; padding: 0.5rem 0.8rem; font-size: 0.85rem; max-width: 22rem; }
+  .chips { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+  .chip { border: 1px solid #E5E7EB; background: #fff; border-radius: 999px; padding: 0.25rem 0.7rem; font-size: 0.72rem; font-weight: 600; color: #374151; cursor: pointer; }
+  .chip:hover { background: #F9FAFB; }
+  .chip.active { background: #111; color: #fff; border-color: #111; }
+
   table { width: 100%; border-collapse: collapse; font-size: 0.8125rem; }
   th { text-align: left; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #9CA3AF; padding: 0.5rem 0.6rem; border-bottom: 1px solid #E5E7EB; }
   td { padding: 0.55rem 0.6rem; border-bottom: 1px solid #F3F4F6; color: #374151; vertical-align: top; }
   tr:last-child td { border-bottom: none; }
-  tr.disabled { opacity: 0.45; }
   .b { font-weight: 700; color: #111; }
   .muted { color: #9CA3AF; }
   .small { font-size: 0.72rem; }
   .nowrap { white-space: nowrap; }
   td a { color: #D4881A; text-decoration: none; }
   td a:hover { text-decoration: underline; }
+  .srcs { display: flex; flex-wrap: wrap; gap: 0.25rem; }
+  .src { background: #F3F4F6; border-radius: 0.35rem; padding: 0.1rem 0.45rem; font-size: 0.68rem; font-weight: 600; color: #374151; white-space: nowrap; }
+  .cons i { font-style: normal; font-size: 0.68rem; color: #6B7280; }
+  .cons.imported i { color: #B6893B; }
 
-  .topbar { display: flex; justify-content: flex-end; }
+  .topbar { display: flex; justify-content: flex-end; gap: 0.6rem; }
   .export-btn {
     background: #111; color: #fff; border: none; border-radius: 0.6rem;
     padding: 0.55rem 1.1rem; font-size: 0.8rem; font-weight: 700; cursor: pointer;
   }
   .export-btn:hover { background: #000; }
+  .export-btn.ghost { background: #fff; color: #111; border: 1px solid #E5E7EB; }
+  .export-btn.ghost:hover { background: #F9FAFB; }
 
   .modal-backdrop {
     position: fixed; inset: 0; background: rgba(17,24,39,0.55);
@@ -246,7 +389,6 @@ const totalBase = db.get<{ n: number }>(sql.raw(`
   }
   .modal h3 { font-size: 1.05rem; font-weight: 800; color: #111; margin: 0 0 0.5rem; }
   .modal-sub { font-size: 0.8rem; color: #6B7280; margin: 0 0 1rem; line-height: 1.45; }
-  .modal-sub code { background: #F3F4F6; padding: 0.05rem 0.3rem; border-radius: 0.25rem; font-size: 0.72rem; }
   .opts { display: flex; flex-direction: column; gap: 0.15rem; margin-bottom: 1.25rem; }
   .opt {
     display: flex; align-items: center; gap: 0.6rem; padding: 0.6rem 0.7rem;
@@ -254,10 +396,8 @@ const totalBase = db.get<{ n: number }>(sql.raw(`
   }
   .opt:hover { background: #F9FAFB; }
   .opt input { accent-color: #F5A623; width: 17px; height: 17px; cursor: pointer; }
-  .opt b { color: #111; }
   .modal-actions { display: flex; justify-content: flex-end; gap: 0.6rem; }
   .btn-ghost { background: none; border: 1px solid #E5E7EB; border-radius: 0.6rem; padding: 0.55rem 1rem; font-size: 0.8rem; font-weight: 600; color: #374151; cursor: pointer; }
   .btn-ghost:hover { background: #F9FAFB; }
-  .btn-fill { background: #F5A623; border: none; border-radius: 0.6rem; padding: 0.55rem 1.2rem; font-size: 0.8rem; font-weight: 700; color: #111; cursor: pointer; }
-  .btn-fill:hover { background: #E09612; }
+  .btn-fill { background: #F5A623; border: none; border-radius: 0.6rem; padding: 0.55rem 1rem; font-size: 0.8rem; font-weight: 700; color: #111; cursor: pointer; }
 </style>

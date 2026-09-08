@@ -79,6 +79,8 @@ addCol('social_boost_paid_at',   "social_boost_paid_at   INTEGER");
 addCol('social_boost_posted_at', "social_boost_posted_at INTEGER");
 addCol('social_boost_asked_at',  "social_boost_asked_at  INTEGER");
 addCol('social_boost_nudged_at', "social_boost_nudged_at INTEGER");
+addCol('seller_consent_at',      "seller_consent_at      INTEGER");
+addCol('seller_consent_source',  "seller_consent_source  TEXT");
 
 // One-time rollout for the AT gallery backfill marker: the search tile yields at
 // most ~7 images, so any AutoTrader listing already holding 8+ was fetched from
@@ -860,6 +862,7 @@ const REQUIRED_COLS = [
   'sold_channel', 'sold_to', 'sold_date',
   'social_boost', 'social_boost_ref', 'social_boost_amount', 'social_boost_paid_at',
   'social_boost_posted_at', 'social_boost_asked_at', 'social_boost_nudged_at',
+  'seller_consent_at', 'seller_consent_source',
 ];
 const finalCols = new Set(
   db.prepare("SELECT name FROM pragma_table_info('listings')").all().map(r => r.name)
@@ -919,6 +922,19 @@ addColTo('users', 'consent_source', 'consent_source TEXT');
   if (r.changes > 0) console.log(`[migrate] Backfilled consent on ${r.changes} users row(s)`);
 }
 
+// Private sellers (own listings) predating the submit-form consent box get the
+// same honest bulk-import treatment as the other tables. Scraped rows are left
+// alone — their seller fields are portal/dealer contacts, not opted-in people.
+const SELLER_CONSENT_CUTOFF = 1788880000; // 2026-09-08T15:06Z — the moment this shipped
+{
+  const r = db
+    .prepare(
+      `UPDATE listings SET seller_consent_at = created_at, seller_consent_source = 'bulk-import-2026-09-08'
+       WHERE source = 'own' AND seller_consent_at IS NULL AND trim(seller_email) != '' AND created_at < ?`,
+    )
+    .run(SELLER_CONSENT_CUTOFF);
+  if (r.changes > 0) console.log(`[migrate] Backfilled seller consent on ${r.changes} listings row(s)`);
+}
 
 console.log('[migrate] Schema ready.');
 db.close();

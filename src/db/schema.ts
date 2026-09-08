@@ -23,6 +23,11 @@ export const listings = sqliteTable('listings', {
   seller_name:  text('seller_name').notNull(),
   seller_email: text('seller_email').notNull(),
   seller_phone: text('seller_phone').notNull(),
+  // POPIA: the seller's marketing opt-in from the submit form. Only meaningful
+  // on source='own' rows — scraped listings carry portal/dealer contact info,
+  // not a person who consented to hear from us.
+  seller_consent_at:     integer('seller_consent_at', { mode: 'timestamp' }),
+  seller_consent_source: text('seller_consent_source'),
   // 'pending' | 'active' | 'sold' | 'removed' | 'inactive' | 'duplicate'
   // 'duplicate' = the same physical car is already live under another portal's
   // row (set by ingest's cross-source dedupe). Hidden like any non-active

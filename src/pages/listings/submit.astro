@@ -1,6 +1,7 @@
 ---
 export const prerender = false;
 import Base from '@/layouts/Base.astro';
+import ConsentCheckbox from '@/components/ConsentCheckbox.astro';
 import { igFollowersDisplay, igFollowersK } from '@/lib/ig-followers';
 import { boostEnabled, boostPriceRand } from '@/lib/social-boost';
 import { socialReachDisplay, fbFollowersDisplay } from '@/lib/social-reach';
@@ -269,6 +270,9 @@ const boostPrice = boostPriceRand();
         <label for="f-phone">Phone / WhatsApp *</label>
         <input id="f-phone" type="tel" autocomplete="tel" placeholder="082 555 1234" inputmode="tel" />
         <span id="phone-hint" class="field-hint">Buyers contact you directly. Not shown publicly.</span>
+      </div>
+      <div class="field">
+        <ConsentCheckbox id="f-consent" />
       </div>
       <div class="field" id="dealer-offer-field">
         <label class="dealer-consent" for="f-dealer-optin">
@@ -1161,6 +1165,12 @@ const boostPrice = boostPriceRand();
       return;
     }
 
+    if (!(document.getElementById('f-consent') as HTMLInputElement).checked) {
+      formError.textContent = 'Please tick the consent box so we can store your details and contact you about your listing.';
+      formError.classList.remove('hidden');
+      return;
+    }
+
     formError.classList.add('hidden');
     submitBtn.disabled = true;
     submitBtn.textContent = 'Submitting…';
@@ -1183,6 +1193,7 @@ const boostPrice = boostPriceRand();
       seller_name: name,
       seller_email: email,
       seller_phone: phone,
+      consent: (document.getElementById('f-consent') as HTMLInputElement).checked,
       dealer_offer_optin: selectedType === 'for_sale'
         && (document.getElementById('f-dealer-optin') as HTMLInputElement).checked,
       social_boost: selectedType === 'for_sale'

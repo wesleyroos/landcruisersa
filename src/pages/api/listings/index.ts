@@ -25,6 +25,7 @@ export const POST: APIRoute = async ({ request }) => {
     province, new_or_used, transmission, fuel_type, colour,
     description, mods, photos,
     seller_name, seller_email, seller_phone,
+    consent = false,
     dealer_offer_optin = false,
     social_boost = false,
     body_type = null,
@@ -46,6 +47,15 @@ export const POST: APIRoute = async ({ request }) => {
 
   if (!title || !model || !year || !seller_email || !seller_name || !seller_phone) {
     return new Response(JSON.stringify({ error: 'Missing required fields' }), { status: 400 });
+  }
+
+  // POPIA: the submit form requires the consent tick before it will post, so a
+  // missing/false value here is a bypassed form, not a real seller. All three
+  // checkbox shapes accepted (JSON boolean, "true", "on") — same as the other
+  // consent-carrying endpoints.
+  const consentGiven = consent === true || consent === 'true' || consent === 'on';
+  if (!consentGiven) {
+    return new Response(JSON.stringify({ error: 'Please tick the consent box so we can store your details and contact you about your listing.' }), { status: 400 });
   }
 
   if (listing_type === 'for_sale' && (!price || !mileage)) {
@@ -84,6 +94,8 @@ export const POST: APIRoute = async ({ request }) => {
     seller_name,
     seller_email,
     seller_phone,
+    seller_consent_at: new Date(),
+    seller_consent_source: 'listing-submit',
     dealer_offer_optin: dealer_offer_optin === true && listing_type === 'for_sale',
     // Seller's checkbox wins; otherwise auto-detect from what they wrote.
     body_type: body_type === 'game-viewer'
