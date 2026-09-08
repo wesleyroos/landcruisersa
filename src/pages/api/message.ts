@@ -64,7 +64,12 @@ export const POST: APIRoute = async ({ request }) => {
   const source_path = String(body.source_path ?? '').trim().slice(0, 160) || null;
 
   if (!name || !message) return fail('Please add your name and a message.', 400);
-  if (!phone && !email) return fail('Please leave a phone number or email so we can reply.', 400);
+  // Was "one or the other", which meant half these leads arrived without a
+  // number and half without an address. Both, now.
+  if (!email.includes('@')) return fail('Please add an email address so we can reply.', 400);
+  if (phone.replace(/\D/g, '').length < 7) {
+    return fail('Please add a phone number we can reach you on.', 400);
+  }
 
   // DB first — never lose an enquiry to an email hiccup.
   try {

@@ -38,8 +38,19 @@ export const POST: APIRoute = async ({ request }) => {
   // nothing — the referrer is the page that actually prompted them to write in.
   const referrer = (body.referrer ?? '').toString().trim();
 
+  // A required attribute in the markup is a hint, not a guarantee — it is one
+  // devtools edit away — so the same rule is enforced here. Phone joined the
+  // list on 2026-09-08: a lead we can only email is worth much less than one we
+  // can also call, and this endpoint serves the contact page, the chat widget
+  // and the advertise form.
   if (!name?.trim() || !email?.trim() || !message?.trim()) {
     return new Response(JSON.stringify({ error: 'Name, email and message are required.' }), { status: 400 });
+  }
+  if (phone.replace(/\D/g, '').length < 7) {
+    return new Response(
+      JSON.stringify({ error: 'Please add a phone number we can reach you on.' }),
+      { status: 400 },
+    );
   }
 
   const subjectLabel = SUBJECT_LABELS[subject] ?? 'General Enquiry';

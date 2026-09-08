@@ -19,10 +19,10 @@ import ConsentCheckbox from './ConsentCheckbox.astro';
     <div class="cw-body">
       <div class="cw-bubble">Hi 👋 Ask us anything about a Land Cruiser and we'll get back to you.</div>
       <form class="cw-form" id="cw-form" novalidate>
-        <input class="cw-in" name="name" placeholder="Your name" maxlength="120" autocomplete="name" />
-        <input class="cw-in" name="email" type="email" placeholder="Email" maxlength="160" autocomplete="email" />
-        <input class="cw-in" name="phone" placeholder="Phone (optional)" maxlength="40" inputmode="tel" autocomplete="tel" />
-        <textarea class="cw-in" name="message" placeholder="Your message…" rows="3" maxlength="2000"></textarea>
+        <input class="cw-in" name="name" placeholder="Your name" maxlength="120" autocomplete="name" required />
+        <input class="cw-in" name="email" type="email" placeholder="Email" maxlength="160" autocomplete="email" required />
+        <input class="cw-in" name="phone" type="tel" placeholder="Phone or WhatsApp" maxlength="40" inputmode="tel" autocomplete="tel" required />
+        <textarea class="cw-in" name="message" placeholder="Your message…" rows="3" maxlength="2000" required></textarea>
         <p class="cw-err" id="cw-err" hidden></p>
         <ConsentCheckbox id="cw-consent" />
         <button type="submit" class="cw-send" id="cw-send">Send message</button>
