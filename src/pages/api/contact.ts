@@ -2,6 +2,7 @@ export const prerender = false;
 
 import type { APIRoute } from 'astro';
 import { db } from '@/db/index';
+import { syncContactsToEngage, trackEngageEvent, submissionToEngageContact } from '@/lib/integrations/engage';
 import { enquiries } from '@/db/schema';
 
 const SUBJECT_LABELS: Record<string, string> = {
@@ -85,6 +86,18 @@ export const POST: APIRoute = async ({ request }) => {
       created_at: new Date(),
       ...(consent ? { consent_at: new Date(), consent_source: 'contact-form' } : {}),
     }).run();
+
+    // After the row is written, so a slow Engage can never cost somebody their
+    // enquiry. Both calls are fire-and-forget and never throw.
+    syncContactsToEngage(
+      submissionToEngageContact({
+        name, email, phone, source: 'contact-form', consent,
+      }) ?? [],
+    );
+    trackEngageEvent('contact_enquiry', {
+      email, phone,
+      properties: { subject: subject || 'general', page: page || null },
+    });
   } catch (err) {
     console.error('[contact] enquiries insert failed (non-fatal):', err);
   }

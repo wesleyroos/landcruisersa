@@ -2,6 +2,7 @@ export const prerender = false;
 
 import type { APIRoute } from 'astro';
 import { db } from '@/db/index';
+import { syncContactsToEngage, trackEngageEvent, submissionToEngageContact } from '@/lib/integrations/engage';
 import { enquiries } from '@/db/schema';
 
 const RECIPIENTS = ['wesley@landcruisersa.co.za', 'wesley@grodigital.co.za'];
@@ -86,6 +87,11 @@ export const POST: APIRoute = async ({ request }) => {
         ...(consent ? { consent_at: new Date(), consent_source: 'site-message' } : {}),
       })
       .run();
+
+    syncContactsToEngage(
+      submissionToEngageContact({ name, email, phone, source: 'site-message', consent }) ?? [],
+    );
+    trackEngageEvent('site_message', { email, phone, properties: { source_path } });
   } catch (err) {
     console.error('[enquiry] DB insert failed:', err);
     return fail('Could not send your message. Please try again.', 500);

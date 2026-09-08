@@ -2,6 +2,7 @@ export const prerender = false;
 
 import type { APIRoute } from 'astro';
 import { db } from '@/db/index';
+import { syncContactsToEngage, trackEngageEvent, submissionToEngageContact } from '@/lib/integrations/engage';
 import { wantedRequests } from '@/db/schema';
 import { rateLimited, clientIp } from '@/lib/rate-limit';
 
@@ -64,10 +65,23 @@ export const POST: APIRoute = async ({ request }) => {
       category: 'game-viewer',
       name, email, phone,
       seats, budget, use_type, timeline, message, source_path,
+      // This route returns early when consent is missing, so it is guaranteed
+      // by the time we get here — no need to make it conditional.
       consent_at: now,
+      consent_source: 'game-viewer-wanted',
       created_at: now,
-      ...(consent ? { consent_at: now, consent_source: 'game-viewer-wanted' } : {}),
     }).run();
+
+    syncContactsToEngage(
+      submissionToEngageContact({
+        name, email, phone, source: 'game-viewer-wanted', consent: true,
+        traits: { lcsa_wanted_reference: reference, lcsa_seats: seats, lcsa_budget: budget },
+      }) ?? [],
+    );
+    trackEngageEvent('wanted_request', {
+      email, phone,
+      properties: { reference, seats, budget, use_type, timeline },
+    });
   } catch (err) {
     console.error('[game-viewer-enquiry] DB insert failed:', err);
     return new Response(JSON.stringify({ error: 'Something went wrong — please try again.' }), { status: 500 });

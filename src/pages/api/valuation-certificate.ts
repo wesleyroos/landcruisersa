@@ -3,6 +3,7 @@ export const prerender = false;
 import type { APIRoute } from 'astro';
 import { and, eq, gt } from 'drizzle-orm';
 import { db } from '@/db/index';
+import { syncContactsToEngage, trackEngageEvent, submissionToEngageContact } from '@/lib/integrations/engage';
 import { valuationCertificates } from '@/db/schema';
 import { valuate } from '@/lib/valuation';
 import { VALUATION_MODEL_SLUG_SET, MODEL_YEAR_RANGE, modelLabel } from '@/lib/sources/normalize';
@@ -150,6 +151,20 @@ export const POST: APIRoute = async ({ request }) => {
   let emailedAt: Date | null = null;
   const sent = await sendCertificateEmail(emailRaw, certData, pdf).catch(() => false);
   if (sent) emailedAt = new Date();
+
+  // The gated certificate is the real lead-capture point for a valuation —
+  // name, phone, email and consent are all required above, so anyone reaching
+  // here is a consented person with full details.
+  syncContactsToEngage(
+    submissionToEngageContact({
+      name, email: emailRaw, phone, source: 'valuation-certificate', consent: true,
+      traits: { lcsa_valuation_model: body.model ?? null, lcsa_valuation_year: body.year ?? null },
+    }) ?? [],
+  );
+  trackEngageEvent('valuation_certificate', {
+    email: emailRaw, phone,
+    properties: { model: body.model ?? null, year: body.year ?? null, emailed: sent },
+  });
 
   // Persist the receipt + captured lead (best-effort — still return the PDF if
   // the insert hiccups).

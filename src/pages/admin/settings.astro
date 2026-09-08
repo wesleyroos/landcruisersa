@@ -4,6 +4,8 @@ export const prerender = false;
 import AdminLayout from '@/layouts/AdminLayout.astro';
 import { getCredentials } from '@/lib/instagram';
 import { boostConfigured, boostEnabled, boostPriceRand } from '@/lib/social-boost';
+import { engageKeyPresent, isEngageSyncEnabled } from '@/lib/integrations/engage';
+import { buildMasterList } from '@/lib/people';
 
 const cookie = Astro.cookies.get('lcsa_admin');
 const adminSecret = import.meta.env.ADMIN_SECRET ?? process.env.ADMIN_SECRET ?? '';
@@ -17,6 +19,12 @@ const connected = !!creds;
 const boostReady = boostConfigured();   // Paystack keys present?
 const boostOn = boostEnabled();
 const boostPrice = boostPriceRand();
+
+// Engage: the connection lives here with the other integrations rather than
+// on the users page, matching where MyFundi and the GD portal keep theirs.
+const engageReady = engageKeyPresent();
+const engageOn = isEngageSyncEnabled();
+const { masterTotal: enPeople, consentedTotal: enConsented } = buildMasterList();
 
 const urlError   = Astro.url.searchParams.get('error');
 const urlSuccess = Astro.url.searchParams.get('connected');
@@ -105,6 +113,39 @@ const errorMessages: Record<string, string> = {
       </div>
     </div>
 
+    <div class="settings-section">
+      <h2 class="settings-heading">Engage</h2>
+
+      <div class={`conn-card ${engageOn ? 'conn-card-ok' : 'conn-card-off'}`}>
+        <div class="conn-icon">📨</div>
+        <div class="conn-body">
+          <p class="conn-title">
+            {!engageReady
+              ? 'Not connected'
+              : engageOn
+                ? 'On — people and what they do are sent to Engage as they come in'
+                : 'Off — nothing is being sent'}
+          </p>
+          <p class="conn-sub">
+            {!engageReady
+              ? 'Set ENGAGE_API_KEY on the server, then this can be switched on.'
+              : engageOn
+                ? `Anyone who fills in a form goes across with the consent they gave, so campaigns can only reach people who agreed. ${enConsented} of ${enPeople} people currently have consent on record. Switching this off loses nothing — the backfill below catches anyone missed while it was quiet.`
+                : `${enPeople} people are on the master list, ${enConsented} of them with consent. Switch this on to start sending new form submissions across, then use the backfill to send the people you already have.`}
+          </p>
+        </div>
+        <div class="conn-actions">
+          {engageReady && engageOn && (
+            <button id="engage-backfill" class="btn btn-outline">Send all {enPeople}</button>
+          )}
+          {engageReady && (
+            <button id="engage-toggle" class={`btn ${engageOn ? 'btn-danger' : 'btn-ig'}`}
+                    data-on={engageOn ? '1' : '0'}>{engageOn ? 'Switch off' : 'Switch on'}</button>
+          )}
+        </div>
+      </div>
+    </div>
+
   </div>
 
   <div id="toast" class="toast" hidden></div>
@@ -172,6 +213,59 @@ const errorMessages: Record<string, string> = {
 
 <script>
   const toast = document.getElementById('toast')!;
+  // Engage connection. Reloads on a toggle so the copy, the dot and the
+  // backfill button all reflect the new state rather than being patched.
+  const enToggle = document.getElementById('engage-toggle') as HTMLButtonElement | null;
+  enToggle?.addEventListener('click', async () => {
+    const on = enToggle.dataset.on === '1';
+    const label = enToggle.textContent;
+    enToggle.disabled = true;
+    enToggle.textContent = on ? 'Switching off…' : 'Switching on…';
+    try {
+      const res = await fetch('/api/admin/engage-sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: !on }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        showToast(data.error ?? 'Could not change that.', 'err');
+        enToggle.disabled = false;
+        enToggle.textContent = label;
+        return;
+      }
+      location.reload();
+    } catch {
+      showToast('Could not change that.', 'err');
+      enToggle.disabled = false;
+      enToggle.textContent = label;
+    }
+  });
+
+  const enBackfill = document.getElementById('engage-backfill') as HTMLButtonElement | null;
+  enBackfill?.addEventListener('click', async () => {
+    enBackfill.disabled = true;
+    enBackfill.textContent = 'Sending…';
+    try {
+      const res = await fetch('/api/admin/engage-sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ backfill: true }),
+      });
+      const data = await res.json().catch(() => ({}));
+      showToast(
+        res.ok
+          ? `${data.queued} people sent. Engage may take a moment to show them all.`
+          : (data.error ?? 'Could not send.'),
+        res.ok ? 'ok' : 'err',
+      );
+    } catch {
+      showToast('Could not send.', 'err');
+    }
+    enBackfill.disabled = false;
+    enBackfill.textContent = 'Send again';
+  });
+
 
   function showToast(msg: string, type: 'ok' | 'err') {
     toast.textContent = msg;

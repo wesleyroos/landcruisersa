@@ -84,13 +84,14 @@ export const POST: APIRoute = async ({ request }) => {
   // Anonymous snapshot — best-effort; never block the estimate on a write hiccup.
   let draftId: number | null = null;
   try {
-  // A checkbox reaches here three different ways depending on the form:
-
-  // a JSON boolean, "true", or "on" from Object.fromEntries(FormData).
-
-  // Absent means unticked.
-
-  const consent = ['true', 'on', '1'].includes(String(body?.consent ?? '').toLowerCase());
+    // The tool itself is anonymous — a valuation carries no contact details, so
+    // there is nobody to push to Engage here. Details arrive at the certificate
+    // step, which is where the sync lives. The tick box is still recorded, so a
+    // person who later leaves details already has a consent basis on the row.
+    //
+    // A checkbox reaches here three ways depending on the form: a JSON boolean,
+    // "true", or "on" from Object.fromEntries(FormData). Absent means unticked.
+    const consent = ['true', 'on', '1'].includes(String(body?.consent ?? '').toLowerCase());
     const res = db.insert(valuationRequests).values({
       model, year, mileage, province, condition,
       sell_low:       v.available ? v.sellLow : null,

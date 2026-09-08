@@ -115,6 +115,10 @@ export const wantedRequests = sqliteTable('wanted_requests', {
   timeline:    text('timeline'),
   message:     text('message'),
   source_path: text('source_path'),
+  // Which form recorded the consent. The column was added by the 2026-09-08
+  // migration; this table already had consent_at, so it was missed on the
+  // first pass through the schema.
+  consent_source: text('consent_source'),
   consent_at:  integer('consent_at', { mode: 'timestamp' }),
   created_at:  integer('created_at', { mode: 'timestamp' }).notNull(),
 });

@@ -2,6 +2,7 @@ export const prerender = false;
 
 import type { APIRoute } from 'astro';
 import { db } from '@/db/index';
+import { syncContactsToEngage, trackEngageEvent, submissionToEngageContact } from '@/lib/integrations/engage';
 import { trainingLeads } from '@/db/schema';
 
 export const POST: APIRoute = async ({ request }) => {
@@ -85,6 +86,17 @@ export const POST: APIRoute = async ({ request }) => {
       created_at: new Date(),
       ...(consent ? { consent_at: new Date(), consent_source: 'training-enquiry' } : {}),
     }).run();
+
+    syncContactsToEngage(
+      submissionToEngageContact({
+        name, email, phone, source: 'training-enquiry', consent,
+        traits: { lcsa_location: location?.trim() || null, lcsa_land_cruiser: landCruiser?.trim() || null },
+      }) ?? [],
+    );
+    trackEngageEvent('training_enquiry', {
+      email, phone,
+      properties: { location: location?.trim() || null, landCruiser: landCruiser?.trim() || null },
+    });
   } catch (err) {
     console.error('[training-enquiry] DB insert failed:', err);
   }
