@@ -872,8 +872,6 @@ if (missing.length) {
   process.exit(1);
 }
 
-console.log('[migrate] Schema ready.');
-db.close();
 
 // ─── Marketing consent, 2026-09-08 ──────────────────────────────────────────
 //
@@ -920,3 +918,7 @@ addColTo('users', 'consent_source', 'consent_source TEXT');
     .run(CONSENT_BACKFILL_CUTOFF);
   if (r.changes > 0) console.log(`[migrate] Backfilled consent on ${r.changes} users row(s)`);
 }
+
+
+console.log('[migrate] Schema ready.');
+db.close();
