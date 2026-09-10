@@ -351,3 +351,30 @@ so threads either progress or get consciously dropped — never drift.
 ---
 
 *Review cadence: alongside the prediction-ledger review. Update stage + scoreboard whenever a deal moves.*
+
+---
+
+## D10 — HaltLock (mechanical anti-theft, Nelspruit)
+
+- **Stage:** Prospect (outbound drafted 2026-09-10 — Wesley's initiative while
+  D5-Titan sits stalled on their creative for a 7th week)
+- **Who:** HaltLock SA (Pty) Ltd, haltlock.com. Patented mechanical drivetrain
+  lock + IoT app ("if the wheels can't turn, the vehicle isn't going
+  anywhere"), Gen 4 "JamBOSS" R13,999 excl VAT + R69–R199/mo subscription.
+  Inventor/founder **Rupert Taljaard**; commercial lead **Nico Pienaar (COO &
+  co-founder)**. Fitment: HaltFit Nelspruit + Centurion + mobile teams;
+  expanding nationally. Claims 100% success across 11 theft attempts;
+  patents in 10 countries; select insurers waive the tracker requirement.
+- **Why them:** their published compatible-vehicle list IS our audience —
+  Hilux GD-6, Fortuner GD-6, LC200, LC300, Prado, Lexus 450. And they already
+  pay referrals: Guardian Circle gives device owners **5% of retail per
+  completed install** (~R700), so pay-per-outcome is native to them, not a
+  concept we have to sell. Passes the monetisation gate (trackable referral +
+  own-inventory placement; no chase-to-invoice).
+- **Ask shape:** sponsored placement (Titan-anchor ~R2.5k/mo) + tracked
+  referral code/links. First email = 15-min call, no rate card.
+- **⚠️ Before signing anything:** check the Titan IO for a category-exclusivity
+  clause — Titan and HaltLock are both vehicle-security. Titan also remains
+  featured in the two theft guides (content-first work, D5); any HaltLock
+  placement starts as banner/listing-page inventory, not a guide rewrite.
+- **Kill-or-advance:** 2026-09-24 — no reply after a follow-up = park it.
