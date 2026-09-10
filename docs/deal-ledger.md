@@ -356,8 +356,11 @@ so threads either progress or get consciously dropped — never drift.
 
 ## D10 — HaltLock (mechanical anti-theft, Nelspruit)
 
-- **Stage:** Prospect (outbound drafted 2026-09-10 — Wesley's initiative while
-  D5-Titan sits stalled on their creative for a 7th week)
+- **Stage:** Contacted — **outbound SENT 2026-09-10** to Nico Pienaar
+  (nico@haltlock.com, confirmed via their privacy policy; cell 082 444 7994).
+  Opened while D5-Titan sits stalled on their creative for a 7th week.
+- **Follow-up plan:** no reply by ~2026-09-15 → one WhatsApp follow-up to his
+  cell (phone-first profile), referencing the email. Then the 24-Sep gate.
 - **Who:** HaltLock SA (Pty) Ltd, haltlock.com. Patented mechanical drivetrain
   lock + IoT app ("if the wheels can't turn, the vehicle isn't going
   anywhere"), Gen 4 "JamBOSS" R13,999 excl VAT + R69–R199/mo subscription.
