@@ -39,7 +39,7 @@ export const POST: APIRoute = async ({ request }) => {
     method: 'POST',
     headers: { 'Authorization': `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      from: 'noreply@landcruisersa.co.za',
+      from: 'info@landcruisersa.co.za',
       to: trainingRecipients,
       reply_to: email.trim(),
       subject: `[LCSA] Training Enquiry from ${name}`,

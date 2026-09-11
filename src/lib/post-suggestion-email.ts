@@ -131,7 +131,7 @@ export async function sendPostSuggestionEmail({ force = false }: { force?: boole
       method: 'POST',
       headers: { Authorization: `Bearer ${RESEND_KEY}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        from: 'noreply@landcruisersa.co.za',
+        from: 'info@landcruisersa.co.za',
         to: NOTIFY_EMAIL,
         subject,
         html,

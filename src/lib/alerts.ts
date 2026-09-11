@@ -137,7 +137,7 @@ async function sendEmail(to: string, subject: string, html: string): Promise<boo
     method: 'POST',
     headers: { Authorization: `Bearer ${RESEND_KEY}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      from: 'Land Cruiser SA <noreply@landcruisersa.co.za>',
+      from: 'Land Cruiser SA <info@landcruisersa.co.za>',
       to, reply_to: 'info@landcruisersa.co.za', subject, html,
     }),
   }).catch(() => null);

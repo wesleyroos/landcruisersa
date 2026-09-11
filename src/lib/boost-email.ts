@@ -31,7 +31,7 @@ export async function sendBoostReceipt(listing: Listing, amountCents: number): P
   const firstName = (listing.seller_name ?? '').trim().split(/\s+/)[0] || 'there';
 
   return send({
-    from: 'Land Cruiser SA <noreply@landcruisersa.co.za>',
+    from: 'Land Cruiser SA <info@landcruisersa.co.za>',
     to,
     reply_to: SUPPORT_EMAIL,
     subject: `Payment received — social media boost for your ${listing.title}`,
@@ -59,7 +59,7 @@ export async function sendBoostAdminAlert(listing: Listing, amountCents: number)
   if (to.length === 0) return false;
 
   return send({
-    from: 'noreply@landcruisersa.co.za',
+    from: 'info@landcruisersa.co.za',
     to,
     subject: `💰 PAID social boost (${rand(amountCents)}) — ${listing.title}`,
     html: `

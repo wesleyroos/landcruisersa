@@ -14,7 +14,7 @@ async function sendAlert(subject: string, body: string) {
     method: 'POST',
     headers: { 'Authorization': `Bearer ${RESEND_KEY}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      from: 'noreply@landcruisersa.co.za',
+      from: 'info@landcruisersa.co.za',
       to: NOTIFY_EMAIL,
       subject,
       html: `<pre>${body}</pre>`,

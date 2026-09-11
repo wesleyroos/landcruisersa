@@ -213,7 +213,7 @@ export async function sendCertificateEmail(to: string, d: CertificateData, pdf: 
     method: 'POST',
     headers: { Authorization: `Bearer ${RESEND_KEY}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      from: 'Land Cruiser SA <noreply@landcruisersa.co.za>',
+      from: 'Land Cruiser SA <info@landcruisersa.co.za>',
       to,
       reply_to: SUPPORT_EMAIL,
       subject: `Your ${vehicle} valuation certificate (${d.certId})`,

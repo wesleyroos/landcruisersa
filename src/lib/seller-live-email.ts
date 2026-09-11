@@ -39,7 +39,7 @@ export async function sendManageLinkEmail(listing: Listing): Promise<boolean> {
     method: 'POST',
     headers: { Authorization: `Bearer ${RESEND_KEY}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      from: 'Land Cruiser SA <noreply@landcruisersa.co.za>',
+      from: 'Land Cruiser SA <info@landcruisersa.co.za>',
       to,
       reply_to: SUPPORT_EMAIL,
       subject: `Manage your ${listing.year} ${listing.model.replace(/-/g, ' ')} listing`,
@@ -99,7 +99,7 @@ export async function sendSellerLiveEmail(listing: Listing): Promise<boolean> {
     method: 'POST',
     headers: { Authorization: `Bearer ${RESEND_KEY}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      from: 'Land Cruiser SA <noreply@landcruisersa.co.za>',
+      from: 'Land Cruiser SA <info@landcruisersa.co.za>',
       to,
       reply_to: SUPPORT_EMAIL,
       subject: `Your ${listing.year} ${listing.model.replace(/-/g, ' ')} is now live on Land Cruiser SA`,
