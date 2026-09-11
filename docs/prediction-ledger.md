@@ -947,6 +947,10 @@ date, compare to baseline, mark HIT / MISS / PARTIAL, and write the lesson.
   **checkout failure** (not a refusal) for prediction 2 — and the first live
   datapoint says fix the payment path before reading price signal into
   completion rate.
+- **Mid-flight (2026-09-11 checkup):** 3 real R99 payments (26-Aug, 4-Sep,
+  8-Sep) + 1 comp = **R297 collected**; 17 eligible submissions/30d. Trending
+  HIT on predictions 2 and 4. ⚠️ All 3 paid boosts UNPOSTED at check —
+  16/7/3 days past the 3-working-day promise; fulfil before grading.
 - **Result:** _pending 2026-09-26_
 - **Lesson:** _tbd_
 
