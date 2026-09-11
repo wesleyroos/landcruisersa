@@ -949,8 +949,9 @@ date, compare to baseline, mark HIT / MISS / PARTIAL, and write the lesson.
   completion rate.
 - **Mid-flight (2026-09-11 checkup):** 3 real R99 payments (26-Aug, 4-Sep,
   8-Sep) + 1 comp = **R297 collected**; 17 eligible submissions/30d. Trending
-  HIT on predictions 2 and 4. ⚠️ All 3 paid boosts UNPOSTED at check —
-  16/7/3 days past the 3-working-day promise; fulfil before grading.
+  HIT on predictions 2 and 4. Posted_at was unstamped but Wesley
+  confirms all buyers got their posts (rows stamped 11-Sep) — fulfilment ✓;
+  the stamping step in the admin flow is the actual gap.
 - **Result:** _pending 2026-09-26_
 - **Lesson:** _tbd_
 
