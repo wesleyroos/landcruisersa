@@ -1154,3 +1154,29 @@ date, compare to baseline, mark HIT / MISS / PARTIAL, and write the lesson.
      is prime citation material).
 - **Result:** _pending 2026-10-26_
 - **Lesson:** _tbd_
+
+---
+
+## P30 — Hilux + Fortuner price guides (LLM/citation content for P28's surfaces)
+
+- **Opened:** 2026-09-14 (both published same day). The content layer on top
+  of P28: question-shaped price guides mirroring the proven 79-price-article
+  pattern (P24), each with live year-by-year median tables, era explainers,
+  body/drivetrain premium data, FAQs, and links funnelling to the /hilux/ +
+  /fortuner/ verticals and market pages. In llms.txt.
+- **Surfaces:** /useful-info/toyota-hilux-price-south-africa/ +
+  /useful-info/toyota-fortuner-price-south-africa/.
+- **Thesis:** "how much is a Hilux/Fortuner in SA" is asked constantly of
+  Google AND ChatGPT; no aggregated live-data answer exists. Guides get
+  cited, listings convert (P10 lesson) — these articles are the citation
+  bait that feeds the verticals.
+- **Baseline (2026-09-14):** 0 impressions (pages didn't exist); site
+  hilux+fortuner query footprint ~7c/103i per 28d.
+- **Predictions (review 2026-10-28, with P28):**
+  1. *(PRIMARY)* the two articles combined earn ≥ **1,500 impressions/28d**
+     with ≥ 20 clicks (canopies precedent: ignition ~2 weeks post-index).
+  2. ≥ 1 AI referral lands on either article or its linked vertical.
+  3. *(directional)* article-page → vertical/valuation click-through visible
+     in outbound/click tracking.
+- **Result:** _pending 2026-10-28_
+- **Lesson:** _tbd_
