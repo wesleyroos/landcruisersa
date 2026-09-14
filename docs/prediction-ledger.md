@@ -1064,6 +1064,13 @@ date, compare to baseline, mark HIT / MISS / PARTIAL, and write the lesson.
   held a week so the FJ consolidation (P23, deployed 26-Aug) and this bet
   don't land in the same GSC window).
 - **Review on:** 2026-10-02 (4 weeks after ship).
+- **⚠️ Confound note (2026-09-14):** Wesley opened the classifieds to
+  Hilux/Fortuner mid-window — /listings/ inventory went ~2.9k → ~11k rows on
+  day 10 of 28. The title/H1 didn't change, so the SERP side of the bet is
+  intact, but page relevance for "land cruiser for sale" now includes
+  non-LC content. Grade at review with a split read: days 1–10 clean,
+  days 11–28 post-integration. If CTR degrades only after 14-Sep, that's
+  the integration, not the retitle.
 - **Surface:** `/listings/` (src/pages/listings/index.astro ~line 88).
 - **The change (exactly this, nothing else in the same deploy):**
   - title: "Land Cruiser Listings — Buy & Sell in South Africa"
@@ -1113,5 +1120,10 @@ date, compare to baseline, mark HIT / MISS / PARTIAL, and write the lesson.
   4. *(stretch)* first AI referral landing on /hilux/ or /fortuner/.
 - **Revert path:** pages are additive; a MISS costs nothing to keep, but if
   the guard (3) trips, pull the /listings/ chips + nav links first and reread.
+- **Amended same day (2026-09-14):** Wesley rolled the toyota-4x4 inventory
+  into /listings/ itself (in-place family pills, model-dropdown entries,
+  saved-search alerts wired to the segment) and the verticals gained the full
+  /listings/ filter set as crawlable GET params. The verticals remain the SEO
+  surfaces; /listings/ is the browse surface. P28's bars unchanged.
 - **Result:** _pending 2026-10-28_
 - **Lesson:** _tbd_
