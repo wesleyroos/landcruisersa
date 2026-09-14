@@ -122,6 +122,7 @@ function formatMileage(n: number) {
     <div class="flex flex-wrap items-center gap-3 mb-5">
       <div class="flex gap-2" id="type-filter">
         <button class="type-pill active" data-type="all">All</button>
+        <button class="type-pill" data-type="land-cruiser">Land Cruisers</button>
         <button class="type-pill" data-type="game-viewer">Game Viewers</button>
         <button class="type-pill" data-type="classic">Classics</button>
         <button class="type-pill" data-type="hilux">Hiluxes</button>
@@ -928,6 +929,7 @@ function formatMileage(n: number) {
 
     const typeMatch = showingSold || activeType === 'all' ||
       (activeType === 'game-viewer' ? l.bt === 'game-viewer'
+        : activeType === 'land-cruiser' ? !(l.model.startsWith('hilux') || l.model.startsWith('fortuner'))
         : activeType === 'classic' ? (l.model === '40-series' || l.model === '55-series' || l.model === '60-series')
         : activeType === 'hilux' ? l.model.startsWith('hilux')
         : activeType === 'fortuner' ? l.model.startsWith('fortuner')
