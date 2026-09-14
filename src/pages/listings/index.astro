@@ -122,7 +122,6 @@ function formatMileage(n: number) {
     <div class="flex flex-wrap items-center gap-3 mb-5">
       <div class="flex gap-2" id="type-filter">
         <button class="type-pill active" data-type="all">All</button>
-        <button class="type-pill" data-type="for_sale">For Sale</button>
         <button class="type-pill" data-type="game-viewer">Game Viewers</button>
         <button class="type-pill" data-type="classic">Classics</button>
         <button class="type-pill" data-type="hilux">Hiluxes</button>
@@ -1148,7 +1147,8 @@ function formatMileage(n: number) {
       setEngine(typeof s.engine === 'string' ? s.engine : null);
       sortMode = ['newest', 'price-asc', 'price-desc', 'mileage-asc'].includes(s.sort) ? s.sort : 'newest';
       if (sortSelect) sortSelect.value = sortMode;
-      activeType = typeof s.type === 'string' ? s.type : 'all';
+      // 'for_sale' and 'sold' no longer have pills — sanitise stale saved state.
+      activeType = typeof s.type === 'string' && !['for_sale', 'sold'].includes(s.type) ? s.type : 'all';
       typePills.forEach(p => p.classList.toggle('active', p.dataset.type === activeType));
       (document.getElementById('price-filter') as HTMLElement).style.display = activeType === 'sold' ? 'none' : '';
       currentPage = Number(s.page) >= 1 ? Number(s.page) : 1;
