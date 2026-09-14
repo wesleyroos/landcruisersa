@@ -11,10 +11,12 @@ import { getCurrentUser } from '@/lib/auth-user';
 import { firstThumb, hasUsablePhoto } from '@/lib/photos';
 import VehicleSearch from '@/components/VehicleSearch.astro';
 
-// Only the Land Cruiser segment is public. Hilux/Fortuner (segment = 'toyota-4x4')
-// are collected for market data but never shown in the classifieds.
+// The classifieds carry the Land Cruiser segment PLUS Hilux/Fortuner
+// (toyota-4x4) since 2026-09-14 — Wesley's call: one browse surface, family
+// filters, with /hilux/ + /fortuner/ as the SEO/citation verticals on top.
+// other-4x4 (non-Toyota game viewers) stays off this page as before.
 // Only the columns the cards need — avoids hauling description/mods/source text
-// for ~2,000 rows on every request (the old SELECT * was the main page slowness).
+// for these ~11k rows on every request (the old SELECT * was the main page slowness).
 const rawListings = await db
   .select({
     slug: listings.slug, title: listings.title, model: listings.model, year: listings.year,
@@ -25,7 +27,7 @@ const rawListings = await db
     body_type: listings.body_type,
   })
   .from(listings)
-  .where(and(inArray(listings.status, ['active', 'sold']), eq(listings.segment, 'land-cruiser')))
+  .where(and(inArray(listings.status, ['active', 'sold']), inArray(listings.segment, ['land-cruiser', 'toyota-4x4'])))
   .orderBy(desc(listings.featured), desc(listings.created_at));
 
 // Don't list vehicles we can't picture — a listing with no real photo is hidden.
@@ -72,6 +74,8 @@ const MODELS = [
   { value: 'prado', label: 'Prado' },
   { value: 'fj', label: 'FJ' },
   { value: 'classic', label: 'Classic (FJ40–FJ62)' },
+  { value: 'hilux', label: 'Hilux' },
+  { value: 'fortuner', label: 'Fortuner' },
   { value: 'other', label: 'Other' },
 ];
 const MODEL_OPTIONS = MODELS;
@@ -120,15 +124,14 @@ function formatMileage(n: number) {
         <button class="type-pill active" data-type="all">All</button>
         <button class="type-pill" data-type="for_sale">For Sale</button>
         <button class="type-pill" data-type="game-viewer">Game Viewers</button>
-        {/* Section tabs — same pill styling, but these are LINKS to the
-            dedicated verticals (their inventory lives outside this page's
-            dataset: classics have their own section; Hilux/Fortuner stay out
-            of the LC classifieds entirely). */}
-        <a class="type-pill" href="/classics/">Classics</a>
-        <a class="type-pill" href="/hilux/">Hiluxes</a>
-        <a class="type-pill" href="/fortuner/">Fortuners</a>
+        <button class="type-pill" data-type="classic">Classics</button>
+        <button class="type-pill" data-type="hilux">Hiluxes</button>
+        <button class="type-pill" data-type="fortuner">Fortuners</button>
       </div>
       <a id="gv-page-link" href="/game-viewers/" class="hidden text-sm font-semibold text-[#D4881A] hover:underline">Game Viewers section: prices &amp; buying guide →</a>
+      <a id="cl-page-link" href="/classics/" class="hidden text-sm font-semibold text-[#D4881A] hover:underline">Classics section: values &amp; buying guide →</a>
+      <a id="hx-page-link" href="/hilux/" class="hidden text-sm font-semibold text-[#D4881A] hover:underline">Hilux section: prices per era →</a>
+      <a id="ft-page-link" href="/fortuner/" class="hidden text-sm font-semibold text-[#D4881A] hover:underline">Fortuner section: prices per era →</a>
       <div class="w-full sm:w-96"><VehicleSearch mode="filter" compact /></div>
     </div>
 
@@ -916,11 +919,17 @@ function formatMileage(n: number) {
       // Chassis-code classics share one filter — keep in step with the 'classic'
       // branch in /listings/model/[model].astro.
       (sel === 'classic' && (l.model === '40-series' || l.model === '55-series' || l.model === '60-series')) ||
+      (sel === 'hilux' && l.model.startsWith('hilux')) ||
+      (sel === 'fortuner' && l.model.startsWith('fortuner')) ||
       l.model === sel
     );
 
     const typeMatch = showingSold || activeType === 'all' ||
-      (activeType === 'game-viewer' ? l.bt === 'game-viewer' : l.type === activeType);
+      (activeType === 'game-viewer' ? l.bt === 'game-viewer'
+        : activeType === 'classic' ? (l.model === '40-series' || l.model === '55-series' || l.model === '60-series')
+        : activeType === 'hilux' ? l.model.startsWith('hilux')
+        : activeType === 'fortuner' ? l.model.startsWith('fortuner')
+        : l.type === activeType);
 
     const yearOk = (yearMin <= 0 && !isFinite(yearMax)) || (l.year >= yearMin && l.year <= yearMax);
 
@@ -1073,6 +1082,9 @@ function formatMileage(n: number) {
     grid.innerHTML = pageItems.map((l, i) => cardHTML(l, i)).join('');
     grid.classList.toggle('hidden', matched.length === 0);
     document.getElementById('gv-page-link')?.classList.toggle('hidden', activeType !== 'game-viewer');
+    document.getElementById('cl-page-link')?.classList.toggle('hidden', activeType !== 'classic');
+    document.getElementById('hx-page-link')?.classList.toggle('hidden', activeType !== 'hilux');
+    document.getElementById('ft-page-link')?.classList.toggle('hidden', activeType !== 'fortuner');
     emptyState.classList.toggle('hidden', matched.length > 0);
     countEl.textContent = `${matched.length} listing${matched.length !== 1 ? 's' : ''}`;
     renderPagination(matched.length, totalPages);

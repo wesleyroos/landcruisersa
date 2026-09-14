@@ -71,7 +71,14 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     model: models || null,
     province: provinces || null,
     price_min, price_max, year_min, year_max,
-    segment: 'land-cruiser',
+    // Hilux/Fortuner searches live in the toyota-4x4 segment; everything else
+    // (incl. mixed or model-less searches) stays LC so an open "any Cruiser"
+    // alert can never start matching bakkies.
+    segment: (() => {
+      const toks = String(models || '').split(',').map(t => t.trim()).filter(Boolean);
+      return toks.length && toks.every(t => t.startsWith('hilux') || t.startsWith('fortuner'))
+        ? 'toyota-4x4' : 'land-cruiser';
+    })(),
     active: true,
     created_at: new Date(),
   }).returning().all();

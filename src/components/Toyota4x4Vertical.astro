@@ -34,6 +34,39 @@ const era  = ['gd6', 'd4d'].includes(params.get('era') ?? '') ? params.get('era'
 const cab  = showCabFilter && ['double', 'single', 'xtra'].includes(params.get('cab') ?? '') ? params.get('cab')! : 'all';
 const sort = params.get('sort') === 'price' ? 'price' : 'newest';
 
+// Dropdown filters — same set as /listings/, but server-side (this page is
+// link-navigated, not a client dataset). Bracket values mirror the listings
+// page presets so the two surfaces feel like one system.
+const PROVINCES = ['Gauteng', 'Western Cape', 'KwaZulu-Natal', 'Eastern Cape', 'Limpopo', 'Mpumalanga', 'North West', 'Free State', 'Northern Cape'];
+const YEAR_OPTS: [string, string, number, number][] = [
+  ['', 'Any year', 0, 9999],
+  ['2020', '2020 & newer', 2020, 9999],
+  ['2016-2019', '2016 – 2019', 2016, 2019],
+  ['2010-2015', '2010 – 2015', 2010, 2015],
+  ['pre2010', 'Pre-2010', 0, 2009],
+];
+const PRICE_OPTS: [string, string, number, number][] = [
+  ['', 'Any price', 0, Infinity],
+  ['0-300', 'Under R300k', 0, 300_000],
+  ['300-600', 'R300k – R600k', 300_000, 600_000],
+  ['600-1000', 'R600k – R1m', 600_000, 1_000_000],
+  ['1000+', 'Over R1m', 1_000_000, Infinity],
+];
+const KM_OPTS: [string, string, number, number][] = [
+  ['', 'Any mileage', 0, Infinity],
+  ['0-50', 'Under 50 000 km', 0, 50_000],
+  ['50-100', '50 000 – 100 000 km', 50_000, 100_000],
+  ['100-200', '100 000 – 200 000 km', 100_000, 200_000],
+  ['200+', 'Over 200 000 km', 200_000, Infinity],
+];
+const pick = (opts: [string, string, number, number][], key: string | null) =>
+  opts.find(o => o[0] === (key ?? '')) ?? opts[0];
+const yearSel  = pick(YEAR_OPTS, params.get('year'));
+const priceSel = pick(PRICE_OPTS, params.get('price'));
+const kmSel    = pick(KM_OPTS, params.get('km'));
+const provSel  = PROVINCES.includes(params.get('province') ?? '') ? params.get('province')! : '';
+const transSel = ['manual', 'automatic'].includes(params.get('trans') ?? '') ? params.get('trans')! : '';
+
 const rows = db.select({
   slug: listings.slug, title: listings.title, model: listings.model, year: listings.year,
   price: listings.price, mileage: listings.mileage, province: listings.province,
@@ -67,10 +100,15 @@ function stats(model: string) {
 const gd6 = stats(gd6Model);
 const d4d = stats(d4dModel);
 
-// Filter → paginate. All server-side; the pills are plain links.
+// Filter → paginate. All server-side; the pills and dropdowns are plain links/forms.
 let filtered = rows;
 if (era !== 'all') filtered = filtered.filter(l => l.model === (era === 'gd6' ? gd6Model : d4dModel));
 if (cab !== 'all') filtered = filtered.filter(l => cabOf(l.title) === cab);
+if (yearSel[0])  filtered = filtered.filter(l => l.year >= yearSel[2] && l.year <= yearSel[3]);
+if (priceSel[0]) filtered = filtered.filter(l => l.listing_type === 'for_sale' && l.price >= priceSel[2] && l.price <= priceSel[3]);
+if (kmSel[0])    filtered = filtered.filter(l => l.mileage >= kmSel[2] && l.mileage <= kmSel[3]);
+if (provSel)     filtered = filtered.filter(l => l.province === provSel);
+if (transSel)    filtered = filtered.filter(l => l.transmission === transSel);
 if (sort === 'price') {
   filtered = [...filtered].sort((a, b) =>
     (a.listing_type === 'for_sale' && a.price > 0 ? a.price : Infinity) -
@@ -84,10 +122,15 @@ const pageRows = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 // unfiltered view is the bare path.
 function href(over: Record<string, string | number>) {
   const q = new URLSearchParams();
-  const v = { era, cab, sort, page: 1, ...over } as Record<string, string | number>;
+  const v = {
+    era, cab, sort, page: 1,
+    year: yearSel[0], price: priceSel[0], km: kmSel[0], province: provSel, trans: transSel,
+    ...over,
+  } as Record<string, string | number>;
   if (v.era !== 'all') q.set('era', String(v.era));
   if (v.cab !== 'all') q.set('cab', String(v.cab));
   if (v.sort !== 'newest') q.set('sort', String(v.sort));
+  for (const k of ['year', 'price', 'km', 'province', 'trans']) if (v[k]) q.set(k, String(v[k]));
   if (Number(v.page) > 1) q.set('page', String(v.page));
   const s = q.toString();
   return pathBase + (s ? `?${s}` : '');
@@ -210,6 +253,36 @@ const breadcrumb = {
     </div>
   </div>
 
+  <!-- Dropdown filters — a GET form (auto-submits on change), so every filtered
+       view is a real URL: shareable, crawlable, and back-button friendly. -->
+  <form id="v-filters" method="get" action={pathBase} class="flex flex-wrap gap-2.5 mb-8">
+    {era !== 'all' && <input type="hidden" name="era" value={era} />}
+    {cab !== 'all' && <input type="hidden" name="cab" value={cab} />}
+    {sort !== 'newest' && <input type="hidden" name="sort" value={sort} />}
+    <select name="year" class="v-select" aria-label="Year">
+      {YEAR_OPTS.map(([v, label]) => <option value={v} selected={v === yearSel[0]}>{label}</option>)}
+    </select>
+    <select name="province" class="v-select" aria-label="Province">
+      <option value="" selected={!provSel}>All provinces</option>
+      {PROVINCES.map(p => <option value={p} selected={p === provSel}>{p}</option>)}
+    </select>
+    <select name="price" class="v-select" aria-label="Price">
+      {PRICE_OPTS.map(([v, label]) => <option value={v} selected={v === priceSel[0]}>{label}</option>)}
+    </select>
+    <select name="km" class="v-select" aria-label="Mileage">
+      {KM_OPTS.map(([v, label]) => <option value={v} selected={v === kmSel[0]}>{label}</option>)}
+    </select>
+    <select name="trans" class="v-select" aria-label="Transmission">
+      <option value="" selected={!transSel}>Any transmission</option>
+      <option value="manual" selected={transSel === 'manual'}>Manual</option>
+      <option value="automatic" selected={transSel === 'automatic'}>Automatic</option>
+    </select>
+    <noscript><button type="submit" class="filter-pill">Apply</button></noscript>
+    {(yearSel[0] || priceSel[0] || kmSel[0] || provSel || transSel) && (
+      <a href={href({ year: '', price: '', km: '', province: '', trans: '' })} class="self-center text-sm font-semibold text-[#D4881A] hover:underline">Clear filters</a>
+    )}
+  </form>
+
   {pageRows.length === 0 ? (
     <div class="text-center py-24">
       <p class="text-[#6B7280] text-lg mb-4">Nothing matches that filter right now.</p>
@@ -322,4 +395,17 @@ const breadcrumb = {
   .filter-pill.active { background: #111; color: #fff; border-color: #111; }
   .section-chip { padding: 0.5rem 1rem; border: 1px solid #DDD9D3; border-radius: 9999px; font-size: 0.875rem; color: #4A4A4A; transition: colors 0.15s; }
   .section-chip:hover { border-color: #F5A623; color: #F5A623; }
+  .v-select {
+    border: 1px solid #DDD9D3; border-radius: 0.75rem; padding: 0.6rem 1rem;
+    font-size: 0.875rem; background: white; color: #111; min-height: 44px;
+    cursor: pointer; appearance: auto;
+  }
+  .v-select:focus { outline: none; border-color: #F5A623; }
 </style>
+
+<script>
+  // Dropdowns auto-submit their GET form — the server does the filtering.
+  document.getElementById('v-filters')?.addEventListener('change', (e) => {
+    (e.currentTarget as HTMLFormElement).submit();
+  });
+</script>
