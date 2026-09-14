@@ -81,7 +81,7 @@ export default defineConfig({
         'https://landcruisersa.co.za/listings/model/76-series/',
         'https://landcruisersa.co.za/listings/model/78-series/',
         'https://landcruisersa.co.za/listings/model/79-series/',
-        'https://landcruisersa.co.za/listings/model/80-series/',
+        'https://landcruisersa.co.za/80-series/',
         'https://landcruisersa.co.za/listings/model/100-series/',
         'https://landcruisersa.co.za/listings/model/200-series/',
         'https://landcruisersa.co.za/listings/model/300-series/',

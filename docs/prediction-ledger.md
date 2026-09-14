@@ -1127,3 +1127,30 @@ date, compare to baseline, mark HIT / MISS / PARTIAL, and write the lesson.
   surfaces; /listings/ is the browse surface. P28's bars unchanged.
 - **Result:** _pending 2026-10-28_
 - **Lesson:** _tbd_
+
+---
+
+## P29 — 80 Series vertical (/80-series/)
+
+- **Opened:** 2026-09-14 (shipped same day). Fifth verticals-playbook run,
+  but a DIFFERENT job to FJ/Hilux: the for-sale queries already rank top-3
+  (159c / 560i / pos ~2.5, CTR 22–32%) — split across FOUR pages (the
+  /models/80-series/ guide 96c, /listings/ 57c, home 32c, the shelf 10c).
+  This is consolidation + a citable scarcity capsule, not a rescue. Only 7
+  live listings (avg R268k, 1991–1997) — supply-constrained cult classic.
+- **Surfaces:** /80-series/ (FJ-pattern page, single stats strip, scarcity
+  capsule); shelf /listings/model/80-series/ 301s in; the /models/80-series/
+  GUIDE untouched (keeps informational intent); chips + nav + sitemap +
+  llms.txt.
+- **Predictions (review 2026-10-26, 6 weeks):**
+  1. *(PRIMARY)* 80-series for-sale-family clicks ≥ **200/28d** (from 159)
+     with /80-series/ the top served page for that family.
+  2. Average position on the family holds ≤ **3** (consolidation must not
+     shuffle us down — this is the risk side of moving winners).
+  3. *(guard)* /models/80-series/ guide keeps ≥ **60 clicks/28d** (from 96)
+     — if the guide collapses, the vertical cannibalised instead of
+     consolidating; reassess.
+  4. *(stretch)* an AI referral lands on /80-series/ (scarcity + live median
+     is prime citation material).
+- **Result:** _pending 2026-10-26_
+- **Lesson:** _tbd_

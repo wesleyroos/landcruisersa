@@ -14,7 +14,6 @@ const MODEL_MAP: Record<string, { label: string; description: string }> = {
   '76-series': { label: '76 Series', description: 'Toyota Land Cruiser 76 Series' },
   '78-series': { label: '78 Series (Troopcarrier)', description: 'Toyota Land Cruiser 78 Series Troopcarrier' },
   '79-series': { label: '79 Series', description: 'Toyota Land Cruiser 79 Series' },
-  '80-series': { label: '80 Series', description: 'Toyota Land Cruiser 80 Series' },
   '100-series': { label: '100 Series', description: 'Toyota Land Cruiser 100 Series' },
   '200-series': { label: '200 Series', description: 'Toyota Land Cruiser 200 Series' },
   '300-series': { label: '300 Series', description: 'Toyota Land Cruiser 300 Series' },
@@ -38,6 +37,14 @@ if (model === 'classic' || model === '40-series' || model === '55-series' || mod
 // consolidation keeps that equity on one stronger page.
 if (model === 'fj-cruiser') {
   return Astro.redirect('/fj-cruiser/', 301);
+}
+
+// 80 Series graduated to its own vertical (P29, 2026-09-14): the for-sale
+// queries already ranked top-3 but split across four pages — /80-series/ is
+// the consolidation point. The /models/80-series/ GUIDE keeps informational
+// intent and is untouched.
+if (model === '80-series') {
+  return Astro.redirect('/80-series/', 301);
 }
 
 // Hilux/Fortuner graduated to their own verticals (P28, 2026-09-14). Their
