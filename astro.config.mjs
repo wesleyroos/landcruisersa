@@ -90,6 +90,8 @@ export default defineConfig({
         'https://landcruisersa.co.za/fj-cruiser/',
         'https://landcruisersa.co.za/classics/',
         'https://landcruisersa.co.za/game-viewers/',
+        'https://landcruisersa.co.za/hilux/',
+        'https://landcruisersa.co.za/fortuner/',
         // Valuation tool — hub + per-model citeable pages
         'https://landcruisersa.co.za/valuation/',
         'https://landcruisersa.co.za/valuation/76-series/',

@@ -4,6 +4,8 @@ export const NAV_LINKS = [
     { label: 'Game Viewers', href: '/game-viewers/' },
     { label: 'Classic Cruisers', href: '/classics/' },
     { label: 'FJ Cruisers', href: '/fj-cruiser/' },
+    { label: 'Hiluxes', href: '/hilux/' },
+    { label: 'Fortuners', href: '/fortuner/' },
   ]},
   { label: 'Builds', href: '/builds/' },
   { label: 'Vehicle Valuation', href: '/valuation/' },

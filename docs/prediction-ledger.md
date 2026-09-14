@@ -1083,3 +1083,35 @@ date, compare to baseline, mark HIT / MISS / PARTIAL, and write the lesson.
      revert the title and grade MISS honestly.
 - **Result:** _pending — ship first_
 - **Lesson:** _tbd_
+
+---
+
+## P28 — Hilux + Fortuner verticals (/hilux/ + /fortuner/)
+
+- **Opened:** 2026-09-14 (shipped same day). Fourth run of the verticals
+  playbook, and the first onto the toyota-4x4 segment — 7,900+ live listings
+  that had NO public browse surface (detail pages + /market/ only). Wesley's
+  call: model-named pages, no "bakkies" umbrella; /listings/ inventory stays
+  pure-LC at least until P27 reads out (2-Oct).
+- **Surfaces:** /hilux/ + /fortuner/ (server-paginated, filters-as-links, era +
+  cab filters, live per-era stats strips, citable capsules); chips on
+  /listings/ + nav + sitemap + llms.txt; /listings/model/hilux*|fortuner* 301
+  to the verticals.
+- **Thesis:** the head terms ("hilux for sale") are the most competitive in SA
+  motoring — we will NOT win those soon. The bet is (a) long-tail: hidden
+  detail pages already rank pos 6–10 with zero internal links, so a linked hub
+  should lift the whole cluster; (b) AI citation: no citable aggregated
+  Hilux/Fortuner price source exists in SA.
+- **Baseline (28d to 12-Sep):** queries containing "hilux": 7c/46i ·
+  "fortuner": 0c/57i · hidden detail pages pos 6–10 on year+model long-tail.
+- **Predictions (review 2026-10-28, 6 weeks):**
+  1. *(PRIMARY)* combined hilux+fortuner query clicks ≥ **60/28d** (from 7),
+     with a vertical page among the top served pages for its family.
+  2. /hilux/ earns ≥ **2,000 impressions/28d** (from 0 — page didn't exist).
+  3. *(guard)* LC surfaces unaffected: /listings/ clicks hold ≥500/28d (P27's
+     guard) and site LC-query clicks don't drop >10% w/w attributable here.
+  4. *(stretch)* first AI referral landing on /hilux/ or /fortuner/.
+- **Revert path:** pages are additive; a MISS costs nothing to keep, but if
+  the guard (3) trips, pull the /listings/ chips + nav links first and reread.
+- **Result:** _pending 2026-10-28_
+- **Lesson:** _tbd_

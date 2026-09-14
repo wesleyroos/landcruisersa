@@ -1,0 +1,28 @@
+---
+export const prerender = false;
+
+// Hilux vertical (P28) — the toyota-4x4 segment's first public browse surface.
+// All rendering + pagination lives in the shared component; this page carries
+// only the family config and the citable capsule copy.
+import Toyota4x4Vertical from '@/components/Toyota4x4Vertical.astro';
+---
+
+<Toyota4x4Vertical
+  family="Hilux"
+  pathBase="/hilux/"
+  gd6Model="hilux-gd6"
+  d4dModel="hilux-d4d"
+  title="Toyota Hiluxes For Sale in South Africa"
+  eyebrow="Hilux GD-6 · Hilux D-4D"
+  showCabFilter={true}
+>
+  <Fragment slot="capsule">
+    The <strong>Toyota Hilux</strong> has been South Africa's best-selling bakkie for decades, which is
+    why the used market is the deepest in the country. The current era is the <strong>GD-6</strong>
+    (2016 onward, 2.4 and 2.8 GD-6 turbodiesels — including the Legend editions), while the
+    <strong> D-4D</strong> generation before it (2.5 and 3.0 D-4D, roughly 2005–2016) remains the
+    workhorse favourite for farm and fleet use. Double cabs carry a clear price premium over single
+    and Xtra cabs; 4x4 versions hold value noticeably better than 4x2s. Prices here are live asking
+    prices aggregated daily from South Africa's major listing platforms.
+  </Fragment>
+</Toyota4x4Vertical>

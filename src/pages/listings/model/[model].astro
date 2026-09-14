@@ -40,6 +40,16 @@ if (model === 'fj-cruiser') {
   return Astro.redirect('/fj-cruiser/', 301);
 }
 
+// Hilux/Fortuner graduated to their own verticals (P28, 2026-09-14). Their
+// model slugs were never public shelves, but Google holds long-tail rankings
+// on the detail pages — point any shelf-shaped URL at the new home.
+if (model?.startsWith('hilux')) {
+  return Astro.redirect('/hilux/', 301);
+}
+if (model?.startsWith('fortuner')) {
+  return Astro.redirect('/fortuner/', 301);
+}
+
 const modelInfo = MODEL_MAP[model!];
 
 if (!modelInfo) return Astro.redirect('/listings/');

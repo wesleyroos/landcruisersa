@@ -1,0 +1,25 @@
+---
+export const prerender = false;
+
+// Fortuner vertical (P28) — see /hilux/ and the shared component for the shape.
+import Toyota4x4Vertical from '@/components/Toyota4x4Vertical.astro';
+---
+
+<Toyota4x4Vertical
+  family="Fortuner"
+  pathBase="/fortuner/"
+  gd6Model="fortuner-gd6"
+  d4dModel="fortuner-d4d"
+  title="Toyota Fortuners For Sale in South Africa"
+  eyebrow="Fortuner GD-6 · Fortuner D-4D"
+>
+  <Fragment slot="capsule">
+    The <strong>Toyota Fortuner</strong> is South Africa's best-selling SUV — a ladder-frame
+    seven-seater built on the Hilux platform, which is exactly why it dominates both the school run
+    and the border run. The current <strong>GD-6</strong> era (2016 onward, 2.4 and 2.8 GD-6
+    turbodiesels) makes up most of the used market, while the original <strong>D-4D</strong>
+    generation (3.0 D-4D and 2.5 D-4D, roughly 2006–2016) offers serious value for buyers who want
+    the go-anywhere package at a lower price point. 4x4 derivatives hold their value best. Prices
+    here are live asking prices aggregated daily from South Africa's major listing platforms.
+  </Fragment>
+</Toyota4x4Vertical>
