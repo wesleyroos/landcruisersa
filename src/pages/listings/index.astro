@@ -121,6 +121,13 @@ function formatMileage(n: number) {
         <button class="type-pill" data-type="for_sale">For Sale</button>
         <button class="type-pill" data-type="game-viewer">Game Viewers</button>
         <button class="type-pill" data-type="sold">Sold</button>
+        {/* Section tabs — same pill styling, but these are LINKS to the
+            dedicated verticals (their inventory lives outside this page's
+            dataset: classics have their own section; Hilux/Fortuner stay out
+            of the LC classifieds entirely). */}
+        <a class="type-pill" href="/classics/">Classics</a>
+        <a class="type-pill" href="/hilux/">Hiluxes</a>
+        <a class="type-pill" href="/fortuner/">Fortuners</a>
       </div>
       <a id="gv-page-link" href="/game-viewers/" class="hidden text-sm font-semibold text-[#D4881A] hover:underline">Game Viewers section: prices &amp; buying guide →</a>
       <div class="w-full sm:w-96"><VehicleSearch mode="filter" compact /></div>
@@ -651,7 +658,7 @@ function formatMileage(n: number) {
     `</a>`;
   }
 
-  const typePills = document.querySelectorAll<HTMLButtonElement>('.type-pill');
+  const typePills = document.querySelectorAll<HTMLButtonElement>('button.type-pill');
 
   // ── Multi-select model dropdown ──────────────────────────────────────────
   const msBtn = document.getElementById('ms-model-btn')!;
