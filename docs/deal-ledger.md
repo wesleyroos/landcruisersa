@@ -410,3 +410,35 @@ so threads either progress or get consciously dropped — never drift.
 - **Kill-or-advance:** coffee held + at least one of the three hypotheses
   advanced to a concrete next step by **2026-10-03**, else it's a pleasant
   network contact, not a deal.
+
+---
+
+## D12 — Pallidus / Stephan van der Walt (corporate finance, Centurion)
+
+- **Stage:** Lead (2026-09-16 via Marco (D9) — his mate "Stephan" at
+  "Palludus" = **Stephan van der Walt, co-founder & MD Private Capital and
+  Investments at Pallidus**, reportedly "interested in Land Cruiser SA")
+- **Who they are:** independent corporate finance advisory + investment
+  banking + investment management firm (founded 2015, Centurion + CT,
+  R5bn+ managed, invests own capital). NOT WBC's early investor — BIGGER:
+  **WeBuyCars' sole corporate finance advisor** on Transaction Capital's
+  49% + 25% acquisitions and the 26% disposal (R1.6bn) through to the JSE
+  listing; site testimonial from Dirk van der Walt. The trusted bankers of
+  WBC's inner circle. (Stephan related to Faan/Dirk? UNCONFIRMED — same
+  surname; ask Marco.)
+- **Why it matters (three readings):** (1) possible small investment
+  interest (they have a ventures arm); (2) scouting a bolt-on for WBC —
+  they know WBC's ecosystem thesis intimately, which IS our D1 proposal;
+  (3) ⭐ functionally the answer to "who runs LCSA's exit process" — the
+  banker relationship that creates competitive tension at sale time,
+  built years early.
+- **Posture:** take the meeting, SELL NOTHING. Narrative + trajectory only
+  (engine playbook, AI-citation moat, accelerating weeks, 100k North
+  Star). Refresh docs/positioning.md traction markers first. Guard rails:
+  don't stumble into an investment conversation before deciding
+  sell/hold/lifestyle; if it turns WBC-specific, loop Tersia IN (D1
+  champion-hold respected), never around.
+- **Next action:** ask Marco (a) what Stephan actually said, (b) the
+  family-link question, (c) whether Stephan wants an intro call or coffee.
+- **Kill-or-advance:** intro conversation held or explicitly declined by
+  **2026-10-10**.
