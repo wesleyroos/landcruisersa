@@ -1180,3 +1180,37 @@ date, compare to baseline, mark HIT / MISS / PARTIAL, and write the lesson.
      in outbound/click tracking.
 - **Result:** _pending 2026-10-28_
 - **Lesson:** _tbd_
+
+---
+
+## R1 — First revenue bar: R25k/month from controlled sources ⭐ (the rand ledger begins)
+
+- **Opened:** 2026-09-14, confirmed by Wesley ("log it") after the zoom-out
+  conversation: traffic has had pre-registered bars since June; revenue never
+  has. The exit mandate says rand + signed deals beat pageviews — so rand now
+  answers to the same discipline. No rationalising a miss.
+- **The bar:** by **2026-12-31**, LCSA generates **≥ R25,000/month recurring**
+  from sources we FULLY control — no revenue that depends on a counterparty
+  doing unfinished work counts:
+  - Overland Supply Co sales through LCSA distribution (launch blocked on
+    photography as of 14-Sep; first email campaign to the consented base is
+    the launch vehicle)
+  - Social boosts (P22: R297 to date)
+  - Valuation certificates
+  - PLUS at most ONE signed sponsor/partnership on a countersigned agreement
+    with money received (e.g. Voetspore category tier ~R8.5k/mo, Titan if it
+    ever goes live, HaltLock) — capped at one so the bar can't be met by a
+    single lucky deal while the product engine stays at zero.
+- **Measurement:** rand received in the month of December 2026 (not invoiced,
+  not promised), summed across the above. Mid-flight reads at every weekly
+  checkup from 2026-10-01.
+- **Checkpoints (graded, not vibes):**
+  1. **2026-10-15:** OSC launched + first campaign sent to the base, OR the
+     photography blocker escalated past "waiting" (e.g. phone-shoot fallback).
+  2. **2026-11-15:** ≥ R8,000 received in the trailing 30 days.
+  3. **2026-12-31:** the R25k month, or an honest MISS with the lesson.
+- **Why R25k:** deliberately modest — the point is the discipline, not the
+  number. R25k/mo ≈ the first 12–20% of the R200k/mo "lifestyle threshold",
+  which is also ≈ the R5m exit multiple threshold (they converge).
+- **Result:** _pending 2026-12-31_
+- **Lesson:** _tbd_
