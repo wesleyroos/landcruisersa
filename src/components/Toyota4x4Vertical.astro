@@ -66,6 +66,12 @@ const priceSel = pick(PRICE_OPTS, params.get('price'));
 const kmSel    = pick(KM_OPTS, params.get('km'));
 const provSel  = PROVINCES.includes(params.get('province') ?? '') ? params.get('province')! : '';
 const transSel = ['manual', 'automatic'].includes(params.get('trans') ?? '') ? params.get('trans')! : '';
+// Typed price bounds — Wesley: presets are fine to keep, but typing min/max
+// must always be possible. When either is set it replaces the preset bracket.
+const pmin = Math.max(0, Number(params.get('pmin')) || 0);
+const pmaxRaw = Number(params.get('pmax')) || 0;
+const pmax = pmaxRaw > 0 ? pmaxRaw : Infinity;
+const customPrice = pmin > 0 || isFinite(pmax);
 
 const rows = db.select({
   slug: listings.slug, title: listings.title, model: listings.model, year: listings.year,
@@ -105,7 +111,8 @@ let filtered = rows;
 if (era !== 'all') filtered = filtered.filter(l => l.model === (era === 'gd6' ? gd6Model : d4dModel));
 if (cab !== 'all') filtered = filtered.filter(l => cabOf(l.title) === cab);
 if (yearSel[0])  filtered = filtered.filter(l => l.year >= yearSel[2] && l.year <= yearSel[3]);
-if (priceSel[0]) filtered = filtered.filter(l => l.listing_type === 'for_sale' && l.price >= priceSel[2] && l.price <= priceSel[3]);
+if (customPrice) filtered = filtered.filter(l => l.listing_type === 'for_sale' && l.price >= pmin && l.price <= pmax);
+else if (priceSel[0]) filtered = filtered.filter(l => l.listing_type === 'for_sale' && l.price >= priceSel[2] && l.price <= priceSel[3]);
 if (kmSel[0])    filtered = filtered.filter(l => l.mileage >= kmSel[2] && l.mileage <= kmSel[3]);
 if (provSel)     filtered = filtered.filter(l => l.province === provSel);
 if (transSel)    filtered = filtered.filter(l => l.transmission === transSel);
@@ -125,12 +132,13 @@ function href(over: Record<string, string | number>) {
   const v = {
     era, cab, sort, page: 1,
     year: yearSel[0], price: priceSel[0], km: kmSel[0], province: provSel, trans: transSel,
+    pmin: pmin > 0 ? pmin : '', pmax: isFinite(pmax) ? pmax : '',
     ...over,
   } as Record<string, string | number>;
   if (v.era !== 'all') q.set('era', String(v.era));
   if (v.cab !== 'all') q.set('cab', String(v.cab));
   if (v.sort !== 'newest') q.set('sort', String(v.sort));
-  for (const k of ['year', 'price', 'km', 'province', 'trans']) if (v[k]) q.set(k, String(v[k]));
+  for (const k of ['year', 'price', 'km', 'province', 'trans', 'pmin', 'pmax']) if (v[k]) q.set(k, String(v[k]));
   if (Number(v.page) > 1) q.set('page', String(v.page));
   const s = q.toString();
   return pathBase + (s ? `?${s}` : '');
@@ -266,9 +274,15 @@ const breadcrumb = {
       <option value="" selected={!provSel}>All provinces</option>
       {PROVINCES.map(p => <option value={p} selected={p === provSel}>{p}</option>)}
     </select>
-    <select name="price" class="v-select" aria-label="Price">
-      {PRICE_OPTS.map(([v, label]) => <option value={v} selected={v === priceSel[0]}>{label}</option>)}
+    <select name="price" class="v-select" aria-label="Price bracket">
+      {PRICE_OPTS.map(([v, label]) => <option value={v} selected={!customPrice && v === priceSel[0]}>{label}</option>)}
     </select>
+    <div class="flex items-center gap-1.5">
+      <input type="number" inputmode="numeric" min="0" step="10000" name="pmin" value={pmin > 0 ? pmin : ''} placeholder="Min R" aria-label="Minimum price" class="v-select w-28" />
+      <span class="text-[#9CA3AF]">–</span>
+      <input type="number" inputmode="numeric" min="0" step="10000" name="pmax" value={isFinite(pmax) ? pmax : ''} placeholder="Max R" aria-label="Maximum price" class="v-select w-28" />
+      <button type="submit" class="filter-pill" style="min-height:44px;">Go</button>
+    </div>
     <select name="km" class="v-select" aria-label="Mileage">
       {KM_OPTS.map(([v, label]) => <option value={v} selected={v === kmSel[0]}>{label}</option>)}
     </select>
@@ -278,8 +292,8 @@ const breadcrumb = {
       <option value="automatic" selected={transSel === 'automatic'}>Automatic</option>
     </select>
     <noscript><button type="submit" class="filter-pill">Apply</button></noscript>
-    {(yearSel[0] || priceSel[0] || kmSel[0] || provSel || transSel) && (
-      <a href={href({ year: '', price: '', km: '', province: '', trans: '' })} class="self-center text-sm font-semibold text-[#D4881A] hover:underline">Clear filters</a>
+    {(yearSel[0] || priceSel[0] || kmSel[0] || provSel || transSel || customPrice) && (
+      <a href={href({ year: '', price: '', km: '', province: '', trans: '', pmin: '', pmax: '' })} class="self-center text-sm font-semibold text-[#D4881A] hover:underline">Clear filters</a>
     )}
   </form>
 
@@ -406,6 +420,6 @@ const breadcrumb = {
 <script>
   // Dropdowns auto-submit their GET form — the server does the filtering.
   document.getElementById('v-filters')?.addEventListener('change', (e) => {
-    (e.currentTarget as HTMLFormElement).submit();
+    if ((e.target as HTMLElement).tagName === 'SELECT') (e.currentTarget as HTMLFormElement).submit();
   });
 </script>
