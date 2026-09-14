@@ -381,3 +381,32 @@ so threads either progress or get consciously dropped — never drift.
   featured in the two theft guides (content-first work, D5); any HaltLock
   placement starts as banner/listing-page inventory, not a guide rewrite.
 - **Kill-or-advance:** 2026-09-24 — no reply after a follow-up = park it.
+
+---
+
+## D11 — Voetspore (rentals + 4x4 fitment shop)
+
+- **Stage:** Meeting (inbound 2026-09-11; coffee in Pretoria being set — he
+  offered to come to Wesley. WhatsApp 072 996 1948)
+- **Who:** Streicher Badenhorst, Voetspore group — THE legendary SA overland
+  brand (two decades of Africa expeditions, Cruiser-centric), with a rental
+  fleet and a 4x4 fitment shop. Came in via the 4x4 training page wanting
+  staff training + referral/business discussion. Replied 3× in 3 days —
+  counter-evidence to "this industry is slow": inbound with mutual want moves
+  fast.
+- **Done:** connected to Paul (TAD) for the training itself; meeting to
+  follow on wider opportunities.
+- **Value hypotheses (Wesley's assets first):**
+  1. **Overland Supply Co retail distribution** via the Voetspore fitment
+     shop — physical counter in front of the exact customer; own-product
+     play, passes the monetisation rule outright.
+  2. **Rental cornerstone anchor** — Voetspore Rentals as the flagship
+     operator in the rental authority piece / future booking moat.
+  3. **Papered TAD referral** — a spotter's cut on course bookings LCSA
+     originates (the Streicher intro included), not a free gift.
+- **Titan lesson applies:** after the coffee, WE produce the follow-up
+  artefact same-day (stock proposal / referral terms) — never leave work in
+  their court.
+- **Kill-or-advance:** coffee held + at least one of the three hypotheses
+  advanced to a concrete next step by **2026-10-03**, else it's a pleasant
+  network contact, not a deal.
