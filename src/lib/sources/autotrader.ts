@@ -35,6 +35,16 @@ const LC_SEARCH_URLS = [
 const EXTRA_SEARCH_URLS = [
   `${BASE}/cars-for-sale/toyota/hilux`,
   `${BASE}/cars-for-sale/toyota/fortuner`,
+  // BakkiesSA collect-only set (2026-09-15): price history accrues ahead of
+  // the engine launch. A slug that 404s just yields 0 results — harmless.
+  `${BASE}/cars-for-sale/ford/ranger`,
+  `${BASE}/cars-for-sale/isuzu/d-max`,
+  `${BASE}/cars-for-sale/volkswagen/amarok`,
+  `${BASE}/cars-for-sale/gwm/p-series`,
+  `${BASE}/cars-for-sale/mitsubishi/triton`,
+  `${BASE}/cars-for-sale/nissan/navara`,
+  `${BASE}/cars-for-sale/mahindra/pik-up`,
+  `${BASE}/cars-for-sale/mazda/bt-50`,
 ];
 // Suzuki Jimny — crawled ONLY when SCRAPE_SEGMENT=jimny (the separate Jimny SA
 // ingest run, which posts to jimnysa). Land Cruiser runs never touch this.

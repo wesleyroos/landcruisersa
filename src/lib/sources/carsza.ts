@@ -33,6 +33,17 @@ const LC_MODELS = [
 ];
 // Adjacent Toyota 4x4s — collected for data, gated, not shown on the LC site
 const EXTRA_MODELS = ['Hilux', 'Fortuner'];
+// BakkiesSA collect-only set — non-Toyota makes need explicit targets.
+const BAKKIE_TARGETS: SearchTarget[] = [
+  { make: 'Ford', model: 'Ranger' },
+  { make: 'Isuzu', model: 'D-Max' },
+  { make: 'Volkswagen', model: 'Amarok' },
+  { make: 'GWM', model: 'P-Series' },
+  { make: 'Mitsubishi', model: 'Triton' },
+  { make: 'Nissan', model: 'Navara' },
+  { make: 'Mahindra', model: 'Pik Up' },
+  { make: 'Mazda', model: 'BT-50' },
+];
 // Suzuki Jimny — crawled ONLY when SCRAPE_SEGMENT=jimny (the separate Jimny SA
 // ingest run, which posts to jimnysa). Land Cruiser runs never touch this.
 const JIMNY_TARGETS: SearchTarget[] = [{ make: 'Suzuki', model: 'Jimny' }];
@@ -47,7 +58,8 @@ interface SearchTarget {
 function searchTargets(): SearchTarget[] {
   if (process.env.SCRAPE_SEGMENT === 'jimny') return JIMNY_TARGETS;
   const models = collectExtraSegments() ? [...LC_MODELS, ...EXTRA_MODELS] : LC_MODELS;
-  return models.map(model => ({ make: 'Toyota', model }));
+  const targets = models.map(model => ({ make: 'Toyota', model }));
+  return collectExtraSegments() ? [...targets, ...BAKKIE_TARGETS] : targets;
 }
 
 interface CarsZaRecord {

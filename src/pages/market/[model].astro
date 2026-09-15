@@ -86,6 +86,12 @@ const updated = new Date();
 const updatedStr = updated.toLocaleDateString('en-ZA', { day: 'numeric', month: 'long', year: 'numeric' });
 
 function R(n: number) { return 'R ' + n.toLocaleString('en-ZA'); }
+// BakkiesSA collect-only models have data but NO public surface yet — their
+// market pages stay closed until the engine launches (else they'd render as
+// "Toyota Ranger" under the LC brand with zero cross-links).
+if (segmentForModel(model!) === 'bakkie') {
+  return Astro.redirect('/market/', 302);
+}
 const isLC = segmentForModel(model!) === 'land-cruiser';
 const mLabel = modelLabel(model!);                       // "79 Series" | "Hilux GD-6"
 const fullName = isLC ? `Land Cruiser ${mLabel}` : `Toyota ${mLabel}`;

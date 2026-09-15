@@ -39,6 +39,22 @@ const MODEL_MAP: [RegExp, string][] = [
   // Listed after every Land Cruiser pattern so LC always wins the match.
   [/\bfortuner\b/i,                                  'fortuner'],
   [/\bhilux\b/i,                                     'hilux'],
+  // ── The wider bakkie market (BakkiesSA collect-only, 2026-09-15) ──────────
+  // Collected for price history ahead of the bakkiessa.co.za engine; segment
+  // 'bakkie', which NO public surface includes (listings/market/stats all
+  // filter it out — detail pages exist but are orphaned). Listed after all
+  // Toyota patterns so LC/Hilux/Fortuner always win their matches.
+  [/\branger\b/i,                                    'ranger'],
+  [/\bd[\s-]?max\b/i,                                'd-max'],
+  [/\bkb\s?[23]\d{2}\b/i,                            'kb'],        // Isuzu KB 250/300 era (pre-D-Max)
+  [/\bamarok\b/i,                                    'amarok'],
+  [/\bp[\s-]?series\b|\bp300\b/i,                    'p-series'],  // GWM
+  [/\bsteed\b/i,                                     'steed'],      // GWM Steed (huge cheap-used volume)
+  [/\btriton\b/i,                                    'triton'],
+  [/\bnavara\b/i,                                    'navara'],
+  [/\bnp[\s-]?300\b|\bhardbody\b/i,                  'np300'],
+  [/\bpik\s?[\s-]?up\b/i,                            'pik-up'],     // Mahindra (spelled Pik Up — never match generic "pick up")
+  [/\bbt[\s-]?50\b/i,                                'bt-50'],
   // ── Suzuki Jimny ── collected only when the Jimny scraper runs (SCRAPE_SEGMENT=jimny);
   // routed to Jimny SA, never shown on the Land Cruiser site. Listed last so LC always wins.
   [/\bjimny\b/i,                                      'jimny'],
@@ -47,8 +63,13 @@ const MODEL_MAP: [RegExp, string][] = [
 // Adjacent Toyota-4x4 segment — collected for data and shown on the public
 // market pages, but kept out of the LC classifieds. Drives the `segment` column.
 export const LC_SEGMENT = 'land-cruiser';
+// The wider bakkie market — collect-only for the future BakkiesSA engine.
+export const BAKKIE_MODEL_SLUGS: ReadonlySet<string> = new Set([
+  'ranger', 'd-max', 'kb', 'amarok', 'p-series', 'steed', 'triton', 'navara', 'np300', 'pik-up', 'bt-50',
+]);
 export function segmentForModel(model: string): string {
   if (model.startsWith('jimny')) return 'jimny'; // routed to Jimny SA, not stored/shown here
+  if (BAKKIE_MODEL_SLUGS.has(model)) return 'bakkie';
   return (model.startsWith('hilux') || model.startsWith('fortuner')) ? 'toyota-4x4' : LC_SEGMENT;
 }
 
@@ -238,6 +259,10 @@ export function normalizeProvince(raw: string): string {
 const MODEL_LABELS: Record<string, string> = {
   'hilux-gd6': 'Hilux GD-6', 'hilux-d4d': 'Hilux D-4D',
   'fortuner-gd6': 'Fortuner GD-6', 'fortuner-d4d': 'Fortuner D-4D',
+  'ranger': 'Ford Ranger', 'd-max': 'Isuzu D-Max', 'kb': 'Isuzu KB',
+  'amarok': 'VW Amarok', 'p-series': 'GWM P-Series', 'steed': 'GWM Steed',
+  'triton': 'Mitsubishi Triton', 'navara': 'Nissan Navara', 'np300': 'Nissan NP300',
+  'pik-up': 'Mahindra Pik Up', 'bt-50': 'Mazda BT-50',
 };
 const MODEL_ERA: Record<string, string> = {
   'hilux-gd6': '2016 onward', 'hilux-d4d': 'pre-2016',

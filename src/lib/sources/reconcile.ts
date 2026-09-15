@@ -26,7 +26,7 @@ const REAP_CAP_FRACTION = 0.25;
 export function scrapedSegmentsFor(collectExtra: boolean): Set<string> {
   return process.env.SCRAPE_SEGMENT === 'jimny'
     ? new Set(['jimny'])
-    : new Set(['land-cruiser', 'other-4x4', ...(collectExtra ? ['toyota-4x4'] : [])]);
+    : new Set(['land-cruiser', 'other-4x4', ...(collectExtra ? ['toyota-4x4', 'bakkie'] : [])]);
 }
 
 export async function reconcileOffMarket(opts: {
