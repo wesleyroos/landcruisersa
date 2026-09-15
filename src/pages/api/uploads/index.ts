@@ -14,7 +14,13 @@ sharp.concurrency(1);
 // arrive as 6–10MB originals; this brings them to ~150–300KB with no visible
 // quality loss. Returns the compressed buffer, or the original on failure.
 const MAX_EDGE = 1920;
-async function compress(input: Buffer): Promise<Buffer> {
+// Returns null when the image can't be decoded — the caller must REJECT then.
+// The old fallback (return the original bytes) is how ten iPhone HEIC files
+// ended up on R2 named .jpg with ContentType image/jpeg: sharp's prebuilt
+// libvips can't decode HEIC (HEVC patents), the catch swallowed it, and every
+// Chrome visitor saw broken images while Safari (which decodes HEIC) looked
+// fine (listing 31479, found 2026-09-15). Never store what we can't decode.
+async function compress(input: Buffer): Promise<Buffer | null> {
   try {
     return await sharp(input, { limitInputPixels: 40_000_000, failOn: 'none' })
       .rotate() // honour EXIF orientation before stripping metadata
@@ -22,8 +28,15 @@ async function compress(input: Buffer): Promise<Buffer> {
       .jpeg({ quality: 78, mozjpeg: true })
       .toBuffer();
   } catch {
-    return input;
+    return null;
   }
+}
+
+// HEIF container brands ("ftypheic", "ftypheix", "ftypmif1"…) at offset 4 —
+// the browser often mislabels these as image/jpeg, so sniff the bytes.
+function looksLikeHeic(b: Buffer): boolean {
+  return b.length > 12 && b.subarray(4, 8).toString('ascii') === 'ftyp'
+    && /^(hei|hev|mif|msf)/.test(b.subarray(8, 12).toString('ascii'));
 }
 
 const R2_ENDPOINT = import.meta.env.R2_ENDPOINT ?? process.env.R2_ENDPOINT;
@@ -60,7 +73,14 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     return new Response(JSON.stringify({ error: 'File too large (max 10MB)' }), { status: 400 });
   }
 
-  const body = await compress(Buffer.from(await file.arrayBuffer()));
+  const raw = Buffer.from(await file.arrayBuffer());
+  const body = await compress(raw);
+  if (!body) {
+    const msg = looksLikeHeic(raw)
+      ? "That photo is in iPhone's HEIC format, which most browsers can't display. Quick fix: on your iPhone go to Settings → Camera → Formats and pick \"Most Compatible\", then re-take or re-export the photos — or WhatsApp them to yourself and upload the WhatsApp copies (those are JPGs)."
+      : "We couldn't read that image file. Please upload photos as JPG or PNG.";
+    return new Response(JSON.stringify({ error: msg }), { status: 415 });
+  }
   const key = `uploads/listings/${Date.now()}-${randomBytes(4).toString('hex')}.jpg`;
 
   const s3 = new S3Client({
