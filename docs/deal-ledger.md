@@ -410,6 +410,26 @@ so threads either progress or get consciously dropped — never drift.
 - **Kill-or-advance:** coffee held + at least one of the three hypotheses
   advanced to a concrete next step by **2026-10-03**, else it's a pleasant
   network contact, not a deal.
+- **⭐ STATUS (2026-09-15): meeting HELD — bigger than expected.** Streicher is
+  **Johan Badenhorst's son** (the Voetspore founder), AND an ex-investment
+  banker **from Pallidus, where he worked with Stephan van der Walt (D12)** —
+  left ~3 years ago to run Voetspore Rentals. He is "very interested in Land
+  Cruiser SA and wants to give it thought about how to potentially move
+  forward." Also offered weekend shoot vehicles from the rental fleet (→
+  solves GOAT-TV-class hero-vehicle asks permanently).
+- **Read:** two independent inbound threads (Marco→Stephan D12; training→
+  Streicher D11) both terminate at Pallidus alumni circling LCSA — that's a
+  network converging, not coincidence. An ex-banker "giving thought to moving
+  forward" means structuring something: partnership, investment, or an
+  advisory-led deal. He's also the missing OPERATOR for the rentals booking
+  moat (fleet + brand + banking skills + LCSA demand/data).
+- **Posture:** let him come back with his shape, but have OUR frame ready
+  first: (1) commercial lane open now (rental anchor, OSC distribution,
+  papered referrals, shoot vehicles); (2) equity/strategic lane only after
+  Wesley settles sell-R5m vs lifestyle-R200k/mo — do NOT drift into an
+  equity conversation by accident. Same-day follow-up artefact from our
+  side (thank-you + concrete commercial next step), investor materials held
+  back until he states his angle.
 
 ---
 
@@ -440,5 +460,8 @@ so threads either progress or get consciously dropped — never drift.
   champion-hold respected), never around.
 - **Next action:** ask Marco (a) what Stephan actually said, (b) the
   family-link question, (c) whether Stephan wants an intro call or coffee.
+- **Cross-link (2026-09-15):** Streicher (D11) is a Pallidus alumnus who
+  worked with Stephan and left ~3 years ago — the D11/D12 threads are one
+  network. Coordinate the two conversations; assume they compare notes.
 - **Kill-or-advance:** intro conversation held or explicitly declined by
   **2026-10-10**.
