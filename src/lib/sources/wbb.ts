@@ -23,6 +23,10 @@ function lcSlugs(): string[] {
       // HEAD check (server-rendered 404s), so the whole set rides along.
       'ford-ranger', 'isuzu-d-max', 'volkswagen-amarok', 'gwm-p-series',
       'mitsubishi-triton', 'nissan-navara', 'mahindra-pik-up', 'mazda-bt-50',
+      'byd-shark-6', 'kia-tasman', 'jac-t8', 'jac-t9', 'foton-tunland',
+      'peugeot-landtrek', 'mahindra-bolero', 'changan-hunter', 'ldv-t60',
+      'jeep-gladiator', 'nissan-np200', 'chevrolet-corsa-utility', 'ford-bantam',
+      'ford-everest', 'isuzu-mu-x', 'chevrolet-trailblazer', 'mitsubishi-pajero-sport',
     ] : []),
   ];
 }

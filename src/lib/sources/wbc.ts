@@ -197,14 +197,23 @@ function isWanted(v: WbcVehicle): boolean {
 
 // Make → model patterns for the BakkiesSA collect-only set.
 const BAKKIE_ACCEPT: [string, RegExp][] = [
-  ['Ford', /\branger\b/i],
-  ['Isuzu', /\bd[\s-]?max\b|\bkb\s?[23]\d{2}\b/i],
+  ['Ford', /\branger\b|\bbantam\b|\beverest\b/i],
+  ['Isuzu', /\bd[\s-]?max\b|\bkb\s?[23]\d{2}\b|\bmu[\s-]?x\b/i],
   ['Volkswagen', /\bamarok\b/i],
   ['GWM', /\bp[\s-]?series\b|\bp300\b|\bsteed\b/i],
-  ['Mitsubishi', /\btriton\b/i],
-  ['Nissan', /\bnavara\b|\bnp[\s-]?300\b|\bhardbody\b/i],
-  ['Mahindra', /\bpik\s?[\s-]?up\b/i],
+  ['Mitsubishi', /\btriton\b|\bpajero\s?sport\b/i],
+  ['Nissan', /\bnavara\b|\bnp[\s-]?[23]00\b|\bhardbody\b/i],
+  ['Mahindra', /\bpik\s?[\s-]?up\b|\bbolero\b/i],
   ['Mazda', /\bbt[\s-]?50\b/i],
+  ['BYD', /\bshark\b/i],
+  ['Kia', /\btasman\b/i],
+  ['JAC', /\bt\s?[689]\b/i],
+  ['Foton', /\btunland\b/i],
+  ['Peugeot', /\blandtrek\b/i],
+  ['Changan', /\bhunter\b/i],
+  ['LDV', /\bt60\b|\bterron\b/i],
+  ['Jeep', /\bgladiator\b/i],
+  ['Chevrolet', /\butility\b|\btrailblazer\b/i],
 ];
 
 function isLandCruiser(v: WbcVehicle): boolean {

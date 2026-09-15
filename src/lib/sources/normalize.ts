@@ -55,6 +55,29 @@ const MODEL_MAP: [RegExp, string][] = [
   [/\bnp[\s-]?300\b|\bhardbody\b/i,                  'np300'],
   [/\bpik\s?[\s-]?up\b/i,                            'pik-up'],     // Mahindra (spelled Pik Up — never match generic "pick up")
   [/\bbt[\s-]?50\b/i,                                'bt-50'],
+  // New-entrant bakkies (2024–2026 wave) — strict patterns, make-anchored
+  // where the model word could appear in unrelated titles.
+  [/\bshark\s?6\b|\bbyd\b.{0,12}\bshark\b/i,         'shark-6'],    // BYD
+  [/\btasman\b/i,                                    'tasman'],     // Kia
+  [/\bjac\b.{0,12}\bt\s?[689]\b/i,                    'jac-t-series'],
+  [/\btunland\b/i,                                   'tunland'],    // Foton
+  [/\blandtrek\b/i,                                  'landtrek'],   // Peugeot
+  [/\bbolero\b/i,                                    'bolero'],     // Mahindra
+  [/\bchangan\b.{0,12}\bhunter\b/i,                  'hunter'],
+  [/\bterron\b|\bldv\b.{0,10}\bt60\b/i,              'ldv-t60'],
+  [/\bgladiator\b/i,                                 'gladiator'],  // Jeep
+  // Discontinued half-tons with huge used parcs — a used-market engine covers
+  // the parc on the road, not just the price lists.
+  [/\bnp[\s-]?200\b/i,                               'np200-halfton'],
+  [/\b(corsa|chev(rolet)?)\s?utility\b/i,            'corsa-utility'],
+  [/\bbantam\b/i,                                    'bantam'],     // Ford
+  // Bakkie-platform SUVs — the Fortuner class (Fortuner itself lives in
+  // toyota-4x4). Pajero Sport pattern must never catch the plain Pajero
+  // (a standalone SUV, out of scope).
+  [/\beverest\b/i,                                   'everest'],       // Ford (Ranger-based)
+  [/\bmu[\s-]?x\b/i,                                 'mu-x'],          // Isuzu (D-Max-based)
+  [/\btrailblazer\b/i,                               'trailblazer'],   // Chevrolet (used parc)
+  [/\bpajero\s?sport\b/i,                            'pajero-sport'],  // Mitsubishi (Triton-based)
   // ── Suzuki Jimny ── collected only when the Jimny scraper runs (SCRAPE_SEGMENT=jimny);
   // routed to Jimny SA, never shown on the Land Cruiser site. Listed last so LC always wins.
   [/\bjimny\b/i,                                      'jimny'],
@@ -66,6 +89,9 @@ export const LC_SEGMENT = 'land-cruiser';
 // The wider bakkie market — collect-only for the future BakkiesSA engine.
 export const BAKKIE_MODEL_SLUGS: ReadonlySet<string> = new Set([
   'ranger', 'd-max', 'kb', 'amarok', 'p-series', 'steed', 'triton', 'navara', 'np300', 'pik-up', 'bt-50',
+  'shark-6', 'tasman', 'jac-t-series', 'tunland', 'landtrek', 'bolero', 'hunter', 'ldv-t60', 'gladiator',
+  'np200-halfton', 'corsa-utility', 'bantam',
+  'everest', 'mu-x', 'trailblazer', 'pajero-sport',
 ]);
 export function segmentForModel(model: string): string {
   if (model.startsWith('jimny')) return 'jimny'; // routed to Jimny SA, not stored/shown here
@@ -263,6 +289,12 @@ const MODEL_LABELS: Record<string, string> = {
   'amarok': 'VW Amarok', 'p-series': 'GWM P-Series', 'steed': 'GWM Steed',
   'triton': 'Mitsubishi Triton', 'navara': 'Nissan Navara', 'np300': 'Nissan NP300',
   'pik-up': 'Mahindra Pik Up', 'bt-50': 'Mazda BT-50',
+  'shark-6': 'BYD Shark 6', 'tasman': 'Kia Tasman', 'jac-t-series': 'JAC T-Series',
+  'tunland': 'Foton Tunland', 'landtrek': 'Peugeot Landtrek', 'bolero': 'Mahindra Bolero',
+  'hunter': 'Changan Hunter', 'ldv-t60': 'LDV T60 / Terron', 'gladiator': 'Jeep Gladiator',
+  'np200-halfton': 'Nissan NP200', 'corsa-utility': 'Chevrolet Utility', 'bantam': 'Ford Bantam',
+  'everest': 'Ford Everest', 'mu-x': 'Isuzu MU-X', 'trailblazer': 'Chevrolet Trailblazer',
+  'pajero-sport': 'Mitsubishi Pajero Sport',
 };
 const MODEL_ERA: Record<string, string> = {
   'hilux-gd6': '2016 onward', 'hilux-d4d': 'pre-2016',

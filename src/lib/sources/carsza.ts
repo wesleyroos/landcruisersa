@@ -43,6 +43,23 @@ const BAKKIE_TARGETS: SearchTarget[] = [
   { make: 'Nissan', model: 'Navara' },
   { make: 'Mahindra', model: 'Pik Up' },
   { make: 'Mazda', model: 'BT-50' },
+  { make: 'BYD', model: 'Shark 6' },
+  { make: 'Kia', model: 'Tasman' },
+  { make: 'JAC', model: 'T8' },
+  { make: 'JAC', model: 'T9' },
+  { make: 'Foton', model: 'Tunland' },
+  { make: 'Peugeot', model: 'Landtrek' },
+  { make: 'Mahindra', model: 'Bolero' },
+  { make: 'Changan', model: 'Hunter' },
+  { make: 'LDV', model: 'T60' },
+  { make: 'Jeep', model: 'Gladiator' },
+  { make: 'Nissan', model: 'NP200' },
+  { make: 'Chevrolet', model: 'Corsa Utility' },
+  { make: 'Ford', model: 'Bantam' },
+  { make: 'Ford', model: 'Everest' },
+  { make: 'Isuzu', model: 'MU-X' },
+  { make: 'Chevrolet', model: 'Trailblazer' },
+  { make: 'Mitsubishi', model: 'Pajero Sport' },
 ];
 // Suzuki Jimny — crawled ONLY when SCRAPE_SEGMENT=jimny (the separate Jimny SA
 // ingest run, which posts to jimnysa). Land Cruiser runs never touch this.

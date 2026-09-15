@@ -45,6 +45,23 @@ const EXTRA_SEARCH_URLS = [
   `${BASE}/cars-for-sale/nissan/navara`,
   `${BASE}/cars-for-sale/mahindra/pik-up`,
   `${BASE}/cars-for-sale/mazda/bt-50`,
+  `${BASE}/cars-for-sale/b-y-d/shark-6`,
+  `${BASE}/cars-for-sale/kia/tasman`,
+  `${BASE}/cars-for-sale/jac/t8`,
+  `${BASE}/cars-for-sale/jac/t9`,
+  `${BASE}/cars-for-sale/foton/tunland`,
+  `${BASE}/cars-for-sale/peugeot/landtrek`,
+  `${BASE}/cars-for-sale/mahindra/bolero`,
+  `${BASE}/cars-for-sale/changan/hunter`,
+  `${BASE}/cars-for-sale/ldv/t60`,
+  `${BASE}/cars-for-sale/jeep/gladiator`,
+  `${BASE}/cars-for-sale/nissan/np200`,
+  `${BASE}/cars-for-sale/chevrolet/corsa-utility`,
+  `${BASE}/cars-for-sale/ford/bantam`,
+  `${BASE}/cars-for-sale/ford/everest`,
+  `${BASE}/cars-for-sale/isuzu/mu-x`,
+  `${BASE}/cars-for-sale/chevrolet/trailblazer`,
+  `${BASE}/cars-for-sale/mitsubishi/pajero-sport`,
 ];
 // Suzuki Jimny — crawled ONLY when SCRAPE_SEGMENT=jimny (the separate Jimny SA
 // ingest run, which posts to jimnysa). Land Cruiser runs never touch this.
