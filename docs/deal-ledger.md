@@ -463,5 +463,19 @@ so threads either progress or get consciously dropped — never drift.
 - **Cross-link (2026-09-15):** Streicher (D11) is a Pallidus alumnus who
   worked with Stephan and left ~3 years ago — the D11/D12 threads are one
   network. Coordinate the two conversations; assume they compare notes.
+- **Deep intel (2026-09-15, full brief in session):** JSE-approved advisor;
+  R5bn+ managed; R25bn multi-issuer NOTE PROGRAMME (Pallidus Credit Connect,
+  CTSE-listed notes; also seed investor in CTSE). Track record: WBC (all
+  Transaction Capital deals + JSE listing), Traxtion R1.4bn rail raise
+  (Stanlib/Standard Bank/Harith), Akademia ~R1.4bn campus debt, Assupol
+  delisting, VKB/GWK merger, Morgan Cargo→Kuehne+Nagel, AttBid/Atterbury-RMH.
+  DIRECT tech investment exists (Warp Development, Jan-2026) → they do write
+  their own smaller cheques via Stephan's Private Capital arm. New CEO Keith
+  Ackerman (ex-PwC) from 1-Sep-2026. Two BEE PE funds: Palamo + Ascension.
+  No FSCA/legal red flags found. ⭐ Sharpest read: their client base IS the
+  Afrikaans business heartland (WBC, Akademia/Solidarity, VKB/GWK agri) —
+  LCSA's exact audience culture. Stephan isn't evaluating an abstract
+  marketplace; he's looking at a digital asset native to his firm's own
+  community. Explains the two-doors-in-a-fortnight convergence.
 - **Kill-or-advance:** intro conversation held or explicitly declined by
   **2026-10-10**.
