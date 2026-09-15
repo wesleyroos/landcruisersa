@@ -99,8 +99,26 @@ async function poll() {
   // Oldest-polled first (never-polled = null sorts first) so coverage rotates
   // across runs and the per-run CAP doesn't starve the same tail every time.
   pollable.sort((a, b) => (a.last_polled_at ?? 0) - (b.last_polled_at ?? 0));
-  const toCheck = pollable.slice(0, CAP);
-  console.log(`${LABEL} [poll] ${liveListings.length} active, ${pollable.length} pollable; checking ${toCheck.length} oldest-polled this run`);
+
+  // TIERED BUDGET (2026-09-15, the scalable-WBC design): user-facing segments
+  // get first claim on 75% of the cap — a buyer must never see a dead listing
+  // because collect-only volume (segment 'bakkie', thousands of WBC rows)
+  // monopolised the queue. Collect-only rows fill the remaining quarter, which
+  // still cycles ~10k rows every ~2 weeks — plenty for price-history
+  // integrity, where a few days of delist lag is immaterial. Unused budget in
+  // either tier spills over to the other, so nothing is wasted when one tier
+  // is small.
+  const USER_FACING = new Set(['land-cruiser', 'toyota-4x4', 'other-4x4']);
+  const userRows = pollable.filter(l => USER_FACING.has(l.segment));
+  const collectRows = pollable.filter(l => !USER_FACING.has(l.segment));
+  const userBudget = Math.min(userRows.length, Math.ceil(CAP * 0.75));
+  const collectBudget = Math.min(collectRows.length, CAP - userBudget);
+  const spill = CAP - userBudget - collectBudget;
+  const toCheck = [
+    ...userRows.slice(0, userBudget + (collectRows.length <= collectBudget ? spill : 0)),
+    ...collectRows.slice(0, collectBudget + (userRows.length <= userBudget ? spill : 0)),
+  ].slice(0, CAP);
+  console.log(`${LABEL} [poll] ${liveListings.length} active, ${pollable.length} pollable; checking ${toCheck.length} this run (${Math.min(userRows.length, userBudget)} user-facing + ${toCheck.length - Math.min(userRows.length, userBudget)} collect-only)`);
 
   let pending: Update[] = [];
   let totalUpdated = 0, removedCount = 0, errorCount = 0, skipped = 0;

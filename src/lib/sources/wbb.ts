@@ -17,7 +17,13 @@ const BASE = 'https://webuybakkies.co.za';
 function lcSlugs(): string[] {
   return [
     'toyota-land-cruiser', 'toyota-fj-cruiser', 'toyota-prado',
-    ...(collectExtraSegments() ? ['toyota-hilux', 'toyota-fortuner'] : []),
+    ...(collectExtraSegments() ? [
+      'toyota-hilux', 'toyota-fortuner',
+      // BakkiesSA collect-only set — WBB is small and its liveness is a cheap
+      // HEAD check (server-rendered 404s), so the whole set rides along.
+      'ford-ranger', 'isuzu-d-max', 'volkswagen-amarok', 'gwm-p-series',
+      'mitsubishi-triton', 'nissan-navara', 'mahindra-pik-up', 'mazda-bt-50',
+    ] : []),
   ];
 }
 

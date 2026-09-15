@@ -98,7 +98,14 @@ function searchQueries(): string[] {
   if (process.env.SCRAPE_SEGMENT === 'jimny') return ['Suzuki Jimny'];
   return [
     'Toyota Land Cruiser', 'Toyota Prado', 'Toyota FJ Cruiser',
-    ...(collectExtraSegments() ? ['Toyota Hilux', 'Toyota Fortuner'] : []),
+    ...(collectExtraSegments() ? [
+      'Toyota Hilux', 'Toyota Fortuner',
+      // BakkiesSA collect-only set. WBC matters disproportionately here: their
+      // stock turns fast and never expires, so a WBC delist + last price is the
+      // closest scalable proxy for a SOLD comp in the bakkie market.
+      'Ford Ranger', 'Isuzu D-Max', 'Volkswagen Amarok', 'GWM P-Series',
+      'Mitsubishi Triton', 'Nissan Navara', 'Mahindra Pik Up', 'Mazda BT-50',
+    ] : []),
   ];
 }
 const SEARCH_PAGE = 24; // server caps page size at 24 regardless of `size`
@@ -188,12 +195,32 @@ function isWanted(v: WbcVehicle): boolean {
   return isLandCruiser(v);
 }
 
+// Make → model patterns for the BakkiesSA collect-only set.
+const BAKKIE_ACCEPT: [string, RegExp][] = [
+  ['Ford', /\branger\b/i],
+  ['Isuzu', /\bd[\s-]?max\b|\bkb\s?[23]\d{2}\b/i],
+  ['Volkswagen', /\bamarok\b/i],
+  ['GWM', /\bp[\s-]?series\b|\bp300\b|\bsteed\b/i],
+  ['Mitsubishi', /\btriton\b/i],
+  ['Nissan', /\bnavara\b|\bnp[\s-]?300\b|\bhardbody\b/i],
+  ['Mahindra', /\bpik\s?[\s-]?up\b/i],
+  ['Mazda', /\bbt[\s-]?50\b/i],
+];
+
 function isLandCruiser(v: WbcVehicle): boolean {
-  if (v.Make !== 'Toyota') return false;
   const model = v.Model ?? '';
-  if (/land.?cruiser/i.test(model) || /\bprado\b/i.test(model) || /\bfj.?cruiser\b/i.test(model)) return true;
-  // Adjacent Toyota 4x4s — collected for data, gated, never shown on the LC site
-  if (collectExtraSegments() && (/\bhilux\b/i.test(model) || /\bfortuner\b/i.test(model))) return true;
+  if (v.Make === 'Toyota') {
+    if (/land.?cruiser/i.test(model) || /\bprado\b/i.test(model) || /\bfj.?cruiser\b/i.test(model)) return true;
+    // Adjacent Toyota 4x4s — collected for data, gated, never shown on the LC site
+    if (collectExtraSegments() && (/\bhilux\b/i.test(model) || /\bfortuner\b/i.test(model))) return true;
+    return false;
+  }
+  // BakkiesSA collect-only set (segment 'bakkie' via normalizeModel) — gated
+  // on the same toggle; the tiered poll budget keeps this volume from ever
+  // starving user-facing liveness checks.
+  if (collectExtraSegments()) {
+    for (const [make, re] of BAKKIE_ACCEPT) if (v.Make === make && re.test(model)) return true;
+  }
   return false;
 }
 
