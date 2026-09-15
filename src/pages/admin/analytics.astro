@@ -16,17 +16,35 @@ if (!cookie || cookie.value !== adminSecret) {
   return Astro.redirect('/admin/login');
 }
 
+// ── Timeframe selector for the first-party (DB) sections ─────────────────────
+// ?range= drives partner referrals, rental interest, outbound clicks and
+// vehicle searches — the "how much have we sent partner X, ever" questions.
+// The Plausible tiles and GSC block keep their native windows (30d / 28d).
+const RANGES: Record<string, { days: number | null; label: string }> = {
+  '7d':  { days: 7,    label: 'last 7 days' },
+  '30d': { days: 30,   label: 'last 30 days' },
+  '90d': { days: 90,   label: 'last 90 days' },
+  '6m':  { days: 182,  label: 'last 6 months' },
+  '12m': { days: 365,  label: 'last 12 months' },
+  'all': { days: null, label: 'all time' },
+};
+const rangeKey = Object.hasOwn(RANGES, Astro.url.searchParams.get('range') ?? '')
+  ? Astro.url.searchParams.get('range')!
+  : '30d';
+const range = RANGES[rangeKey];
+const sinceDate = range.days ? new Date(Date.now() - range.days * 86_400_000) : new Date(0);
+const sinceSec = Math.floor(sinceDate.getTime() / 1000);
+
 // Outbound referral clicks we've sent each partner (last 30d) — the evidence base
 // for turning an informal referral into a paid arrangement. Broken out by kind.
 const partnerName = new Map(PARTNERS.map(p => [p.slug, p.name]));
 let partnerReferrals: { name: string; website: number; email: number; instagram: number; total: number }[] = [];
 try {
-  const since30 = new Date(Date.now() - 30 * 86_400_000);
   const rows = db.select({
     slug: partnerClicks.partner_slug,
     kind: partnerClicks.kind,
     n: sql<number>`count(*)`,
-  }).from(partnerClicks).where(gte(partnerClicks.created_at, since30))
+  }).from(partnerClicks).where(gte(partnerClicks.created_at, sinceDate))
     .groupBy(partnerClicks.partner_slug, partnerClicks.kind).all();
 
   const agg = new Map<string, { website: number; email: number; instagram: number; total: number }>();
@@ -46,14 +64,13 @@ try {
 const rentalName = new Map(RENTAL_OPERATORS.map((o) => [o.slug, o.name]));
 let rentalInterest: { name: string; clicks: number; lastClick: Date | null }[] = [];
 try {
-  const since30 = new Date(Date.now() - 30 * 86_400_000);
   const rows = db.select({
     slug: rentalClicks.operator_slug,
     n: sql<number>`count(*)`,
     // created_at is stored as epoch seconds (Drizzle timestamp mode); raw max()
     // bypasses Drizzle's Date mapping, so convert back to a Date below.
     last: sql<number>`max(${rentalClicks.created_at})`,
-  }).from(rentalClicks).where(gte(rentalClicks.created_at, since30))
+  }).from(rentalClicks).where(gte(rentalClicks.created_at, sinceDate))
     .groupBy(rentalClicks.operator_slug).all();
   rentalInterest = rows
     .map((r) => ({ name: rentalName.get(r.slug) ?? r.slug, clicks: r.n, lastClick: r.last ? new Date(r.last * 1000) : null }))
@@ -65,12 +82,11 @@ try {
 // content/demand signal + the data any future trackable referral would need.
 let outboundInterest: { host: string; clicks: number; lastClick: Date | null }[] = [];
 try {
-  const since30 = new Date(Date.now() - 30 * 86_400_000);
   const rows = db.select({
     host: outboundClicks.dest_host,
     n: sql<number>`count(*)`,
     last: sql<number>`max(${outboundClicks.created_at})`,
-  }).from(outboundClicks).where(gte(outboundClicks.created_at, since30))
+  }).from(outboundClicks).where(gte(outboundClicks.created_at, sinceDate))
     .groupBy(outboundClicks.dest_host).all();
   outboundInterest = rows
     .map((r) => ({ host: r.host, clicks: r.n, lastClick: r.last ? new Date(r.last * 1000) : null }))
@@ -84,12 +100,11 @@ let searchTotal = 0;
 let searchTop: { q: string; n: number }[] = [];
 let searchGaps: { q: string; n: number }[] = [];
 try {
-  const s30 = Math.floor((Date.now() - 30 * 86_400_000) / 1000);
-  searchTotal = db.get<{ n: number }>(sql.raw(`SELECT count(*) n FROM search_queries WHERE created_at >= ${s30}`))?.n ?? 0;
+  searchTotal = db.get<{ n: number }>(sql.raw(`SELECT count(*) n FROM search_queries WHERE created_at >= ${sinceSec}`))?.n ?? 0;
   searchTop = db.all<{ q: string; n: number }>(sql.raw(
-    `SELECT q, count(*) n FROM search_queries WHERE created_at >= ${s30} GROUP BY lower(q) ORDER BY n DESC LIMIT 10`));
+    `SELECT q, count(*) n FROM search_queries WHERE created_at >= ${sinceSec} GROUP BY lower(q) ORDER BY n DESC LIMIT 10`));
   searchGaps = db.all<{ q: string; n: number }>(sql.raw(
-    `SELECT q, count(*) n FROM search_queries WHERE created_at >= ${s30} AND result_count = 0 GROUP BY lower(q) ORDER BY n DESC LIMIT 10`));
+    `SELECT q, count(*) n FROM search_queries WHERE created_at >= ${sinceSec} AND result_count = 0 GROUP BY lower(q) ORDER BY n DESC LIMIT 10`));
 } catch { searchTotal = 0; searchTop = []; searchGaps = []; }
 
 // Never let an analytics hiccup take down the page — fall back to the embed.
@@ -198,6 +213,16 @@ function trend(last: number, prior: number) {
 ---
 
 <AdminLayout title="Analytics" activePage="analytics">
+  <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:20px;">
+    <span style="font-size:12px;color:#9CA3AF;font-weight:600;margin-right:4px;">First-party data window:</span>
+    {Object.entries(RANGES).map(([k, r]) => (
+      <a href={k === '30d' ? '/admin/analytics' : `/admin/analytics?range=${k}`}
+         style={`font-size:12px;font-weight:700;padding:5px 12px;border-radius:999px;text-decoration:none;border:1px solid ${k === rangeKey ? '#111' : '#E5E7EB'};background:${k === rangeKey ? '#111' : '#fff'};color:${k === rangeKey ? '#fff' : '#6B7280'};`}>
+        {k === 'all' ? 'All time' : k}
+      </a>
+    ))}
+    <span style="font-size:11px;color:#B6BCC6;margin-left:6px;">applies to partner referrals · rental interest · outbound · searches (traffic tiles stay 30d, Google 28d)</span>
+  </div>
   {t && (
     <section style="margin-bottom: 28px;">
       {!t.apiConfigured && (
@@ -500,7 +525,7 @@ function trend(last: number, prior: number) {
 
   {/* ── Partner referrals: outbound clicks we've sent each partner ─────────── */}
   <section style="margin-bottom:28px;">
-    <h2 style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#6B7280;margin:0 0 4px;">🤝 Partner referrals sent (30d)</h2>
+    <h2 style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#6B7280;margin:0 0 4px;">🤝 Partner referrals sent ({range.label})</h2>
     <p style="font-size:12px;color:#9CA3AF;margin:0 0 12px;">Outbound clicks we've sent each partner — your evidence base for a paid arrangement. Links are UTM-tagged, so these also show in the partner's own analytics.</p>
     {partnerReferrals.length === 0 ? (
       <div style="font-size:13px;color:#9CA3AF;background:#fff;border:1px solid #E5E7EB;border-radius:12px;padding:16px;">No partner referral clicks recorded in the last 30 days yet.</div>
@@ -534,7 +559,7 @@ function trend(last: number, prior: number) {
 
   {/* ── Rental operator interest: which operators readers click ──────────────── */}
   <section style="margin-bottom:28px;">
-    <h2 style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#6B7280;margin:0 0 4px;">🚐 Rental operator interest (30d)</h2>
+    <h2 style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#6B7280;margin:0 0 4px;">🚐 Rental operator interest ({range.label})</h2>
     <p style="font-size:12px;color:#9CA3AF;margin:0 0 12px;">Outbound clicks to each rental operator from the rental guide — first-party demand data (not lead-gen). Tells us who to approach first for a booking partnership.</p>
     {rentalInterest.length === 0 ? (
       <div style="font-size:13px;color:#9CA3AF;background:#fff;border:1px solid #E5E7EB;border-radius:12px;padding:16px;">No rental operator clicks recorded in the last 30 days yet.</div>
@@ -564,7 +589,7 @@ function trend(last: number, prior: number) {
 
   {/* ── Outbound link clicks: every external destination clicked from a guide ── */}
   <section style="margin-bottom:28px;">
-    <h2 style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#6B7280;margin:0 0 4px;">🔗 Outbound clicks (30d)</h2>
+    <h2 style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#6B7280;margin:0 0 4px;">🔗 Outbound clicks ({range.label})</h2>
     <p style="font-size:12px;color:#9CA3AF;margin:0 0 12px;">Every external destination readers click from a guide page (operators, partners, resources), across all articles. First-party demand signal — and the click data any future trackable referral would need.</p>
     {outboundInterest.length === 0 ? (
       <div style="font-size:13px;color:#9CA3AF;background:#fff;border:1px solid #E5E7EB;border-radius:12px;padding:16px;">No outbound clicks recorded in the last 30 days yet.</div>
@@ -594,7 +619,7 @@ function trend(last: number, prior: number) {
 
   {/* ── Natural-language vehicle searches: adoption + demand gaps ───────────── */}
   <section style="margin-bottom:28px;">
-    <h2 style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#6B7280;margin:0 0 4px;">🔎 Vehicle searches (30d) · <strong style="color:#111;">{fmt(searchTotal)}</strong></h2>
+    <h2 style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#6B7280;margin:0 0 4px;">🔎 Vehicle searches ({range.label}) · <strong style="color:#111;">{fmt(searchTotal)}</strong></h2>
     <p style="font-size:12px;color:#9CA3AF;margin:0 0 12px;">What buyers type into the natural-language search — first-party intent data. "Demand gaps" are searches that returned zero matches: vehicles people wanted that we didn't have (a sourcing signal). Powers the P11 keep/drop review.</p>
     {searchTotal === 0 ? (
       <div style="font-size:13px;color:#9CA3AF;background:#fff;border:1px solid #E5E7EB;border-radius:12px;padding:16px;">No searches recorded in the last 30 days yet.</div>
