@@ -50,3 +50,18 @@ jobs:
           NOTIFY_EMAIL: ${{ secrets.NOTIFY_EMAIL }}
           POLL_SKIP: autotrader
           POLL_CAP: '800'
+
+      # BakkiesSA pass — its own DB holds the bakkie + Hilux/Fortuner rows; WBC
+      # get-car verification is the delist signal that makes the "sold comps"
+      # data honest, so this pass is not optional.
+      - name: Poll listing liveness (BakkiesSA)
+        if: always()
+        run: node --experimental-strip-types src/scripts/poll-liveness.ts
+        env:
+          SCRAPE_SEGMENT: bakkie
+          INGEST_TOKEN: ${{ secrets.BAKKIES_INGEST_TOKEN }}
+          SITE_URL: ${{ secrets.BAKKIES_SITE_URL }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          NOTIFY_EMAIL: ${{ secrets.NOTIFY_EMAIL }}
+          POLL_SKIP: autotrader
+          POLL_CAP: '800'

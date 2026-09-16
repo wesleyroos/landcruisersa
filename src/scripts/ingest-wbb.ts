@@ -2,8 +2,8 @@ import { WbbAdapter, discoverStats } from '../lib/sources/wbb.ts';
 import { isSourceEnabled } from '../lib/sources/registry.ts';
 import { applyExtraSegments, isSourceScheduled } from '../lib/sources/extra-config.ts';
 import { reportRun } from '../lib/sources/report.ts';
+import { postListing } from '../lib/sources/targets.ts';
 
-const SITE_URL = process.env.SITE_URL ?? 'https://landcruisersa.fly.dev';
 const TOKEN    = process.env.INGEST_TOKEN ?? '';
 
 async function ingest() {
@@ -29,19 +29,13 @@ async function ingest() {
     const listing = await WbbAdapter.fetchListing(ref);
     if (!listing) { skipped++; continue; }
 
-    const res = await fetch(`${SITE_URL}/api/ingest`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${TOKEN}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify(listing),
-    });
-
-    if (!res.ok) {
-      console.error(`[wbb] ingest failed for ${ref.source_id}: ${res.status}`);
+    // Fan-out by segment (lib/sources/targets.ts) — bakkies → BakkiesSA.
+    const result = await postListing(listing);
+    if (!result.ok) {
+      console.error(`[wbb] ingest failed for ${ref.source_id}: ${result.status} @${result.target}`);
       skipped++;
       continue;
     }
-
-    const result = await res.json() as { action?: string };
     if (result.action === 'created') created++;
     else if (result.action === 'updated') updated++;
   }

@@ -54,3 +54,20 @@ jobs:
           R2_BUCKET: ${{ secrets.R2_BUCKET }}
           R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+
+      # BakkiesSA: same script, its own R2 bucket (Jimny separation rule — never
+      # LCSA's bucket). Shares the run's time budget; each pass stops early when
+      # its backlog is empty.
+      - name: Rehost images to R2 (BakkiesSA)
+        if: always()
+        continue-on-error: true
+        run: node --experimental-strip-types src/scripts/rehost-at-images.ts
+        env:
+          MAX_MINUTES: '60'
+          INGEST_TOKEN: ${{ secrets.BAKKIES_INGEST_TOKEN }}
+          SITE_URL: ${{ secrets.BAKKIES_SITE_URL }}
+          R2_ENDPOINT: ${{ secrets.BAKKIES_R2_ENDPOINT }}
+          R2_PUBLIC_URL: ${{ secrets.BAKKIES_R2_PUBLIC_URL }}
+          R2_BUCKET: ${{ secrets.BAKKIES_R2_BUCKET }}
+          R2_ACCESS_KEY_ID: ${{ secrets.BAKKIES_R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.BAKKIES_R2_SECRET_ACCESS_KEY }}

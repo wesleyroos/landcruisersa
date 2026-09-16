@@ -13,6 +13,9 @@ Canonical reference for how listings are scraped and reconciled. This repo runs 
 
 The Mac is no longer required for scraping (the old `local-ingest-cron.sh` is retired for LC). Cloud secrets: `PROXY_*` (×4), `R2_*` (×5), `JIMNY_*`, `INGEST_TOKEN`, `SITE_URL`.
 
+## Multi-site fan-out (2026-09-16) — `src/lib/sources/targets.ts`
+One crawl, rows stored on every site that owns the row's segment: LC rows → LCSA; `toyota-4x4` (Hilux/Fortuner) → **LCSA and BakkiesSA**; `bakkie` → BakkiesSA only; the Jimny pass is unchanged (no fan-out). Every ingest script goes through `postListing()`; `reportRun()` reports to every target; `reconcileAllTargets()` sweeps each site scoped to `crawled ∩ owned`. Configured by the `BAKKIES_SITE_URL` / `BAKKIES_INGEST_TOKEN` (+ `BAKKIES_R2_*`) secrets — absent = LC-only, identical to before. `poll.yml` and `rehost-images.yml` carry a BakkiesSA pass; `autotrader.yml` a BakkiesSA gallery backfill. Full write-up: BakkiesSA repo `docs/data-pipeline.md`.
+
 ## The proxy (`src/lib/sources/proxy.ts`)
 DataImpulse residential, ZA exit, gated on `PROXY_*` env (unset → direct). `proxyFetch()` = rotating IP per request (AutoTrader, beats the per-IP rate limiter). `playwrightProxy(sessionId)` = **sticky** session (cars.co.za, holds CF clearance). Only `www.autotrader.co.za` / cars.co.za HTML is proxied — **image downloads go direct** (the CDN isn't rate-limited and images are the heavy bytes; keeps proxy bandwidth ~5–10 GB/mo against the ~5 GB plan — watch "Traffic left" in DataImpulse, top up ~$5/mo).
 

@@ -20,7 +20,7 @@ const SITE_URL = process.env.SITE_URL ?? 'https://landcruisersa.fly.dev';
 const TOKEN = process.env.INGEST_TOKEN ?? '';
 const RESEND_KEY = process.env.RESEND_API_KEY ?? '';
 const NOTIFY_EMAIL = process.env.NOTIFY_EMAIL ?? '';
-const LABEL = process.env.SCRAPE_SEGMENT === 'jimny' ? '[JimnySA]' : '[LCSA]';
+const LABEL = process.env.SCRAPE_SEGMENT === 'jimny' ? '[JimnySA]' : process.env.SCRAPE_SEGMENT === 'bakkie' ? '[BakkiesSA]' : '[LCSA]';
 const CAP = Number(process.env.POLL_CAP ?? 2500);   // max listings checked per run
 const BATCH = 200;                                   // status updates POSTed per request
 

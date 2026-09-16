@@ -16,6 +16,8 @@
 //   5. DRY-RUN default — computes & logs what it WOULD remove but does NOT POST until
 //                       RECONCILE_OFFMARKET=1 is set, so it can be rolled out safely.
 
+import { targets } from './targets.ts';
+
 const REAP_CAP_FRACTION = 0.25;
 
 // The segments a run actually crawled — must match the source's searchUrls() scope.
@@ -80,4 +82,25 @@ export async function reconcileOffMarket(opts: {
     console.error(`[${source}] off-market sweep failed:`, String(err).slice(0, 140));
     return 0;
   }
+}
+
+/**
+ * Fan-out reconcile: run the sweep against EVERY configured target, scoped to
+ * the intersection of what this run crawled and what that target owns. A
+ * BakkiesSA sweep therefore only ever reaps bakkie/toyota-4x4 rows there, and
+ * the primary's guards (aborted/capHit/breaker) apply per site. Returns the
+ * primary's removed count (the number the run reports).
+ */
+export async function reconcileAllTargets(opts: Omit<Parameters<typeof reconcileOffMarket>[0], 'siteUrl' | 'token'>): Promise<number> {
+  let primaryRemoved = 0;
+  const all = targets();
+  for (let i = 0; i < all.length; i++) {
+    const t = all[i];
+    const scoped = new Set([...opts.scrapedSegments].filter(s => t.segments.has(s)));
+    if (scoped.size === 0) continue;
+    const removed = await reconcileOffMarket({ ...opts, scrapedSegments: scoped, siteUrl: t.siteUrl, token: t.token });
+    if (i === 0) primaryRemoved = removed;
+    else console.log(`[${opts.source}] ${t.name} off-market sweep → ${removed} removed`);
+  }
+  return primaryRemoved;
 }

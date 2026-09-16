@@ -39,6 +39,10 @@ jobs:
         env:
           INGEST_TOKEN: ${{ secrets.INGEST_TOKEN }}
           SITE_URL: ${{ secrets.SITE_URL }}
+          # BakkiesSA fan-out (lib/sources/targets.ts): bakkie rows → BakkiesSA,
+          # Hilux/Fortuner → both sites. Absent secrets = LC-only behaviour.
+          BAKKIES_SITE_URL: ${{ secrets.BAKKIES_SITE_URL }}
+          BAKKIES_INGEST_TOKEN: ${{ secrets.BAKKIES_INGEST_TOKEN }}
           # Off-market reconciliation LIVE for AutoTrader: mark delisted listings
           # removed (vetted at 20% < the 25% breaker; capHit guard skips incomplete
           # crawls). WBC stays dry-run (its crawl misses ~38% → breaker would skip).
@@ -58,6 +62,24 @@ jobs:
           INGEST_TOKEN: ${{ secrets.INGEST_TOKEN }}
           SITE_URL: ${{ secrets.SITE_URL }}
           BATCH_SIZE: '120'
+          DELAY_MS: '2500'
+          PROXY_HOST: ${{ secrets.PROXY_HOST }}
+          PROXY_PORT: ${{ secrets.PROXY_PORT }}
+          PROXY_USER: ${{ secrets.PROXY_USER }}
+          PROXY_PASS: ${{ secrets.PROXY_PASS }}
+
+      # Same backfill pointed at BakkiesSA (own DB; galleries for every segment
+      # it holds — all of its segments are public). Ranger volume is large, so
+      # a bigger batch; the script self-tapers once caught up.
+      - name: Backfill galleries (BakkiesSA)
+        if: always()
+        continue-on-error: true
+        run: node --experimental-strip-types scripts/backfill-at-images.ts
+        env:
+          INGEST_TOKEN: ${{ secrets.BAKKIES_INGEST_TOKEN }}
+          SITE_URL: ${{ secrets.BAKKIES_SITE_URL }}
+          BACKFILL_SEGMENTS: bakkie,toyota-4x4
+          BATCH_SIZE: '150'
           DELAY_MS: '2500'
           PROXY_HOST: ${{ secrets.PROXY_HOST }}
           PROXY_PORT: ${{ secrets.PROXY_PORT }}

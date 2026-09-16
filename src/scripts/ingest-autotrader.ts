@@ -3,7 +3,8 @@ import { isSourceEnabled } from '../lib/sources/registry.ts';
 import { applyExtraSegments, isSourceScheduled } from '../lib/sources/extra-config.ts';
 import { reportRun } from '../lib/sources/report.ts';
 import { segmentForModel } from '../lib/sources/normalize.ts';
-import { reconcileOffMarket, scrapedSegmentsFor } from '../lib/sources/reconcile.ts';
+import { reconcileAllTargets, scrapedSegmentsFor } from '../lib/sources/reconcile.ts';
+import { postListing } from '../lib/sources/targets.ts';
 
 const SITE_URL = process.env.SITE_URL ?? 'https://landcruisersa.fly.dev';
 const TOKEN = process.env.INGEST_TOKEN ?? '';
@@ -100,34 +101,25 @@ async function ingest() {
       } catch { /* proxy unavailable — continue with single image */ }
     }
 
-    let result: { action?: string };
-    try {
-      const res = await fetch(`${SITE_URL}/api/ingest`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${TOKEN}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(listing),
-      });
-      if (!res.ok) {
-        // 400s here are AT's rotating sponsored tiles (partial data, no title) —
-        // correctly rejected; the title makes that visible in the log.
-        console.error(`[autotrader] ingest failed for ${ref.source_id}: ${res.status} (title: ${JSON.stringify(listing.title)})`);
-        skipped++;
-        consecNetFail = 0; // got a response — network is up; per-listing issue (e.g. 400)
-        continue;
-      }
-      result = await res.json() as { action?: string };
-      consecNetFail = 0;
-    } catch (err) {
-      // Network-level error (timeout/connection) — fetch or body read throws.
+    // Fan-out by segment (lib/sources/targets.ts): LC rows → LCSA, bakkie rows →
+    // BakkiesSA, Hilux/Fortuner → both. The deciding target's result drives the
+    // counters + the abort logic exactly as the single-site POST did.
+    const result = await postListing(listing);
+    if (result.networkError) {
       skipped++;
       if (++consecNetFail >= ABORT_CONSEC) {
-        console.error(`[autotrader] ABORTING — ${consecNetFail} uploads failed in a row; prod unreachable (${String(err).slice(0, 80)}). Re-run when the network is back.`);
+        console.error(`[autotrader] ABORTING — ${consecNetFail} uploads failed in a row; ${result.target} unreachable. Re-run when the network is back.`);
         aborted = true;
         break;
       }
+      continue;
+    }
+    consecNetFail = 0; // got a response — network is up
+    if (!result.ok) {
+      // 400s here are AT's rotating sponsored tiles (partial data, no title) —
+      // correctly rejected; the title makes that visible in the log.
+      console.error(`[autotrader] ingest failed for ${ref.source_id}: ${result.status} @${result.target} (title: ${JSON.stringify(listing.title)})`);
+      skipped++;
       continue;
     }
     if (result.action === 'created') created++;
@@ -145,9 +137,8 @@ async function ingest() {
   const scrapedSegments = process.env.SCRAPE_GV_ONLY === '1'
     ? new Set(['other-4x4'])
     : scrapedSegmentsFor(collectExtra);
-  const removed = await reconcileOffMarket({
-    source: 'autotrader', refs, scrapedSegments,
-    siteUrl: SITE_URL, token: TOKEN, aborted, capHit: discoverStats.capHit,
+  const removed = await reconcileAllTargets({
+    source: 'autotrader', refs, scrapedSegments, aborted, capHit: discoverStats.capHit,
   });
 
   // capHit here means "a model's crawl came up short" — i.e. we did NOT see the
