@@ -17,6 +17,21 @@ const R2_BUCKET = envv('R2_BUCKET') ?? 'landcruisersa';
 const R2_PUBLIC_URL = envv('R2_PUBLIC_URL') ?? 'https://pub-6c900fb2e73a4b89bc049099101e4591.r2.dev';
 
 const AT_IMG = /^https:\/\/img\.autotrader\.co\.za\/(\d+)/;
+// WeBuyCars' photobooth CDN blocks image proxies (wsrv 403s), so a site that
+// serves WBC photos direct ships ~550KB per card. Rehosted on demand when the
+// run opts in with REHOST_WBC=1 (BakkiesSA does; LCSA's cards were fine as-is).
+const WBC_IMG = /^https:\/\/photos\.webuycars\.co\.za\/photobooth\/([A-Za-z0-9]+)\/Images\/([A-Za-z0-9]+)\.(webp|jpe?g|png)/i;
+const REHOST_WBC = process.env.REHOST_WBC === '1';
+
+function rehostKey(url: string): string | null {
+  const at = url.match(AT_IMG);
+  if (at) return `listings/at/${at[1]}.jpg`;
+  if (REHOST_WBC) {
+    const w = url.match(WBC_IMG);
+    if (w) return `listings/wbc/${w[1]}/${w[2]}.${w[3].toLowerCase() === 'webp' ? 'webp' : 'jpg'}`;
+  }
+  return null;
+}
 
 let _s3: S3Client | null = null;
 function s3(): S3Client | null {
@@ -71,7 +86,7 @@ async function fetchImage(url: string, tries = 4): Promise<{ body: Buffer; type:
       const res = await fetch(url, {
         headers: {
           'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
-          'Referer': 'https://www.autotrader.co.za/',
+          'Referer': /webuycars/.test(url) ? 'https://www.webuycars.co.za/' : 'https://www.autotrader.co.za/',
           'Accept': 'image/avif,image/webp,image/*,*/*',
         },
         signal: AbortSignal.timeout(20_000),
@@ -101,9 +116,8 @@ export async function rehostAutotraderImages(urls: string[]): Promise<string[]> 
   if (!client) return urls; // R2 not configured → no-op
   const out: string[] = [];
   for (const url of urls) {
-    const m = url.match(AT_IMG);
-    if (!m) { out.push(url); continue; }
-    const key = `listings/at/${m[1]}.jpg`;
+    const key = rehostKey(url);
+    if (!key) { out.push(url); continue; }
     const publicUrl = `${R2_PUBLIC_URL}/${key}`;
     if (await objectExists(client, key)) { out.push(publicUrl); continue; }
     const img = await fetchImage(url);

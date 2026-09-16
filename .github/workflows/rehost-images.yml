@@ -64,6 +64,7 @@ jobs:
         run: node --experimental-strip-types src/scripts/rehost-at-images.ts
         env:
           MAX_MINUTES: '60'
+          REHOST_WBC: '1'
           INGEST_TOKEN: ${{ secrets.BAKKIES_INGEST_TOKEN }}
           SITE_URL: ${{ secrets.BAKKIES_SITE_URL }}
           R2_ENDPOINT: ${{ secrets.BAKKIES_R2_ENDPOINT }}
