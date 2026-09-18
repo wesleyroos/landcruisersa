@@ -8,6 +8,7 @@ import { segmentForModel } from './normalize.ts';
 //   primary (SITE_URL / INGEST_TOKEN)         land-cruiser · other-4x4 · toyota-4x4
 //   BakkiesSA (BAKKIES_SITE_URL / _TOKEN)     bakkie · toyota-4x4   ← Hilux/Fortuner on BOTH
 //   Jimny pass (SCRAPE_SEGMENT=jimny)         jimny only, primary = jimnysa (no fan-out)
+//   Bakkies pass (SCRAPE_SEGMENT=bakkie)      bakkie only, primary = bakkiessa (no fan-out)
 //
 // Hilux/Fortuner deliberately land on both sites: LCSA keeps them for P28 and
 // BakkiesSA shows them from day one. Bakkies go to BakkiesSA only.
@@ -28,14 +29,17 @@ let _targets: Target[] | null = null;
 export function targets(): Target[] {
   if (_targets) return _targets;
   const isJimny = process.env.SCRAPE_SEGMENT === 'jimny';
+  // The bakkies pass (bakkies.yml) crawls only bakkie slugs and posts straight
+  // to BakkiesSA as its primary — SITE_URL/INGEST_TOKEN are the BAKKIES_* pair.
+  const isBakkie = process.env.SCRAPE_SEGMENT === 'bakkie';
   const list: Target[] = [{
-    name: isJimny ? 'jimnysa' : 'lcsa',
+    name: isJimny ? 'jimnysa' : isBakkie ? 'bakkiessa' : 'lcsa',
     siteUrl: process.env.SITE_URL ?? 'https://landcruisersa.fly.dev',
     token: process.env.INGEST_TOKEN ?? '',
-    segments: new Set(isJimny ? ['jimny'] : ['land-cruiser', 'other-4x4', 'toyota-4x4']),
+    segments: new Set(isJimny ? ['jimny'] : isBakkie ? ['bakkie'] : ['land-cruiser', 'other-4x4', 'toyota-4x4']),
   }];
   const bUrl = process.env.BAKKIES_SITE_URL, bTok = process.env.BAKKIES_INGEST_TOKEN;
-  if (!isJimny && bUrl && bTok) {
+  if (!isJimny && !isBakkie && bUrl && bTok) {
     list.push({ name: 'bakkiessa', siteUrl: bUrl.replace(/\/$/, ''), token: bTok, segments: new Set(['bakkie', 'toyota-4x4']) });
   }
   _targets = list;

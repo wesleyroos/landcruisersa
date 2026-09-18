@@ -26,9 +26,9 @@ const REAP_CAP_FRACTION = 0.25;
 // + 'toyota-4x4' when the Hilux/Fortuner toggle is on. Reaping outside this set
 // would purge un-crawled rows.
 export function scrapedSegmentsFor(collectExtra: boolean): Set<string> {
-  return process.env.SCRAPE_SEGMENT === 'jimny'
-    ? new Set(['jimny'])
-    : new Set(['land-cruiser', 'other-4x4', ...(collectExtra ? ['toyota-4x4', 'bakkie'] : [])]);
+  if (process.env.SCRAPE_SEGMENT === 'jimny') return new Set(['jimny']);
+  if (process.env.SCRAPE_SEGMENT === 'bakkie') return new Set(['bakkie']);
+  return new Set(['land-cruiser', 'other-4x4', ...(collectExtra ? ['toyota-4x4'] : [])]);
 }
 
 export async function reconcileOffMarket(opts: {

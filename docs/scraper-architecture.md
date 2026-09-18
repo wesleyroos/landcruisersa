@@ -10,6 +10,7 @@ Canonical reference for how listings are scraped and reconciled. This repo runs 
 | cars.co.za | ☁️ GitHub Actions (`carsza.yml`, daily) | **headed Chrome under xvfb** + sticky proxy session (clears Cloudflare) |
 | WeBuyCars / Adios / WBB | ☁️ GitHub Actions (`ingest.yml`, every 4h) | direct (datacenter-OK) |
 | Jimny (all sources) | ☁️ GitHub Actions (`jimny.yml`, daily) | same scrapers, `SCRAPE_SEGMENT=jimny`, routed to jimnysa |
+| Bakkies (AT + cars.co.za + backfills) | ☁️ GitHub Actions (`bakkies.yml`, daily 06:00 UTC) | same scrapers, `SCRAPE_SEGMENT=bakkie`, routed to bakkiessa; WBC/WBB bakkies arrive via the LC run's fan-out |
 
 The Mac is no longer required for scraping (the old `local-ingest-cron.sh` is retired for LC). Cloud secrets: `PROXY_*` (×4), `R2_*` (×5), `JIMNY_*`, `INGEST_TOKEN`, `SITE_URL`.
 

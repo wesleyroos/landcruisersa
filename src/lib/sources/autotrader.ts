@@ -35,8 +35,12 @@ const LC_SEARCH_URLS = [
 const EXTRA_SEARCH_URLS = [
   `${BASE}/cars-for-sale/toyota/hilux`,
   `${BASE}/cars-for-sale/toyota/fortuner`,
-  // BakkiesSA collect-only set (2026-09-15): price history accrues ahead of
-  // the engine launch. A slug that 404s just yields 0 results — harmless.
+];
+// The bakkie market — crawled ONLY by the dedicated bakkies pass
+// (SCRAPE_SEGMENT=bakkie, bakkies.yml, posts to BakkiesSA). Kept out of the
+// LC run: 26 extra slugs pushed that crawl past its job timeout for three
+// straight days (16–18 Sep 2026). A slug that 404s just yields 0 — harmless.
+const BAKKIE_SEARCH_URLS = [
   `${BASE}/cars-for-sale/ford/ranger`,
   `${BASE}/cars-for-sale/isuzu/d-max`,
   `${BASE}/cars-for-sale/volkswagen/amarok`,
@@ -84,6 +88,7 @@ const GV_SEARCH_URLS = [
 // runtime (after applyExtraSegments), not frozen at module load.
 function searchUrls(): string[] {
   if (process.env.SCRAPE_SEGMENT === 'jimny') return JIMNY_SEARCH_URLS;
+  if (process.env.SCRAPE_SEGMENT === 'bakkie') return BAKKIE_SEARCH_URLS;
   // Targeted game-viewer refresh (manual runs): just the keyword sweep — the
   // ingest script narrows the reconcile scope to 'other-4x4' to match.
   if (process.env.SCRAPE_GV_ONLY === '1') return GV_SEARCH_URLS;

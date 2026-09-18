@@ -68,24 +68,6 @@ jobs:
           PROXY_USER: ${{ secrets.PROXY_USER }}
           PROXY_PASS: ${{ secrets.PROXY_PASS }}
 
-      # Same backfill pointed at BakkiesSA (own DB; galleries for every segment
-      # it holds — all of its segments are public). Ranger volume is large, so
-      # a bigger batch; the script self-tapers once caught up.
-      - name: Backfill galleries (BakkiesSA)
-        if: always()
-        continue-on-error: true
-        run: node --experimental-strip-types scripts/backfill-at-images.ts
-        env:
-          INGEST_TOKEN: ${{ secrets.BAKKIES_INGEST_TOKEN }}
-          SITE_URL: ${{ secrets.BAKKIES_SITE_URL }}
-          BACKFILL_SEGMENTS: bakkie,toyota-4x4
-          BATCH_SIZE: '150'
-          DELAY_MS: '2500'
-          PROXY_HOST: ${{ secrets.PROXY_HOST }}
-          PROXY_PORT: ${{ secrets.PROXY_PORT }}
-          PROXY_USER: ${{ secrets.PROXY_USER }}
-          PROXY_PASS: ${{ secrets.PROXY_PASS }}
-
       - name: Backfill descriptions
         if: always()
         continue-on-error: true
@@ -97,19 +79,6 @@ jobs:
           PROXY_PORT: ${{ secrets.PROXY_PORT }}
           PROXY_USER: ${{ secrets.PROXY_USER }}
           PROXY_PASS: ${{ secrets.PROXY_PASS }}
-
-      - name: Backfill descriptions (BakkiesSA)
-        if: always()
-        continue-on-error: true
-        run: node --experimental-strip-types src/scripts/backfill-at-descriptions.ts
-        env:
-          INGEST_TOKEN: ${{ secrets.BAKKIES_INGEST_TOKEN }}
-          SITE_URL: ${{ secrets.BAKKIES_SITE_URL }}
-          PROXY_HOST: ${{ secrets.PROXY_HOST }}
-          PROXY_PORT: ${{ secrets.PROXY_PORT }}
-          PROXY_USER: ${{ secrets.PROXY_USER }}
-          PROXY_PASS: ${{ secrets.PROXY_PASS }}
-
   # Image rehost moved to its OWN workflow (rehost-images.yml) that runs every
   # 6h with a 150-min budget — the once-daily run here couldn't keep up with the
   # fresh-scrape inflow (~160/day) and the AT hotlink backlog grew unbounded.

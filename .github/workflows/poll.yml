@@ -13,7 +13,9 @@ jobs:
     # listings x ~2.8s of WBC get-car verification) and the Jimny pass runs
     # after it, so every run since at least 2026-08-20 was CANCELLED mid-poll —
     # the tail of the queue never got checked and the workflow showed red.
-    timeout-minutes: 60
+    # 150 (was 60): three passes now — LC (~40 min of WBC get-car checks),
+    # Jimny, BakkiesSA — and the third was being killed at the old limit.
+    timeout-minutes: 150
 
     steps:
       - uses: actions/checkout@v4
@@ -64,4 +66,4 @@ jobs:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           NOTIFY_EMAIL: ${{ secrets.NOTIFY_EMAIL }}
           POLL_SKIP: autotrader
-          POLL_CAP: '800'
+          POLL_CAP: '500'

@@ -12,7 +12,7 @@ const RESEND_KEY = process.env.RESEND_API_KEY ?? '';
 const NOTIFY_EMAIL = process.env.NOTIFY_EMAIL ?? '';
 // This script is shared by the Jimny pass (SCRAPE_SEGMENT=jimny). Tag alerts so a
 // Jimny issue isn't mistaken for the LC scraper being broken.
-const ALERT_TAG = process.env.SCRAPE_SEGMENT === 'jimny' ? '[JimnySA]' : '[LCSA]';
+const ALERT_TAG = process.env.SCRAPE_SEGMENT === 'jimny' ? '[JimnySA]' : process.env.SCRAPE_SEGMENT === 'bakkie' ? '[BakkiesSA]' : '[LCSA]';
 
 async function sendAlert(subject: string, body: string) {
   if (!RESEND_KEY || !NOTIFY_EMAIL) return;

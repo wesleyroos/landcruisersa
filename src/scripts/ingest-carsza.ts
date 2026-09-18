@@ -23,7 +23,9 @@ async function ingest() {
   // within these — otherwise turning Hilux/Fortuner collection off makes the
   // sweep treat every un-crawled toyota-4x4 listing as "delisted" and mass-purge
   // it (this happened 2026-06-16: 3,631 listings wrongly removed in one run).
-  const scrapedSegments = new Set(['land-cruiser', ...(collectExtra ? ['toyota-4x4', 'bakkie'] : [])]);
+  const scrapedSegments = process.env.SCRAPE_SEGMENT === 'bakkie'
+    ? new Set(['bakkie'])
+    : new Set(['land-cruiser', ...(collectExtra ? ['toyota-4x4'] : [])]);
   console.log('[carsza] discovering listings (drives headed Chrome — local only)…');
   const refs = await CarsZaAdapter.discover();
   console.log(`[carsza] found ${refs.length} refs`);

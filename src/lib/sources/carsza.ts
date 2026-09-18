@@ -74,9 +74,12 @@ interface SearchTarget {
 // toggle are read at runtime (after applyExtraSegments), not frozen at module load.
 function searchTargets(): SearchTarget[] {
   if (process.env.SCRAPE_SEGMENT === 'jimny') return JIMNY_TARGETS;
+  // Bakkies run in their own pass (bakkies.yml): one sticky session couldn't
+  // carry LC + Hilux/Fortuner + the bakkie roster — it died mid-discovery
+  // three days running (16–18 Sep 2026).
+  if (process.env.SCRAPE_SEGMENT === 'bakkie') return BAKKIE_TARGETS;
   const models = collectExtraSegments() ? [...LC_MODELS, ...EXTRA_MODELS] : LC_MODELS;
-  const targets = models.map(model => ({ make: 'Toyota', model }));
-  return collectExtraSegments() ? [...targets, ...BAKKIE_TARGETS] : targets;
+  return models.map(model => ({ make: 'Toyota', model }));
 }
 
 interface CarsZaRecord {
@@ -172,7 +175,7 @@ async function launchSession(): Promise<{ browser: Browser; page: Page }> {
   // a scrape. Cloudflare may well refuse a datacenter IP — but headed Chrome
   // sometimes clears it, and an attempt that might work beats a run that can't.
   const ATTEMPTS = 4;
-  const sessBase = process.env.SCRAPE_SEGMENT === 'jimny' ? 'jimny-carsza' : 'carsza';
+  const sessBase = process.env.SCRAPE_SEGMENT === 'jimny' ? 'jimny-carsza' : process.env.SCRAPE_SEGMENT === 'bakkie' ? 'bakkie-carsza' : 'carsza';
   let lastErr: unknown;
 
   // Pick a working gateway POP before the first launch — the geo-routed default
@@ -239,6 +242,11 @@ export const CarsZaAdapter: SourceAdapter = {
         const filter = `make_model_variant[${encodeURIComponent(make)}][${encodeURIComponent(model)}][All]`;
         let offset = 0;
         let total = Infinity;
+        // One dead target must not kill the whole run (a mid-session "Failed to
+        // fetch" used to be fatal after thousands of listings were already
+        // found). Skip it, keep going, and flag capHit so the off-market sweep
+        // knows this discovery was incomplete and refuses to reap.
+        try {
         while (offset < total) {
           const json = await apiGet(page, `page[offset]=${offset}&page[limit]=${PAGE_SIZE}&${filter}&sort[date]=desc`);
           total = json.meta?.total ?? 0;
@@ -261,6 +269,10 @@ export const CarsZaAdapter: SourceAdapter = {
         }
         if (total !== Infinity) reportedTotal += total; // sum the per-model totals cars.co.za reports
         console.log(`[${SOURCE}] ${model}: ${Math.min(total, offset)} listings`);
+        } catch (err) {
+          discoverStats.capHit = true;
+          console.warn(`[${SOURCE}] ${make} ${model}: discovery failed at offset ${offset} — skipping this model (${String(err).slice(0, 100)})`);
+        }
       }
       discoverStats.sourceTotal = reportedTotal;
     } finally {
