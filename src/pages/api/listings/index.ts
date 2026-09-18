@@ -72,7 +72,9 @@ export const POST: APIRoute = async ({ request }) => {
   // yet, so we record the intent and hand back a payment reference the browser
   // uses to open the Paystack popup. 'requested' means we owe them nothing;
   // only Paystack's own confirmation flips it to 'paid'.
-  const wantsBoost = social_boost === true && boostEnabled();
+  // Boost = a post on the Land Cruiser SA accounts; model 'other' (non-LC)
+  // can never be boosted — server-side gate so the form can't be bypassed.
+  const wantsBoost = social_boost === true && boostEnabled() && model !== 'other';
   const boostRef = wantsBoost ? randomToken() : null;
 
   await db.insert(listings).values({

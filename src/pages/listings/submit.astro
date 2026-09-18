@@ -1154,6 +1154,19 @@ const boostPrice = boostPriceRand();
   }
   boostCheckbox?.addEventListener('change', updateSubmitLabel);
 
+  // The boost is a post on the LAND CRUISER SA social accounts — a non-Cruiser
+  // can't be posted there, so 'Other' hides the offer entirely (a paid
+  // Defender game-viewer boost on 2026-09-18 forced this gate).
+  const modelSelect = document.getElementById('f-model') as HTMLSelectElement | null;
+  const boostField = document.getElementById('social-boost-field') as HTMLElement | null;
+  function syncBoostEligibility() {
+    const eligible = !modelSelect || modelSelect.value !== 'other';
+    if (boostField) boostField.style.display = eligible ? '' : 'none';
+    if (!eligible && boostCheckbox?.checked) { boostCheckbox.checked = false; updateSubmitLabel(); }
+  }
+  modelSelect?.addEventListener('change', syncBoostEligibility);
+  syncBoostEligibility();
+
   submitBtn.addEventListener('click', async () => {
     const name = (document.getElementById('f-name') as HTMLInputElement).value.trim();
     const email = (document.getElementById('f-email') as HTMLInputElement).value.trim();
